@@ -3456,6 +3456,16 @@ def show_anomaly_detection():
             st.info("ℹ️ Using PCA to visualize multi-dimensional data in 2D")
         
         fig = detector.create_2d_scatter(use_pca=use_pca)
+        
+        # Fix cursor issue with custom CSS
+        st.markdown("""
+        <style>
+        .js-plotly-plot .plotly, .js-plotly-plot .plotly div {
+            cursor: default !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
         st.plotly_chart(fig, use_container_width=True)
         
         # Detailed analysis tabs
