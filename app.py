@@ -591,16 +591,16 @@ def show_analysis():
                  delta_color="normal" if quality_score >= 80 else "inverse")
     with col2:
         missing_pct = (df.isnull().sum().sum() / (df.shape[0] * df.shape[1])) * 100
-        st.metric("Missing Values", f"{missing_pct:.1f}%")
+        st.metric("Missing Values", f"{missing_pct:.1f}%", delta=" ")
     with col3:
         duplicates = df.duplicated().sum()
-        st.metric("Duplicates", f"{duplicates:,}")
+        st.metric("Duplicates", f"{duplicates:,}", delta=" ")
     with col4:
         numeric_cols = len(df.select_dtypes(include=['number']).columns)
-        st.metric("Numeric Columns", numeric_cols)
+        st.metric("Numeric Columns", numeric_cols, delta=" ")
     with col5:
         categorical_cols = len(df.select_dtypes(include=['object']).columns)
-        st.metric("Text Columns", categorical_cols)
+        st.metric("Text Columns", categorical_cols, delta=" ")
     
     st.divider()
     
