@@ -1036,15 +1036,68 @@ def show_market_basket_analysis():
     # Data source selection
     st.subheader("📤 1. Load Transaction Data")
     
+    # Check if data is already loaded
+    has_loaded_data = st.session_state.data is not None
+    
+    if has_loaded_data:
+        data_options = ["Use Loaded Dataset", "Sample Groceries Dataset", "Upload Custom Data"]
+        default_option = "Use Loaded Dataset"
+    else:
+        data_options = ["Sample Groceries Dataset", "Upload Custom Data"]
+        default_option = "Sample Groceries Dataset"
+    
     data_source = st.radio(
         "Choose data source:",
-        ["Sample Groceries Dataset", "Upload Custom Data"],
+        data_options,
+        index=0,
         key="mba_data_source"
     )
     
     transactions = None
     
-    if data_source == "Sample Groceries Dataset":
+    if data_source == "Use Loaded Dataset":
+        st.success("✅ Using dataset from Data Upload section")
+        df = st.session_state.data
+        
+        st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
+        
+        # Let user select columns for transaction analysis
+        st.write("**Select columns for Market Basket Analysis:**")
+        col1, col2 = st.columns(2)
+        with col1:
+            trans_col = st.selectbox(
+                "Transaction ID column:", 
+                df.columns, 
+                key="loaded_trans_col",
+                help="Column that groups items into transactions (e.g., Order ID, Invoice ID)"
+            )
+        with col2:
+            item_col = st.selectbox(
+                "Item column:", 
+                df.columns, 
+                key="loaded_item_col",
+                help="Column containing item names or product descriptions"
+            )
+        
+        if st.button("🔄 Process Loaded Data", type="primary"):
+            with st.spinner("Processing transactions..."):
+                try:
+                    transactions = mba.parse_uploaded_transactions(df, trans_col, item_col)
+                    st.session_state.mba_transactions = transactions
+                    st.success(f"✅ Processed {len(transactions)} transactions!")
+                    
+                    # Show sample
+                    st.write("**Sample transactions:**")
+                    for i, trans in enumerate(transactions[:5], 1):
+                        st.write(f"{i}. {trans}")
+                    
+                    # Show stats
+                    unique_items = set([item for trans in transactions for item in trans])
+                    st.info(f"📊 {len(transactions)} transactions, {len(unique_items)} unique items")
+                except Exception as e:
+                    st.error(f"Error processing data: {str(e)}")
+    
+    elif data_source == "Sample Groceries Dataset":
         if st.button("📥 Load Groceries Data", type="primary"):
             with st.spinner("Loading groceries dataset..."):
                 try:
