@@ -11,8 +11,10 @@ class AIHelper:
         self.api_key = os.getenv('OPENAI_API_KEY')
         if not self.api_key:
             raise ValueError("OpenAI API key not found. Please set OPENAI_API_KEY in .env file")
-        openai.api_key = self.api_key
-        self.client = openai.OpenAI(api_key=self.api_key)
+        
+        # Initialize OpenAI client
+        from openai import OpenAI
+        self.client = OpenAI(api_key=self.api_key)
     
     def generate_data_insights(self, df: pd.DataFrame, profile: Dict[str, Any]) -> str:
         """Generate AI insights about the dataset."""
