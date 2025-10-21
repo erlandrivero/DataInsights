@@ -292,25 +292,25 @@ class AnomalyDetector:
             x_label = self.features.columns[0]
             y_label = self.features.columns[1]
         
-        # Create scatter plot with tooltips
+        # Create static scatter plot (no hover for performance)
         fig = px.scatter(
             x=coords[:, 0],
             y=coords[:, 1],
             color=sample_results['anomaly_type'],
             color_discrete_map={'Anomaly': 'red', 'Normal': 'blue'},
             title=f'Anomaly Detection Results (showing {len(sample_results):,} points)',
-            labels={'x': x_label, 'y': y_label},
-            hover_data={'score': sample_results['anomaly_score']}
+            labels={'x': x_label, 'y': y_label}
         )
         
-        # Enable hover with performance optimization
+        # Disable ALL interactions for maximum performance
         fig.update_traces(
-            marker=dict(size=8, opacity=0.7)
+            marker=dict(size=8, opacity=0.7),
+            hoverinfo='none'
         )
         fig.update_layout(
             height=600, 
             showlegend=True,
-            hovermode='closest'  # Show only nearest point
+            hovermode=False
         )
         
         return fig

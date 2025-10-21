@@ -3357,7 +3357,7 @@ def show_anomaly_detection():
                 "Contamination (Expected % of Anomalies)",
                 min_value=0.01,
                 max_value=0.5,
-                value=0.1,
+                value=0.05,
                 step=0.01,
                 format="%.2f",
                 help="Proportion of data expected to be anomalies"
@@ -3367,7 +3367,7 @@ def show_anomaly_detection():
                 "Nu (Upper Bound on Outliers)",
                 min_value=0.01,
                 max_value=0.5,
-                value=0.1,
+                value=0.05,
                 step=0.01,
                 format="%.2f",
                 help="Upper bound on the fraction of outliers"
