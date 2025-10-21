@@ -75,7 +75,7 @@ def main():
         st.header("📊 Navigation")
         page = st.radio(
             "Select a page:",
-            ["Home", "Data Upload", "Analysis", "Insights", "Reports", "Market Basket Analysis", "RFM Analysis", "Monte Carlo Simulation", "ML Classification", "Anomaly Detection", "Time Series Forecasting", "Text Mining & NLP"],
+            ["Home", "Data Upload", "Analysis", "Anomaly Detection", "Insights", "Market Basket Analysis", "RFM Analysis", "Time Series Forecasting", "Text Mining & NLP", "ML Classification", "Monte Carlo Simulation", "Reports"],
             key="navigation"
         )
         
