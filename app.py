@@ -74,7 +74,7 @@ def main():
         st.header("📊 Navigation")
         page = st.radio(
             "Select a page:",
-            ["Home", "Data Upload", "Analysis", "Insights", "Reports", "Market Basket Analysis", "RFM Analysis", "Monte Carlo Simulation", "ML Classification"],
+            ["Home", "Data Upload", "Analysis", "Insights", "Reports", "Market Basket Analysis", "RFM Analysis", "Monte Carlo Simulation", "ML Classification", "Anomaly Detection"],
             key="navigation"
         )
         
@@ -170,6 +170,8 @@ def main():
         show_monte_carlo_simulation()
     elif page == "ML Classification":
         show_ml_classification()
+    elif page == "Anomaly Detection":
+        show_anomaly_detection()
 
 def show_home():
     st.header("Welcome to DataInsight AI! 👋")
@@ -2697,6 +2699,367 @@ def show_ml_classification():
             mime="text/csv",
             use_container_width=True
         )
+
+def show_anomaly_detection():
+    """Anomaly & Outlier Detection page."""
+    st.header("🔬 Anomaly & Outlier Detection")
+    
+    # Help section
+    with st.expander("ℹ️ What is Anomaly Detection?"):
+        st.markdown("""
+        **Anomaly Detection** identifies unusual patterns, outliers, and anomalies in your data that don't conform to expected behavior.
+        
+        ### Common Applications:
+        
+        - **Fraud Detection:** Identify suspicious transactions or behaviors
+        - **Quality Control:** Detect manufacturing defects or system failures
+        - **Cybersecurity:** Flag unusual network activity or intrusions
+        - **Healthcare:** Identify rare diseases or abnormal patient readings
+        
+        ### Algorithms Available:
+        
+        **1. Isolation Forest** ⭐ Recommended
+        - Fast and effective for high-dimensional data
+        - Works by isolating anomalies using decision trees
+        - Best for: General-purpose anomaly detection
+        
+        **2. Local Outlier Factor (LOF)**
+        - Detects local outliers based on density
+        - Good for datasets with varying density
+        - Best for: Data with clusters of different densities
+        
+        **3. One-Class SVM**
+        - Learns a decision boundary around normal data
+        - Works well with non-linear patterns
+        - Best for: Complex, non-linear data distributions
+        
+        ### How to Use:
+        
+        1. Upload your data
+        2. Select numeric features to analyze
+        3. Choose an algorithm and set contamination (expected % of anomalies)
+        4. Review results, visualizations, and AI explanations
+        """)
+    
+    st.markdown("""
+    Identify outliers and unusual patterns in your data using machine learning algorithms.
+    """)
+    
+    # Check if data is loaded
+    if st.session_state.data is None:
+        st.info("👆 Please upload data from the **Data Upload** page first")
+        return
+    
+    df = st.session_state.data
+    
+    # Data overview
+    st.subheader("📊 1. Dataset Overview")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Records", len(df))
+    with col2:
+        st.metric("Total Columns", len(df.columns))
+    with col3:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        st.metric("Numeric Columns", len(numeric_cols))
+    
+    # Feature selection
+    st.divider()
+    st.subheader("🎯 2. Select Features for Analysis")
+    
+    if len(numeric_cols) == 0:
+        st.error("❌ No numeric columns found in the dataset. Anomaly detection requires numeric features.")
+        return
+    
+    feature_cols = st.multiselect(
+        "Select numeric columns to analyze:",
+        numeric_cols,
+        default=numeric_cols[:min(5, len(numeric_cols))],
+        help="Choose features that might contain anomalies"
+    )
+    
+    if len(feature_cols) == 0:
+        st.warning("⚠️ Please select at least one feature to continue")
+        return
+    
+    # Algorithm selection
+    st.divider()
+    st.subheader("🤖 3. Configure Detection Algorithm")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        algorithm = st.selectbox(
+            "Choose Algorithm:",
+            ["Isolation Forest", "Local Outlier Factor", "One-Class SVM"],
+            help="Isolation Forest is recommended for most cases"
+        )
+    
+    with col2:
+        if algorithm in ["Isolation Forest", "Local Outlier Factor"]:
+            contamination = st.slider(
+                "Contamination (Expected % of Anomalies)",
+                min_value=0.01,
+                max_value=0.5,
+                value=0.1,
+                step=0.01,
+                format="%.2f",
+                help="Proportion of data expected to be anomalies"
+            )
+        else:  # One-Class SVM
+            contamination = st.slider(
+                "Nu (Upper Bound on Outliers)",
+                min_value=0.01,
+                max_value=0.5,
+                value=0.1,
+                step=0.01,
+                format="%.2f",
+                help="Upper bound on the fraction of outliers"
+            )
+    
+    # Run detection button
+    if st.button("🚀 Detect Anomalies", type="primary", use_container_width=True):
+        with st.spinner(f"Running {algorithm}..."):
+            try:
+                from utils.anomaly_detection import AnomalyDetector
+                
+                # Initialize detector
+                detector = AnomalyDetector(df)
+                detector.set_features(feature_cols)
+                
+                # Run selected algorithm
+                if algorithm == "Isolation Forest":
+                    results = detector.run_isolation_forest(contamination)
+                elif algorithm == "Local Outlier Factor":
+                    results = detector.run_local_outlier_factor(contamination)
+                else:  # One-Class SVM
+                    results = detector.run_one_class_svm(nu=contamination)
+                
+                # Store results
+                st.session_state.anomaly_detector = detector
+                st.session_state.anomaly_results = results
+                st.session_state.anomaly_algorithm = algorithm
+                
+                st.success(f"✅ Anomaly detection completed using {algorithm}!")
+                
+            except Exception as e:
+                st.error(f"Error running anomaly detection: {str(e)}")
+    
+    # Show results if available
+    if 'anomaly_results' in st.session_state:
+        results = st.session_state.anomaly_results
+        detector = st.session_state.anomaly_detector
+        algorithm = st.session_state.anomaly_algorithm
+        
+        # Summary metrics
+        st.divider()
+        st.subheader("📈 4. Detection Results")
+        
+        stats = detector.get_summary_stats()
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Records", f"{stats['total_records']:,}")
+        with col2:
+            st.metric("Anomalies Detected", f"{stats['num_anomalies']:,}", 
+                     delta=f"{stats['pct_anomalies']:.1f}%")
+        with col3:
+            st.metric("Normal Records", f"{stats['num_normal']:,}",
+                     delta=f"{stats['pct_normal']:.1f}%")
+        with col4:
+            avg_score = results['anomaly_score'].mean()
+            st.metric("Avg Anomaly Score", f"{avg_score:.3f}")
+        
+        # Results table
+        st.subheader("📋 5. Detailed Results")
+        
+        show_filter = st.radio(
+            "Display:",
+            ["All Records", "Anomalies Only", "Normal Only"],
+            horizontal=True
+        )
+        
+        if show_filter == "Anomalies Only":
+            display_df = results[results['is_anomaly']]
+        elif show_filter == "Normal Only":
+            display_df = results[~results['is_anomaly']]
+        else:
+            display_df = results
+        
+        st.dataframe(
+            display_df[feature_cols + ['anomaly_score', 'is_anomaly', 'anomaly_type']].head(100),
+            use_container_width=True
+        )
+        
+        # Visualization
+        st.divider()
+        st.subheader("📊 6. Visual Analysis")
+        
+        use_pca = len(feature_cols) > 2
+        if use_pca:
+            st.info("ℹ️ Using PCA to visualize multi-dimensional data in 2D")
+        
+        fig = detector.create_2d_scatter(use_pca=use_pca)
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Detailed analysis tabs
+        st.divider()
+        st.subheader("🔍 7. Detailed Analysis")
+        
+        tab1, tab2, tab3 = st.tabs(["Anomaly Profiles", "Feature Importance", "AI Explanation"])
+        
+        with tab1:
+            st.write("**Top Anomalies Compared to Normal Data:**")
+            
+            profiles = detector.get_anomaly_profiles(top_n=5)
+            
+            if len(profiles) > 0:
+                for _, row in profiles.iterrows():
+                    with st.expander(f"Anomaly #{int(row['Index'])} (Score: {row['Anomaly_Score']:.3f})"):
+                        comparison_data = []
+                        for col in feature_cols:
+                            comparison_data.append({
+                                'Feature': col,
+                                'Anomaly Value': row[f'{col}_value'],
+                                'Normal Mean': row[f'{col}_normal_mean'],
+                                'Std Deviations': row[f'{col}_deviation']
+                            })
+                        
+                        comparison_df = pd.DataFrame(comparison_data)
+                        st.dataframe(comparison_df, use_container_width=True)
+            else:
+                st.info("No anomalies detected")
+        
+        with tab2:
+            if algorithm == "Isolation Forest":
+                st.write("**Feature Importance for Anomaly Detection:**")
+                importance = detector.get_feature_importance()
+                
+                if importance is not None:
+                    fig_importance = px.bar(
+                        importance,
+                        x='Importance',
+                        y='Feature',
+                        orientation='h',
+                        title='Feature Contribution to Anomaly Detection'
+                    )
+                    st.plotly_chart(fig_importance, use_container_width=True)
+            else:
+                st.info(f"Feature importance is only available for Isolation Forest. Current algorithm: {algorithm}")
+        
+        with tab3:
+            st.write("**AI-Powered Anomaly Explanation:**")
+            
+            if st.button("🤖 Generate AI Explanation", type="primary"):
+                with st.spinner("Analyzing anomalies with AI..."):
+                    try:
+                        from utils.ai_helper import AIHelper
+                        
+                        ai = AIHelper()
+                        
+                        # Prepare context
+                        top_anomalies = results[results['is_anomaly']].nsmallest(5, 'anomaly_score')
+                        
+                        context = f"""
+                        Anomaly Detection Results:
+                        - Algorithm: {algorithm}
+                        - Total Records: {stats['total_records']}
+                        - Anomalies Found: {stats['num_anomalies']} ({stats['pct_anomalies']:.1f}%)
+                        - Features Analyzed: {', '.join(feature_cols)}
+                        
+                        Top 5 Anomalies:
+                        {top_anomalies[feature_cols + ['anomaly_score']].to_string()}
+                        
+                        Normal Data Statistics:
+                        {results[~results['is_anomaly']][feature_cols].describe().to_string()}
+                        """
+                        
+                        prompt = f"""
+                        You are a data analyst. Analyze these anomaly detection results and provide:
+                        
+                        1. An explanation of what makes these points anomalous
+                        2. Potential business implications or causes
+                        3. Recommended actions for each type of anomaly found
+                        
+                        {context}
+                        
+                        Provide insights in a clear, business-friendly format with specific examples.
+                        """
+                        
+                        # Get AI response
+                        response = ai.client.chat.completions.create(
+                            model="gpt-4",
+                            messages=[
+                                {"role": "system", "content": "You are an expert data analyst specializing in anomaly detection and business insights."},
+                                {"role": "user", "content": prompt}
+                            ],
+                            temperature=0.7,
+                            max_tokens=1500
+                        )
+                        
+                        explanation = response.choices[0].message.content
+                        st.markdown(explanation)
+                        
+                    except Exception as e:
+                        st.error(f"Error generating AI explanation: {str(e)}")
+        
+        # Export section
+        st.divider()
+        st.subheader("📥 8. Export Results")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            # All data with anomaly flags
+            csv = results.to_csv(index=False)
+            st.download_button(
+                label="📥 Download All Data (CSV)",
+                data=csv,
+                file_name=f"anomaly_detection_all_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        
+        with col2:
+            # Anomalies only
+            anomalies_csv = results[results['is_anomaly']].to_csv(index=False)
+            st.download_button(
+                label="📥 Download Anomalies Only (CSV)",
+                data=anomalies_csv,
+                file_name=f"anomalies_only_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        
+        with col3:
+            # Report
+            report = f"""
+# Anomaly Detection Report
+**Generated:** {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+## Configuration
+- **Algorithm:** {algorithm}
+- **Features:** {', '.join(feature_cols)}
+- **Contamination:** {contamination:.2f}
+
+## Results Summary
+- **Total Records:** {stats['total_records']:,}
+- **Anomalies Detected:** {stats['num_anomalies']:,} ({stats['pct_anomalies']:.1f}%)
+- **Normal Records:** {stats['num_normal']:,} ({stats['pct_normal']:.1f}%)
+
+## Top Anomalies
+{results[results['is_anomaly']].nsmallest(10, 'anomaly_score')[feature_cols + ['anomaly_score']].to_markdown(index=False)}
+
+---
+*Report generated by DataInsight AI - Anomaly Detection Module*
+"""
+            st.download_button(
+                label="📥 Download Report (Markdown)",
+                data=report,
+                file_name=f"anomaly_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.md",
+                mime="text/markdown",
+                use_container_width=True
+            )
 
 if __name__ == "__main__":
     main()

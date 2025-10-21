@@ -8,9 +8,19 @@ class AIHelper:
     """Handles all AI-related operations using OpenAI."""
     
     def __init__(self):
-        self.api_key = os.getenv('OPENAI_API_KEY')
+        # Try to get API key from Streamlit secrets first (for cloud deployment)
+        # Then fall back to environment variable (for local development)
+        try:
+            import streamlit as st
+            if hasattr(st, 'secrets') and 'OPENAI_API_KEY' in st.secrets:
+                self.api_key = st.secrets['OPENAI_API_KEY']
+            else:
+                self.api_key = os.getenv('OPENAI_API_KEY')
+        except:
+            self.api_key = os.getenv('OPENAI_API_KEY')
+        
         if not self.api_key:
-            raise ValueError("OpenAI API key not found. Please set OPENAI_API_KEY in .env file")
+            raise ValueError("OpenAI API key not found. Please set OPENAI_API_KEY in Streamlit secrets or .env file")
         
         # Initialize OpenAI client
         from openai import OpenAI
