@@ -408,3 +408,35 @@ class ColumnDetector:
             'recommendations': recommendations,
             'confidence': 'high' if suitable and len(warnings) == 0 else 'medium' if suitable else 'low'
         }
+    
+    @staticmethod
+    def detect_text_column(df: pd.DataFrame) -> Optional[str]:
+        """
+        Detect text/description column for text mining.
+        
+        Args:
+            df: DataFrame to analyze
+            
+        Returns:
+            Most likely text column name
+        """
+        patterns = [
+            'description', 'text', 'comment', 'review', 'feedback', 
+            'message', 'content', 'body', 'notes', 'summary'
+        ]
+        
+        # Check for pattern matches
+        for col in df.columns:
+            if df[col].dtype == 'object':  # Text columns
+                col_lower = col.lower().replace('_', '').replace(' ', '')
+                for pattern in patterns:
+                    if pattern in col_lower:
+                        return col
+        
+        # Find column with longest average text length
+        text_cols = df.select_dtypes(include=['object']).columns
+        if len(text_cols) > 0:
+            avg_lengths = {col: df[col].astype(str).str.len().mean() for col in text_cols}
+            return max(avg_lengths, key=avg_lengths.get)
+        
+        return df.columns[0] if len(df.columns) > 0 else None

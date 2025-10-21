@@ -3996,12 +3996,21 @@ def show_text_mining():
     
     df = st.session_state.data
     
-    # Column selection
+    # Column selection with smart detection
     st.subheader("📝 1. Select Text Column")
+    
+    from utils.column_detector import ColumnDetector
+    suggested_col = ColumnDetector.detect_text_column(df)
+    
+    st.info("💡 **Smart Detection:** Column is auto-selected based on your data. You can change it if needed.")
+    
+    # Find index of suggested column
+    col_index = list(df.columns).index(suggested_col) if suggested_col in df.columns else 0
     
     text_col = st.selectbox(
         "Choose column containing text:",
         df.columns,
+        index=col_index,
         help="Select the column with text data to analyze"
     )
     
@@ -4040,34 +4049,38 @@ def show_text_mining():
                     try:
                         sentiment_df = analyzer.get_sentiment_analysis()
                         st.session_state.sentiment_results = sentiment_df
-                        
-                        # Summary metrics
-                        sentiment_counts = sentiment_df['sentiment'].value_counts()
-                        total = len(sentiment_df)
-                        
-                        col1, col2, col3, col4 = st.columns(4)
-                        with col1:
-                            st.metric("Total Texts", total)
-                        with col2:
-                            pos_pct = (sentiment_counts.get('Positive', 0) / total) * 100
-                            st.metric("Positive", f"{pos_pct:.1f}%")
-                        with col3:
-                            neg_pct = (sentiment_counts.get('Negative', 0) / total) * 100
-                            st.metric("Negative", f"{neg_pct:.1f}%")
-                        with col4:
-                            neu_pct = (sentiment_counts.get('Neutral', 0) / total) * 100
-                            st.metric("Neutral", f"{neu_pct:.1f}%")
-                        
-                        # Visualization
-                        fig = analyzer.create_sentiment_plot(sentiment_df)
-                        st.plotly_chart(fig, use_container_width=True)
-                        
-                        # Show results table
-                        st.write("**Detailed Results:**")
-                        st.dataframe(sentiment_df.head(20), use_container_width=True)
-                        
+                        st.rerun()
                     except Exception as e:
                         st.error(f"Error: {str(e)}")
+            
+            # Show results if available
+            if 'sentiment_results' in st.session_state:
+                sentiment_df = st.session_state.sentiment_results
+                
+                # Summary metrics
+                sentiment_counts = sentiment_df['sentiment'].value_counts()
+                total = len(sentiment_df)
+                
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Total Texts", total)
+                with col2:
+                    pos_pct = (sentiment_counts.get('Positive', 0) / total) * 100
+                    st.metric("Positive", f"{pos_pct:.1f}%")
+                with col3:
+                    neg_pct = (sentiment_counts.get('Negative', 0) / total) * 100
+                    st.metric("Negative", f"{neg_pct:.1f}%")
+                with col4:
+                    neu_pct = (sentiment_counts.get('Neutral', 0) / total) * 100
+                    st.metric("Neutral", f"{neu_pct:.1f}%")
+                
+                # Visualization
+                fig = analyzer.create_sentiment_plot(sentiment_df)
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Show results table
+                st.write("**Detailed Results:**")
+                st.dataframe(sentiment_df.head(20), use_container_width=True)
         
         with tab2:
             st.write("**Word Frequency Analysis:**")
@@ -4079,23 +4092,28 @@ def show_text_mining():
                     try:
                         word_freq_df = analyzer.get_word_frequency(n_words)
                         st.session_state.word_freq_results = word_freq_df
-                        
-                        # Bar chart
-                        fig = analyzer.create_word_frequency_plot(word_freq_df)
-                        st.plotly_chart(fig, use_container_width=True)
-                        
-                        # Word cloud
-                        st.write("**Word Cloud:**")
-                        wordcloud = analyzer.create_wordcloud(max_words=100)
-                        
-                        import matplotlib.pyplot as plt
-                        fig_wc, ax = plt.subplots(figsize=(12, 6))
-                        ax.imshow(wordcloud, interpolation='bilinear')
-                        ax.axis('off')
-                        st.pyplot(fig_wc)
-                        
+                        st.session_state.n_words = n_words
+                        st.rerun()
                     except Exception as e:
                         st.error(f"Error: {str(e)}")
+            
+            # Show results if available
+            if 'word_freq_results' in st.session_state:
+                word_freq_df = st.session_state.word_freq_results
+                
+                # Bar chart
+                fig = analyzer.create_word_frequency_plot(word_freq_df)
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Word cloud
+                st.write("**Word Cloud:**")
+                wordcloud = analyzer.create_wordcloud(max_words=100)
+                
+                import matplotlib.pyplot as plt
+                fig_wc, ax = plt.subplots(figsize=(12, 6))
+                ax.imshow(wordcloud, interpolation='bilinear')
+                ax.axis('off')
+                st.pyplot(fig_wc)
         
         with tab3:
             st.write("**Topic Modeling (LDA):**")
@@ -4107,16 +4125,20 @@ def show_text_mining():
                     try:
                         topics = analyzer.get_topic_modeling(num_topics, n_words=10)
                         st.session_state.topics = topics
-                        
-                        st.write(f"**Discovered {len(topics)} Topics:**")
-                        
-                        for topic_id, words in topics.items():
-                            with st.expander(f"Topic {topic_id + 1}"):
-                                st.write("**Top Words:**")
-                                st.write(", ".join(words))
-                        
+                        st.rerun()
                     except Exception as e:
                         st.error(f"Error: {str(e)}")
+            
+            # Show results if available
+            if 'topics' in st.session_state:
+                topics = st.session_state.topics
+                
+                st.write(f"**Discovered {len(topics)} Topics:**")
+                
+                for topic_id, words in topics.items():
+                    with st.expander(f"Topic {topic_id + 1}"):
+                        st.write("**Top Words:**")
+                        st.write(", ".join(words))
         
         with tab4:
             st.write("**AI-Powered Text Summary:**")

@@ -17,9 +17,16 @@ try:
     from nltk.sentiment import SentimentIntensityAnalyzer
     
     # Download required NLTK data
-    for resource in ['punkt', 'stopwords', 'vader_lexicon']:
+    for resource in ['punkt', 'punkt_tab', 'stopwords', 'vader_lexicon']:
         try:
-            nltk.data.find(f'tokenizers/{resource}' if resource == 'punkt' else f'corpora/{resource}' if resource == 'stopwords' else f'sentiment/{resource}.zip')
+            if resource == 'punkt':
+                nltk.data.find('tokenizers/punkt')
+            elif resource == 'punkt_tab':
+                nltk.data.find('tokenizers/punkt_tab')
+            elif resource == 'stopwords':
+                nltk.data.find('corpora/stopwords')
+            else:
+                nltk.data.find('sentiment/vader_lexicon.zip')
         except LookupError:
             nltk.download(resource, quiet=True)
         
