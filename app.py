@@ -662,7 +662,7 @@ def show_analysis():
                 del st.session_state.ai_insights
                 st.rerun()
     
-    with tab3:
+    with tab4:
         st.subheader("🔧 AI-Powered Cleaning Suggestions")
         
         if not issues:
