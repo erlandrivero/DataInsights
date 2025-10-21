@@ -247,13 +247,13 @@ class AnomalyDetector:
         
         return pd.DataFrame(profiles)
     
-    def create_2d_scatter(self, use_pca: bool = False, max_points: int = 2000) -> go.Figure:
+    def create_2d_scatter(self, use_pca: bool = False, show_only_anomalies: bool = True) -> go.Figure:
         """
         Create 2D scatter plot of anomalies.
         
         Args:
             use_pca: Whether to use PCA for dimensionality reduction
-            max_points: Maximum points to display (for performance)
+            show_only_anomalies: If True, only show anomaly points (faster, clearer)
             
         Returns:
             Plotly figure
@@ -261,19 +261,9 @@ class AnomalyDetector:
         if self.anomaly_results is None:
             raise ValueError("Anomaly detection must be run first")
         
-        # Sample data if too large (keep ALL anomalies, sample normal points)
-        if len(self.anomaly_results) > max_points:
-            anomalies = self.anomaly_results[self.anomaly_results['anomaly_type'] == 'Anomaly']
-            normal = self.anomaly_results[self.anomaly_results['anomaly_type'] == 'Normal']
-            
-            # Keep all anomalies, sample normal points
-            n_normal_sample = max_points - len(anomalies)
-            if n_normal_sample > 0 and len(normal) > n_normal_sample:
-                normal_sample = normal.sample(n=n_normal_sample, random_state=42)
-                sample_results = pd.concat([anomalies, normal_sample]).sort_index()
-            else:
-                sample_results = self.anomaly_results
-            
+        # Filter to show only anomalies for better performance and clarity
+        if show_only_anomalies:
+            sample_results = self.anomaly_results[self.anomaly_results['anomaly_type'] == 'Anomaly']
             sample_indices = sample_results.index
             sample_features = self.scaled_features.loc[sample_indices]
         else:
@@ -292,25 +282,29 @@ class AnomalyDetector:
             x_label = self.features.columns[0]
             y_label = self.features.columns[1]
         
-        # Create static scatter plot (no hover for performance)
+        # Create scatter plot with hover (fewer points = better performance)
         fig = px.scatter(
             x=coords[:, 0],
             y=coords[:, 1],
             color=sample_results['anomaly_type'],
             color_discrete_map={'Anomaly': 'red', 'Normal': 'blue'},
-            title=f'Anomaly Detection Results (showing {len(sample_results):,} points)',
-            labels={'x': x_label, 'y': y_label}
+            title=f'🔴 Detected Anomalies ({len(sample_results):,} anomalies shown)',
+            labels={'x': x_label, 'y': y_label},
+            hover_data={'Anomaly Score': sample_results['anomaly_score']}
         )
         
-        # Disable ALL interactions for maximum performance
+        # Enable hover with clean styling (safe with fewer points)
         fig.update_traces(
-            marker=dict(size=8, opacity=0.7),
-            hoverinfo='none'
+            marker=dict(size=10, opacity=0.8, line=dict(width=1, color='darkred')),
+            hovertemplate='<b>Anomaly</b><br>' + 
+                         x_label + ': %{x:.2f}<br>' + 
+                         y_label + ': %{y:.2f}<br>' +
+                         'Score: %{customdata[0]:.3f}<extra></extra>'
         )
         fig.update_layout(
             height=600, 
             showlegend=True,
-            hovermode=False
+            hovermode='closest'
         )
         
         return fig

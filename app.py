@@ -3455,32 +3455,18 @@ def show_anomaly_detection():
         if use_pca:
             st.info("ℹ️ Using PCA to visualize multi-dimensional data in 2D")
         
-        fig = detector.create_2d_scatter(use_pca=use_pca)
+        # Only show anomalies for better performance and focus
+        fig = detector.create_2d_scatter(use_pca=use_pca, show_only_anomalies=True)
         
-        # Add CSS to fix cursor issue
-        st.markdown("""
-        <style>
-        .js-plotly-plot .plotly .svg-container,
-        .js-plotly-plot .plotly .main-svg,
-        .js-plotly-plot .plotly .nsewdrag,
-        .js-plotly-plot .plotly,
-        .js-plotly-plot .plotly * {
-            cursor: default !important;
-        }
-        div[data-testid="stPlotlyChart"] {
-            cursor: default !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
+        st.info("💡 **Chart shows only anomaly points** - hover over red points to see anomaly scores")
         
-        # Keep toolbar but fix cursor behavior
+        # Display with hover enabled (few points = good performance)
         st.plotly_chart(
             fig, 
             use_container_width=True,
             config={
-                'displayModeBar': True,  # Keep toolbar visible
-                'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d'],  # Remove tools that cause cursor issues
-                'displaylogo': False  # Hide Plotly logo
+                'displayModeBar': True,
+                'displaylogo': False
             }
         )
         
