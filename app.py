@@ -783,10 +783,11 @@ def show_analysis():
                         col_threshold=0.8
                     )
                     
-                    # Store cleaned data
+                    # Store cleaned data and results
                     st.session_state.data = result['cleaned_df']
                     st.session_state.original_data = result['original_df']
                     st.session_state.cleaning_stats = result['stats']
+                    st.session_state.cleaning_quality_score = result['quality_score']
                     
                     # Clear cached analysis
                     for key in ['profile', 'issues', 'viz_suggestions', 'ai_insights', 'cleaning_suggestions']:
@@ -806,26 +807,29 @@ def show_analysis():
             st.divider()
             st.subheader("📊 Cleaning Results")
             
-            # Before/After comparison
+            # Before/After comparison with equal-sized boxes
             col1, col2 = st.columns(2)
             
             with col1:
-                st.write("**Before Cleaning:**")
-                st.write(f"- Rows: {stats['original_shape'][0]:,}")
-                st.write(f"- Columns: {stats['original_shape'][1]}")
-                st.write(f"- Missing values: {stats['original_missing']:,}")
-                st.write(f"- Duplicates: {stats.get('duplicates_removed', 0):,}")
+                with st.container():
+                    st.markdown("**Before Cleaning:**")
+                    st.markdown(f"- **Rows:** {stats['original_shape'][0]:,}")
+                    st.markdown(f"- **Columns:** {stats['original_shape'][1]}")
+                    st.markdown(f"- **Missing values:** {stats['original_missing']:,}")
+                    st.markdown(f"- **Duplicates:** {stats.get('duplicates_removed', 0):,}")
             
             with col2:
-                st.write("**After Cleaning:**")
-                st.write(f"- Rows: {stats['cleaned_shape'][0]:,}")
-                st.write(f"- Columns: {stats['cleaned_shape'][1]}")
-                st.write(f"- Missing values: {stats['cleaned_missing']:,}")
-                st.write(f"- Rows removed: {stats.get('rows_removed', 0):,}")
+                with st.container():
+                    st.markdown("**After Cleaning:**")
+                    st.markdown(f"- **Rows:** {stats['cleaned_shape'][0]:,}")
+                    st.markdown(f"- **Columns:** {stats['cleaned_shape'][1]}")
+                    st.markdown(f"- **Missing values:** {stats['cleaned_missing']:,}")
+                    st.markdown(f"- **Rows removed:** {stats.get('rows_removed', 0):,}")
             
             # Quality score
-            st.metric("Data Quality Score", f"{result['quality_score']:.1f}/100",
-                     delta="Improved" if result['quality_score'] > 70 else "Needs more cleaning")
+            quality_score = st.session_state.get('cleaning_quality_score', 0)
+            st.metric("Data Quality Score", f"{quality_score:.1f}/100",
+                     delta="Improved" if quality_score > 70 else "Needs more cleaning")
             
             # Column analysis
             with st.expander("📋 Column Analysis & Encoding Recommendations"):
