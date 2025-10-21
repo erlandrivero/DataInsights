@@ -4044,14 +4044,20 @@ def show_text_mining():
         with tab1:
             st.write("**Sentiment Analysis using VADER:**")
             
-            if st.button("📊 Analyze Sentiment"):
-                with st.spinner("Analyzing sentiment..."):
-                    try:
-                        sentiment_df = analyzer.get_sentiment_analysis()
-                        st.session_state.sentiment_results = sentiment_df
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error: {str(e)}")
+            # Only show button if results don't exist
+            if 'sentiment_results' not in st.session_state:
+                if st.button("📊 Analyze Sentiment", key="sentiment_btn"):
+                    with st.spinner("Analyzing sentiment..."):
+                        try:
+                            sentiment_df = analyzer.get_sentiment_analysis()
+                            st.session_state.sentiment_results = sentiment_df
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {str(e)}")
+            else:
+                if st.button("🔄 Re-analyze Sentiment", key="sentiment_reanalyze"):
+                    del st.session_state.sentiment_results
+                    st.rerun()
             
             # Show results if available
             if 'sentiment_results' in st.session_state:
@@ -4087,15 +4093,20 @@ def show_text_mining():
             
             n_words = st.slider("Number of top words:", 10, 100, 50)
             
-            if st.button("📈 Analyze Word Frequency"):
-                with st.spinner("Analyzing word frequency..."):
-                    try:
-                        word_freq_df = analyzer.get_word_frequency(n_words)
-                        st.session_state.word_freq_results = word_freq_df
-                        st.session_state.n_words = n_words
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error: {str(e)}")
+            if 'word_freq_results' not in st.session_state:
+                if st.button("📈 Analyze Word Frequency", key="wordfreq_btn"):
+                    with st.spinner("Analyzing word frequency..."):
+                        try:
+                            word_freq_df = analyzer.get_word_frequency(n_words)
+                            st.session_state.word_freq_results = word_freq_df
+                            st.session_state.n_words = n_words
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {str(e)}")
+            else:
+                if st.button("🔄 Re-analyze Word Frequency", key="wordfreq_reanalyze"):
+                    del st.session_state.word_freq_results
+                    st.rerun()
             
             # Show results if available
             if 'word_freq_results' in st.session_state:
@@ -4120,14 +4131,19 @@ def show_text_mining():
             
             num_topics = st.slider("Number of topics:", 2, 10, 5)
             
-            if st.button("🔎 Discover Topics"):
-                with st.spinner("Running topic modeling..."):
-                    try:
-                        topics = analyzer.get_topic_modeling(num_topics, n_words=10)
-                        st.session_state.topics = topics
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error: {str(e)}")
+            if 'topics' not in st.session_state:
+                if st.button("🔎 Discover Topics", key="topics_btn"):
+                    with st.spinner("Running topic modeling..."):
+                        try:
+                            topics = analyzer.get_topic_modeling(num_topics, n_words=10)
+                            st.session_state.topics = topics
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {str(e)}")
+            else:
+                if st.button("🔄 Re-discover Topics", key="topics_reanalyze"):
+                    del st.session_state.topics
+                    st.rerun()
             
             # Show results if available
             if 'topics' in st.session_state:
