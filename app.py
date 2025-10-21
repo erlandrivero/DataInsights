@@ -74,7 +74,7 @@ def main():
         st.header("📊 Navigation")
         page = st.radio(
             "Select a page:",
-            ["Home", "Data Upload", "Analysis", "Insights", "Reports", "Market Basket Analysis", "RFM Analysis", "Monte Carlo Simulation"],
+            ["Home", "Data Upload", "Analysis", "Insights", "Reports", "Market Basket Analysis", "RFM Analysis", "Monte Carlo Simulation", "ML Classification"],
             key="navigation"
         )
         
@@ -168,6 +168,8 @@ def main():
         show_rfm_analysis()
     elif page == "Monte Carlo Simulation":
         show_monte_carlo_simulation()
+    elif page == "ML Classification":
+        show_ml_classification()
 
 def show_home():
     st.header("Welcome to DataInsight AI! 👋")
@@ -2293,6 +2295,408 @@ def show_monte_carlo_simulation():
                 mime="text/markdown",
                 use_container_width=True
             )
+
+def show_ml_classification():
+    """ML Classification Templates page for lead scoring, churn prediction, and credit risk."""
+    st.header("🎯 ML Classification Templates")
+    
+    # Help section
+    with st.expander("ℹ️ What is Classification?"):
+        st.markdown("""
+        **Classification** is a supervised machine learning technique that predicts categorical outcomes.
+        
+        ### Common Business Applications:
+        
+        - **Lead Scoring:** Predict which leads are most likely to convert
+        - **Churn Prediction:** Identify customers at risk of leaving
+        - **Credit Risk:** Assess loan default probability
+        - **Fraud Detection:** Flag suspicious transactions
+        
+        ### How It Works:
+        
+        1. **Train:** Learn patterns from historical labeled data
+        2. **Predict:** Apply learned patterns to new data
+        3. **Evaluate:** Measure accuracy, precision, recall
+        4. **Deploy:** Use predictions for business decisions
+        
+        ### Key Metrics:
+        
+        - **Accuracy:** Overall correctness of predictions
+        - **Precision:** Of predicted positives, how many are correct?
+        - **Recall:** Of actual positives, how many did we find?
+        - **F1-Score:** Balance between precision and recall
+        - **ROC-AUC:** Model's ability to distinguish between classes
+        """)
+    
+    st.markdown("""
+    Choose a pre-configured classification template for common business problems.
+    """)
+    
+    # Template selection
+    st.subheader("📋 1. Select Template")
+    
+    template = st.selectbox(
+        "Choose a business use case:",
+        [
+            "Lead Scoring (Sales)",
+            "Churn Prediction (Customer Retention)",
+            "Credit Risk Assessment (Finance)",
+            "Custom Classification"
+        ],
+        help="Pre-configured templates with example features and workflows"
+    )
+    
+    # Template-specific instructions
+    st.divider()
+    
+    if template == "Lead Scoring (Sales)":
+        st.subheader("📊 Lead Scoring Template")
+        st.markdown("""
+        **Goal:** Predict which leads are most likely to convert to customers
+        
+        **Required Data Columns:**
+        - Lead source (e.g., website, referral, ad)
+        - Engagement metrics (emails opened, pages viewed)
+        - Demographics (company size, industry)
+        - Behavioral data (time on site, downloads)
+        - **Target:** Converted (Yes/No)
+        
+        **Example Features:**
+        - `lead_source`, `email_opens`, `page_views`, `company_size`, `industry`, `converted`
+        
+        **Business Value:**
+        - Prioritize sales team efforts on high-quality leads
+        - Increase conversion rates by 20-40%
+        - Reduce time wasted on low-quality leads
+        """)
+        
+        example_data = {
+            'lead_source': ['Website', 'Referral', 'Ad', 'Website', 'Ad'],
+            'email_opens': [5, 12, 2, 8, 1],
+            'page_views': [10, 25, 5, 15, 3],
+            'company_size': ['Medium', 'Large', 'Small', 'Medium', 'Small'],
+            'industry': ['Tech', 'Finance', 'Retail', 'Tech', 'Retail'],
+            'converted': ['Yes', 'Yes', 'No', 'Yes', 'No']
+        }
+        
+    elif template == "Churn Prediction (Customer Retention)":
+        st.subheader("💔 Churn Prediction Template")
+        st.markdown("""
+        **Goal:** Identify customers at risk of canceling or leaving
+        
+        **Required Data Columns:**
+        - Usage metrics (logins, features used)
+        - Tenure (months as customer)
+        - Support tickets (count, resolution time)
+        - Billing info (payment issues, plan type)
+        - **Target:** Churned (Yes/No)
+        
+        **Example Features:**
+        - `months_active`, `logins_per_month`, `support_tickets`, `payment_issues`, `churned`
+        
+        **Business Value:**
+        - Proactively retain at-risk customers
+        - Reduce churn rate by 15-30%
+        - Target retention campaigns effectively
+        """)
+        
+        example_data = {
+            'months_active': [24, 6, 36, 12, 3],
+            'logins_per_month': [20, 2, 30, 8, 1],
+            'support_tickets': [1, 5, 0, 3, 8],
+            'payment_issues': ['No', 'Yes', 'No', 'No', 'Yes'],
+            'plan_type': ['Premium', 'Basic', 'Premium', 'Basic', 'Basic'],
+            'churned': ['No', 'Yes', 'No', 'No', 'Yes']
+        }
+        
+    elif template == "Credit Risk Assessment (Finance)":
+        st.subheader("💰 Credit Risk Template")
+        st.markdown("""
+        **Goal:** Assess probability of loan default
+        
+        **Required Data Columns:**
+        - Credit score
+        - Income level
+        - Debt-to-income ratio
+        - Employment history
+        - **Target:** Defaulted (Yes/No)
+        
+        **Example Features:**
+        - `credit_score`, `annual_income`, `debt_to_income`, `employment_years`, `defaulted`
+        
+        **Business Value:**
+        - Reduce loan defaults by 25-40%
+        - Optimize lending decisions
+        - Set appropriate interest rates
+        """)
+        
+        example_data = {
+            'credit_score': [750, 620, 800, 580, 700],
+            'annual_income': [80000, 45000, 120000, 35000, 65000],
+            'debt_to_income': [0.25, 0.45, 0.15, 0.60, 0.30],
+            'employment_years': [10, 2, 15, 1, 5],
+            'loan_amount': [250000, 150000, 400000, 100000, 200000],
+            'defaulted': ['No', 'Yes', 'No', 'Yes', 'No']
+        }
+        
+    else:  # Custom Classification
+        st.subheader("🔧 Custom Classification Template")
+        st.markdown("""
+        **Goal:** Build a custom classification model for your specific use case
+        
+        **Requirements:**
+        - Dataset with features (predictor variables)
+        - Target column (binary: Yes/No, True/False, 0/1)
+        - At least 100+ rows for meaningful results
+        
+        **Steps:**
+        1. Upload your dataset
+        2. Select feature columns
+        3. Select target column
+        4. Choose model type
+        5. Train and evaluate
+        """)
+        
+        example_data = None
+    
+    # Show example data
+    if example_data:
+        with st.expander("📋 View Example Data Format"):
+            example_df = pd.DataFrame(example_data)
+            st.dataframe(example_df, use_container_width=True)
+            
+            csv = example_df.to_csv(index=False)
+            st.download_button(
+                label="📥 Download Example CSV",
+                data=csv,
+                file_name=f"{template.lower().replace(' ', '_')}_example.csv",
+                mime="text/csv"
+            )
+    
+    # Data upload
+    st.divider()
+    st.subheader("📤 2. Upload Your Data")
+    
+    uploaded_file = st.file_uploader(
+        "Upload CSV file with features and target column",
+        type=['csv'],
+        key="ml_upload",
+        help="Must include predictor features and binary target column"
+    )
+    
+    if uploaded_file is not None:
+        try:
+            df = pd.read_csv(uploaded_file)
+            st.session_state.ml_data = df
+            
+            st.success(f"✅ Loaded {len(df)} rows and {len(df.columns)} columns")
+            st.dataframe(df.head(10), use_container_width=True)
+            
+            # Column selection
+            st.divider()
+            st.subheader("🎯 3. Configure Model")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                target_col = st.selectbox(
+                    "Select Target Column (what to predict)",
+                    df.columns,
+                    help="Binary column with Yes/No, True/False, or 0/1 values"
+                )
+            
+            with col2:
+                feature_cols = st.multiselect(
+                    "Select Feature Columns (predictors)",
+                    [col for col in df.columns if col != target_col],
+                    default=[col for col in df.columns if col != target_col][:5],
+                    help="Columns used to make predictions"
+                )
+            
+            if len(feature_cols) > 0:
+                # Model options
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    test_size = st.slider(
+                        "Test Set Size (%)",
+                        min_value=10,
+                        max_value=40,
+                        value=20,
+                        step=5,
+                        help="Percentage of data reserved for testing"
+                    )
+                
+                with col2:
+                    model_type = st.selectbox(
+                        "Model Type",
+                        ["Logistic Regression", "Random Forest", "Gradient Boosting"],
+                        help="Algorithm to use for classification"
+                    )
+                
+                # Train model button
+                if st.button("🚀 Train Classification Model", type="primary", use_container_width=True):
+                    with st.spinner("Training model..."):
+                        try:
+                            from sklearn.model_selection import train_test_split
+                            from sklearn.linear_model import LogisticRegression
+                            from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+                            from sklearn.preprocessing import LabelEncoder
+                            from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report
+                            
+                            # Prepare data
+                            X = df[feature_cols].copy()
+                            y = df[target_col].copy()
+                            
+                            # Encode categorical variables
+                            label_encoders = {}
+                            for col in X.columns:
+                                if X[col].dtype == 'object':
+                                    le = LabelEncoder()
+                                    X[col] = le.fit_transform(X[col].astype(str))
+                                    label_encoders[col] = le
+                            
+                            # Encode target
+                            if y.dtype == 'object':
+                                le_target = LabelEncoder()
+                                y = le_target.fit_transform(y.astype(str))
+                            
+                            # Split data
+                            X_train, X_test, y_train, y_test = train_test_split(
+                                X, y, test_size=test_size/100, random_state=42
+                            )
+                            
+                            # Select and train model
+                            if model_type == "Logistic Regression":
+                                model = LogisticRegression(random_state=42, max_iter=1000)
+                            elif model_type == "Random Forest":
+                                model = RandomForestClassifier(n_estimators=100, random_state=42)
+                            else:  # Gradient Boosting
+                                model = GradientBoostingClassifier(n_estimators=100, random_state=42)
+                            
+                            model.fit(X_train, y_train)
+                            
+                            # Predictions
+                            y_pred = model.predict(X_test)
+                            
+                            # Calculate metrics
+                            accuracy = accuracy_score(y_test, y_pred)
+                            precision = precision_score(y_test, y_pred, average='weighted', zero_division=0)
+                            recall = recall_score(y_test, y_pred, average='weighted', zero_division=0)
+                            f1 = f1_score(y_test, y_pred, average='weighted', zero_division=0)
+                            
+                            # Store in session state
+                            st.session_state.ml_model = model
+                            st.session_state.ml_metrics = {
+                                'accuracy': accuracy,
+                                'precision': precision,
+                                'recall': recall,
+                                'f1': f1
+                            }
+                            st.session_state.ml_confusion = confusion_matrix(y_test, y_pred)
+                            st.session_state.ml_X_test = X_test
+                            st.session_state.ml_y_test = y_test
+                            st.session_state.ml_y_pred = y_pred
+                            st.session_state.ml_feature_cols = feature_cols
+                            st.session_state.ml_target_col = target_col
+                            
+                            st.success(f"✅ Model trained successfully! Accuracy: {accuracy*100:.2f}%")
+                            
+                        except Exception as e:
+                            st.error(f"Error training model: {str(e)}")
+                            st.info("💡 Check that your target column is binary and features are numeric or categorical")
+        
+        except Exception as e:
+            st.error(f"Error loading file: {str(e)}")
+    
+    # Show results if model is trained
+    if 'ml_metrics' in st.session_state:
+        metrics = st.session_state.ml_metrics
+        confusion = st.session_state.ml_confusion
+        
+        st.divider()
+        st.subheader("📊 4. Model Performance")
+        
+        # Metrics
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Accuracy", f"{metrics['accuracy']*100:.2f}%")
+        with col2:
+            st.metric("Precision", f"{metrics['precision']*100:.2f}%")
+        with col3:
+            st.metric("Recall", f"{metrics['recall']*100:.2f}%")
+        with col4:
+            st.metric("F1-Score", f"{metrics['f1']*100:.2f}%")
+        
+        # Confusion Matrix
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**Confusion Matrix:**")
+            conf_df = pd.DataFrame(
+                confusion,
+                columns=['Predicted Negative', 'Predicted Positive'],
+                index=['Actual Negative', 'Actual Positive']
+            )
+            st.dataframe(conf_df, use_container_width=True)
+        
+        with col2:
+            st.write("**Performance Interpretation:**")
+            if metrics['accuracy'] > 0.85:
+                st.success("✅ Excellent model performance!")
+            elif metrics['accuracy'] > 0.75:
+                st.info("📊 Good model performance")
+            elif metrics['accuracy'] > 0.65:
+                st.warning("⚠️ Moderate performance - consider feature engineering")
+            else:
+                st.error("❌ Low performance - review data quality")
+        
+        # Business recommendations
+        st.divider()
+        st.subheader("💡 5. Business Recommendations")
+        
+        if template == "Lead Scoring (Sales)":
+            st.markdown("""
+            ### Action Items:
+            - 🎯 **High Priority:** Focus sales team on predicted positive leads
+            - 📧 **Marketing:** Create targeted campaigns for different lead segments
+            - 📈 **A/B Test:** Test conversion strategies on predicted positives
+            - 🔄 **Retrain:** Update model monthly with new conversion data
+            """)
+        elif template == "Churn Prediction (Customer Retention)":
+            st.markdown("""
+            ### Action Items:
+            - 🚨 **Immediate:** Contact predicted churners with retention offers
+            - 💰 **Incentives:** Offer discounts/upgrades to at-risk customers
+            - 📞 **Support:** Proactive outreach to address pain points
+            - 📊 **Monitor:** Track churn indicators weekly
+            """)
+        elif template == "Credit Risk Assessment (Finance)":
+            st.markdown("""
+            ### Action Items:
+            - ✅ **Approve:** Fast-track low-risk applicants
+            - ⚠️ **Review:** Manual review for medium-risk applicants
+            - ❌ **Decline:** Reject or require collateral for high-risk
+            - 💵 **Pricing:** Adjust interest rates based on risk score
+            """)
+        
+        # Export
+        st.divider()
+        st.subheader("📥 6. Export Results")
+        
+        results_df = pd.DataFrame({
+            'Actual': st.session_state.ml_y_test,
+            'Predicted': st.session_state.ml_y_pred
+        })
+        results_csv = results_df.to_csv(index=False)
+        
+        st.download_button(
+            label="📥 Download Predictions (CSV)",
+            data=results_csv,
+            file_name=f"ml_predictions_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
 
 if __name__ == "__main__":
     main()
