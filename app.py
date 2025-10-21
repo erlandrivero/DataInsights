@@ -74,7 +74,7 @@ def main():
         st.header("📊 Navigation")
         page = st.radio(
             "Select a page:",
-            ["Home", "Data Upload", "Analysis", "Insights", "Reports", "Market Basket Analysis", "RFM Analysis"],
+            ["Home", "Data Upload", "Analysis", "Insights", "Reports", "Market Basket Analysis", "RFM Analysis", "Monte Carlo Simulation"],
             key="navigation"
         )
         
@@ -166,6 +166,8 @@ def main():
         show_market_basket_analysis()
     elif page == "RFM Analysis":
         show_rfm_analysis()
+    elif page == "Monte Carlo Simulation":
+        show_monte_carlo_simulation()
 
 def show_home():
     st.header("Welcome to DataInsight AI! 👋")
@@ -1941,6 +1943,356 @@ Based on the RFM analysis:
                     mime="text/markdown",
                     use_container_width=True
                 )
+
+def show_monte_carlo_simulation():
+    """Monte Carlo Simulation page for financial forecasting."""
+    st.header("📈 Monte Carlo Simulation")
+    
+    # Help section
+    with st.expander("ℹ️ What is Monte Carlo Simulation?"):
+        st.markdown("""
+        **Monte Carlo Simulation** uses random sampling to model uncertainty and predict future outcomes.
+        
+        ### How It Works:
+        
+        1. **Historical Analysis:** Analyze past stock price movements
+        2. **Calculate Statistics:** Mean return and volatility (standard deviation)
+        3. **Generate Scenarios:** Create thousands of possible future price paths
+        4. **Risk Assessment:** Calculate probabilities and confidence intervals
+        
+        ### Key Metrics:
+        
+        - **Expected Return:** Average predicted return across all simulations
+        - **VaR (Value at Risk):** Maximum expected loss at a given confidence level
+        - **CVaR (Conditional VaR):** Average loss when VaR threshold is exceeded
+        - **Confidence Intervals:** Range of outcomes at different probability levels
+        
+        ### Applications:
+        
+        - 💰 **Portfolio Management:** Asset allocation and risk assessment
+        - 📊 **Investment Planning:** Long-term return projections
+        - ⚠️ **Risk Analysis:** Worst-case scenario planning
+        - 🎯 **Decision Making:** Compare investment opportunities
+        """)
+    
+    st.markdown("""
+    Forecast stock prices and assess investment risk using Monte Carlo simulation.
+    """)
+    
+    # Import Monte Carlo utilities
+    from utils.monte_carlo import MonteCarloSimulator
+    from datetime import datetime, timedelta
+    
+    # Initialize simulator in session state
+    if 'mc_simulator' not in st.session_state:
+        st.session_state.mc_simulator = MonteCarloSimulator()
+    
+    simulator = st.session_state.mc_simulator
+    
+    # Stock selection
+    st.subheader("📊 1. Select Stock & Time Period")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        ticker = st.text_input(
+            "Stock Ticker Symbol",
+            value="AAPL",
+            help="Enter stock ticker (e.g., AAPL, MSFT, GOOGL, TSLA)"
+        ).upper()
+    
+    with col2:
+        lookback_days = st.number_input(
+            "Historical Data (days)",
+            min_value=30,
+            max_value=730,
+            value=365,
+            step=30,
+            help="Days of historical data for analysis"
+        )
+    
+    with col3:
+        forecast_days = st.number_input(
+            "Forecast Period (days)",
+            min_value=7,
+            max_value=365,
+            value=30,
+            step=7,
+            help="Days to simulate into the future"
+        )
+    
+    # Fetch data button
+    if st.button("📥 Fetch Stock Data", type="primary", use_container_width=True):
+        with st.spinner(f"Fetching {ticker} data..."):
+            try:
+                start_date = datetime.now() - timedelta(days=lookback_days)
+                stock_data = simulator.fetch_stock_data(ticker, start_date)
+                
+                st.session_state.mc_stock_data = stock_data
+                st.session_state.mc_ticker = ticker
+                
+                # Calculate returns
+                returns = simulator.calculate_returns(stock_data['Close'])
+                st.session_state.mc_returns = returns
+                
+                # Calculate statistics
+                stats = simulator.get_statistics(returns)
+                st.session_state.mc_stats = stats
+                
+                st.success(f"✅ Loaded {len(stock_data)} days of {ticker} data!")
+                
+            except Exception as e:
+                st.error(f"Error fetching data: {str(e)}")
+                st.info("💡 Try a different ticker symbol (e.g., AAPL, MSFT, GOOGL)")
+    
+    # Only show analysis if data is loaded
+    if 'mc_stock_data' not in st.session_state:
+        st.info("👆 Fetch stock data to begin Monte Carlo simulation")
+        return
+    
+    stock_data = st.session_state.mc_stock_data
+    returns = st.session_state.mc_returns
+    stats = st.session_state.mc_stats
+    ticker = st.session_state.mc_ticker
+    
+    # Display historical data summary
+    st.divider()
+    st.subheader("📊 Historical Data Analysis")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Current Price", f"${stock_data['Close'].iloc[-1]:.2f}")
+    with col2:
+        st.metric("Mean Daily Return", f"{stats['mean']*100:.3f}%")
+    with col3:
+        st.metric("Volatility (Std Dev)", f"{stats['std']*100:.3f}%")
+    with col4:
+        total_return = ((stock_data['Close'].iloc[-1] - stock_data['Close'].iloc[0]) / stock_data['Close'].iloc[0]) * 100
+        st.metric("Total Return", f"{total_return:.2f}%")
+    
+    # Historical returns distribution
+    with st.expander("📈 View Historical Returns Distribution"):
+        fig_returns = simulator.create_returns_distribution(returns)
+        st.plotly_chart(fig_returns, use_container_width=True)
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Skewness", f"{stats['skewness']:.3f}")
+        with col2:
+            st.metric("Kurtosis", f"{stats['kurtosis']:.3f}")
+        with col3:
+            st.metric("Median Return", f"{stats['median']*100:.3f}%")
+    
+    # Simulation parameters
+    st.divider()
+    st.subheader("🎲 2. Configure Simulation")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        num_simulations = st.slider(
+            "Number of Simulations",
+            min_value=100,
+            max_value=10000,
+            value=1000,
+            step=100,
+            help="More simulations = more accurate but slower"
+        )
+    
+    with col2:
+        confidence_levels = st.multiselect(
+            "Confidence Intervals",
+            [5, 10, 25, 50, 75, 90, 95],
+            default=[5, 25, 50, 75, 95],
+            help="Percentiles to display in simulation plot"
+        )
+    
+    # Run simulation button
+    if st.button("🚀 Run Monte Carlo Simulation", type="primary", use_container_width=True):
+        with st.spinner(f"Running {num_simulations} simulations..."):
+            try:
+                start_price = stock_data['Close'].iloc[-1]
+                
+                # Run simulation
+                simulations = simulator.run_simulation(
+                    start_price=start_price,
+                    mean_return=stats['mean'],
+                    std_return=stats['std'],
+                    days=forecast_days,
+                    num_simulations=num_simulations
+                )
+                
+                # Calculate confidence intervals
+                intervals_dict = simulator.calculate_confidence_intervals(
+                    simulations,
+                    [level / 100 for level in confidence_levels]
+                )
+                
+                # Calculate risk metrics
+                final_prices = simulations[:, -1]
+                risk_metrics = simulator.get_risk_metrics(final_prices, start_price)
+                
+                # Store in session state
+                st.session_state.mc_simulations = simulations
+                st.session_state.mc_intervals = intervals_dict
+                st.session_state.mc_risk_metrics = risk_metrics
+                st.session_state.mc_forecast_days = forecast_days
+                
+                st.success(f"✅ Completed {num_simulations} simulations for {forecast_days} days!")
+                
+            except Exception as e:
+                st.error(f"Error running simulation: {str(e)}")
+    
+    # Show results if available
+    if 'mc_simulations' in st.session_state:
+        simulations = st.session_state.mc_simulations
+        intervals = st.session_state.mc_intervals
+        risk_metrics = st.session_state.mc_risk_metrics
+        forecast_days_actual = st.session_state.mc_forecast_days
+        
+        # Summary metrics
+        st.divider()
+        st.subheader("📊 3. Simulation Results")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Expected Price", f"${risk_metrics['expected_price']:.2f}")
+        with col2:
+            st.metric("Expected Return", f"{risk_metrics['expected_return']:.2f}%")
+        with col3:
+            st.metric("Probability of Profit", f"{risk_metrics['probability_profit']:.1f}%")
+        with col4:
+            st.metric("VaR (95%)", f"{risk_metrics['var_95']:.2f}%")
+        
+        # Simulation plot
+        st.subheader("📈 4. Simulation Paths")
+        fig_sim = simulator.create_simulation_plot(simulations, intervals, ticker, forecast_days_actual)
+        st.plotly_chart(fig_sim, use_container_width=True)
+        
+        # Distribution plot
+        st.subheader("📊 5. Final Price Distribution")
+        fig_dist = simulator.create_distribution_plot(simulations[:, -1], stock_data['Close'].iloc[-1])
+        st.plotly_chart(fig_dist, use_container_width=True)
+        
+        # Risk metrics table
+        st.subheader("⚠️ 6. Risk Metrics")
+        
+        risk_df = pd.DataFrame({
+            'Metric': [
+                'Expected Return',
+                'Standard Deviation',
+                'Value at Risk (95%)',
+                'Value at Risk (99%)',
+                'Conditional VaR (95%)',
+                'Probability of Profit',
+                'Minimum Price',
+                'Maximum Price'
+            ],
+            'Value': [
+                f"{risk_metrics['expected_return']:.2f}%",
+                f"{risk_metrics['std_dev']:.2f}%",
+                f"{risk_metrics['var_95']:.2f}%",
+                f"{risk_metrics['var_99']:.2f}%",
+                f"{risk_metrics['cvar_95']:.2f}%",
+                f"{risk_metrics['probability_profit']:.1f}%",
+                f"${risk_metrics['min_price']:.2f}",
+                f"${risk_metrics['max_price']:.2f}"
+            ]
+        })
+        
+        st.dataframe(risk_df, use_container_width=True, hide_index=True)
+        
+        # Business insights
+        st.divider()
+        st.subheader("💡 7. Business Insights")
+        
+        insights = simulator.generate_insights(risk_metrics, ticker, forecast_days_actual)
+        
+        for insight in insights:
+            st.markdown(insight)
+        
+        # Strategic recommendations
+        with st.expander("🎯 Strategic Recommendations"):
+            st.markdown("""
+            ### Investment Strategies Based on Results:
+            
+            #### If Probability of Profit > 60%:
+            - ✅ Consider **long position** (buying the stock)
+            - 📈 Set target prices at 75th-90th percentile levels
+            - 🛡️ Use stop-loss at 10th-25th percentile levels
+            
+            #### If VaR (95%) > -10%:
+            - ⚖️ **Moderate risk** - suitable for balanced portfolios
+            - 💼 Consider position sizing based on portfolio allocation
+            - 📊 Monitor volatility indicators
+            
+            #### If VaR (95%) > -20%:
+            - ⚠️ **High risk** - only for aggressive investors
+            - 🎲 Consider options strategies for hedging
+            - 📉 Prepare exit strategy in advance
+            
+            ### Risk Management:
+            
+            1. **Diversification:** Don't allocate more than 5-10% to single stock
+            2. **Stop-Loss:** Set at VaR level comfortable for your risk tolerance
+            3. **Rebalance:** Review positions regularly (monthly/quarterly)
+            4. **Hedge:** Consider protective puts if downside risk is high
+            5. **Dollar-Cost Averaging:** Spread investment over time to reduce risk
+            """)
+        
+        # Export options
+        st.divider()
+        st.subheader("📥 8. Export Results")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Export simulation data
+            sim_df = pd.DataFrame(simulations).T
+            sim_df.insert(0, 'Day', range(len(sim_df)))
+            sim_csv = sim_df.to_csv(index=False)
+            st.download_button(
+                label="📥 Download Simulation Paths (CSV)",
+                data=sim_csv,
+                file_name=f"mc_simulation_{ticker}_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        
+        with col2:
+            # Export report
+            report = f"""
+# Monte Carlo Simulation Report: {ticker}
+**Generated:** {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+## Simulation Parameters
+- **Ticker:** {ticker}
+- **Forecast Period:** {forecast_days_actual} days
+- **Number of Simulations:** {num_simulations}
+- **Starting Price:** ${stock_data['Close'].iloc[-1]:.2f}
+
+## Historical Analysis
+- **Mean Daily Return:** {stats['mean']*100:.3f}%
+- **Volatility:** {stats['std']*100:.3f}%
+- **Skewness:** {stats['skewness']:.3f}
+- **Kurtosis:** {stats['kurtosis']:.3f}
+
+## Risk Metrics
+{risk_df.to_markdown(index=False)}
+
+## Business Insights
+{chr(10).join(insights)}
+
+---
+*Report generated by DataInsight AI - Monte Carlo Simulation Module*
+"""
+            st.download_button(
+                label="📥 Download Report (Markdown)",
+                data=report,
+                file_name=f"mc_report_{ticker}_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.md",
+                mime="text/markdown",
+                use_container_width=True
+            )
 
 if __name__ == "__main__":
     main()
