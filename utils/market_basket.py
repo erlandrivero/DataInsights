@@ -52,6 +52,8 @@ class MarketBasketAnalyzer:
         Returns:
             List of transactions (each transaction is a list of items)
         """
+        import pandas as pd
+        
         # Clean the data before processing
         df_clean = df.copy()
         
@@ -59,15 +61,14 @@ class MarketBasketAnalyzer:
         df_clean = df_clean.dropna(subset=[item_col])
         
         # Convert all items to strings and strip whitespace
-        df_clean[item_col] = df_clean[item_col].astype(str).str.strip()
+        df_clean.loc[:, item_col] = df_clean[item_col].astype(str).str.strip()
         
-        # Remove empty strings
-        df_clean = df_clean[df_clean[item_col] != '']
-        df_clean = df_clean[df_clean[item_col] != 'nan']
-        df_clean = df_clean[df_clean[item_col] != 'None']
+        # Remove empty strings and 'nan' strings
+        df_clean = df_clean[df_clean[item_col].str.len() > 0]
+        df_clean = df_clean[~df_clean[item_col].isin(['nan', 'None', 'NaN', 'NONE'])]
         
         # Group by transaction and create lists
-        transactions = df_clean.groupby(transaction_col)[item_col].apply(list).tolist()
+        transactions = df_clean.groupby(transaction_col)[item_col].apply(lambda x: [str(i) for i in x]).tolist()
         
         # Remove any empty transactions
         transactions = [t for t in transactions if len(t) > 0]
