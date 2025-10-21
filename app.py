@@ -186,7 +186,7 @@ def show_home():
         st.markdown("""
         <div class="feature-box">
             <h3>📤 Upload Data</h3>
-            <p>Upload CSV or Excel files and get instant data profiling<br>&nbsp;</p>
+            <p>Upload CSV or Excel files and get<br>instant data profiling</p>
         </div>
         """, unsafe_allow_html=True)
     
@@ -202,7 +202,7 @@ def show_home():
         st.markdown("""
         <div class="feature-box">
             <h3>📊 Visualizations</h3>
-            <p>Interactive charts and dashboards generated automatically<br>&nbsp;</p>
+            <p>Interactive charts and dashboards<br>generated automatically</p>
         </div>
         """, unsafe_allow_html=True)
     
