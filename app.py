@@ -2855,185 +2855,38 @@ def show_monte_carlo_simulation():
             )
 
 def show_ml_classification():
-    """ML Classification Templates page for lead scoring, churn prediction, and credit risk."""
-    st.header("🎯 ML Classification Templates")
+    """Comprehensive ML Classification with 15 models and full evaluation."""
+    st.header("🤖 Machine Learning - Classification Models")
     
     # Help section
-    with st.expander("ℹ️ What is Classification?"):
+    with st.expander("ℹ️ What is Machine Learning Classification?"):
         st.markdown("""
         **Classification** is a supervised machine learning technique that predicts categorical outcomes.
         
-        ### Common Business Applications:
+        ### This Module Features:
+        - **15 Classification Algorithms** - From linear models to advanced boosting
+        - **Comprehensive Metrics** - Accuracy, Precision, Recall, F1, ROC-AUC, Cross-Validation
+        - **Model Comparison** - Interactive visualizations to compare all models
+        - **Feature Importance** - Understand what drives predictions
+        - **AI Insights** - Get intelligent recommendations from OpenAI
         
+        ### Common Business Applications:
         - **Lead Scoring:** Predict which leads are most likely to convert
         - **Churn Prediction:** Identify customers at risk of leaving
         - **Credit Risk:** Assess loan default probability
         - **Fraud Detection:** Flag suspicious transactions
         
         ### How It Works:
-        
-        1. **Train:** Learn patterns from historical labeled data
-        2. **Predict:** Apply learned patterns to new data
-        3. **Evaluate:** Measure accuracy, precision, recall
-        4. **Deploy:** Use predictions for business decisions
-        
-        ### Key Metrics:
-        
-        - **Accuracy:** Overall correctness of predictions
-        - **Precision:** Of predicted positives, how many are correct?
-        - **Recall:** Of actual positives, how many did we find?
-        - **F1-Score:** Balance between precision and recall
-        - **ROC-AUC:** Model's ability to distinguish between classes
+        1. **Upload Data** - Your dataset with features and target column
+        2. **Select Models** - Choose from 15 algorithms or train all
+        3. **Train** - System trains and evaluates all selected models
+        4. **Compare** - View comprehensive metrics and visualizations
+        5. **Deploy** - Export best model and make predictions
         """)
-    
-    st.markdown("""
-    Choose a pre-configured classification template for common business problems.
-    """)
-    
-    # Template selection
-    st.subheader("📋 1. Select Template")
-    
-    template = st.selectbox(
-        "Choose a business use case:",
-        [
-            "Lead Scoring (Sales)",
-            "Churn Prediction (Customer Retention)",
-            "Credit Risk Assessment (Finance)",
-            "Custom Classification"
-        ],
-        help="Pre-configured templates with example features and workflows"
-    )
-    
-    # Template-specific instructions
-    st.divider()
-    
-    if template == "Lead Scoring (Sales)":
-        st.subheader("📊 Lead Scoring Template")
-        st.markdown("""
-        **Goal:** Predict which leads are most likely to convert to customers
-        
-        **Required Data Columns:**
-        - Lead source (e.g., website, referral, ad)
-        - Engagement metrics (emails opened, pages viewed)
-        - Demographics (company size, industry)
-        - Behavioral data (time on site, downloads)
-        - **Target:** Converted (Yes/No)
-        
-        **Example Features:**
-        - `lead_source`, `email_opens`, `page_views`, `company_size`, `industry`, `converted`
-        
-        **Business Value:**
-        - Prioritize sales team efforts on high-quality leads
-        - Increase conversion rates by 20-40%
-        - Reduce time wasted on low-quality leads
-        """)
-        
-        example_data = {
-            'lead_source': ['Website', 'Referral', 'Ad', 'Website', 'Ad'],
-            'email_opens': [5, 12, 2, 8, 1],
-            'page_views': [10, 25, 5, 15, 3],
-            'company_size': ['Medium', 'Large', 'Small', 'Medium', 'Small'],
-            'industry': ['Tech', 'Finance', 'Retail', 'Tech', 'Retail'],
-            'converted': ['Yes', 'Yes', 'No', 'Yes', 'No']
-        }
-        
-    elif template == "Churn Prediction (Customer Retention)":
-        st.subheader("💔 Churn Prediction Template")
-        st.markdown("""
-        **Goal:** Identify customers at risk of canceling or leaving
-        
-        **Required Data Columns:**
-        - Usage metrics (logins, features used)
-        - Tenure (months as customer)
-        - Support tickets (count, resolution time)
-        - Billing info (payment issues, plan type)
-        - **Target:** Churned (Yes/No)
-        
-        **Example Features:**
-        - `months_active`, `logins_per_month`, `support_tickets`, `payment_issues`, `churned`
-        
-        **Business Value:**
-        - Proactively retain at-risk customers
-        - Reduce churn rate by 15-30%
-        - Target retention campaigns effectively
-        """)
-        
-        example_data = {
-            'months_active': [24, 6, 36, 12, 3],
-            'logins_per_month': [20, 2, 30, 8, 1],
-            'support_tickets': [1, 5, 0, 3, 8],
-            'payment_issues': ['No', 'Yes', 'No', 'No', 'Yes'],
-            'plan_type': ['Premium', 'Basic', 'Premium', 'Basic', 'Basic'],
-            'churned': ['No', 'Yes', 'No', 'No', 'Yes']
-        }
-        
-    elif template == "Credit Risk Assessment (Finance)":
-        st.subheader("💰 Credit Risk Template")
-        st.markdown("""
-        **Goal:** Assess probability of loan default
-        
-        **Required Data Columns:**
-        - Credit score
-        - Income level
-        - Debt-to-income ratio
-        - Employment history
-        - **Target:** Defaulted (Yes/No)
-        
-        **Example Features:**
-        - `credit_score`, `annual_income`, `debt_to_income`, `employment_years`, `defaulted`
-        
-        **Business Value:**
-        - Reduce loan defaults by 25-40%
-        - Optimize lending decisions
-        - Set appropriate interest rates
-        """)
-        
-        example_data = {
-            'credit_score': [750, 620, 800, 580, 700],
-            'annual_income': [80000, 45000, 120000, 35000, 65000],
-            'debt_to_income': [0.25, 0.45, 0.15, 0.60, 0.30],
-            'employment_years': [10, 2, 15, 1, 5],
-            'loan_amount': [250000, 150000, 400000, 100000, 200000],
-            'defaulted': ['No', 'Yes', 'No', 'Yes', 'No']
-        }
-        
-    else:  # Custom Classification
-        st.subheader("🔧 Custom Classification Template")
-        st.markdown("""
-        **Goal:** Build a custom classification model for your specific use case
-        
-        **Requirements:**
-        - Dataset with features (predictor variables)
-        - Target column (binary: Yes/No, True/False, 0/1)
-        - At least 100+ rows for meaningful results
-        
-        **Steps:**
-        1. Upload your dataset
-        2. Select feature columns
-        3. Select target column
-        4. Choose model type
-        5. Train and evaluate
-        """)
-        
-        example_data = None
-    
-    # Show example data
-    if example_data:
-        with st.expander("📋 View Example Data Format"):
-            example_df = pd.DataFrame(example_data)
-            st.dataframe(example_df, use_container_width=True)
-            
-            csv = example_df.to_csv(index=False)
-            st.download_button(
-                label="📥 Download Example CSV",
-                data=csv,
-                file_name=f"{template.lower().replace(' ', '_')}_example.csv",
-                mime="text/csv"
-            )
     
     # Data selection
     st.divider()
-    st.subheader("📤 2. Select Data Source")
+    st.subheader("📤 1. Select Data Source")
     
     # Check if data is already uploaded in session
     if st.session_state.data is not None:
@@ -3046,23 +2899,27 @@ def show_ml_classification():
         if data_source == "Use uploaded data from Data Upload page":
             df = st.session_state.data
             st.session_state.ml_data = df
-            st.success(f"✅ Using uploaded data: {len(df)} rows and {len(df.columns)} columns")
-            st.dataframe(df.head(10), use_container_width=True)
+            st.success(f"✅ Using uploaded data: {len(df):,} rows and {len(df.columns)} columns")
+            
+            # Show preview
+            with st.expander("📋 Data Preview"):
+                st.dataframe(df.head(10), use_container_width=True)
         else:
             uploaded_file = st.file_uploader(
                 "Upload CSV file with features and target column",
                 type=['csv'],
                 key="ml_upload",
-                help="Must include predictor features and binary target column"
+                help="Must include predictor features and target column"
             )
             
             if uploaded_file is not None:
                 try:
                     df = pd.read_csv(uploaded_file)
                     st.session_state.ml_data = df
+                    st.success(f"✅ Loaded {len(df):,} rows and {len(df.columns)} columns")
                     
-                    st.success(f"✅ Loaded {len(df)} rows and {len(df.columns)} columns")
-                    st.dataframe(df.head(10), use_container_width=True)
+                    with st.expander("📋 Data Preview"):
+                        st.dataframe(df.head(10), use_container_width=True)
                 except Exception as e:
                     st.error(f"Error loading file: {str(e)}")
             else:
@@ -3074,24 +2931,26 @@ def show_ml_classification():
             "Upload CSV file with features and target column",
             type=['csv'],
             key="ml_upload",
-            help="Must include predictor features and binary target column"
+            help="Must include predictor features and target column"
         )
         
         if uploaded_file is not None:
             try:
                 df = pd.read_csv(uploaded_file)
                 st.session_state.ml_data = df
+                st.success(f"✅ Loaded {len(df):,} rows and {len(df.columns)} columns")
                 
-                st.success(f"✅ Loaded {len(df)} rows and {len(df.columns)} columns")
-                st.dataframe(df.head(10), use_container_width=True)
+                with st.expander("📋 Data Preview"):
+                    st.dataframe(df.head(10), use_container_width=True)
             except Exception as e:
                 st.error(f"Error loading file: {str(e)}")
     
-    # Column selection (works for both data sources)
+    # Configuration and training
     if 'ml_data' in st.session_state:
         df = st.session_state.ml_data
+        
         st.divider()
-        st.subheader("🎯 3. Configure Model")
+        st.subheader("🎯 2. Configure Training")
         
         col1, col2 = st.columns(2)
         
@@ -3099,198 +2958,472 @@ def show_ml_classification():
             target_col = st.selectbox(
                 "Select Target Column (what to predict)",
                 df.columns,
-                help="Binary column with Yes/No, True/False, or 0/1 values"
+                help="Column containing the categories/classes to predict"
             )
+            
+            # Show class distribution
+            if target_col:
+                class_counts = df[target_col].value_counts()
+                st.write("**Class Distribution:**")
+                fig_dist = px.bar(
+                    x=class_counts.index.astype(str),
+                    y=class_counts.values,
+                    labels={'x': target_col, 'y': 'Count'},
+                    title=f'Distribution of {target_col}'
+                )
+                st.plotly_chart(fig_dist, use_container_width=True)
         
         with col2:
-            feature_cols = st.multiselect(
-                "Select Feature Columns (predictors)",
-                [col for col in df.columns if col != target_col],
-                default=[col for col in df.columns if col != target_col][:5],
-                help="Columns used to make predictions"
+            # Model selection
+            train_all = st.checkbox("Train All Models (15 algorithms)", value=True,
+                                   help="Train all 15 models or select specific ones")
+            
+            if not train_all:
+                from utils.ml_training import MLTrainer
+                temp_trainer = MLTrainer(df, target_col)
+                all_model_names = list(temp_trainer.get_all_models().keys())
+                
+                selected_models = st.multiselect(
+                    "Select Models to Train",
+                    all_model_names,
+                    default=all_model_names[:5],
+                    help="Choose which models to train"
+                )
+            else:
+                selected_models = None
+            
+            # Training config
+            test_size = st.slider(
+                "Test Set Size (%)",
+                min_value=10,
+                max_value=40,
+                value=20,
+                step=5,
+                help="Percentage of data reserved for testing"
+            )
+            
+            cv_folds = st.slider(
+                "Cross-Validation Folds",
+                min_value=3,
+                max_value=10,
+                value=3,
+                help="Number of folds for cross-validation"
             )
         
-        if len(feature_cols) > 0:
-            # Model options
-            col1, col2 = st.columns(2)
+        # Train button
+        if st.button("🚀 Train Models", type="primary", use_container_width=True):
+            from utils.ml_training import MLTrainer
             
-            with col1:
-                test_size = st.slider(
-                    "Test Set Size (%)",
-                    min_value=10,
-                    max_value=40,
-                    value=20,
-                    step=5,
-                    help="Percentage of data reserved for testing"
+            try:
+                # Initialize trainer
+                with st.spinner("Initializing ML Trainer..."):
+                    trainer = MLTrainer(df, target_col, max_samples=10000)
+                    prep_info = trainer.prepare_data(test_size=test_size/100)
+                
+                # Show preparation info
+                st.success(f"✅ Data prepared: {prep_info['train_size']} train, {prep_info['test_size']} test samples")
+                if prep_info['sampled']:
+                    st.info(f"📊 Dataset sampled to 10,000 rows for performance optimization")
+                
+                # Progress tracking
+                st.divider()
+                st.subheader("⚙️ Training Progress")
+                
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                results = []
+                
+                def progress_callback(current, total, model_name, result):
+                    progress = current / total
+                    progress_bar.progress(progress)
+                    status_text.text(f"Training {current}/{total}: {model_name} - F1: {result['f1']:.4f}")
+                
+                # Train models
+                results = trainer.train_all_models(
+                    selected_models=selected_models,
+                    cv_folds=cv_folds,
+                    progress_callback=progress_callback
                 )
-            
-            with col2:
-                model_type = st.selectbox(
-                    "Model Type",
-                    ["Logistic Regression", "Random Forest", "Gradient Boosting"],
-                    help="Algorithm to use for classification"
-                )
-            
-            # Train model button
-            if st.button("🚀 Train Classification Model", type="primary", use_container_width=True):
-                with st.spinner("Training model..."):
-                    try:
-                        from sklearn.model_selection import train_test_split
-                        from sklearn.linear_model import LogisticRegression
-                        from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-                        from sklearn.preprocessing import LabelEncoder
-                        from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report
-                        
-                        # Prepare data
-                        X = df[feature_cols].copy()
-                        y = df[target_col].copy()
-                        
-                        # Encode categorical variables
-                        label_encoders = {}
-                        for col in X.columns:
-                            if X[col].dtype == 'object':
-                                le = LabelEncoder()
-                                X[col] = le.fit_transform(X[col].astype(str))
-                                label_encoders[col] = le
-                        
-                        # Encode target
-                        if y.dtype == 'object':
-                            le_target = LabelEncoder()
-                            y = le_target.fit_transform(y.astype(str))
-                        
-                        # Split data
-                        X_train, X_test, y_train, y_test = train_test_split(
-                            X, y, test_size=test_size/100, random_state=42
-                        )
-                        
-                        # Select and train model
-                        if model_type == "Logistic Regression":
-                            model = LogisticRegression(random_state=42, max_iter=1000)
-                        elif model_type == "Random Forest":
-                            model = RandomForestClassifier(n_estimators=100, random_state=42)
-                        else:  # Gradient Boosting
-                            model = GradientBoostingClassifier(n_estimators=100, random_state=42)
-                        
-                        model.fit(X_train, y_train)
-                        
-                        # Predictions
-                        y_pred = model.predict(X_test)
-                        
-                        # Calculate metrics
-                        accuracy = accuracy_score(y_test, y_pred)
-                        precision = precision_score(y_test, y_pred, average='weighted', zero_division=0)
-                        recall = recall_score(y_test, y_pred, average='weighted', zero_division=0)
-                        f1 = f1_score(y_test, y_pred, average='weighted', zero_division=0)
-                        
-                        # Store in session state
-                        st.session_state.ml_model = model
-                        st.session_state.ml_metrics = {
-                            'accuracy': accuracy,
-                            'precision': precision,
-                            'recall': recall,
-                            'f1': f1
-                        }
-                        st.session_state.ml_confusion = confusion_matrix(y_test, y_pred)
-                        st.session_state.ml_X_test = X_test
-                        st.session_state.ml_y_test = y_test
-                        st.session_state.ml_y_pred = y_pred
-                        st.session_state.ml_feature_cols = feature_cols
-                        st.session_state.ml_target_col = target_col
-                        
-                        st.success(f"✅ Model trained successfully! Accuracy: {accuracy*100:.2f}%")
-                        
-                    except Exception as e:
-                        st.error(f"Error training model: {str(e)}")
-                        st.info("💡 Check that your target column is binary and features are numeric or categorical")
+                
+                # Store results
+                st.session_state.ml_results = results
+                st.session_state.ml_trainer = trainer
+                
+                progress_bar.progress(1.0)
+                status_text.text("✅ Training complete!")
+                
+                st.success(f"🎉 Successfully trained {len(results)} models!")
+                
+            except Exception as e:
+                st.error(f"Error during training: {str(e)}")
+                import traceback
+                st.code(traceback.format_exc())
     
-    # Show results if model is trained
-    if 'ml_metrics' in st.session_state:
-        metrics = st.session_state.ml_metrics
-        confusion = st.session_state.ml_confusion
+    # Display results
+    if 'ml_results' in st.session_state and 'ml_trainer' in st.session_state:
+        results = st.session_state.ml_results
+        trainer = st.session_state.ml_trainer
         
         st.divider()
-        st.subheader("📊 4. Model Performance")
+        st.subheader("📊 3. Model Performance Results")
         
-        # Metrics
+        # Summary metrics
+        successful_results = [r for r in results if r['success']]
+        best_model = successful_results[0] if successful_results else None
+        
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("Accuracy", f"{metrics['accuracy']*100:.2f}%")
+            st.metric("Models Trained", len(results))
         with col2:
-            st.metric("Precision", f"{metrics['precision']*100:.2f}%")
+            st.metric("Successful", len(successful_results))
         with col3:
-            st.metric("Recall", f"{metrics['recall']*100:.2f}%")
+            if best_model:
+                st.metric("Best F1 Score", f"{best_model['f1']:.4f}")
         with col4:
-            st.metric("F1-Score", f"{metrics['f1']*100:.2f}%")
+            total_time = sum(r['training_time'] for r in results)
+            st.metric("Total Time", f"{total_time:.2f}s")
         
-        # Confusion Matrix
+        # Results table
+        st.write("**Model Comparison Table:**")
+        
+        # Create results dataframe
+        results_data = []
+        for r in successful_results:
+            results_data.append({
+                'Model': r['model_name'],
+                'Accuracy': f"{r['accuracy']:.4f}",
+                'Precision': f"{r['precision']:.4f}",
+                'Recall': f"{r['recall']:.4f}",
+                'F1 Score': f"{r['f1']:.4f}",
+                'ROC-AUC': f"{r['roc_auc']:.4f}" if r['roc_auc'] else 'N/A',
+                'CV Mean': f"{r['cv_mean']:.4f}" if r['cv_mean'] else 'N/A',
+                'CV Std': f"{r['cv_std']:.4f}" if r['cv_std'] else 'N/A',
+                'Time (s)': f"{r['training_time']:.3f}"
+            })
+        
+        results_df = pd.DataFrame(results_data)
+        
+        # Highlight best model
+        def highlight_best(row):
+            if row['Model'] == best_model['model_name']:
+                return ['background-color: #90EE90'] * len(row)
+            return [''] * len(row)
+        
+        styled_df = results_df.style.apply(highlight_best, axis=1)
+        st.dataframe(styled_df, use_container_width=True)
+        
+        # Visualizations
+        st.divider()
+        st.subheader("📈 4. Model Comparison Visualizations")
+        
+        tab1, tab2, tab3, tab4 = st.tabs(["F1 Score Comparison", "Metrics Radar", "Cross-Validation", "Training Time"])
+        
+        with tab1:
+            st.write("**F1 Score Comparison (All Models)**")
+            
+            # Sort by F1 for visualization
+            f1_data = [(r['model_name'], r['f1']) for r in successful_results]
+            f1_data.sort(key=lambda x: x[1], reverse=True)
+            
+            models = [d[0] for d in f1_data]
+            f1_scores = [d[1] for d in f1_data]
+            
+            # Color code: top 3 green, rest blue
+            colors = ['green' if i < 3 else 'blue' for i in range(len(models))]
+            
+            fig_f1 = go.Figure(data=[
+                go.Bar(x=models, y=f1_scores, marker_color=colors)
+            ])
+            fig_f1.add_hline(y=np.mean(f1_scores), line_dash="dash", 
+                            annotation_text=f"Mean: {np.mean(f1_scores):.4f}",
+                            line_color="red")
+            fig_f1.update_layout(
+                title="F1 Score by Model",
+                xaxis_title="Model",
+                yaxis_title="F1 Score",
+                height=500
+            )
+            fig_f1.update_xaxes(tickangle=-45)
+            st.plotly_chart(fig_f1, use_container_width=True)
+        
+        with tab2:
+            st.write("**Metrics Radar Chart (Top 3 Models)**")
+            
+            # Get top 3 models
+            top3 = successful_results[:3]
+            
+            fig_radar = go.Figure()
+            
+            for model_result in top3:
+                metrics = ['Accuracy', 'Precision', 'Recall', 'F1', 'ROC-AUC']
+                values = [
+                    model_result['accuracy'],
+                    model_result['precision'],
+                    model_result['recall'],
+                    model_result['f1'],
+                    model_result['roc_auc'] if model_result['roc_auc'] else 0
+                ]
+                
+                fig_radar.add_trace(go.Scatterpolar(
+                    r=values,
+                    theta=metrics,
+                    fill='toself',
+                    name=model_result['model_name']
+                ))
+            
+            fig_radar.update_layout(
+                polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
+                showlegend=True,
+                title="Performance Comparison: Top 3 Models",
+                height=500
+            )
+            st.plotly_chart(fig_radar, use_container_width=True)
+        
+        with tab3:
+            st.write("**Cross-Validation Score Distribution**")
+            
+            # Box plot of CV scores
+            cv_data = []
+            for r in successful_results:
+                if r['cv_scores'] and len(r['cv_scores']) > 0:
+                    for score in r['cv_scores']:
+                        cv_data.append({
+                            'Model': r['model_name'],
+                            'CV Score': score
+                        })
+            
+            if cv_data:
+                cv_df = pd.DataFrame(cv_data)
+                fig_cv = px.box(cv_df, x='Model', y='CV Score', 
+                               title='Cross-Validation Score Distribution')
+                fig_cv.update_xaxes(tickangle=-45)
+                fig_cv.update_layout(height=500)
+                st.plotly_chart(fig_cv, use_container_width=True)
+            else:
+                st.info("No cross-validation data available")
+        
+        with tab4:
+            st.write("**Training Time Analysis**")
+            
+            # Sort by time
+            time_data = [(r['model_name'], r['training_time']) for r in successful_results]
+            time_data.sort(key=lambda x: x[1])
+            
+            models_time = [d[0] for d in time_data]
+            times = [d[1] for d in time_data]
+            
+            # Color code by speed
+            colors_time = []
+            for t in times:
+                if t < 1:
+                    colors_time.append('green')  # Fast
+                elif t < 5:
+                    colors_time.append('yellow')  # Medium
+                else:
+                    colors_time.append('red')  # Slow
+            
+            fig_time = go.Figure(data=[
+                go.Bar(y=models_time, x=times, orientation='h', marker_color=colors_time)
+            ])
+            fig_time.update_layout(
+                title="Training Time by Model (seconds)",
+                xaxis_title="Time (seconds)",
+                yaxis_title="Model",
+                height=600
+            )
+            st.plotly_chart(fig_time, use_container_width=True)
+        
+        # Best model details
+        if best_model:
+            st.divider()
+            st.subheader(f"🏆 Best Model: {best_model['model_name']}")
+            
+            best_details = trainer.get_best_model_details(results)
+            
+            if best_details:
+                # Performance summary
+                col1, col2, col3, col4, col5 = st.columns(5)
+                with col1:
+                    st.metric("Accuracy", f"{best_details['metrics']['accuracy']:.4f}")
+                with col2:
+                    st.metric("Precision", f"{best_details['metrics']['precision']:.4f}")
+                with col3:
+                    st.metric("Recall", f"{best_details['metrics']['recall']:.4f}")
+                with col4:
+                    st.metric("F1 Score", f"{best_details['metrics']['f1']:.4f}")
+                with col5:
+                    if best_details['metrics']['roc_auc']:
+                        st.metric("ROC-AUC", f"{best_details['metrics']['roc_auc']:.4f}")
+                
+                # Confusion Matrix
+                st.write("**Confusion Matrix:**")
+                cm = np.array(best_details['confusion_matrix'])
+                
+                fig_cm = px.imshow(
+                    cm,
+                    labels=dict(x="Predicted", y="Actual", color="Count"),
+                    x=best_details['class_names'],
+                    y=best_details['class_names'],
+                    color_continuous_scale='Blues',
+                    text_auto=True
+                )
+                fig_cm.update_layout(title="Confusion Matrix", height=500)
+                st.plotly_chart(fig_cm, use_container_width=True)
+                
+                # Feature Importance
+                if best_details['feature_importance']:
+                    st.write("**Feature Importance:**")
+                    
+                    feat_imp = best_details['feature_importance']
+                    importance_df = pd.DataFrame({
+                        'Feature': feat_imp['features'],
+                        'Importance': feat_imp['importances']
+                    })
+                    importance_df = importance_df.sort_values('Importance', ascending=False).head(10)
+                    
+                    fig_imp = px.bar(
+                        importance_df,
+                        x='Importance',
+                        y='Feature',
+                        orientation='h',
+                        title='Top 10 Most Important Features'
+                    )
+                    fig_imp.update_layout(height=400)
+                    st.plotly_chart(fig_imp, use_container_width=True)
+                
+                # Model info
+                with st.expander("📖 About This Model"):
+                    model_info = trainer.get_model_info(best_model['model_name'])
+                    st.markdown(f"""
+                    **Description:** {model_info['description']}
+                    
+                    **Strengths:**
+                    {model_info['strengths']}
+                    
+                    **Weaknesses:**
+                    {model_info['weaknesses']}
+                    
+                    **Best Use Cases:**
+                    {model_info['use_cases']}
+                    """)
+        
+        # AI Insights
+        st.divider()
+        st.subheader("✨ AI-Powered Insights")
+        
+        if st.button("🤖 Generate AI Insights", use_container_width=True):
+            try:
+                from utils.ai_helper import AIHelper
+                ai = AIHelper()
+                
+                with st.spinner("Analyzing results and generating insights..."):
+                    # Prepare context
+                    context = f"""
+                    Machine Learning Classification Results:
+                    
+                    Dataset: {len(df)} rows, {len(df.columns)} columns
+                    Target: {target_col}
+                    Classes: {', '.join(trainer.class_names)}
+                    
+                    Models Trained: {len(successful_results)}
+                    Best Model: {best_model['model_name']}
+                    Best F1 Score: {best_model['f1']:.4f}
+                    
+                    Top 3 Models:
+                    """
+                    
+                    for i, r in enumerate(successful_results[:3], 1):
+                        context += f"\n{i}. {r['model_name']}: F1={r['f1']:.4f}, Accuracy={r['accuracy']:.4f}"
+                    
+                    prompt = f"""
+                    As a senior data science consultant, analyze these machine learning results and provide:
+                    
+                    1. **Performance Analysis** (2-3 sentences): Why did {best_model['model_name']} perform best?
+                    
+                    2. **Model Comparison** (2-3 sentences): Key differences between top 3 models and when to use each.
+                    
+                    3. **Business Recommendations** (3-4 bullet points): Which model to deploy and why? Consider accuracy, speed, interpretability.
+                    
+                    4. **Improvement Suggestions** (3-4 bullet points): How to potentially improve performance?
+                    
+                    5. **Deployment Considerations** (2-3 bullet points): What to watch for in production?
+                    
+                    {context}
+                    
+                    Be specific, actionable, and business-focused. Use clear language.
+                    """
+                    
+                    response = ai.client.chat.completions.create(
+                        model="gpt-4",
+                        messages=[
+                            {"role": "system", "content": "You are a senior data science consultant providing actionable ML insights."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.7,
+                        max_tokens=1500
+                    )
+                    
+                    st.markdown(response.choices[0].message.content)
+                    
+            except Exception as e:
+                st.error(f"Error generating insights: {str(e)}")
+        
+        # Export section
+        st.divider()
+        st.subheader("📥 5. Export & Download")
+        
         col1, col2 = st.columns(2)
         
         with col1:
-            st.write("**Confusion Matrix:**")
-            conf_df = pd.DataFrame(
-                confusion,
-                columns=['Predicted Negative', 'Predicted Positive'],
-                index=['Actual Negative', 'Actual Positive']
+            # Export results
+            results_export = results_df.to_csv(index=False)
+            st.download_button(
+                label="📥 Download Results Table (CSV)",
+                data=results_export,
+                file_name=f"ml_results_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                use_container_width=True
             )
-            st.dataframe(conf_df, use_container_width=True)
         
         with col2:
-            st.write("**Performance Interpretation:**")
-            if metrics['accuracy'] > 0.85:
-                st.success("✅ Excellent model performance!")
-            elif metrics['accuracy'] > 0.75:
-                st.info("📊 Good model performance")
-            elif metrics['accuracy'] > 0.65:
-                st.warning("⚠️ Moderate performance - consider feature engineering")
-            else:
-                st.error("❌ Low performance - review data quality")
-        
-        # Business recommendations
-        st.divider()
-        st.subheader("💡 5. Business Recommendations")
-        
-        if template == "Lead Scoring (Sales)":
-            st.markdown("""
-            ### Action Items:
-            - 🎯 **High Priority:** Focus sales team on predicted positive leads
-            - 📧 **Marketing:** Create targeted campaigns for different lead segments
-            - 📈 **A/B Test:** Test conversion strategies on predicted positives
-            - 🔄 **Retrain:** Update model monthly with new conversion data
-            """)
-        elif template == "Churn Prediction (Customer Retention)":
-            st.markdown("""
-            ### Action Items:
-            - 🚨 **Immediate:** Contact predicted churners with retention offers
-            - 💰 **Incentives:** Offer discounts/upgrades to at-risk customers
-            - 📞 **Support:** Proactive outreach to address pain points
-            - 📊 **Monitor:** Track churn indicators weekly
-            """)
-        elif template == "Credit Risk Assessment (Finance)":
-            st.markdown("""
-            ### Action Items:
-            - ✅ **Approve:** Fast-track low-risk applicants
-            - ⚠️ **Review:** Manual review for medium-risk applicants
-            - ❌ **Decline:** Reject or require collateral for high-risk
-            - 💵 **Pricing:** Adjust interest rates based on risk score
-            """)
-        
-        # Export
-        st.divider()
-        st.subheader("📥 6. Export Results")
-        
-        results_df = pd.DataFrame({
-            'Actual': st.session_state.ml_y_test,
-            'Predicted': st.session_state.ml_y_pred
-        })
-        results_csv = results_df.to_csv(index=False)
-        
-        st.download_button(
-            label="📥 Download Predictions (CSV)",
-            data=results_csv,
-            file_name=f"ml_predictions_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
+            # Export best model report
+            if best_model:
+                report = f"""
+# Machine Learning Classification Report
+**Generated:** {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+## Best Model: {best_model['model_name']}
+
+### Performance Metrics
+- **Accuracy:** {best_model['accuracy']:.4f}
+- **Precision:** {best_model['precision']:.4f}
+- **Recall:** {best_model['recall']:.4f}
+- **F1 Score:** {best_model['f1']:.4f}
+- **ROC-AUC:** {best_model['roc_auc']:.4f if best_model['roc_auc'] else 'N/A'}
+- **CV Mean:** {best_model['cv_mean']:.4f if best_model['cv_mean'] else 'N/A'}
+- **Training Time:** {best_model['training_time']:.3f}s
+
+## All Models Performance
+
+{results_df.to_markdown(index=False)}
+
+## Dataset Information
+- **Rows:** {len(df)}
+- **Features:** {len(trainer.feature_names)}
+- **Target:** {target_col}
+- **Classes:** {', '.join(trainer.class_names)}
+
+---
+*Report generated by DataInsight AI - Machine Learning Module*
+"""
+                st.download_button(
+                    label="📄 Download Best Model Report (MD)",
+                    data=report,
+                    file_name=f"ml_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.md",
+                    mime="text/markdown",
+                    use_container_width=True
+                )
 
 def show_anomaly_detection():
     """Anomaly & Outlier Detection page."""

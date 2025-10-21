@@ -35,3 +35,9 @@ prophet  # Facebook Prophet for time series forecasting
 nltk
 textblob
 wordcloud
+
+# Advanced ML Models
+xgboost
+lightgbm
+catboost
+joblib  # For model serialization
