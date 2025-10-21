@@ -247,12 +247,13 @@ class AnomalyDetector:
         
         return pd.DataFrame(profiles)
     
-    def create_2d_scatter(self, use_pca: bool = False) -> go.Figure:
+    def create_2d_scatter(self, use_pca: bool = False, max_points: int = 2000) -> go.Figure:
         """
         Create 2D scatter plot of anomalies.
         
         Args:
             use_pca: Whether to use PCA for dimensionality reduction
+            max_points: Maximum points to display (for performance)
             
         Returns:
             Plotly figure
@@ -260,37 +261,56 @@ class AnomalyDetector:
         if self.anomaly_results is None:
             raise ValueError("Anomaly detection must be run first")
         
+        # Sample data if too large (keep ALL anomalies, sample normal points)
+        if len(self.anomaly_results) > max_points:
+            anomalies = self.anomaly_results[self.anomaly_results['anomaly_type'] == 'Anomaly']
+            normal = self.anomaly_results[self.anomaly_results['anomaly_type'] == 'Normal']
+            
+            # Keep all anomalies, sample normal points
+            n_normal_sample = max_points - len(anomalies)
+            if n_normal_sample > 0 and len(normal) > n_normal_sample:
+                normal_sample = normal.sample(n=n_normal_sample, random_state=42)
+                sample_results = pd.concat([anomalies, normal_sample]).sort_index()
+            else:
+                sample_results = self.anomaly_results
+            
+            sample_indices = sample_results.index
+            sample_features = self.scaled_features.loc[sample_indices]
+        else:
+            sample_results = self.anomaly_results
+            sample_features = self.scaled_features
+        
         if use_pca or len(self.features.columns) > 2:
             # Use PCA for dimensionality reduction
             pca = PCA(n_components=2)
-            coords = pca.fit_transform(self.scaled_features)
+            coords = pca.fit_transform(sample_features)
             x_label = f'PC1 ({pca.explained_variance_ratio_[0]*100:.1f}%)'
             y_label = f'PC2 ({pca.explained_variance_ratio_[1]*100:.1f}%)'
         else:
             # Use first two features
-            coords = self.scaled_features.iloc[:, :2].values
+            coords = sample_features.iloc[:, :2].values
             x_label = self.features.columns[0]
             y_label = self.features.columns[1]
         
-        # Create scatter plot with simplified hover for better performance
+        # Create scatter plot with tooltips
         fig = px.scatter(
             x=coords[:, 0],
             y=coords[:, 1],
-            color=self.anomaly_results['anomaly_type'],
+            color=sample_results['anomaly_type'],
             color_discrete_map={'Anomaly': 'red', 'Normal': 'blue'},
-            title='Anomaly Detection Results',
-            labels={'x': x_label, 'y': y_label}
+            title=f'Anomaly Detection Results (showing {len(sample_results):,} points)',
+            labels={'x': x_label, 'y': y_label},
+            hover_data={'score': sample_results['anomaly_score']}
         )
         
-        # Disable hover for maximum performance
+        # Enable hover with performance optimization
         fig.update_traces(
-            marker=dict(size=8, opacity=0.7),
-            hoverinfo='skip'  # Disable hover entirely to fix freezing
+            marker=dict(size=8, opacity=0.7)
         )
         fig.update_layout(
             height=600, 
             showlegend=True,
-            hovermode=False  # Disable all hover interactions
+            hovermode='closest'  # Show only nearest point
         )
         
         return fig
