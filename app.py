@@ -600,7 +600,7 @@ def show_analysis():
                 col = st.selectbox("Select column:", numeric_cols, key="histogram_col")
                 if st.button("Create Histogram", key="create_histogram_btn"):
                     fig = viz.create_histogram(df, col)
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, key="histogram_chart")
             else:
                 st.warning("No numeric columns available for histogram")
         
@@ -609,7 +609,7 @@ def show_analysis():
                 col = st.selectbox("Select column:", categorical_cols, key="bar_col")
                 if st.button("Create Bar Chart", key="create_bar_btn"):
                     fig = viz.create_bar_chart(df, col)
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, key="bar_chart")
             else:
                 st.warning("No categorical columns available for bar chart")
         
@@ -619,7 +619,7 @@ def show_analysis():
                 col2 = st.selectbox("Select Y axis:", numeric_cols, key="scatter_y")
                 if st.button("Create Scatter Plot", key="create_scatter_btn"):
                     fig = viz.create_scatter(df, col1, col2)
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, key="scatter_chart")
             else:
                 st.warning("Need at least 2 numeric columns for scatter plot")
         
@@ -628,7 +628,7 @@ def show_analysis():
                 col = st.selectbox("Select column:", numeric_cols, key="box_col")
                 if st.button("Create Box Plot", key="create_box_btn"):
                     fig = viz.create_box_plot(df, col)
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, key="box_chart")
             else:
                 st.warning("No numeric columns available for box plot")
         
@@ -638,7 +638,7 @@ def show_analysis():
                 if st.button("Create Heatmap", key="create_heatmap_btn"):
                     if len(selected_cols) >= 2:
                         fig = viz.create_correlation_heatmap(df, selected_cols)
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, use_container_width=True, key="heatmap_chart")
                     else:
                         st.warning("Please select at least 2 columns")
             else:
