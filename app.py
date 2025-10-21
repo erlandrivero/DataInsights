@@ -3576,84 +3576,24 @@ def show_anomaly_detection():
         detector = st.session_state.anomaly_detector
         algorithm = st.session_state.anomaly_algorithm
         
-        # Summary metrics with smart indicators
+        # Summary metrics
         st.divider()
         st.subheader("📈 4. Detection Results")
         
         stats = detector.get_summary_stats()
-        avg_score = results['anomaly_score'].mean()
-        
-        # Determine quality indicators
-        anomaly_rate = stats['pct_anomalies']
-        
-        # Anomaly rate assessment
-        if anomaly_rate < 1:
-            anomaly_color = "green"
-            anomaly_icon = "✅"
-            anomaly_status = "Excellent"
-        elif anomaly_rate < 5:
-            anomaly_color = "blue"
-            anomaly_icon = "ℹ️"
-            anomaly_status = "Good"
-        elif anomaly_rate < 10:
-            anomaly_color = "orange"
-            anomaly_icon = "⚠️"
-            anomaly_status = "Fair"
-        else:
-            anomaly_color = "red"
-            anomaly_icon = "🚨"
-            anomaly_status = "High"
         
         col1, col2, col3, col4 = st.columns(4)
-        
         with col1:
-            st.markdown(f"""
-            <div style="padding: 1rem; border-radius: 0.5rem; border-left: 4px solid #1f77b4; background-color: #f0f8ff;">
-                <div style="color: #666; font-size: 0.875rem; margin-bottom: 0.25rem;">Total Records</div>
-                <div style="font-size: 1.875rem; font-weight: bold; color: #1f77b4;">{stats['total_records']:,}</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
+            st.metric("Total Records", f"{stats['total_records']:,}")
         with col2:
-            st.markdown(f"""
-            <div style="padding: 1rem; border-radius: 0.5rem; border-left: 4px solid {anomaly_color}; background-color: {'#fff5f5' if anomaly_color == 'red' else '#fff8e1' if anomaly_color == 'orange' else '#f0f8ff' if anomaly_color == 'blue' else '#f0fff4'};">
-                <div style="color: #666; font-size: 0.875rem; margin-bottom: 0.25rem;">Anomalies Detected {anomaly_icon}</div>
-                <div style="font-size: 1.875rem; font-weight: bold; color: {anomaly_color};">{stats['num_anomalies']:,}</div>
-                <div style="color: #666; font-size: 0.875rem; margin-top: 0.25rem;">↑ {stats['pct_anomalies']:.1f}% • {anomaly_status}</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
+            st.metric("Anomalies Detected", f"{stats['num_anomalies']:,}", 
+                     delta=f"{stats['pct_anomalies']:.1f}%")
         with col3:
-            st.markdown(f"""
-            <div style="padding: 1rem; border-radius: 0.5rem; border-left: 4px solid green; background-color: #f0fff4;">
-                <div style="color: #666; font-size: 0.875rem; margin-bottom: 0.25rem;">Normal Records ✅</div>
-                <div style="font-size: 1.875rem; font-weight: bold; color: green;">{stats['num_normal']:,}</div>
-                <div style="color: #666; font-size: 0.875rem; margin-top: 0.25rem;">↑ {stats['pct_normal']:.1f}%</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
+            st.metric("Normal Records", f"{stats['num_normal']:,}",
+                     delta=f"{stats['pct_normal']:.1f}%")
         with col4:
-            # Score assessment
-            if abs(avg_score) < 0.3:
-                score_color = "green"
-                score_icon = "✅"
-                score_status = "Low Anomaly"
-            elif abs(avg_score) < 0.6:
-                score_color = "orange"
-                score_icon = "⚠️"
-                score_status = "Moderate"
-            else:
-                score_color = "red"
-                score_icon = "🚨"
-                score_status = "High Anomaly"
-            
-            st.markdown(f"""
-            <div style="padding: 1rem; border-radius: 0.5rem; border-left: 4px solid {score_color}; background-color: {'#fff5f5' if score_color == 'red' else '#fff8e1' if score_color == 'orange' else '#f0fff4'};">
-                <div style="color: #666; font-size: 0.875rem; margin-bottom: 0.25rem;">Avg Anomaly Score {score_icon}</div>
-                <div style="font-size: 1.875rem; font-weight: bold; color: {score_color};">{avg_score:.3f}</div>
-                <div style="color: #666; font-size: 0.875rem; margin-top: 0.25rem;">{score_status}</div>
-            </div>
-            """, unsafe_allow_html=True)
+            avg_score = results['anomaly_score'].mean()
+            st.metric("Avg Anomaly Score", f"{avg_score:.3f}")
         
         # Results table
         st.subheader("📋 5. Detailed Results")
