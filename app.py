@@ -1036,6 +1036,15 @@ def show_market_basket_analysis():
     # Data source selection
     st.subheader("📤 1. Load Transaction Data")
     
+    # Add clear cache button
+    if 'mba_transactions' in st.session_state:
+        if st.button("🔄 Clear MBA Cache & Start Fresh", type="secondary"):
+            for key in ['mba_transactions', 'mba_encoded', 'mba_frequent_itemsets', 'mba_rules']:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.success("✅ Cache cleared! Reload your data.")
+            st.rerun()
+    
     # Check if data is already loaded
     has_loaded_data = st.session_state.data is not None
     
@@ -1185,6 +1194,18 @@ def show_market_basket_analysis():
     with col3:
         avg_basket = sum(len(t) for t in transactions) / len(transactions)
         st.metric("Avg Basket Size", f"{avg_basket:.1f}")
+    
+    # Debug info
+    with st.expander("🔍 Debug Info"):
+        st.write(f"**Encoded DataFrame shape:** {df_encoded.shape}")
+        st.write(f"**Number of columns (items):** {len(df_encoded.columns)}")
+        st.write(f"**Sample items:** {list(df_encoded.columns[:10])}")
+        
+        # Count items in raw transactions
+        all_items_set = set()
+        for trans in transactions:
+            all_items_set.update(trans)
+        st.write(f"**Unique items from raw transactions:** {len(all_items_set)}")
     
     # Threshold controls
     st.divider()
