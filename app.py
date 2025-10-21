@@ -571,7 +571,14 @@ def show_analysis():
         return
     
     df = st.session_state.data
-    profile = st.session_state.get('profile', {})
+    
+    # Generate profile if not exists
+    if 'profile' not in st.session_state or not st.session_state.profile:
+        from utils.data_processor import DataProcessor
+        st.session_state.profile = DataProcessor.profile_data(df)
+        st.session_state.issues = DataProcessor.detect_data_quality_issues(df)
+    
+    profile = st.session_state.profile
     issues = st.session_state.get('issues', [])
     
     # Data Quality Overview
@@ -642,10 +649,100 @@ def show_analysis():
     
     st.divider()
     
-    # Tabs for different analysis views
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📈 Statistics", "📊 Visualizations", "🤖 AI Insights", "🧹 Quick Clean", "🔧 AI Cleaning Suggestions"])
+    # Tabs organized by best practice workflow
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🧹 Quick Clean", "📈 Statistics", "📊 Visualizations", "🤖 AI Insights", "🔧 Advanced Cleaning"])
     
     with tab1:
+        st.subheader("🧹 Quick Data Cleaning")
+        st.write("Apply automatic data cleaning with one click, or customize the cleaning options.")
+        
+        # Cleaning options
+        with st.form("cleaning_form"):
+            st.write("**Select Cleaning Steps:**")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                normalize_cols = st.checkbox("Normalize column names", value=True, 
+                                            help="Convert to lowercase with underscores")
+                convert_numeric = st.checkbox("Convert to numeric", value=True,
+                                             help="Convert compatible columns to numbers")
+                remove_dups = st.checkbox("Remove duplicate rows", value=True)
+            
+            with col2:
+                fill_missing = st.checkbox("Fill missing values", value=True)
+                missing_strategy = st.selectbox("Missing value strategy:", 
+                                               ["median", "mean", "mode"],
+                                               help="Strategy for filling missing values")
+                drop_high_missing = st.checkbox("Drop columns with >80% missing", value=False)
+            
+            submitted = st.form_submit_button("🚀 Clean Data Now", type="primary", use_container_width=True)
+        
+        if submitted:
+            with st.spinner("🧹 Cleaning data..."):
+                try:
+                    from utils.data_cleaning import DataCleaner
+                    
+                    cleaner = DataCleaner(df)
+                    result = cleaner.clean_pipeline(
+                        normalize_cols=normalize_cols,
+                        convert_numeric=convert_numeric,
+                        remove_dups=remove_dups,
+                        fill_missing=fill_missing,
+                        missing_strategy=missing_strategy,
+                        drop_high_missing_cols=drop_high_missing,
+                        col_threshold=0.8
+                    )
+                    
+                    # Store cleaned data and results
+                    st.session_state.data = result['cleaned_df']
+                    st.session_state.original_data = result['original_df']
+                    st.session_state.cleaning_stats = result['stats']
+                    st.session_state.cleaning_quality_score = result['quality_score']
+                    
+                    # Clear cached analysis
+                    for key in ['profile', 'issues', 'viz_suggestions', 'ai_insights', 'cleaning_suggestions']:
+                        if key in st.session_state:
+                            del st.session_state[key]
+                    
+                    st.success("✅ Data cleaned successfully!")
+                    st.rerun()
+                    
+                except Exception as e:
+                    st.error(f"❌ Error during cleaning: {str(e)}")
+        
+        # Show cleaning results if available
+        if 'cleaning_stats' in st.session_state:
+            stats = st.session_state.cleaning_stats
+            
+            st.divider()
+            st.subheader("📊 Cleaning Results")
+            
+            # Before/After comparison
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                with st.container():
+                    st.markdown("**Before Cleaning:**")
+                    st.markdown(f"- **Rows:** {stats['original_shape'][0]:,}")
+                    st.markdown(f"- **Columns:** {stats['original_shape'][1]}")
+                    st.markdown(f"- **Missing values:** {stats['original_missing']:,}")
+                    st.markdown(f"- **Duplicates:** {stats.get('duplicates_removed', 0):,}")
+            
+            with col2:
+                with st.container():
+                    st.markdown("**After Cleaning:**")
+                    st.markdown(f"- **Rows:** {stats['cleaned_shape'][0]:,}")
+                    st.markdown(f"- **Columns:** {stats['cleaned_shape'][1]}")
+                    st.markdown(f"- **Missing values:** {stats['cleaned_missing']:,}")
+                    st.markdown(f"- **Rows removed:** {stats.get('rows_removed', 0):,}")
+            
+            # Quality score
+            quality_score = st.session_state.get('cleaning_quality_score', 0)
+            st.metric("Data Quality Score", f"{quality_score:.1f}/100",
+                     delta="Improved" if quality_score > 70 else "Needs more cleaning")
+    
+    with tab2:
         st.subheader("Statistical Summary")
         
         # Numeric columns
@@ -662,7 +759,7 @@ def show_analysis():
                 st.write(f"**{col}** - Value Counts:")
                 st.dataframe(df[col].value_counts().head(10), use_container_width=True)
     
-    with tab2:
+    with tab3:
         st.subheader("📊 Data Visualizations")
         
         from utils.visualizations import Visualizer
@@ -760,7 +857,7 @@ def show_analysis():
             else:
                 st.warning("Need at least 2 numeric columns for correlation heatmap")
     
-    with tab3:
+    with tab4:
         st.subheader("🤖 AI-Generated Insights")
         
         if 'ai_insights' not in st.session_state:
@@ -779,149 +876,7 @@ def show_analysis():
             if st.button("Regenerate Insights"):
                 del st.session_state.ai_insights
                 st.rerun()
-    
-    with tab4:
-        st.subheader("🧹 Quick Data Cleaning")
-        st.write("Apply automatic data cleaning with one click, or customize the cleaning options.")
-        
-        # Cleaning options
-        with st.form("cleaning_form"):
-            st.write("**Select Cleaning Steps:**")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                normalize_cols = st.checkbox("Normalize column names", value=True, 
-                                            help="Convert to lowercase with underscores")
-                convert_numeric = st.checkbox("Convert to numeric", value=True,
-                                             help="Convert compatible columns to numbers")
-                remove_dups = st.checkbox("Remove duplicate rows", value=True)
-            
-            with col2:
-                fill_missing = st.checkbox("Fill missing values", value=True)
-                missing_strategy = st.selectbox("Missing value strategy:", 
-                                               ["median", "mean", "mode"],
-                                               help="Strategy for filling missing values")
-                drop_high_missing = st.checkbox("Drop columns with >80% missing", value=False)
-            
-            submitted = st.form_submit_button("🚀 Clean Data Now", type="primary", use_container_width=True)
-        
-        if submitted:
-            with st.spinner("🧹 Cleaning data..."):
-                try:
-                    from utils.data_cleaning import DataCleaner
-                    
-                    cleaner = DataCleaner(df)
-                    result = cleaner.clean_pipeline(
-                        normalize_cols=normalize_cols,
-                        convert_numeric=convert_numeric,
-                        remove_dups=remove_dups,
-                        fill_missing=fill_missing,
-                        missing_strategy=missing_strategy,
-                        drop_high_missing_cols=drop_high_missing,
-                        col_threshold=0.8
-                    )
-                    
-                    # Store cleaned data and results
-                    st.session_state.data = result['cleaned_df']
-                    st.session_state.original_data = result['original_df']
-                    st.session_state.cleaning_stats = result['stats']
-                    st.session_state.cleaning_quality_score = result['quality_score']
-                    
-                    # Clear cached analysis
-                    for key in ['profile', 'issues', 'viz_suggestions', 'ai_insights', 'cleaning_suggestions']:
-                        if key in st.session_state:
-                            del st.session_state[key]
-                    
-                    st.success("✅ Data cleaned successfully!")
-                    st.rerun()
-                    
-                except Exception as e:
-                    st.error(f"❌ Error during cleaning: {str(e)}")
-        
-        # Show cleaning results if available
-        if 'cleaning_stats' in st.session_state:
-            stats = st.session_state.cleaning_stats
-            
-            st.divider()
-            st.subheader("📊 Cleaning Results")
-            
-            # Before/After comparison with equal-sized boxes
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                with st.container():
-                    st.markdown("**Before Cleaning:**")
-                    st.markdown(f"- **Rows:** {stats['original_shape'][0]:,}")
-                    st.markdown(f"- **Columns:** {stats['original_shape'][1]}")
-                    st.markdown(f"- **Missing values:** {stats['original_missing']:,}")
-                    st.markdown(f"- **Duplicates:** {stats.get('duplicates_removed', 0):,}")
-            
-            with col2:
-                with st.container():
-                    st.markdown("**After Cleaning:**")
-                    st.markdown(f"- **Rows:** {stats['cleaned_shape'][0]:,}")
-                    st.markdown(f"- **Columns:** {stats['cleaned_shape'][1]}")
-                    st.markdown(f"- **Missing values:** {stats['cleaned_missing']:,}")
-                    st.markdown(f"- **Rows removed:** {stats.get('rows_removed', 0):,}")
-            
-            # Quality score
-            quality_score = st.session_state.get('cleaning_quality_score', 0)
-            st.metric("Data Quality Score", f"{quality_score:.1f}/100",
-                     delta="Improved" if quality_score > 70 else "Needs more cleaning")
-            
-            # Column analysis
-            with st.expander("📋 Column Analysis & Encoding Recommendations"):
-                from utils.data_cleaning import DataCleaner
-                cleaner = DataCleaner(st.session_state.data)
-                analysis = cleaner.analyze_columns_for_encoding()
-                st.dataframe(analysis, use_container_width=True)
-            
-            # Balance check
-            with st.expander("⚖️ Class Balance Check"):
-                balance = cleaner.check_balance()
-                if 'error' not in balance:
-                    st.write(f"**Target Column:** {balance['target_column']}")
-                    st.write(f"**Status:** {balance['status']}")
-                    st.write(f"**Imbalance Ratio:** {balance['imbalance_ratio']:.2f}")
-                    
-                    st.write("**Class Distribution:**")
-                    dist_df = pd.DataFrame.from_dict(balance['distribution'], orient='index', columns=['Count'])
-                    st.bar_chart(dist_df)
-                    
-                    if balance['recommendations']:
-                        st.write("**Recommendations:**")
-                        for rec in balance['recommendations']:
-                            st.write(f"- {rec}")
-                else:
-                    st.info(balance['error'])
-            
-            # Download options
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("💾 Download Cleaned Data", use_container_width=True):
-                    csv = st.session_state.data.to_csv(index=False)
-                    st.download_button(
-                        label="📥 Download CSV",
-                        data=csv,
-                        file_name="cleaned_data.csv",
-                        mime="text/csv"
-                    )
-            
-            with col2:
-                if st.button("📄 Download Cleaning Report", use_container_width=True):
-                    from utils.data_cleaning import DataCleaner
-                    cleaner = DataCleaner(st.session_state.original_data)
-                    cleaner.df = st.session_state.data
-                    cleaner.stats = stats
-                    report = cleaner.get_cleaning_report()
-                    st.download_button(
-                        label="📥 Download Report",
-                        data=report,
-                        file_name="cleaning_report.md",
-                        mime="text/markdown"
-                    )
-    
+
     with tab5:
         st.subheader("🔧 AI-Powered Cleaning Suggestions")
         
