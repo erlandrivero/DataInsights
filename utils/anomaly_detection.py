@@ -272,19 +272,41 @@ class AnomalyDetector:
             x_label = self.features.columns[0]
             y_label = self.features.columns[1]
         
-        # Create scatter plot
+        # Create scatter plot with simplified hover for better performance
         fig = px.scatter(
             x=coords[:, 0],
             y=coords[:, 1],
             color=self.anomaly_results['anomaly_type'],
             color_discrete_map={'Anomaly': 'red', 'Normal': 'blue'},
             title='Anomaly Detection Results',
-            labels={'x': x_label, 'y': y_label},
-            hover_data={'score': self.anomaly_results['anomaly_score']}
+            labels={'x': x_label, 'y': y_label}
         )
         
-        fig.update_traces(marker=dict(size=8, opacity=0.7))
-        fig.update_layout(height=600, showlegend=True)
+        # Add anomaly scores to hover
+        hover_text = [
+            f"Type: {atype}<br>Score: {score:.3f}"
+            for atype, score in zip(
+                self.anomaly_results['anomaly_type'], 
+                self.anomaly_results['anomaly_score']
+            )
+        ]
+        
+        # Optimize for performance with clear hover
+        fig.update_traces(
+            marker=dict(size=8, opacity=0.7),
+            hovertemplate='<b>%{text}</b><br>' + x_label + ': %{x:.2f}<br>' + y_label + ': %{y:.2f}<extra></extra>',
+            text=hover_text
+        )
+        fig.update_layout(
+            height=600, 
+            showlegend=True,
+            hovermode='closest',  # Show only nearest point for performance
+            hoverlabel=dict(
+                bgcolor="white",
+                font_size=12,
+                font_family="Arial"
+            )
+        )
         
         return fig
     
