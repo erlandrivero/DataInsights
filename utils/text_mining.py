@@ -69,34 +69,29 @@ class TextAnalyzer:
         text = ' '.join(text.split())
         return text
     
-    def get_sentiment_analysis(self) -> pd.DataFrame:
+    def get_sentiment_analysis(self, max_samples: int = 5000) -> pd.DataFrame:
         """
-        Perform sentiment analysis using VADER and TextBlob.
+        Perform sentiment analysis using VADER (fast, accurate).
+        
+        Args:
+            max_samples: Maximum texts to analyze (for performance)
         
         Returns:
             DataFrame with sentiment scores and classification
         """
-        results = []
+        # Sample if dataset is large
+        if len(self.text_series) > max_samples:
+            text_sample = self.text_series.sample(n=max_samples, random_state=42)
+            print(f"Analyzing {max_samples} sampled texts out of {len(self.text_series)} total")
+        else:
+            text_sample = self.text_series
         
-        for text in self.text_series:
-            # VADER sentiment
-            vader_scores = self.sia.polarity_scores(text)
-            
-            # TextBlob sentiment (if available)
-            if TEXTBLOB_AVAILABLE:
-                try:
-                    blob = TextBlob(text)
-                    textblob_polarity = blob.sentiment.polarity
-                    textblob_subjectivity = blob.sentiment.subjectivity
-                except:
-                    textblob_polarity = 0
-                    textblob_subjectivity = 0
-            else:
-                textblob_polarity = 0
-                textblob_subjectivity = 0
+        # Use pandas apply for better performance
+        def analyze_text(text):
+            scores = self.sia.polarity_scores(str(text))
+            compound = scores['compound']
             
             # Classification
-            compound = vader_scores['compound']
             if compound >= 0.05:
                 sentiment = 'Positive'
             elif compound <= -0.05:
@@ -104,18 +99,19 @@ class TextAnalyzer:
             else:
                 sentiment = 'Neutral'
             
-            results.append({
-                'text': text[:100] + '...' if len(text) > 100 else text,
-                'vader_compound': vader_scores['compound'],
-                'vader_pos': vader_scores['pos'],
-                'vader_neg': vader_scores['neg'],
-                'vader_neu': vader_scores['neu'],
-                'textblob_polarity': textblob_polarity,
-                'textblob_subjectivity': textblob_subjectivity,
+            return pd.Series({
+                'text': text[:100] + '...' if len(str(text)) > 100 else text,
+                'compound': scores['compound'],
+                'positive': scores['pos'],
+                'negative': scores['neg'],
+                'neutral': scores['neu'],
                 'sentiment': sentiment
             })
         
-        return pd.DataFrame(results)
+        # Apply analysis (much faster than loop)
+        results = text_sample.apply(analyze_text)
+        
+        return results
     
     def get_word_frequency(self, n_words: int = 50) -> pd.DataFrame:
         """
