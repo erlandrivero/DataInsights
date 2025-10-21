@@ -573,8 +573,38 @@ def show_analysis():
     profile = st.session_state.get('profile', {})
     issues = st.session_state.get('issues', [])
     
+    # Data Quality Overview
+    from utils.data_cleaning import DataCleaner
+    
+    st.subheader("🎯 Data Quality Overview")
+    
+    # Calculate quality metrics
+    cleaner = DataCleaner(df)
+    quality_score = cleaner.calculate_quality_score()
+    
+    # Quality metrics cards
+    col1, col2, col3, col4, col5 = st.columns(5)
+    with col1:
+        st.metric("Quality Score", f"{quality_score:.1f}/100", 
+                 delta="Good" if quality_score >= 80 else "Needs Improvement",
+                 delta_color="normal" if quality_score >= 80 else "inverse")
+    with col2:
+        missing_pct = (df.isnull().sum().sum() / (df.shape[0] * df.shape[1])) * 100
+        st.metric("Missing Values", f"{missing_pct:.1f}%")
+    with col3:
+        duplicates = df.duplicated().sum()
+        st.metric("Duplicates", f"{duplicates:,}")
+    with col4:
+        numeric_cols = len(df.select_dtypes(include=['number']).columns)
+        st.metric("Numeric Columns", numeric_cols)
+    with col5:
+        categorical_cols = len(df.select_dtypes(include=['object']).columns)
+        st.metric("Text Columns", categorical_cols)
+    
+    st.divider()
+    
     # Tabs for different analysis views
-    tab1, tab2, tab3, tab4 = st.tabs(["📈 Statistics", "📊 Visualizations", "🤖 AI Insights", "🔧 Cleaning Suggestions"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📈 Statistics", "📊 Visualizations", "🤖 AI Insights", "🧹 Quick Clean", "🔧 AI Cleaning Suggestions"])
     
     with tab1:
         st.subheader("Statistical Summary")
@@ -712,6 +742,144 @@ def show_analysis():
                 st.rerun()
     
     with tab4:
+        st.subheader("🧹 Quick Data Cleaning")
+        st.write("Apply automatic data cleaning with one click, or customize the cleaning options.")
+        
+        # Cleaning options
+        with st.form("cleaning_form"):
+            st.write("**Select Cleaning Steps:**")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                normalize_cols = st.checkbox("Normalize column names", value=True, 
+                                            help="Convert to lowercase with underscores")
+                convert_numeric = st.checkbox("Convert to numeric", value=True,
+                                             help="Convert compatible columns to numbers")
+                remove_dups = st.checkbox("Remove duplicate rows", value=True)
+            
+            with col2:
+                fill_missing = st.checkbox("Fill missing values", value=True)
+                missing_strategy = st.selectbox("Missing value strategy:", 
+                                               ["median", "mean", "mode"],
+                                               help="Strategy for filling missing values")
+                drop_high_missing = st.checkbox("Drop columns with >80% missing", value=False)
+            
+            submitted = st.form_submit_button("🚀 Clean Data Now", type="primary", use_container_width=True)
+        
+        if submitted:
+            with st.spinner("🧹 Cleaning data..."):
+                try:
+                    from utils.data_cleaning import DataCleaner
+                    
+                    cleaner = DataCleaner(df)
+                    result = cleaner.clean_pipeline(
+                        normalize_cols=normalize_cols,
+                        convert_numeric=convert_numeric,
+                        remove_dups=remove_dups,
+                        fill_missing=fill_missing,
+                        missing_strategy=missing_strategy,
+                        drop_high_missing_cols=drop_high_missing,
+                        col_threshold=0.8
+                    )
+                    
+                    # Store cleaned data
+                    st.session_state.data = result['cleaned_df']
+                    st.session_state.original_data = result['original_df']
+                    st.session_state.cleaning_stats = result['stats']
+                    
+                    # Clear cached analysis
+                    for key in ['profile', 'issues', 'viz_suggestions', 'ai_insights', 'cleaning_suggestions']:
+                        if key in st.session_state:
+                            del st.session_state[key]
+                    
+                    st.success("✅ Data cleaned successfully!")
+                    st.rerun()
+                    
+                except Exception as e:
+                    st.error(f"❌ Error during cleaning: {str(e)}")
+        
+        # Show cleaning results if available
+        if 'cleaning_stats' in st.session_state:
+            stats = st.session_state.cleaning_stats
+            
+            st.divider()
+            st.subheader("📊 Cleaning Results")
+            
+            # Before/After comparison
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.write("**Before Cleaning:**")
+                st.write(f"- Rows: {stats['original_shape'][0]:,}")
+                st.write(f"- Columns: {stats['original_shape'][1]}")
+                st.write(f"- Missing values: {stats['original_missing']:,}")
+                st.write(f"- Duplicates: {stats.get('duplicates_removed', 0):,}")
+            
+            with col2:
+                st.write("**After Cleaning:**")
+                st.write(f"- Rows: {stats['cleaned_shape'][0]:,}")
+                st.write(f"- Columns: {stats['cleaned_shape'][1]}")
+                st.write(f"- Missing values: {stats['cleaned_missing']:,}")
+                st.write(f"- Rows removed: {stats.get('rows_removed', 0):,}")
+            
+            # Quality score
+            st.metric("Data Quality Score", f"{result['quality_score']:.1f}/100",
+                     delta="Improved" if result['quality_score'] > 70 else "Needs more cleaning")
+            
+            # Column analysis
+            with st.expander("📋 Column Analysis & Encoding Recommendations"):
+                from utils.data_cleaning import DataCleaner
+                cleaner = DataCleaner(st.session_state.data)
+                analysis = cleaner.analyze_columns_for_encoding()
+                st.dataframe(analysis, use_container_width=True)
+            
+            # Balance check
+            with st.expander("⚖️ Class Balance Check"):
+                balance = cleaner.check_balance()
+                if 'error' not in balance:
+                    st.write(f"**Target Column:** {balance['target_column']}")
+                    st.write(f"**Status:** {balance['status']}")
+                    st.write(f"**Imbalance Ratio:** {balance['imbalance_ratio']:.2f}")
+                    
+                    st.write("**Class Distribution:**")
+                    dist_df = pd.DataFrame.from_dict(balance['distribution'], orient='index', columns=['Count'])
+                    st.bar_chart(dist_df)
+                    
+                    if balance['recommendations']:
+                        st.write("**Recommendations:**")
+                        for rec in balance['recommendations']:
+                            st.write(f"- {rec}")
+                else:
+                    st.info(balance['error'])
+            
+            # Download options
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("💾 Download Cleaned Data", use_container_width=True):
+                    csv = st.session_state.data.to_csv(index=False)
+                    st.download_button(
+                        label="📥 Download CSV",
+                        data=csv,
+                        file_name="cleaned_data.csv",
+                        mime="text/csv"
+                    )
+            
+            with col2:
+                if st.button("📄 Download Cleaning Report", use_container_width=True):
+                    from utils.data_cleaning import DataCleaner
+                    cleaner = DataCleaner(st.session_state.original_data)
+                    cleaner.df = st.session_state.data
+                    cleaner.stats = stats
+                    report = cleaner.get_cleaning_report()
+                    st.download_button(
+                        label="📥 Download Report",
+                        data=report,
+                        file_name="cleaning_report.md",
+                        mime="text/markdown"
+                    )
+    
+    with tab5:
         st.subheader("🔧 AI-Powered Cleaning Suggestions")
         
         if not issues:
@@ -1117,20 +1285,56 @@ def show_market_basket_analysis():
         
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
         
+        # Get smart column suggestions
+        from utils.column_detector import ColumnDetector
+        suggestions = ColumnDetector.get_mba_column_suggestions(df)
+        
+        # Validate data suitability
+        validation = ColumnDetector.validate_mba_suitability(df)
+        
+        if not validation['suitable']:
+            st.error("❌ **Dataset Not Suitable for Market Basket Analysis**")
+            for warning in validation['warnings']:
+                st.warning(warning)
+            st.info("**💡 Recommendations:**")
+            for rec in validation['recommendations']:
+                st.write(f"- {rec}")
+            st.write("**Consider using:**")
+            st.write("- Sample Groceries Dataset (built-in)")
+            st.write("- A different dataset with transactional data")
+        elif len(validation['warnings']) > 0:
+            with st.expander("⚠️ Data Quality Warnings", expanded=False):
+                for warning in validation['warnings']:
+                    st.warning(warning)
+                if validation['recommendations']:
+                    st.info("**Recommendations:**")
+                    for rec in validation['recommendations']:
+                        st.write(f"- {rec}")
+        else:
+            st.success(f"✅ **Dataset looks suitable for MBA** (Confidence: {validation['confidence']})")
+        
         # Let user select columns for transaction analysis
         st.write("**Select columns for Market Basket Analysis:**")
+        st.info("💡 **Smart Detection:** Columns are auto-selected based on your data. You can change them if needed.")
+        
         col1, col2 = st.columns(2)
         with col1:
+            # Find index of suggested column
+            trans_idx = list(df.columns).index(suggestions['transaction_id']) if suggestions['transaction_id'] in df.columns else 0
             trans_col = st.selectbox(
                 "Transaction ID column:", 
                 df.columns, 
+                index=trans_idx,
                 key="loaded_trans_col",
                 help="Column that groups items into transactions (e.g., Order ID, Invoice ID)"
             )
         with col2:
+            # Find index of suggested column
+            item_idx = list(df.columns).index(suggestions['item']) if suggestions['item'] in df.columns else 0
             item_col = st.selectbox(
                 "Item column:", 
-                df.columns, 
+                df.columns,
+                index=item_idx, 
                 key="loaded_item_col",
                 help="Column containing item names or product descriptions"
             )
@@ -1878,8 +2082,37 @@ def show_rfm_analysis():
         
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
         
+        # Get smart column suggestions
+        from utils.column_detector import ColumnDetector
+        suggestions = ColumnDetector.get_rfm_column_suggestions(df)
+        
+        # Validate data suitability
+        validation = ColumnDetector.validate_rfm_suitability(df)
+        
+        if not validation['suitable']:
+            st.error("❌ **Dataset Not Suitable for RFM Analysis**")
+            for warning in validation['warnings']:
+                st.warning(warning)
+            st.info("**💡 Recommendations:**")
+            for rec in validation['recommendations']:
+                st.write(f"- {rec}")
+            st.write("**Consider using:**")
+            st.write("- Sample RFM Data (built-in)")
+            st.write("- A dataset with customer transactions over time")
+        elif len(validation['warnings']) > 0:
+            with st.expander("⚠️ Data Quality Warnings", expanded=False):
+                for warning in validation['warnings']:
+                    st.warning(warning)
+                if validation['recommendations']:
+                    st.info("**Recommendations:**")
+                    for rec in validation['recommendations']:
+                        st.write(f"- {rec}")
+        else:
+            st.success(f"✅ **Dataset looks suitable for RFM** (Confidence: {validation['confidence']})")
+        
         # Let user select columns for RFM analysis
         st.write("**Select columns for RFM Analysis:**")
+        st.info("💡 **Smart Detection:** Columns are auto-selected based on your data. You can change them if needed.")
         
         # Show column types to help user
         numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
@@ -1892,25 +2125,34 @@ def show_rfm_analysis():
         
         col1, col2, col3 = st.columns(3)
         with col1:
+            # Find index of suggested customer column
+            cust_idx = list(df.columns).index(suggestions['customer_id']) if suggestions['customer_id'] in df.columns else 0
             customer_col = st.selectbox(
                 "Customer ID column:", 
-                df.columns, 
+                df.columns,
+                index=cust_idx, 
                 key="loaded_rfm_cust_col",
                 help="Column that identifies unique customers"
             )
         with col2:
+            # Find index of suggested date column
+            date_idx = list(df.columns).index(suggestions['date']) if suggestions['date'] in df.columns else 0
             date_col = st.selectbox(
                 "Transaction Date column:", 
-                df.columns, 
+                df.columns,
+                index=date_idx, 
                 key="loaded_rfm_date_col",
                 help="Column containing transaction dates"
             )
         with col3:
             # Suggest numeric columns first for amount
             amount_options = numeric_cols + [col for col in df.columns if col not in numeric_cols]
+            # Find index of suggested amount column
+            amount_idx = amount_options.index(suggestions['amount']) if suggestions['amount'] in amount_options else 0
             amount_col = st.selectbox(
                 "Amount/Revenue column:", 
-                amount_options, 
+                amount_options,
+                index=amount_idx, 
                 key="loaded_rfm_amount_col",
                 help="⚠️ Must be NUMERIC column with transaction amounts"
             )
