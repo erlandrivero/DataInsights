@@ -86,8 +86,17 @@ class MarketBasketAnalyzer:
         """
         self.transactions = transactions
         
+        # Extra safety: ensure all items in all transactions are strings
+        # This prevents mlxtend TransactionEncoder from encountering mixed types
+        cleaned_transactions = []
+        for transaction in transactions:
+            # Convert each item to string, filter out 'nan' and empty strings
+            cleaned_items = [str(item) for item in transaction if str(item) not in ['nan', 'None', '']]
+            if cleaned_items:  # Only add non-empty transactions
+                cleaned_transactions.append(cleaned_items)
+        
         te = TransactionEncoder()
-        te_ary = te.fit(transactions).transform(transactions)
+        te_ary = te.fit(cleaned_transactions).transform(cleaned_transactions)
         self.df_encoded = pd.DataFrame(te_ary, columns=te.columns_)
         
         return self.df_encoded
