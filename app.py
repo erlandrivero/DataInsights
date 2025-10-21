@@ -463,10 +463,30 @@ def show_data_upload():
                         os.environ['KAGGLE_USERNAME'] = st.secrets['KAGGLE_USERNAME']
                         os.environ['KAGGLE_KEY'] = st.secrets['KAGGLE_KEY']
                         st.info("🔑 Using Kaggle credentials from Streamlit Secrets")
+                        st.write(f"Debug - Username: {st.secrets['KAGGLE_USERNAME']}")
+                    else:
+                        st.warning("⚠️ Kaggle credentials not found in Streamlit Secrets. Trying local kaggle.json...")
                     
                     # Initialize Kaggle API (will use environment variables or kaggle.json)
                     api = KaggleApi()
                     api.authenticate()
+                    st.success("✅ Kaggle API authenticated successfully!")
+                    
+                    # Verify dataset exists before downloading
+                    try:
+                        dataset_info = api.dataset_list(search=kaggle_dataset)
+                        st.info(f"📊 Found dataset. Downloading...")
+                    except Exception as e:
+                        st.error(f"❌ Cannot access dataset: {str(e)}")
+                        st.info("""
+                        **Possible reasons:**
+                        - Dataset is private or requires competition acceptance
+                        - Dataset name is incorrect (format: username/dataset-name)
+                        - You need to accept terms on Kaggle website first
+                        
+                        **Try:** Visit https://www.kaggle.com/datasets/{0} and click "Download" to accept any terms.
+                        """.format(kaggle_dataset))
+                        raise
                     
                     # Download dataset
                     download_path = "./kaggle_data"
@@ -507,13 +527,24 @@ def show_data_upload():
                         st.warning("⚠️ No CSV files found in the dataset.")
                         
                 except Exception as e:
+                    error_msg = str(e).lower()
                     st.error(f"Error loading Kaggle dataset: {str(e)}")
-                    st.info("""
-                    💡 **Troubleshooting:**
-                    - Ensure Kaggle API credentials are configured
-                    - Check dataset name format (username/dataset-name)
-                    - Verify dataset exists and is public
-                    """)
+                    
+                    if "403" in error_msg or "forbidden" in error_msg:
+                        st.error(f"""
+                        🔒 **403 Forbidden - Dataset Requires Access**
+                        
+                        **Fix:** Visit https://www.kaggle.com/datasets/{kaggle_dataset}
+                        Click "Download" to accept terms, then try again.
+                        
+                        **Or try:** `uciml/iris` or `heeraldedhia/groceries-dataset`
+                        """)
+                    elif "401" in error_msg or "unauthorized" in error_msg:
+                        st.error("""
+                        🔑 **401 Unauthorized - Invalid Credentials**
+                        
+                        Generate new API token at kaggle.com/settings
+                        """)
 
 def show_analysis():
     st.header("📊 Data Analysis")
