@@ -10,3 +10,7 @@ openpyxl==3.1.5
 mlxtend==0.23.0
 networkx==3.2.1
 requests==2.31.0
+
+# RFM Analysis & Customer Segmentation
+scikit-learn==1.5.2
+matplotlib==3.9.2

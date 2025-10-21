@@ -74,7 +74,7 @@ def main():
         st.header("📊 Navigation")
         page = st.radio(
             "Select a page:",
-            ["Home", "Data Upload", "Analysis", "Insights", "Reports", "Market Basket Analysis"],
+            ["Home", "Data Upload", "Analysis", "Insights", "Reports", "Market Basket Analysis", "RFM Analysis"],
             key="navigation"
         )
         
@@ -164,6 +164,8 @@ def main():
         show_reports()
     elif page == "Market Basket Analysis":
         show_market_basket_analysis()
+    elif page == "RFM Analysis":
+        show_rfm_analysis()
 
 def show_home():
     st.header("Welcome to DataInsight AI! 👋")
@@ -1484,6 +1486,371 @@ Based on this analysis, we recommend:
                     )
                     
                     st.success("✅ Report generated! Click download button above.")
+
+def show_rfm_analysis():
+    """RFM Analysis and Customer Segmentation page."""
+    st.header("👥 RFM Analysis & Customer Segmentation")
+    
+    # Help section
+    with st.expander("ℹ️ What is RFM Analysis?"):
+        st.markdown("""
+        **RFM Analysis** is a customer segmentation technique that categorizes customers based on their purchasing behavior.
+        
+        ### RFM Metrics:
+        
+        - **Recency (R):** Days since last purchase
+          - Lower is better (recent customers are more engaged)
+          - Scored 1-5 (5 = most recent)
+        
+        - **Frequency (F):** Number of purchases
+          - Higher is better (frequent buyers are more loyal)
+          - Scored 1-5 (5 = most frequent)
+        
+        - **Monetary (M):** Total spending amount
+          - Higher is better (high spenders are more valuable)
+          - Scored 1-5 (5 = highest spending)
+        
+        ### Customer Segments:
+        
+        - 🏆 **Champions:** Best customers (R=5, F=5, M=5)
+        - 💎 **Loyal Customers:** Consistent purchasers
+        - 🌱 **Potential Loyalists:** Growing engagement
+        - ✨ **New Customers:** Recently acquired
+        - ⚠️ **At Risk:** Previously valuable but declining
+        - ❌ **Lost:** Churned customers
+        
+        ### K-Means Clustering:
+        
+        - Unsupervised machine learning algorithm
+        - Groups similar customers automatically
+        - Find optimal clusters using elbow method
+        """)
+    
+    st.markdown("""
+    Segment your customers based on purchasing behavior and create targeted marketing strategies.
+    """)
+    
+    # Import RFM utilities
+    from utils.rfm_analysis import RFMAnalyzer
+    
+    # Initialize analyzer in session state
+    if 'rfm_analyzer' not in st.session_state:
+        st.session_state.rfm_analyzer = RFMAnalyzer()
+    
+    rfm_analyzer = st.session_state.rfm_analyzer
+    
+    # Data source selection
+    st.subheader("📤 1. Load Transaction Data")
+    
+    data_source = st.radio(
+        "Choose data source:",
+        ["Upload Custom Data", "Use Sample Data"],
+        key="rfm_data_source"
+    )
+    
+    transactions_df = None
+    
+    if data_source == "Upload Custom Data":
+        st.info("""
+        **Upload Format:**
+        - CSV file with columns: `customer_id`, `transaction_date`, `amount`
+        - Each row represents one transaction
+        - Example:
+          ```
+          customer_id,transaction_date,amount
+          C001,2024-01-15,150.00
+          C001,2024-02-10,200.00
+          C002,2024-01-20,75.50
+          ```
+        """)
+        
+        uploaded_file = st.file_uploader(
+            "Upload transaction CSV",
+            type=['csv'],
+            key="rfm_upload"
+        )
+        
+        if uploaded_file is not None:
+            try:
+                transactions_df = pd.read_csv(uploaded_file)
+                
+                # Let user select columns
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    customer_col = st.selectbox("Customer ID column:", transactions_df.columns, key="cust_col")
+                with col2:
+                    date_col = st.selectbox("Transaction Date column:", transactions_df.columns, key="date_col")
+                with col3:
+                    amount_col = st.selectbox("Amount column:", transactions_df.columns, key="amount_col")
+                
+                if st.button("Process Data", type="primary"):
+                    st.session_state.rfm_transactions = transactions_df
+                    st.session_state.rfm_columns = {
+                        'customer': customer_col,
+                        'date': date_col,
+                        'amount': amount_col
+                    }
+                    st.success(f"✅ Loaded {len(transactions_df)} transactions!")
+                    st.dataframe(transactions_df.head(10), use_container_width=True)
+                    
+            except Exception as e:
+                st.error(f"Error processing file: {str(e)}")
+    
+    else:  # Sample data
+        if st.button("📥 Load Sample E-commerce Data", type="primary"):
+            # Create realistic sample data
+            import numpy as np
+            np.random.seed(42)
+            
+            # Generate 500 transactions for 100 customers
+            n_transactions = 500
+            n_customers = 100
+            
+            customer_ids = [f"C{str(i).zfill(3)}" for i in range(1, n_customers + 1)]
+            
+            # Generate dates over last 365 days
+            dates = pd.date_range(end=datetime.now(), periods=365, freq='D')
+            
+            sample_transactions = []
+            for _ in range(n_transactions):
+                customer = np.random.choice(customer_ids)
+                date = np.random.choice(dates)
+                amount = np.random.gamma(shape=2, scale=50)  # Realistic purchase amounts
+                
+                sample_transactions.append({
+                    'customer_id': customer,
+                    'transaction_date': date,
+                    'amount': round(amount, 2)
+                })
+            
+            transactions_df = pd.DataFrame(sample_transactions)
+            
+            st.session_state.rfm_transactions = transactions_df
+            st.session_state.rfm_columns = {
+                'customer': 'customer_id',
+                'date': 'transaction_date',
+                'amount': 'amount'
+            }
+            
+            st.success(f"✅ Loaded {len(transactions_df)} sample transactions from {n_customers} customers!")
+            st.dataframe(transactions_df.head(10), use_container_width=True)
+    
+    # Only show analysis if transactions are loaded
+    if 'rfm_transactions' not in st.session_state:
+        st.info("👆 Load transaction data to begin RFM analysis")
+        return
+    
+    transactions_df = st.session_state.rfm_transactions
+    cols = st.session_state.rfm_columns
+    
+    # Display dataset info
+    st.divider()
+    st.subheader("📊 Dataset Overview")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Transactions", f"{len(transactions_df):,}")
+    with col2:
+        st.metric("Unique Customers", f"{transactions_df[cols['customer']].nunique():,}")
+    with col3:
+        total_revenue = transactions_df[cols['amount']].sum()
+        st.metric("Total Revenue", f"${total_revenue:,.2f}")
+    with col4:
+        avg_transaction = transactions_df[cols['amount']].mean()
+        st.metric("Avg Transaction", f"${avg_transaction:.2f}")
+    
+    # Calculate RFM button
+    st.divider()
+    st.subheader("🔢 2. Calculate RFM Metrics")
+    
+    if st.button("📊 Calculate RFM", type="primary", use_container_width=True):
+        with st.spinner("Calculating RFM metrics..."):
+            try:
+                # Calculate RFM
+                rfm_data = rfm_analyzer.calculate_rfm(
+                    transactions_df, 
+                    cols['customer'], 
+                    cols['date'], 
+                    cols['amount']
+                )
+                
+                # Score RFM
+                rfm_scored = rfm_analyzer.score_rfm(rfm_data, method='quartile')
+                
+                # Segment customers
+                rfm_segmented = rfm_analyzer.segment_customers(rfm_scored)
+                
+                # Store in session state
+                st.session_state.rfm_data = rfm_data
+                st.session_state.rfm_scored = rfm_scored
+                st.session_state.rfm_segmented = rfm_segmented
+                
+                st.success(f"✅ RFM calculated for {len(rfm_data)} customers!")
+                
+            except Exception as e:
+                st.error(f"Error calculating RFM: {str(e)}")
+    
+    # Show results if available
+    if 'rfm_segmented' in st.session_state:
+        rfm_segmented = st.session_state.rfm_segmented
+        rfm_data = st.session_state.rfm_data
+        
+        # RFM Summary
+        st.divider()
+        st.subheader("📈 RFM Summary")
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Avg Recency (days)", f"{rfm_data['Recency'].mean():.1f}")
+        with col2:
+            st.metric("Avg Frequency", f"{rfm_data['Frequency'].mean():.1f}")
+        with col3:
+            st.metric("Avg Monetary", f"${rfm_data['Monetary'].mean():.2f}")
+        
+        # RFM Data Preview
+        with st.expander("👀 View RFM Data"):
+            st.dataframe(rfm_segmented.head(20), use_container_width=True)
+        
+        # K-Means Clustering
+        st.divider()
+        st.subheader("🎯 3. K-Means Clustering")
+        
+        col1, col2 = st.columns([1, 2])
+        
+        with col1:
+            n_clusters = st.slider(
+                "Number of Clusters",
+                min_value=2,
+                max_value=8,
+                value=4,
+                help="Use elbow method to determine optimal number"
+            )
+            
+            if st.button("🔄 Run K-Means Clustering", use_container_width=True):
+                with st.spinner("Performing K-Means clustering..."):
+                    rfm_clustered = rfm_analyzer.perform_kmeans_clustering(rfm_data, n_clusters)
+                    st.session_state.rfm_clustered = rfm_clustered
+                    st.success(f"✅ Created {n_clusters} customer clusters!")
+        
+        with col2:
+            if st.button("📉 Show Elbow Curve", use_container_width=True):
+                with st.spinner("Calculating elbow curve..."):
+                    cluster_range, inertias = rfm_analyzer.calculate_elbow_curve(rfm_data, max_clusters=10)
+                    fig_elbow = rfm_analyzer.create_elbow_plot(cluster_range, inertias)
+                    st.plotly_chart(fig_elbow, use_container_width=True)
+        
+        # Segment Analysis
+        st.divider()
+        st.subheader("👥 4. Customer Segments")
+        
+        # Segment distribution
+        fig_segments = rfm_analyzer.create_segment_distribution(rfm_segmented)
+        st.plotly_chart(fig_segments, use_container_width=True)
+        
+        # Segment profiles
+        st.write("**Segment Profiles:**")
+        profiles = rfm_analyzer.get_segment_profiles(rfm_segmented, cols['customer'])
+        st.dataframe(profiles, use_container_width=True)
+        
+        # 3D Visualization
+        st.divider()
+        st.subheader("📊 5. 3D Visualization")
+        
+        viz_option = st.radio(
+            "Color by:",
+            ["Segment", "Cluster"],
+            horizontal=True,
+            key="viz_option"
+        )
+        
+        if viz_option == "Cluster" and 'rfm_clustered' in st.session_state:
+            fig_3d = rfm_analyzer.create_rfm_scatter_3d(st.session_state.rfm_clustered, color_col='Cluster')
+        else:
+            fig_3d = rfm_analyzer.create_rfm_scatter_3d(rfm_segmented, color_col='Segment')
+        
+        st.plotly_chart(fig_3d, use_container_width=True)
+        
+        # Business Insights
+        st.divider()
+        st.subheader("💡 6. Business Insights & Recommendations")
+        
+        insights_dict = rfm_analyzer.generate_segment_insights(rfm_segmented)
+        
+        # Show insights for each segment present in data
+        segments_present = rfm_segmented['Segment'].unique()
+        
+        for segment in segments_present:
+            if segment in insights_dict:
+                with st.expander(f"📋 {segment} ({len(rfm_segmented[rfm_segmented['Segment']==segment])} customers)"):
+                    for insight in insights_dict[segment]:
+                        st.markdown(insight)
+        
+        # Export Options
+        st.divider()
+        st.subheader("📥 7. Export Results")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            csv = rfm_segmented.to_csv(index=False)
+            st.download_button(
+                label="📥 Download RFM Data (CSV)",
+                data=csv,
+                file_name=f"rfm_analysis_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        
+        with col2:
+            profiles_csv = profiles.to_csv(index=False)
+            st.download_button(
+                label="📥 Download Segment Profiles (CSV)",
+                data=profiles_csv,
+                file_name=f"segment_profiles_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        
+        with col3:
+            if st.button("📄 Generate Full Report", use_container_width=True):
+                report = f"""
+# RFM Analysis Report
+**Generated:** {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+## Dataset Summary
+- **Total Transactions:** {len(transactions_df):,}
+- **Unique Customers:** {transactions_df[cols['customer']].nunique():,}
+- **Total Revenue:** ${total_revenue:,.2f}
+- **Average Transaction:** ${avg_transaction:.2f}
+
+## RFM Metrics
+- **Average Recency:** {rfm_data['Recency'].mean():.1f} days
+- **Average Frequency:** {rfm_data['Frequency'].mean():.1f} transactions
+- **Average Monetary:** ${rfm_data['Monetary'].mean():.2f}
+
+## Segment Distribution
+
+{profiles.to_markdown(index=False)}
+
+## Recommendations
+
+Based on the RFM analysis:
+
+1. **Champions & Loyal Customers:** Focus on retention with VIP programs
+2. **Potential Loyalists:** Nurture with personalized offers
+3. **At Risk & Cannot Lose:** Urgent win-back campaigns needed
+4. **Hibernating & Lost:** Minimal investment, focus on learning
+
+---
+*Report generated by DataInsight AI - RFM Analysis Module*
+"""
+                st.download_button(
+                    label="📥 Download Report",
+                    data=report,
+                    file_name=f"rfm_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.md",
+                    mime="text/markdown",
+                    use_container_width=True
+                )
 
 if __name__ == "__main__":
     main()
