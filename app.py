@@ -596,8 +596,8 @@ def show_analysis():
         
         if viz_type == "Histogram":
             if numeric_cols:
-                col = st.selectbox("Select column:", numeric_cols)
-                if st.button("Create Histogram"):
+                col = st.selectbox("Select column:", numeric_cols, key="histogram_col")
+                if st.button("Create Histogram", key="create_histogram_btn"):
                     fig = viz.create_histogram(df, col)
                     st.plotly_chart(fig, use_container_width=True)
             else:
@@ -605,8 +605,8 @@ def show_analysis():
         
         elif viz_type == "Bar Chart":
             if categorical_cols:
-                col = st.selectbox("Select column:", categorical_cols)
-                if st.button("Create Bar Chart"):
+                col = st.selectbox("Select column:", categorical_cols, key="bar_col")
+                if st.button("Create Bar Chart", key="create_bar_btn"):
                     fig = viz.create_bar_chart(df, col)
                     st.plotly_chart(fig, use_container_width=True)
             else:
@@ -616,7 +616,7 @@ def show_analysis():
             if len(numeric_cols) >= 2:
                 col1 = st.selectbox("Select X axis:", numeric_cols, key="scatter_x")
                 col2 = st.selectbox("Select Y axis:", numeric_cols, key="scatter_y")
-                if st.button("Create Scatter Plot"):
+                if st.button("Create Scatter Plot", key="create_scatter_btn"):
                     fig = viz.create_scatter(df, col1, col2)
                     st.plotly_chart(fig, use_container_width=True)
             else:
@@ -624,8 +624,8 @@ def show_analysis():
         
         elif viz_type == "Box Plot":
             if numeric_cols:
-                col = st.selectbox("Select column:", numeric_cols)
-                if st.button("Create Box Plot"):
+                col = st.selectbox("Select column:", numeric_cols, key="box_col")
+                if st.button("Create Box Plot", key="create_box_btn"):
                     fig = viz.create_box_plot(df, col)
                     st.plotly_chart(fig, use_container_width=True)
             else:
@@ -633,8 +633,8 @@ def show_analysis():
         
         elif viz_type == "Correlation Heatmap":
             if len(numeric_cols) >= 2:
-                selected_cols = st.multiselect("Select columns:", numeric_cols, default=numeric_cols[:min(5, len(numeric_cols))])
-                if st.button("Create Heatmap"):
+                selected_cols = st.multiselect("Select columns:", numeric_cols, default=numeric_cols[:min(5, len(numeric_cols))], key="heatmap_cols")
+                if st.button("Create Heatmap", key="create_heatmap_btn"):
                     if len(selected_cols) >= 2:
                         fig = viz.create_correlation_heatmap(df, selected_cols)
                         st.plotly_chart(fig, use_container_width=True)
