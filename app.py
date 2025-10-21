@@ -3457,6 +3457,22 @@ def show_anomaly_detection():
         
         fig = detector.create_2d_scatter(use_pca=use_pca)
         
+        # Add CSS to fix cursor issue
+        st.markdown("""
+        <style>
+        .js-plotly-plot .plotly .svg-container,
+        .js-plotly-plot .plotly .main-svg,
+        .js-plotly-plot .plotly .nsewdrag,
+        .js-plotly-plot .plotly,
+        .js-plotly-plot .plotly * {
+            cursor: default !important;
+        }
+        div[data-testid="stPlotlyChart"] {
+            cursor: default !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
         # Keep toolbar but fix cursor behavior
         st.plotly_chart(
             fig, 
