@@ -106,17 +106,19 @@ class AIHelper:
         """
         
         prompt = f"""
-        You are a data analyst. The user has a dataset and asks: "{question}"
+        You are a data analyst. The user asks: "{question}"
         
         Dataset information:
         {data_summary}
         
         {context}
         
+        IMPORTANT: Answer the question DIRECTLY without over-explaining. If they ask for "top 5 values" in a numeric column, show the 5 highest values. If they ask for "top 5" in a text column, show the 5 most frequent values. Don't explain ambiguity - just pick the most logical interpretation and answer.
+        
         Provide:
-        1. A direct answer to the question
-        2. Python pandas code to get this answer (if applicable)
-        3. Any relevant insights
+        1. A clear, direct answer (no run-around explanations)
+        2. Working Python pandas code to get this answer
+        3. Brief business insight (1-2 sentences max)
         
         Format your response as JSON with keys: "answer", "code", "insights"
         """
@@ -125,7 +127,7 @@ class AIHelper:
             response = self.client.chat.completions.create(
                 model="gpt-4",
                 messages=[
-                    {"role": "system", "content": "You are an expert data analyst. Always provide actionable insights."},
+                    {"role": "system", "content": "You are an expert data analyst. Answer questions directly and concisely. No over-explaining or philosophy - just give the user what they asked for."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.7,
