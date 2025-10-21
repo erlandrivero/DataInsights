@@ -1,11 +1,30 @@
 import openai
 import os
 import pandas as pd
+import numpy as np
 import json
 from typing import Dict, Any, List
 
 class AIHelper:
     """Handles all AI-related operations using OpenAI."""
+    
+    @staticmethod
+    def convert_to_json_serializable(obj):
+        """Convert numpy/pandas types to native Python types for JSON serialization."""
+        if isinstance(obj, (np.integer, np.int64, np.int32)):
+            return int(obj)
+        elif isinstance(obj, (np.floating, np.float64, np.float32)):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, pd.Series):
+            return obj.tolist()
+        elif isinstance(obj, dict):
+            return {key: AIHelper.convert_to_json_serializable(value) for key, value in obj.items()}
+        elif isinstance(obj, list):
+            return [AIHelper.convert_to_json_serializable(item) for item in obj]
+        else:
+            return obj
     
     def __init__(self):
         # Try to get API key from Streamlit secrets first (for cloud deployment)
@@ -28,18 +47,21 @@ class AIHelper:
     
     def generate_data_insights(self, df: pd.DataFrame, profile: Dict[str, Any]) -> str:
         """Generate AI insights about the dataset."""
+        # Convert profile to JSON-serializable format
+        safe_profile = self.convert_to_json_serializable(profile)
+        
         # Prepare context
         context = f"""
         Dataset Overview:
-        - Rows: {profile['basic_info']['rows']}
-        - Columns: {profile['basic_info']['columns']}
-        - Duplicates: {profile['basic_info']['duplicates']}
+        - Rows: {safe_profile['basic_info']['rows']}
+        - Columns: {safe_profile['basic_info']['columns']}
+        - Duplicates: {safe_profile['basic_info']['duplicates']}
         
         Column Information:
-        {json.dumps(profile['column_info'][:10], indent=2)}
+        {json.dumps(safe_profile['column_info'][:10], indent=2)}
         
         Missing Data:
-        {json.dumps(profile['missing_data'], indent=2)}
+        {json.dumps(safe_profile['missing_data'], indent=2)}
         """
         
         prompt = f"""
