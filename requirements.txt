@@ -6,6 +6,7 @@ plotly
 openai
 python-dotenv
 openpyxl
+tabulate  # Required for pandas.to_markdown()
 
 # Market Basket Analysis
 mlxtend
