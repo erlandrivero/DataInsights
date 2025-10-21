@@ -3031,141 +3031,177 @@ def show_ml_classification():
                 mime="text/csv"
             )
     
-    # Data upload
+    # Data selection
     st.divider()
-    st.subheader("📤 2. Upload Your Data")
+    st.subheader("📤 2. Select Data Source")
     
-    uploaded_file = st.file_uploader(
-        "Upload CSV file with features and target column",
-        type=['csv'],
-        key="ml_upload",
-        help="Must include predictor features and binary target column"
-    )
-    
-    if uploaded_file is not None:
-        try:
-            df = pd.read_csv(uploaded_file)
+    # Check if data is already uploaded in session
+    if st.session_state.data is not None:
+        data_source = st.radio(
+            "Choose data source:",
+            ["Use uploaded data from Data Upload page", "Upload new file for this analysis"],
+            help="You can use the data you already uploaded or upload a new file"
+        )
+        
+        if data_source == "Use uploaded data from Data Upload page":
+            df = st.session_state.data
             st.session_state.ml_data = df
-            
-            st.success(f"✅ Loaded {len(df)} rows and {len(df.columns)} columns")
+            st.success(f"✅ Using uploaded data: {len(df)} rows and {len(df.columns)} columns")
             st.dataframe(df.head(10), use_container_width=True)
+        else:
+            uploaded_file = st.file_uploader(
+                "Upload CSV file with features and target column",
+                type=['csv'],
+                key="ml_upload",
+                help="Must include predictor features and binary target column"
+            )
             
-            # Column selection
-            st.divider()
-            st.subheader("🎯 3. Configure Model")
-            
+            if uploaded_file is not None:
+                try:
+                    df = pd.read_csv(uploaded_file)
+                    st.session_state.ml_data = df
+                    
+                    st.success(f"✅ Loaded {len(df)} rows and {len(df.columns)} columns")
+                    st.dataframe(df.head(10), use_container_width=True)
+                except Exception as e:
+                    st.error(f"Error loading file: {str(e)}")
+            else:
+                st.info("👆 Please upload a CSV file to continue")
+    else:
+        st.info("💡 **Tip:** Upload data from the 'Data Upload' page first, or upload a file below")
+        
+        uploaded_file = st.file_uploader(
+            "Upload CSV file with features and target column",
+            type=['csv'],
+            key="ml_upload",
+            help="Must include predictor features and binary target column"
+        )
+        
+        if uploaded_file is not None:
+            try:
+                df = pd.read_csv(uploaded_file)
+                st.session_state.ml_data = df
+                
+                st.success(f"✅ Loaded {len(df)} rows and {len(df.columns)} columns")
+                st.dataframe(df.head(10), use_container_width=True)
+            except Exception as e:
+                st.error(f"Error loading file: {str(e)}")
+    
+    # Column selection (works for both data sources)
+    if 'ml_data' in st.session_state:
+        df = st.session_state.ml_data
+        st.divider()
+        st.subheader("🎯 3. Configure Model")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            target_col = st.selectbox(
+                "Select Target Column (what to predict)",
+                df.columns,
+                help="Binary column with Yes/No, True/False, or 0/1 values"
+            )
+        
+        with col2:
+            feature_cols = st.multiselect(
+                "Select Feature Columns (predictors)",
+                [col for col in df.columns if col != target_col],
+                default=[col for col in df.columns if col != target_col][:5],
+                help="Columns used to make predictions"
+            )
+        
+        if len(feature_cols) > 0:
+            # Model options
             col1, col2 = st.columns(2)
             
             with col1:
-                target_col = st.selectbox(
-                    "Select Target Column (what to predict)",
-                    df.columns,
-                    help="Binary column with Yes/No, True/False, or 0/1 values"
+                test_size = st.slider(
+                    "Test Set Size (%)",
+                    min_value=10,
+                    max_value=40,
+                    value=20,
+                    step=5,
+                    help="Percentage of data reserved for testing"
                 )
             
             with col2:
-                feature_cols = st.multiselect(
-                    "Select Feature Columns (predictors)",
-                    [col for col in df.columns if col != target_col],
-                    default=[col for col in df.columns if col != target_col][:5],
-                    help="Columns used to make predictions"
+                model_type = st.selectbox(
+                    "Model Type",
+                    ["Logistic Regression", "Random Forest", "Gradient Boosting"],
+                    help="Algorithm to use for classification"
                 )
             
-            if len(feature_cols) > 0:
-                # Model options
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    test_size = st.slider(
-                        "Test Set Size (%)",
-                        min_value=10,
-                        max_value=40,
-                        value=20,
-                        step=5,
-                        help="Percentage of data reserved for testing"
-                    )
-                
-                with col2:
-                    model_type = st.selectbox(
-                        "Model Type",
-                        ["Logistic Regression", "Random Forest", "Gradient Boosting"],
-                        help="Algorithm to use for classification"
-                    )
-                
-                # Train model button
-                if st.button("🚀 Train Classification Model", type="primary", use_container_width=True):
-                    with st.spinner("Training model..."):
-                        try:
-                            from sklearn.model_selection import train_test_split
-                            from sklearn.linear_model import LogisticRegression
-                            from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-                            from sklearn.preprocessing import LabelEncoder
-                            from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report
-                            
-                            # Prepare data
-                            X = df[feature_cols].copy()
-                            y = df[target_col].copy()
-                            
-                            # Encode categorical variables
-                            label_encoders = {}
-                            for col in X.columns:
-                                if X[col].dtype == 'object':
-                                    le = LabelEncoder()
-                                    X[col] = le.fit_transform(X[col].astype(str))
-                                    label_encoders[col] = le
-                            
-                            # Encode target
-                            if y.dtype == 'object':
-                                le_target = LabelEncoder()
-                                y = le_target.fit_transform(y.astype(str))
-                            
-                            # Split data
-                            X_train, X_test, y_train, y_test = train_test_split(
-                                X, y, test_size=test_size/100, random_state=42
-                            )
-                            
-                            # Select and train model
-                            if model_type == "Logistic Regression":
-                                model = LogisticRegression(random_state=42, max_iter=1000)
-                            elif model_type == "Random Forest":
-                                model = RandomForestClassifier(n_estimators=100, random_state=42)
-                            else:  # Gradient Boosting
-                                model = GradientBoostingClassifier(n_estimators=100, random_state=42)
-                            
-                            model.fit(X_train, y_train)
-                            
-                            # Predictions
-                            y_pred = model.predict(X_test)
-                            
-                            # Calculate metrics
-                            accuracy = accuracy_score(y_test, y_pred)
-                            precision = precision_score(y_test, y_pred, average='weighted', zero_division=0)
-                            recall = recall_score(y_test, y_pred, average='weighted', zero_division=0)
-                            f1 = f1_score(y_test, y_pred, average='weighted', zero_division=0)
-                            
-                            # Store in session state
-                            st.session_state.ml_model = model
-                            st.session_state.ml_metrics = {
-                                'accuracy': accuracy,
-                                'precision': precision,
-                                'recall': recall,
-                                'f1': f1
-                            }
-                            st.session_state.ml_confusion = confusion_matrix(y_test, y_pred)
-                            st.session_state.ml_X_test = X_test
-                            st.session_state.ml_y_test = y_test
-                            st.session_state.ml_y_pred = y_pred
-                            st.session_state.ml_feature_cols = feature_cols
-                            st.session_state.ml_target_col = target_col
-                            
-                            st.success(f"✅ Model trained successfully! Accuracy: {accuracy*100:.2f}%")
-                            
-                        except Exception as e:
-                            st.error(f"Error training model: {str(e)}")
-                            st.info("💡 Check that your target column is binary and features are numeric or categorical")
-        
-        except Exception as e:
-            st.error(f"Error loading file: {str(e)}")
+            # Train model button
+            if st.button("🚀 Train Classification Model", type="primary", use_container_width=True):
+                with st.spinner("Training model..."):
+                    try:
+                        from sklearn.model_selection import train_test_split
+                        from sklearn.linear_model import LogisticRegression
+                        from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+                        from sklearn.preprocessing import LabelEncoder
+                        from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report
+                        
+                        # Prepare data
+                        X = df[feature_cols].copy()
+                        y = df[target_col].copy()
+                        
+                        # Encode categorical variables
+                        label_encoders = {}
+                        for col in X.columns:
+                            if X[col].dtype == 'object':
+                                le = LabelEncoder()
+                                X[col] = le.fit_transform(X[col].astype(str))
+                                label_encoders[col] = le
+                        
+                        # Encode target
+                        if y.dtype == 'object':
+                            le_target = LabelEncoder()
+                            y = le_target.fit_transform(y.astype(str))
+                        
+                        # Split data
+                        X_train, X_test, y_train, y_test = train_test_split(
+                            X, y, test_size=test_size/100, random_state=42
+                        )
+                        
+                        # Select and train model
+                        if model_type == "Logistic Regression":
+                            model = LogisticRegression(random_state=42, max_iter=1000)
+                        elif model_type == "Random Forest":
+                            model = RandomForestClassifier(n_estimators=100, random_state=42)
+                        else:  # Gradient Boosting
+                            model = GradientBoostingClassifier(n_estimators=100, random_state=42)
+                        
+                        model.fit(X_train, y_train)
+                        
+                        # Predictions
+                        y_pred = model.predict(X_test)
+                        
+                        # Calculate metrics
+                        accuracy = accuracy_score(y_test, y_pred)
+                        precision = precision_score(y_test, y_pred, average='weighted', zero_division=0)
+                        recall = recall_score(y_test, y_pred, average='weighted', zero_division=0)
+                        f1 = f1_score(y_test, y_pred, average='weighted', zero_division=0)
+                        
+                        # Store in session state
+                        st.session_state.ml_model = model
+                        st.session_state.ml_metrics = {
+                            'accuracy': accuracy,
+                            'precision': precision,
+                            'recall': recall,
+                            'f1': f1
+                        }
+                        st.session_state.ml_confusion = confusion_matrix(y_test, y_pred)
+                        st.session_state.ml_X_test = X_test
+                        st.session_state.ml_y_test = y_test
+                        st.session_state.ml_y_pred = y_pred
+                        st.session_state.ml_feature_cols = feature_cols
+                        st.session_state.ml_target_col = target_col
+                        
+                        st.success(f"✅ Model trained successfully! Accuracy: {accuracy*100:.2f}%")
+                        
+                    except Exception as e:
+                        st.error(f"Error training model: {str(e)}")
+                        st.info("💡 Check that your target column is binary and features are numeric or categorical")
     
     # Show results if model is trained
     if 'ml_metrics' in st.session_state:
