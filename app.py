@@ -3584,7 +3584,7 @@ def show_anomaly_detection():
         
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("Total Records", f"{stats['total_records']:,}")
+            st.metric("Total Records", f"{stats['total_records']:,}", delta="100%")
         with col2:
             st.metric("Anomalies Detected", f"{stats['num_anomalies']:,}", 
                      delta=f"{stats['pct_anomalies']:.1f}%")
@@ -3593,7 +3593,14 @@ def show_anomaly_detection():
                      delta=f"{stats['pct_normal']:.1f}%")
         with col4:
             avg_score = results['anomaly_score'].mean()
-            st.metric("Avg Anomaly Score", f"{avg_score:.3f}")
+            # Classify anomaly score
+            if abs(avg_score) < 0.3:
+                score_status = "Low Anomaly"
+            elif abs(avg_score) < 0.6:
+                score_status = "Moderate"
+            else:
+                score_status = "High Anomaly"
+            st.metric("Avg Anomaly Score", f"{avg_score:.3f}", delta=score_status)
         
         # Results table
         st.subheader("📋 5. Detailed Results")
