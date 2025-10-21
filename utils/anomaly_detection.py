@@ -282,30 +282,15 @@ class AnomalyDetector:
             labels={'x': x_label, 'y': y_label}
         )
         
-        # Add anomaly scores to hover
-        hover_text = [
-            f"Type: {atype}<br>Score: {score:.3f}"
-            for atype, score in zip(
-                self.anomaly_results['anomaly_type'], 
-                self.anomaly_results['anomaly_score']
-            )
-        ]
-        
-        # Optimize for performance with clear hover
+        # Disable hover for maximum performance
         fig.update_traces(
             marker=dict(size=8, opacity=0.7),
-            hovertemplate='<b>%{text}</b><br>' + x_label + ': %{x:.2f}<br>' + y_label + ': %{y:.2f}<extra></extra>',
-            text=hover_text
+            hoverinfo='skip'  # Disable hover entirely to fix freezing
         )
         fig.update_layout(
             height=600, 
             showlegend=True,
-            hovermode='closest',  # Show only nearest point for performance
-            hoverlabel=dict(
-                bgcolor="white",
-                font_size=12,
-                font_family="Arial"
-            )
+            hovermode=False  # Disable all hover interactions
         )
         
         return fig
