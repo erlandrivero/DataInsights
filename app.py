@@ -1382,12 +1382,17 @@ def show_market_basket_analysis():
             display_rules = rules.copy()
             
             # Format itemsets as strings
-            display_rules['Antecedents'] = display_rules['antecedents'].apply(
-                lambda x: mba.format_itemset(x)
-            )
-            display_rules['Consequents'] = display_rules['consequents'].apply(
-                lambda x: mba.format_itemset(x)
-            )
+            try:
+                display_rules['Antecedents'] = display_rules['antecedents'].apply(
+                    lambda x: mba.format_itemset(x)
+                )
+                display_rules['Consequents'] = display_rules['consequents'].apply(
+                    lambda x: mba.format_itemset(x)
+                )
+            except Exception as e:
+                st.error(f"Error formatting rules: {str(e)}")
+                st.warning("This might be due to selecting the wrong column type for 'Item'. Please ensure you selected a text column (like Description), not a numeric column (like Quantity or Price).")
+                return
             
             # Select columns to display
             display_cols = [

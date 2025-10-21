@@ -142,7 +142,13 @@ class MarketBasketAnalyzer:
     @staticmethod
     def format_itemset(itemset) -> str:
         """Format frozenset as readable string."""
-        return '{' + ', '.join(sorted(list(itemset))) + '}'
+        try:
+            # Convert all items to strings and sort
+            items = [str(item) for item in itemset]
+            return '{' + ', '.join(sorted(items)) + '}'
+        except Exception as e:
+            # Fallback if sorting fails
+            return '{' + ', '.join(str(item) for item in itemset) + '}'
     
     def get_rules_summary(self) -> Dict[str, Any]:
         """Get summary statistics of the rules."""
