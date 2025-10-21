@@ -1476,9 +1476,9 @@ def show_market_basket_analysis():
             "Minimum Support",
             min_value=0.001,
             max_value=0.5,
-            value=0.05,
+            value=0.02,
             step=0.005,
-            help="Minimum frequency for an itemset (default: 0.05 = 5% for memory efficiency)"
+            help="Minimum frequency for an itemset (default: 0.02 = 2% - balanced for most datasets)"
         )
     
     with col2:
