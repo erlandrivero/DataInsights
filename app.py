@@ -1859,6 +1859,16 @@ def show_rfm_analysis():
         
         # Let user select columns for RFM analysis
         st.write("**Select columns for RFM Analysis:**")
+        
+        # Show column types to help user
+        numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+        date_cols = df.select_dtypes(include=['datetime']).columns.tolist()
+        
+        with st.expander("💡 Column Type Hints"):
+            st.write(f"**Numeric columns** (for Amount): {', '.join(numeric_cols) if numeric_cols else 'None detected'}")
+            st.write(f"**Date columns** (for Date): {', '.join(date_cols) if date_cols else 'None detected - will try to parse'}")
+            st.write(f"**All columns**: {', '.join(df.columns.tolist())}")
+        
         col1, col2, col3 = st.columns(3)
         with col1:
             customer_col = st.selectbox(
@@ -1875,16 +1885,51 @@ def show_rfm_analysis():
                 help="Column containing transaction dates"
             )
         with col3:
+            # Suggest numeric columns first for amount
+            amount_options = numeric_cols + [col for col in df.columns if col not in numeric_cols]
             amount_col = st.selectbox(
                 "Amount/Revenue column:", 
-                df.columns, 
+                amount_options, 
                 key="loaded_rfm_amount_col",
-                help="Column containing transaction amounts"
+                help="⚠️ Must be NUMERIC column with transaction amounts"
             )
         
         if st.button("🔄 Process Loaded Data for RFM", type="primary"):
             with st.spinner("Processing RFM data..."):
                 try:
+                    # Validate column selections
+                    if not pd.api.types.is_numeric_dtype(df[amount_col]):
+                        st.error(f"""
+                        ❌ **Invalid Amount Column**
+                        
+                        The selected column '{amount_col}' is not numeric!
+                        
+                        **Amount column must contain:**
+                        - Transaction amounts
+                        - Revenue values
+                        - Numeric data (integers or decimals)
+                        
+                        **Please select a numeric column** (e.g., price, total, revenue, amount)
+                        """)
+                        st.stop()
+                    
+                    # Try to convert date column
+                    try:
+                        pd.to_datetime(df[date_col])
+                    except:
+                        st.error(f"""
+                        ❌ **Invalid Date Column**
+                        
+                        The selected column '{date_col}' cannot be parsed as dates!
+                        
+                        **Date column must contain:**
+                        - Date values (YYYY-MM-DD, MM/DD/YYYY, etc.)
+                        - Datetime values
+                        
+                        **Please select a date column**
+                        """)
+                        st.stop()
+                    
                     st.session_state.rfm_transactions = df
                     st.session_state.rfm_columns = {
                         'customer': customer_col,
