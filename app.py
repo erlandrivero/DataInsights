@@ -1467,17 +1467,18 @@ def show_market_basket_analysis():
     st.divider()
     st.subheader("🎛️ 2. Adjust Thresholds")
     
+    st.info("💡 **Memory-Friendly Defaults:** Higher support = less memory usage. Recommended for large datasets (>10k transactions).")
+    
     col1, col2, col3 = st.columns(3)
     
     with col1:
         min_support = st.slider(
             "Minimum Support",
             min_value=0.001,
-            max_value=0.1,
-            value=0.01,
-            step=0.001,
-            format="%.3f",
-            help="Minimum frequency of itemsets (e.g., 0.01 = 1% of transactions)"
+            max_value=0.5,
+            value=0.05,
+            step=0.005,
+            help="Minimum frequency for an itemset (default: 0.05 = 5% for memory efficiency)"
         )
     
     with col2:
@@ -1485,21 +1486,19 @@ def show_market_basket_analysis():
             "Minimum Confidence",
             min_value=0.1,
             max_value=1.0,
-            value=0.2,
+            value=0.4,
             step=0.05,
-            format="%.2f",
-            help="Minimum probability of consequent given antecedent"
+            help="Minimum confidence for a rule (default: 0.4 = 40%)"
         )
     
     with col3:
         min_lift = st.slider(
             "Minimum Lift",
             min_value=1.0,
-            max_value=5.0,
-            value=1.0,
+            max_value=10.0,
+            value=1.5,
             step=0.1,
-            format="%.1f",
-            help="Minimum lift value (>1 means positive correlation)"
+            help="Minimum lift - how much more likely items are bought together (default: 1.5 for stronger patterns)"
         )
     
     # Run analysis button
