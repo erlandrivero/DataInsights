@@ -14,3 +14,7 @@ requests==2.31.0
 # RFM Analysis & Customer Segmentation
 scikit-learn==1.5.2
 matplotlib==3.9.2
+
+# Online Data Repository Access
+kaggle==1.6.17
+openml==0.14.2

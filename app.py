@@ -209,196 +209,82 @@ def show_home():
 def show_data_upload():
     st.header("📤 Data Upload")
     
-    # File uploader
-    uploaded_file = st.file_uploader(
-        "Choose a CSV or Excel file",
-        type=['csv', 'xlsx', 'xls'],
-        help="Upload your dataset to get started with analysis"
-    )
+    # Tabs for different data sources
+    tab1, tab2, tab3 = st.tabs(["📁 Local Upload", "🌐 OpenML", "🏆 Kaggle"])
     
-    if uploaded_file is not None:
-        try:
-            with st.spinner("Loading and analyzing your data..."):
-                from utils.data_processor import DataProcessor
-                
-                # Load data
-                df = DataProcessor.load_data(uploaded_file)
-                st.session_state.data = df
-                
-                # Profile data
-                profile = DataProcessor.profile_data(df)
-                st.session_state.profile = profile
-                
-                # Detect issues
-                issues = DataProcessor.detect_data_quality_issues(df)
-                st.session_state.issues = issues
-            
-            st.success(f"✅ Successfully loaded {uploaded_file.name}!")
-            
-            # Display basic info
-            st.subheader("📋 Dataset Overview")
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric("Rows", profile['basic_info']['rows'])
-            with col2:
-                st.metric("Columns", profile['basic_info']['columns'])
-            with col3:
-                st.metric("Duplicates", profile['basic_info']['duplicates'])
-            with col4:
-                st.metric("Memory", profile['basic_info']['memory_usage'])
-            
-            # Data preview
-            st.subheader("👀 Data Preview")
-            st.dataframe(df.head(10), use_container_width=True)
-            
-            # Column information
-            st.subheader("📊 Column Information")
-            col_df = pd.DataFrame(profile['column_info'])
-            st.dataframe(
-                col_df[['name', 'dtype', 'missing', 'missing_pct', 'unique', 'unique_pct']],
-                use_container_width=True
-            )
-            
-            # Data quality issues
-            if issues:
-                st.subheader("⚠️ Data Quality Issues")
-                for issue in issues:
-                    severity_color = {
-                        'High': '🔴',
-                        'Medium': '🟡',
-                        'Low': '🟢'
-                    }
-                    st.warning(
-                        f"{severity_color[issue['severity']]} **{issue['type']}** in `{issue['column']}`: {issue['description']}"
-                    )
-            else:
-                st.success("✅ No significant data quality issues detected!")
-            
-            # Association Rules Table
-            st.divider()
-            st.subheader("📋 3. Association Rules")
-            
-            # Prepare display dataframe
-            display_rules = rules.copy()
-            
-            # Format itemsets as strings
-            display_rules['Antecedents'] = display_rules['antecedents'].apply(
-                lambda x: mba.format_itemset(x)
-            )
-            display_rules['Consequents'] = display_rules['consequents'].apply(
-                lambda x: mba.format_itemset(x)
-            )
-            
-            # Select columns to display
-            display_cols = [
-                'Antecedents', 
-                'Consequents', 
-                'support', 
-                'confidence', 
-                'lift',
-                'leverage',
-                'conviction'
-            ]
-            
-            # Rename for better display
-            display_rules_formatted = display_rules[display_cols].copy()
-            display_rules_formatted.columns = [
-                'Antecedents (If)', 
-                'Consequents (Then)', 
-                'Support', 
-                'Confidence', 
-                'Lift',
-                'Leverage',
-                'Conviction'
-            ]
-            
-            # Round numeric columns
-            numeric_cols = ['Support', 'Confidence', 'Lift', 'Leverage', 'Conviction']
-            display_rules_formatted[numeric_cols] = display_rules_formatted[numeric_cols].round(4)
-            
-            # Sorting options
-            col1, col2 = st.columns([1, 3])
-            with col1:
-                sort_by = st.selectbox(
-                    "Sort by:",
-                    ['Lift', 'Confidence', 'Support', 'Leverage', 'Conviction'],
-                    key="sort_by"
-                )
-            with col2:
-                top_n = st.slider(
-                    "Show top N rules:",
-                    min_value=5,
-                    max_value=min(100, len(display_rules_formatted)),
-                    value=min(15, len(display_rules_formatted)),
-                    step=5,
-                    key="top_n_rules"
-                )
-            
-            # Sort and display
-            sorted_rules = display_rules_formatted.sort_values(sort_by, ascending=False).head(top_n)
-            
-            st.dataframe(
-                sorted_rules,
-                use_container_width=True,
-                hide_index=True
-            )
-            
-            # Export options
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                # Export all rules as CSV
-                csv = display_rules_formatted.to_csv(index=False)
-                st.download_button(
-                    label="📥 Download All Rules (CSV)",
-                    data=csv,
-                    file_name=f"association_rules_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                    mime="text/csv",
-                    use_container_width=True
-                )
-            
-            with col2:
-                # Export top rules as CSV
-                csv_top = sorted_rules.to_csv(index=False)
-                st.download_button(
-                    label=f"📥 Download Top {top_n} Rules (CSV)",
-                    data=csv_top,
-                    file_name=f"top_{top_n}_rules_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                    mime="text/csv",
-                    use_container_width=True
-                )
-            
-            # Search functionality
-            with st.expander("🔍 Search Rules"):
-                search_item = st.text_input(
-                    "Search for item in rules:",
-                    placeholder="e.g., whole milk",
-                    key="search_item"
-                )
-                
-                if search_item:
-                    # Filter rules containing the search item
-                    filtered_rules = display_rules_formatted[
-                        display_rules_formatted['Antecedents (If)'].str.contains(search_item, case=False, na=False) |
-                        display_rules_formatted['Consequents (Then)'].str.contains(search_item, case=False, na=False)
-                    ]
+    with tab1:
+        st.subheader("Upload from Your Computer")
+        # File uploader
+        uploaded_file = st.file_uploader(
+            "Choose a CSV or Excel file",
+            type=['csv', 'xlsx', 'xls'],
+            help="Upload your dataset to get started with analysis"
+        )
+        
+        if uploaded_file is not None:
+            try:
+                with st.spinner("Loading and analyzing your data..."):
+                    from utils.data_processor import DataProcessor
                     
-                    if len(filtered_rules) > 0:
-                        st.write(f"**Found {len(filtered_rules)} rules containing '{search_item}':**")
-                        st.dataframe(
-                            filtered_rules.sort_values('Lift', ascending=False),
-                            use_container_width=True,
-                            hide_index=True
+                    # Load data
+                    df = DataProcessor.load_data(uploaded_file)
+                    st.session_state.data = df
+                    
+                    # Profile data
+                    profile = DataProcessor.profile_data(df)
+                    st.session_state.profile = profile
+                    
+                    # Detect issues
+                    issues = DataProcessor.detect_data_quality_issues(df)
+                    st.session_state.issues = issues
+                
+                st.success(f"✅ Successfully loaded {uploaded_file.name}!")
+                
+                # Display basic info
+                st.subheader("📋 Dataset Overview")
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric("Rows", profile['basic_info']['rows'])
+                with col2:
+                    st.metric("Columns", profile['basic_info']['columns'])
+                with col3:
+                    st.metric("Duplicates", profile['basic_info']['duplicates'])
+                with col4:
+                    st.metric("Memory", profile['basic_info']['memory_usage'])
+                
+                # Data preview
+                st.subheader("👀 Data Preview")
+                st.dataframe(df.head(10), use_container_width=True)
+                
+                # Column information
+                st.subheader("📊 Column Information")
+                col_df = pd.DataFrame(profile['column_info'])
+                st.dataframe(
+                    col_df[['name', 'dtype', 'missing', 'missing_pct', 'unique', 'unique_pct']],
+                    use_container_width=True
+                )
+                
+                # Data quality issues
+                if issues:
+                    st.subheader("⚠️ Data Quality Issues")
+                    for issue in issues:
+                        severity_color = {
+                            'High': '🔴',
+                            'Medium': '🟡',
+                            'Low': '🟢'
+                        }
+                        st.warning(
+                            f"{severity_color[issue['severity']]} **{issue['type']}** in `{issue['column']}`: {issue['description']}"
                         )
-                    else:
-                        st.info(f"No rules found containing '{search_item}'")
-            
-        except Exception as e:
-            st.error(f"Error loading file: {str(e)}")
-    else:
-        # Show sample data option
-        st.info("💡 Don't have data? Try our sample datasets!")
+                else:
+                    st.success("✅ No significant data quality issues detected!")
+                
+            except Exception as e:
+                st.error(f"Error loading file: {str(e)}")
+        else:
+            # Show sample data option
+            st.info("💡 Don't have data? Try our sample datasets!")
         
         if st.button("Load Sample Sales Data"):
             # Create sample data
@@ -412,6 +298,153 @@ def show_data_upload():
             })
             st.session_state.data = sample_data
             st.rerun()
+    
+    with tab2:
+        st.subheader("Load from OpenML")
+        st.markdown("""
+        [OpenML](https://www.openml.org/) is a public repository with thousands of machine learning datasets.
+        **Popular datasets:** Iris, Titanic, Wine Quality, Diabetes, etc.
+        """)
+        
+        # Popular OpenML datasets
+        openml_datasets = {
+            "Iris": 61,
+            "Titanic": 40945,
+            "Wine Quality": 187,
+            "Diabetes": 37,
+            "Credit-g": 31,
+            "Adult": 1590
+        }
+        
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            dataset_name = st.selectbox(
+                "Choose a dataset:",
+                list(openml_datasets.keys()),
+                key="openml_dataset"
+            )
+        
+        with col2:
+            if st.button("📥 Load OpenML Dataset", type="primary", use_container_width=True):
+                with st.spinner(f"Loading {dataset_name} from OpenML..."):
+                    try:
+                        import openml
+                        
+                        dataset_id = openml_datasets[dataset_name]
+                        dataset = openml.datasets.get_dataset(dataset_id)
+                        X, y, categorical_indicator, attribute_names = dataset.get_data(
+                            dataset_format="dataframe"
+                        )
+                        
+                        # Combine features and target
+                        if y is not None:
+                            df = X.copy()
+                            df['target'] = y
+                        else:
+                            df = X
+                        
+                        st.session_state.data = df
+                        
+                        # Profile data
+                        from utils.data_processor import DataProcessor
+                        profile = DataProcessor.profile_data(df)
+                        st.session_state.profile = profile
+                        
+                        issues = DataProcessor.detect_data_quality_issues(df)
+                        st.session_state.issues = issues
+                        
+                        st.success(f"✅ Successfully loaded {dataset_name} dataset!")
+                        st.info(f"**Description:** {dataset.description[:200]}...")
+                        st.dataframe(df.head(10), use_container_width=True)
+                        
+                    except Exception as e:
+                        st.error(f"Error loading OpenML dataset: {str(e)}")
+                        st.info("💡 Note: Some datasets may require additional processing.")
+    
+    with tab3:
+        st.subheader("Load from Kaggle")
+        st.markdown("""
+        [Kaggle](https://www.kaggle.com/) hosts thousands of datasets for data science competitions.
+        **Requires:** Kaggle API credentials (kaggle.json)
+        """)
+        
+        # Kaggle setup instructions
+        with st.expander("🔧 How to set up Kaggle API"):
+            st.markdown("""
+            1. Go to [Kaggle Account Settings](https://www.kaggle.com/settings)
+            2. Scroll to **API** section
+            3. Click **Create New API Token**
+            4. Download `kaggle.json` file
+            5. For **Streamlit Cloud deployment:**
+               - Add to Secrets: `KAGGLE_USERNAME` and `KAGGLE_KEY`
+            6. For **local use:**
+               - Place `kaggle.json` in `~/.kaggle/` (Linux/Mac) or `C:\\Users\\<username>\\.kaggle\\` (Windows)
+            """)
+        
+        # Kaggle dataset input
+        kaggle_dataset = st.text_input(
+            "Enter Kaggle dataset (format: username/dataset-name):",
+            placeholder="e.g., uciml/iris or heptapod/titanic",
+            key="kaggle_dataset"
+        )
+        
+        if st.button("📥 Load Kaggle Dataset", type="primary", disabled=not kaggle_dataset):
+            with st.spinner(f"Downloading {kaggle_dataset} from Kaggle..."):
+                try:
+                    import os
+                    from kaggle.api.kaggle_api_extended import KaggleApi
+                    
+                    # Initialize Kaggle API
+                    api = KaggleApi()
+                    api.authenticate()
+                    
+                    # Download dataset
+                    download_path = "./kaggle_data"
+                    os.makedirs(download_path, exist_ok=True)
+                    
+                    api.dataset_download_files(kaggle_dataset, path=download_path, unzip=True)
+                    
+                    # Find CSV files
+                    csv_files = [f for f in os.listdir(download_path) if f.endswith('.csv')]
+                    
+                    if csv_files:
+                        # Load first CSV file
+                        csv_file = csv_files[0]
+                        df = pd.read_csv(os.path.join(download_path, csv_file))
+                        
+                        st.session_state.data = df
+                        
+                        # Profile data
+                        from utils.data_processor import DataProcessor
+                        profile = DataProcessor.profile_data(df)
+                        st.session_state.profile = profile
+                        
+                        issues = DataProcessor.detect_data_quality_issues(df)
+                        st.session_state.issues = issues
+                        
+                        st.success(f"✅ Successfully loaded {csv_file} from Kaggle!")
+                        
+                        if len(csv_files) > 1:
+                            st.info(f"📁 Found {len(csv_files)} CSV files. Loaded: {csv_file}")
+                            st.write("Available files:", csv_files)
+                        
+                        st.dataframe(df.head(10), use_container_width=True)
+                        
+                        # Cleanup
+                        import shutil
+                        shutil.rmtree(download_path)
+                    else:
+                        st.warning("⚠️ No CSV files found in the dataset.")
+                        
+                except Exception as e:
+                    st.error(f"Error loading Kaggle dataset: {str(e)}")
+                    st.info("""
+                    💡 **Troubleshooting:**
+                    - Ensure Kaggle API credentials are configured
+                    - Check dataset name format (username/dataset-name)
+                    - Verify dataset exists and is public
+                    """)
 
 def show_analysis():
     st.header("📊 Data Analysis")
