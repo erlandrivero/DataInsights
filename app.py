@@ -74,7 +74,7 @@ def main():
         st.header("📊 Navigation")
         page = st.radio(
             "Select a page:",
-            ["Home", "Data Upload", "Analysis", "Insights", "Reports", "Market Basket Analysis", "RFM Analysis", "Monte Carlo Simulation", "ML Classification", "Anomaly Detection", "Time Series Forecasting"],
+            ["Home", "Data Upload", "Analysis", "Insights", "Reports", "Market Basket Analysis", "RFM Analysis", "Monte Carlo Simulation", "ML Classification", "Anomaly Detection", "Time Series Forecasting", "Text Mining & NLP"],
             key="navigation"
         )
         
@@ -174,6 +174,8 @@ def main():
         show_anomaly_detection()
     elif page == "Time Series Forecasting":
         show_time_series_forecasting()
+    elif page == "Text Mining & NLP":
+        show_text_mining()
 
 def show_home():
     st.header("Welcome to DataInsight AI! 👋")
@@ -3354,6 +3356,254 @@ def show_time_series_forecasting():
                         label="📥 Download Prophet Forecast (CSV)",
                         data=csv,
                         file_name=f"prophet_forecast_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+
+def show_text_mining():
+    """Text Mining & Sentiment Analysis page."""
+    st.header("💬 Text Mining & Sentiment Analysis")
+    
+    # Help section
+    with st.expander("ℹ️ What is Text Mining?"):
+        st.markdown("""
+        **Text Mining** extracts insights from unstructured text data using Natural Language Processing (NLP).
+        
+        ### Common Applications:
+        - **Customer Feedback:** Analyze reviews, surveys, social media
+        - **Sentiment Analysis:** Measure positive/negative opinions
+        - **Topic Discovery:** Find themes in large document collections
+        - **Brand Monitoring:** Track mentions and sentiment
+        
+        ### Features Available:
+        **Sentiment Analysis (VADER)**
+        - Detects positive, negative, neutral sentiment
+        - Industry-standard for social media text
+        - Provides detailed sentiment scores
+        
+        **Word Frequency Analysis**
+        - Most common words and phrases
+        - Word cloud visualization
+        - Filters stopwords automatically
+        
+        **Topic Modeling (LDA)**
+        - Discovers hidden themes in text
+        - Groups similar documents
+        - Identifies key topics
+        """)
+    
+    # Check if data is loaded
+    if st.session_state.data is None:
+        st.info("👆 Please upload data from the **Data Upload** page first")
+        return
+    
+    df = st.session_state.data
+    
+    # Column selection
+    st.subheader("📝 1. Select Text Column")
+    
+    text_col = st.selectbox(
+        "Choose column containing text:",
+        df.columns,
+        help="Select the column with text data to analyze"
+    )
+    
+    if st.button("🔍 Load Text Data", type="primary"):
+        try:
+            from utils.text_mining import TextAnalyzer
+            
+            # Initialize analyzer
+            analyzer = TextAnalyzer(df[text_col])
+            st.session_state.text_analyzer = analyzer
+            
+            st.success(f"✅ Loaded {len(analyzer.text_series)} text entries!")
+            
+            # Show preview
+            st.write("**Sample Text:**")
+            st.text(analyzer.text_series.iloc[0][:300] + "..." if len(analyzer.text_series.iloc[0]) > 300 else analyzer.text_series.iloc[0])
+            
+        except Exception as e:
+            st.error(f"Error loading text: {str(e)}")
+    
+    # Show analysis if data is loaded
+    if 'text_analyzer' in st.session_state:
+        analyzer = st.session_state.text_analyzer
+        
+        # Analysis tabs
+        st.divider()
+        st.subheader("🔍 2. Text Analysis")
+        
+        tab1, tab2, tab3, tab4 = st.tabs(["Sentiment Analysis", "Word Frequency", "Topic Modeling", "AI Summary"])
+        
+        with tab1:
+            st.write("**Sentiment Analysis using VADER:**")
+            
+            if st.button("📊 Analyze Sentiment"):
+                with st.spinner("Analyzing sentiment..."):
+                    try:
+                        sentiment_df = analyzer.get_sentiment_analysis()
+                        st.session_state.sentiment_results = sentiment_df
+                        
+                        # Summary metrics
+                        sentiment_counts = sentiment_df['sentiment'].value_counts()
+                        total = len(sentiment_df)
+                        
+                        col1, col2, col3, col4 = st.columns(4)
+                        with col1:
+                            st.metric("Total Texts", total)
+                        with col2:
+                            pos_pct = (sentiment_counts.get('Positive', 0) / total) * 100
+                            st.metric("Positive", f"{pos_pct:.1f}%")
+                        with col3:
+                            neg_pct = (sentiment_counts.get('Negative', 0) / total) * 100
+                            st.metric("Negative", f"{neg_pct:.1f}%")
+                        with col4:
+                            neu_pct = (sentiment_counts.get('Neutral', 0) / total) * 100
+                            st.metric("Neutral", f"{neu_pct:.1f}%")
+                        
+                        # Visualization
+                        fig = analyzer.create_sentiment_plot(sentiment_df)
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Show results table
+                        st.write("**Detailed Results:**")
+                        st.dataframe(sentiment_df.head(20), use_container_width=True)
+                        
+                    except Exception as e:
+                        st.error(f"Error: {str(e)}")
+        
+        with tab2:
+            st.write("**Word Frequency Analysis:**")
+            
+            n_words = st.slider("Number of top words:", 10, 100, 50)
+            
+            if st.button("📈 Analyze Word Frequency"):
+                with st.spinner("Analyzing word frequency..."):
+                    try:
+                        word_freq_df = analyzer.get_word_frequency(n_words)
+                        st.session_state.word_freq_results = word_freq_df
+                        
+                        # Bar chart
+                        fig = analyzer.create_word_frequency_plot(word_freq_df)
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Word cloud
+                        st.write("**Word Cloud:**")
+                        wordcloud = analyzer.create_wordcloud(max_words=100)
+                        
+                        import matplotlib.pyplot as plt
+                        fig_wc, ax = plt.subplots(figsize=(12, 6))
+                        ax.imshow(wordcloud, interpolation='bilinear')
+                        ax.axis('off')
+                        st.pyplot(fig_wc)
+                        
+                    except Exception as e:
+                        st.error(f"Error: {str(e)}")
+        
+        with tab3:
+            st.write("**Topic Modeling (LDA):**")
+            
+            num_topics = st.slider("Number of topics:", 2, 10, 5)
+            
+            if st.button("🔎 Discover Topics"):
+                with st.spinner("Running topic modeling..."):
+                    try:
+                        topics = analyzer.get_topic_modeling(num_topics, n_words=10)
+                        st.session_state.topics = topics
+                        
+                        st.write(f"**Discovered {len(topics)} Topics:**")
+                        
+                        for topic_id, words in topics.items():
+                            with st.expander(f"Topic {topic_id + 1}"):
+                                st.write("**Top Words:**")
+                                st.write(", ".join(words))
+                        
+                    except Exception as e:
+                        st.error(f"Error: {str(e)}")
+        
+        with tab4:
+            st.write("**AI-Powered Text Summary:**")
+            
+            if st.button("🤖 Generate AI Summary"):
+                with st.spinner("Generating AI summary..."):
+                    try:
+                        from utils.ai_helper import AIHelper
+                        ai = AIHelper()
+                        
+                        # Gather context
+                        context = f"""
+                        Text Analysis Summary:
+                        - Total Texts: {len(analyzer.text_series)}
+                        - Sample Text: {analyzer.text_series.iloc[0][:200]}...
+                        """
+                        
+                        if 'sentiment_results' in st.session_state:
+                            sentiment_df = st.session_state.sentiment_results
+                            sentiment_counts = sentiment_df['sentiment'].value_counts()
+                            context += f"\n\nSentiment Distribution:\n{sentiment_counts.to_string()}"
+                        
+                        if 'word_freq_results' in st.session_state:
+                            word_freq_df = st.session_state.word_freq_results
+                            context += f"\n\nTop 5 Words:\n{word_freq_df.head(5).to_string(index=False)}"
+                        
+                        if 'topics' in st.session_state:
+                            topics = st.session_state.topics
+                            context += f"\n\nDiscovered Topics:\n"
+                            for topic_id, words in list(topics.items())[:3]:
+                                context += f"- Topic {topic_id + 1}: {', '.join(words[:5])}\n"
+                        
+                        prompt = f"""
+                        As a business analyst, analyze this text data and provide:
+                        1. Executive summary of the text content
+                        2. Key positive and negative themes identified
+                        3. Actionable business recommendations
+                        4. Potential areas of concern or opportunity
+                        
+                        {context}
+                        
+                        Provide clear, business-friendly insights.
+                        """
+                        
+                        response = ai.client.chat.completions.create(
+                            model="gpt-4",
+                            messages=[
+                                {"role": "system", "content": "You are an expert business analyst specializing in text analytics and sentiment analysis."},
+                                {"role": "user", "content": prompt}
+                            ],
+                            temperature=0.7,
+                            max_tokens=1500
+                        )
+                        
+                        st.markdown(response.choices[0].message.content)
+                        
+                    except Exception as e:
+                        st.error(f"Error generating AI summary: {str(e)}")
+        
+        # Export section
+        if 'sentiment_results' in st.session_state or 'word_freq_results' in st.session_state:
+            st.divider()
+            st.subheader("📥 3. Export Results")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if 'sentiment_results' in st.session_state:
+                    sentiment_csv = st.session_state.sentiment_results.to_csv(index=False)
+                    st.download_button(
+                        label="📥 Download Sentiment Results (CSV)",
+                        data=sentiment_csv,
+                        file_name=f"sentiment_analysis_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+            
+            with col2:
+                if 'word_freq_results' in st.session_state:
+                    word_freq_csv = st.session_state.word_freq_results.to_csv(index=False)
+                    st.download_button(
+                        label="📥 Download Word Frequency (CSV)",
+                        data=word_freq_csv,
+                        file_name=f"word_frequency_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
                         mime="text/csv",
                         use_container_width=True
                     )
