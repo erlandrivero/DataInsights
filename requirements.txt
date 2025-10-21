@@ -24,3 +24,8 @@ setuptools>=65.5.0
 # Monte Carlo Simulation
 yfinance==0.2.37
 scipy==1.11.4
+
+# Time Series Forecasting
+statsmodels==0.14.1
+pmdarima==2.0.4
+prophet==1.1.5

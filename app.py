@@ -74,7 +74,7 @@ def main():
         st.header("📊 Navigation")
         page = st.radio(
             "Select a page:",
-            ["Home", "Data Upload", "Analysis", "Insights", "Reports", "Market Basket Analysis", "RFM Analysis", "Monte Carlo Simulation", "ML Classification", "Anomaly Detection"],
+            ["Home", "Data Upload", "Analysis", "Insights", "Reports", "Market Basket Analysis", "RFM Analysis", "Monte Carlo Simulation", "ML Classification", "Anomaly Detection", "Time Series Forecasting"],
             key="navigation"
         )
         
@@ -172,6 +172,8 @@ def main():
         show_ml_classification()
     elif page == "Anomaly Detection":
         show_anomaly_detection()
+    elif page == "Time Series Forecasting":
+        show_time_series_forecasting()
 
 def show_home():
     st.header("Welcome to DataInsight AI! 👋")
@@ -3060,6 +3062,301 @@ def show_anomaly_detection():
                 mime="text/markdown",
                 use_container_width=True
             )
+
+def show_time_series_forecasting():
+    """Time Series Forecasting & Analysis page."""
+    st.header("📈 Time Series Forecasting")
+    
+    # Help section
+    with st.expander("ℹ️ What is Time Series Forecasting?"):
+        st.markdown("""
+        **Time Series Forecasting** predicts future values based on historical time-ordered data.
+        
+        ### Common Applications:
+        - **Sales Forecasting:** Predict future revenue and demand
+        - **Stock Price Prediction:** Forecast market trends
+        - **Demand Planning:** Inventory and resource optimization
+        - **Weather Forecasting:** Temperature and climate prediction
+        
+        ### Key Concepts:
+        **Trend:** Long-term increase or decrease in data  
+        **Seasonality:** Regular patterns that repeat over time  
+        **Stationarity:** Constant mean and variance over time  
+        **ACF/PACF:** Measures of correlation between observations  
+        
+        ### Models Available:
+        **ARIMA (Auto-Regressive Integrated Moving Average)**
+        - Statistical model for univariate time series
+        - Handles trends and seasonality
+        - Auto-tunes parameters for best fit
+        
+        **Prophet (Facebook's Forecasting Tool)**
+        - Robust to missing data and outliers
+        - Handles multiple seasonalities
+        - Good for business time series with holidays
+        """)
+    
+    # Check if data is loaded
+    if st.session_state.data is None:
+        st.info("👆 Please upload data from the **Data Upload** page first")
+        return
+    
+    df = st.session_state.data
+    
+    # Column selection
+    st.subheader("📊 1. Configure Time Series")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        time_col = st.selectbox(
+            "Select Date/Time Column:",
+            df.columns,
+            help="Column containing dates or timestamps"
+        )
+    
+    with col2:
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        if len(numeric_cols) == 0:
+            st.error("❌ No numeric columns found")
+            return
+        
+        value_col = st.selectbox(
+            "Select Value Column:",
+            numeric_cols,
+            help="Numeric column to forecast"
+        )
+    
+    if st.button("🔍 Load Time Series", type="primary"):
+        try:
+            from utils.time_series import TimeSeriesAnalyzer
+            
+            analyzer = TimeSeriesAnalyzer(df)
+            ts_data = analyzer.set_time_column(time_col, value_col)
+            
+            st.session_state.ts_analyzer = analyzer
+            st.session_state.ts_data = ts_data
+            
+            st.success(f"✅ Loaded time series with {len(ts_data)} observations")
+            
+            # Show preview
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("First Date", ts_data.index[0].strftime('%Y-%m-%d'))
+            with col2:
+                st.metric("Last Date", ts_data.index[-1].strftime('%Y-%m-%d'))
+            with col3:
+                st.metric("Observations", len(ts_data))
+            
+            # Plot time series
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=ts_data.index, y=ts_data.values, mode='lines', name='Time Series'))
+            fig.update_layout(title='Time Series Data', xaxis_title='Date', yaxis_title='Value', height=400)
+            st.plotly_chart(fig, use_container_width=True)
+            
+        except Exception as e:
+            st.error(f"Error loading time series: {str(e)}")
+    
+    # Show analysis if data is loaded
+    if 'ts_analyzer' in st.session_state:
+        analyzer = st.session_state.ts_analyzer
+        ts_data = st.session_state.ts_data
+        
+        # Analysis tabs
+        st.divider()
+        st.subheader("🔍 2. Time Series Analysis")
+        
+        tab1, tab2, tab3 = st.tabs(["Decomposition", "Stationarity Test", "Autocorrelation"])
+        
+        with tab1:
+            if st.button("📊 Decompose Time Series"):
+                try:
+                    components = analyzer.decompose_time_series()
+                    fig = analyzer.create_decomposition_plot(components)
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    st.info("**Decomposition** splits the time series into trend, seasonal, and residual components")
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
+        
+        with tab2:
+            if st.button("🔬 Run Stationarity Test"):
+                try:
+                    results = analyzer.get_stationarity_test()
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Test Statistic", f"{results['test_statistic']:.4f}")
+                    with col2:
+                        st.metric("P-Value", f"{results['p_value']:.4f}")
+                    with col3:
+                        status = "✅ Stationary" if results['is_stationary'] else "❌ Non-Stationary"
+                        st.metric("Status", status)
+                    
+                    st.write("**Critical Values:**")
+                    for key, value in results['critical_values'].items():
+                        st.write(f"- {key}: {value:.4f}")
+                    
+                    if results['is_stationary']:
+                        st.success("The series is stationary (p-value < 0.05). Good for ARIMA modeling!")
+                    else:
+                        st.warning("The series is non-stationary (p-value >= 0.05). May need differencing.")
+                        
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
+        
+        with tab3:
+            if st.button("📉 Calculate ACF/PACF"):
+                try:
+                    acf_vals, pacf_vals = analyzer.get_autocorrelation()
+                    fig = analyzer.create_acf_pacf_plot(acf_vals, pacf_vals)
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    st.info("**ACF/PACF** help identify appropriate ARIMA parameters (p, d, q)")
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
+        
+        # Forecasting section
+        st.divider()
+        st.subheader("🔮 3. Generate Forecasts")
+        
+        forecast_periods = st.slider(
+            "Forecast Horizon (periods):",
+            min_value=7,
+            max_value=365,
+            value=30,
+            help="Number of periods to forecast into the future"
+        )
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("🤖 Run ARIMA Forecast", use_container_width=True):
+                with st.spinner("Running Auto-ARIMA..."):
+                    try:
+                        results = analyzer.run_auto_arima(forecast_periods)
+                        st.session_state.arima_results = results
+                        
+                        st.success("✅ ARIMA model trained!")
+                        
+                        st.write("**Model Configuration:**")
+                        st.write(f"- Order (p,d,q): {results['model_order']}")
+                        st.write(f"- Seasonal Order: {results['seasonal_order']}")
+                        st.write(f"- AIC: {results['aic']:.2f}")
+                        st.write(f"- BIC: {results['bic']:.2f}")
+                        
+                        fig = analyzer.create_forecast_plot('arima')
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        st.dataframe(results['forecast'].head(10), use_container_width=True)
+                        
+                    except Exception as e:
+                        st.error(f"Error: {str(e)}")
+        
+        with col2:
+            if st.button("📊 Run Prophet Forecast", use_container_width=True):
+                with st.spinner("Running Prophet..."):
+                    try:
+                        results = analyzer.run_prophet(forecast_periods)
+                        st.session_state.prophet_results = results
+                        
+                        st.success("✅ Prophet model trained!")
+                        
+                        fig = analyzer.create_forecast_plot('prophet')
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        st.dataframe(results['forecast'][['ds', 'yhat', 'yhat_lower', 'yhat_upper']].head(10),
+                                   use_container_width=True)
+                        
+                    except Exception as e:
+                        st.error(f"Error: {str(e)}")
+        
+        # Model comparison
+        if 'arima_results' in st.session_state and 'prophet_results' in st.session_state:
+            st.divider()
+            st.subheader("⚖️ 4. Model Comparison")
+            
+            fig = analyzer.create_comparison_plot()
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # AI Insights
+            if st.button("🤖 Generate AI Insights"):
+                with st.spinner("Analyzing forecasts..."):
+                    try:
+                        from utils.ai_helper import AIHelper
+                        ai = AIHelper()
+                        
+                        context = f"""
+                        Time Series Analysis:
+                        - Time Period: {ts_data.index[0]} to {ts_data.index[-1]}
+                        - Observations: {len(ts_data)}
+                        - Mean: {ts_data.mean():.2f}
+                        - Std Dev: {ts_data.std():.2f}
+                        - Trend: {"Increasing" if ts_data.iloc[-10:].mean() > ts_data.iloc[:10].mean() else "Decreasing"}
+                        
+                        Forecast Summary:
+                        - Forecast Horizon: {forecast_periods} periods
+                        - ARIMA Forecast Mean: {st.session_state.arima_results['forecast']['forecast'].mean():.2f}
+                        - Prophet Forecast Mean: {st.session_state.prophet_results['forecast']['yhat'].mean():.2f}
+                        """
+                        
+                        prompt = f"""
+                        As a business analyst, analyze this time series forecast and provide:
+                        1. Interpretation of the forecast trends
+                        2. Which model (ARIMA or Prophet) appears more reliable and why
+                        3. Business recommendations based on the forecast
+                        4. Potential risks or opportunities identified
+                        
+                        {context}
+                        
+                        Provide actionable insights in business-friendly language.
+                        """
+                        
+                        response = ai.client.chat.completions.create(
+                            model="gpt-4",
+                            messages=[
+                                {"role": "system", "content": "You are an expert business analyst specializing in time series forecasting."},
+                                {"role": "user", "content": prompt}
+                            ],
+                            temperature=0.7,
+                            max_tokens=1500
+                        )
+                        
+                        st.markdown(response.choices[0].message.content)
+                        
+                    except Exception as e:
+                        st.error(f"Error generating insights: {str(e)}")
+        
+        # Export section
+        if 'arima_results' in st.session_state or 'prophet_results' in st.session_state:
+            st.divider()
+            st.subheader("📥 5. Export Results")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if 'arima_results' in st.session_state:
+                    forecast_df = st.session_state.arima_results['forecast']
+                    csv = forecast_df.to_csv()
+                    st.download_button(
+                        label="📥 Download ARIMA Forecast (CSV)",
+                        data=csv,
+                        file_name=f"arima_forecast_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+            
+            with col2:
+                if 'prophet_results' in st.session_state:
+                    forecast_df = st.session_state.prophet_results['forecast'][['ds', 'yhat', 'yhat_lower', 'yhat_upper']]
+                    csv = forecast_df.to_csv(index=False)
+                    st.download_button(
+                        label="📥 Download Prophet Forecast (CSV)",
+                        data=csv,
+                        file_name=f"prophet_forecast_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv",
+                        use_container_width=True
+                    )
 
 if __name__ == "__main__":
     main()
