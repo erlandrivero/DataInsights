@@ -583,7 +583,7 @@ def show_analysis():
     cleaner = DataCleaner(df)
     quality_score = cleaner.calculate_quality_score()
     
-    # Quality metrics cards
+    # Quality metrics cards with smart indicators
     col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         st.metric("Quality Score", f"{quality_score:.1f}/100", 
@@ -591,16 +591,54 @@ def show_analysis():
                  delta_color="normal" if quality_score >= 80 else "inverse")
     with col2:
         missing_pct = (df.isnull().sum().sum() / (df.shape[0] * df.shape[1])) * 100
-        st.metric("Missing Values", f"{missing_pct:.1f}%", delta="—", delta_color="off")
+        # Best practice: < 5% is good, > 20% needs attention
+        if missing_pct < 5:
+            delta_text = "Excellent"
+            delta_color = "normal"
+        elif missing_pct < 20:
+            delta_text = "Acceptable"
+            delta_color = "off"
+        else:
+            delta_text = "High"
+            delta_color = "inverse"
+        st.metric("Missing Values", f"{missing_pct:.1f}%", delta=delta_text, delta_color=delta_color)
     with col3:
         duplicates = df.duplicated().sum()
-        st.metric("Duplicates", f"{duplicates:,}", delta="—", delta_color="off")
+        dup_pct = (duplicates / len(df)) * 100 if len(df) > 0 else 0
+        # Best practice: < 1% is good, > 5% needs attention
+        if dup_pct < 1:
+            delta_text = "Excellent"
+            delta_color = "normal"
+        elif dup_pct < 5:
+            delta_text = "Acceptable"
+            delta_color = "off"
+        else:
+            delta_text = "High"
+            delta_color = "inverse"
+        st.metric("Duplicates", f"{duplicates:,}", delta=delta_text, delta_color=delta_color)
     with col4:
         numeric_cols = len(df.select_dtypes(include=['number']).columns)
-        st.metric("Numeric Columns", numeric_cols, delta="—", delta_color="off")
+        total_cols = len(df.columns)
+        numeric_pct = (numeric_cols / total_cols * 100) if total_cols > 0 else 0
+        # Best practice: Having numeric data is good for analysis
+        if numeric_cols > 0:
+            delta_text = f"{numeric_pct:.0f}% of data"
+            delta_color = "normal"
+        else:
+            delta_text = "None found"
+            delta_color = "inverse"
+        st.metric("Numeric Columns", numeric_cols, delta=delta_text, delta_color=delta_color)
     with col5:
         categorical_cols = len(df.select_dtypes(include=['object']).columns)
-        st.metric("Text Columns", categorical_cols, delta="—", delta_color="off")
+        cat_pct = (categorical_cols / total_cols * 100) if total_cols > 0 else 0
+        # Best practice: Having text data is good for analysis
+        if categorical_cols > 0:
+            delta_text = f"{cat_pct:.0f}% of data"
+            delta_color = "normal"
+        else:
+            delta_text = "None found"
+            delta_color = "off"
+        st.metric("Text Columns", categorical_cols, delta=delta_text, delta_color=delta_color)
     
     st.divider()
     
