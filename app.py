@@ -500,7 +500,23 @@ def show_data_upload():
                     if csv_files:
                         # Load first CSV file
                         csv_file = csv_files[0]
-                        df = pd.read_csv(os.path.join(download_path, csv_file))
+                        csv_path = os.path.join(download_path, csv_file)
+                        
+                        # Try different encodings for international datasets
+                        encodings = ['utf-8', 'latin-1', 'iso-8859-1', 'cp1252']
+                        df = None
+                        
+                        for encoding in encodings:
+                            try:
+                                df = pd.read_csv(csv_path, encoding=encoding)
+                                st.info(f"✅ Loaded with {encoding} encoding")
+                                break
+                            except UnicodeDecodeError:
+                                continue
+                        
+                        if df is None:
+                            st.error("❌ Could not read CSV with any standard encoding")
+                            raise Exception("Encoding error - unable to decode CSV file")
                         
                         st.session_state.data = df
                         
