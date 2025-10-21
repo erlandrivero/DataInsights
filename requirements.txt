@@ -1,8 +1,5 @@
-# CRITICAL: rich must be <14 for Streamlit 1.39.0 compatibility
-# Install this FIRST before other packages
-rich==13.7.1
-
-streamlit==1.39.0
+# Use Streamlit 1.38 for better dependency compatibility
+streamlit==1.38.0
 pandas==2.1.4
 numpy==1.26.4
 plotly==5.18.0
