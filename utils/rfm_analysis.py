@@ -43,17 +43,20 @@ class RFMAnalyzer:
         if reference_date is None:
             reference_date = df[date_col].max() + pd.Timedelta(days=1)
         
-        # Calculate RFM metrics
-        rfm = df.groupby(customer_col).agg({
-            date_col: [
-                ('Recency', lambda x: (reference_date - x.max()).days),  # Recency
-                ('Frequency', 'count')  # Frequency (count of transactions)
-            ],
-            amount_col: ('Monetary', 'sum')  # Monetary
-        }).reset_index()
+        # Calculate RFM metrics using separate aggregations
+        recency = df.groupby(customer_col)[date_col].apply(
+            lambda x: (reference_date - x.max()).days
+        ).reset_index()
+        recency.columns = [customer_col, 'Recency']
         
-        # Flatten column names
-        rfm.columns = [customer_col, 'Recency', 'Frequency', 'Monetary']
+        frequency = df.groupby(customer_col).size().reset_index()
+        frequency.columns = [customer_col, 'Frequency']
+        
+        monetary = df.groupby(customer_col)[amount_col].sum().reset_index()
+        monetary.columns = [customer_col, 'Monetary']
+        
+        # Merge all metrics
+        rfm = recency.merge(frequency, on=customer_col).merge(monetary, on=customer_col)
         
         return rfm
     
