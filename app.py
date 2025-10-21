@@ -176,7 +176,7 @@ def show_home():
         st.markdown("""
         <div class="feature-box">
             <h3>📤 Upload Data</h3>
-            <p>Upload CSV or Excel files and get instant data profiling</p>
+            <p>Upload CSV or Excel files and get instant data profiling<br>&nbsp;</p>
         </div>
         """, unsafe_allow_html=True)
     
@@ -192,7 +192,7 @@ def show_home():
         st.markdown("""
         <div class="feature-box">
             <h3>📊 Visualizations</h3>
-            <p>Interactive charts and dashboards generated automatically</p>
+            <p>Interactive charts and dashboards generated automatically<br>&nbsp;</p>
         </div>
         """, unsafe_allow_html=True)
     
@@ -303,64 +303,115 @@ def show_data_upload():
         st.subheader("Load from OpenML")
         st.markdown("""
         [OpenML](https://www.openml.org/) is a public repository with thousands of machine learning datasets.
-        **Popular datasets:** Iris, Titanic, Wine Quality, Diabetes, etc.
+        Browse datasets at: [openml.org/search?type=data](https://www.openml.org/search?type=data)
         """)
         
-        # Popular OpenML datasets
-        openml_datasets = {
-            "Iris": 61,
-            "Titanic": 40945,
-            "Wine Quality": 187,
-            "Diabetes": 37,
-            "Credit-g": 31,
-            "Adult": 1590
-        }
+        # Dataset selection method
+        openml_method = st.radio(
+            "Select dataset by:",
+            ["Popular Datasets", "Dataset ID"],
+            horizontal=True,
+            key="openml_method"
+        )
         
-        col1, col2 = st.columns([2, 1])
+        dataset_id = None
+        dataset_name = None
         
-        with col1:
-            dataset_name = st.selectbox(
-                "Choose a dataset:",
-                list(openml_datasets.keys()),
-                key="openml_dataset"
-            )
+        if openml_method == "Popular Datasets":
+            # Popular OpenML datasets
+            openml_datasets = {
+                "Iris": 61,
+                "Titanic": 40945,
+                "Wine Quality": 187,
+                "Diabetes": 37,
+                "Credit-g": 31,
+                "Adult": 1590,
+                "Boston Housing": 531,
+                "MNIST (Small)": 554
+            }
+            
+            col1, col2 = st.columns([2, 1])
+            
+            with col1:
+                dataset_name = st.selectbox(
+                    "Choose a dataset:",
+                    list(openml_datasets.keys()),
+                    key="openml_dataset"
+                )
+                dataset_id = openml_datasets[dataset_name]
+                st.caption(f"Dataset ID: {dataset_id}")
+            
+            with col2:
+                load_button = st.button("📥 Load Dataset", type="primary", use_container_width=True, key="load_openml_popular")
         
-        with col2:
-            if st.button("📥 Load OpenML Dataset", type="primary", use_container_width=True):
-                with st.spinner(f"Loading {dataset_name} from OpenML..."):
-                    try:
-                        import openml
-                        
-                        dataset_id = openml_datasets[dataset_name]
-                        dataset = openml.datasets.get_dataset(dataset_id)
-                        X, y, categorical_indicator, attribute_names = dataset.get_data(
-                            dataset_format="dataframe"
-                        )
-                        
-                        # Combine features and target
-                        if y is not None:
-                            df = X.copy()
-                            df['target'] = y
-                        else:
-                            df = X
-                        
-                        st.session_state.data = df
-                        
-                        # Profile data
-                        from utils.data_processor import DataProcessor
-                        profile = DataProcessor.profile_data(df)
-                        st.session_state.profile = profile
-                        
-                        issues = DataProcessor.detect_data_quality_issues(df)
-                        st.session_state.issues = issues
-                        
-                        st.success(f"✅ Successfully loaded {dataset_name} dataset!")
-                        st.info(f"**Description:** {dataset.description[:200]}...")
-                        st.dataframe(df.head(10), use_container_width=True)
-                        
-                    except Exception as e:
-                        st.error(f"Error loading OpenML dataset: {str(e)}")
-                        st.info("💡 Note: Some datasets may require additional processing.")
+        else:  # Custom Dataset ID
+            col1, col2 = st.columns([2, 1])
+            
+            with col1:
+                dataset_id = st.number_input(
+                    "Enter OpenML Dataset ID:",
+                    min_value=1,
+                    value=61,
+                    step=1,
+                    help="Find dataset IDs at openml.org/search",
+                    key="openml_custom_id"
+                )
+                st.caption("💡 Example IDs: 61 (Iris), 40945 (Titanic), 187 (Wine)")
+            
+            with col2:
+                load_button = st.button("📥 Load Dataset", type="primary", use_container_width=True, key="load_openml_custom")
+        
+        # Load button handler
+        if load_button:
+            with st.spinner(f"Loading dataset {dataset_id} from OpenML..."):
+                try:
+                    import openml
+                    
+                    dataset = openml.datasets.get_dataset(dataset_id)
+                    X, y, categorical_indicator, attribute_names = dataset.get_data(
+                        dataset_format="dataframe"
+                    )
+                    
+                    # Combine features and target
+                    if y is not None:
+                        df = X.copy()
+                        df['target'] = y
+                    else:
+                        df = X
+                    
+                    st.session_state.data = df
+                    
+                    # Profile data
+                    from utils.data_processor import DataProcessor
+                    profile = DataProcessor.profile_data(df)
+                    st.session_state.profile = profile
+                    
+                    issues = DataProcessor.detect_data_quality_issues(df)
+                    st.session_state.issues = issues
+                    
+                    success_msg = f"✅ Successfully loaded {dataset.name} (ID: {dataset_id})!"
+                    st.success(success_msg)
+                    st.info(f"**Description:** {dataset.description[:300]}...")
+                    
+                    # Show dataset info
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Rows", len(df))
+                    with col2:
+                        st.metric("Columns", len(df.columns))
+                    with col3:
+                        st.metric("Dataset ID", dataset_id)
+                    
+                    st.dataframe(df.head(10), use_container_width=True)
+                    
+                except Exception as e:
+                    st.error(f"Error loading OpenML dataset: {str(e)}")
+                    st.info("""
+                    💡 **Troubleshooting:**
+                    - Verify the dataset ID exists on OpenML
+                    - Some datasets may require additional processing
+                    - Check your internet connection
+                    """)
     
     with tab3:
         st.subheader("Load from Kaggle")
@@ -395,7 +446,13 @@ def show_data_upload():
                     import os
                     from kaggle.api.kaggle_api_extended import KaggleApi
                     
-                    # Initialize Kaggle API
+                    # Check for Streamlit secrets first (for cloud deployment)
+                    if hasattr(st, 'secrets') and 'KAGGLE_USERNAME' in st.secrets and 'KAGGLE_KEY' in st.secrets:
+                        os.environ['KAGGLE_USERNAME'] = st.secrets['KAGGLE_USERNAME']
+                        os.environ['KAGGLE_KEY'] = st.secrets['KAGGLE_KEY']
+                        st.info("🔑 Using Kaggle credentials from Streamlit Secrets")
+                    
+                    # Initialize Kaggle API (will use environment variables or kaggle.json)
                     api = KaggleApi()
                     api.authenticate()
                     

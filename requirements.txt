@@ -18,3 +18,4 @@ matplotlib==3.9.2
 # Online Data Repository Access
 kaggle==1.6.17
 openml==0.14.2
+setuptools>=65.5.0
