@@ -1834,15 +1834,70 @@ def show_rfm_analysis():
     # Data source selection
     st.subheader("📤 1. Load Transaction Data")
     
+    # Check if data is already loaded
+    has_loaded_data = st.session_state.data is not None
+    
+    if has_loaded_data:
+        data_options = ["Use Loaded Dataset", "Upload Custom Data", "Use Sample Data"]
+    else:
+        data_options = ["Upload Custom Data", "Use Sample Data"]
+    
     data_source = st.radio(
         "Choose data source:",
-        ["Upload Custom Data", "Use Sample Data"],
+        data_options,
+        index=0,
         key="rfm_data_source"
     )
     
     transactions_df = None
     
-    if data_source == "Upload Custom Data":
+    if data_source == "Use Loaded Dataset":
+        st.success("✅ Using dataset from Data Upload section")
+        df = st.session_state.data
+        
+        st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
+        
+        # Let user select columns for RFM analysis
+        st.write("**Select columns for RFM Analysis:**")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            customer_col = st.selectbox(
+                "Customer ID column:", 
+                df.columns, 
+                key="loaded_rfm_cust_col",
+                help="Column that identifies unique customers"
+            )
+        with col2:
+            date_col = st.selectbox(
+                "Transaction Date column:", 
+                df.columns, 
+                key="loaded_rfm_date_col",
+                help="Column containing transaction dates"
+            )
+        with col3:
+            amount_col = st.selectbox(
+                "Amount/Revenue column:", 
+                df.columns, 
+                key="loaded_rfm_amount_col",
+                help="Column containing transaction amounts"
+            )
+        
+        if st.button("🔄 Process Loaded Data for RFM", type="primary"):
+            with st.spinner("Processing RFM data..."):
+                try:
+                    st.session_state.rfm_transactions = df
+                    st.session_state.rfm_columns = {
+                        'customer': customer_col,
+                        'date': date_col,
+                        'amount': amount_col
+                    }
+                    st.success("✅ Data processed successfully!")
+                    st.info(f"📊 {df[customer_col].nunique()} unique customers, {len(df)} transactions")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error processing data: {str(e)}")
+    
+    elif data_source == "Upload Custom Data":
         st.info("""
         **Upload Format:**
         - CSV file with columns: `customer_id`, `transaction_date`, `amount`
