@@ -52,7 +52,26 @@ class MarketBasketAnalyzer:
         Returns:
             List of transactions (each transaction is a list of items)
         """
-        transactions = df.groupby(transaction_col)[item_col].apply(list).tolist()
+        # Clean the data before processing
+        df_clean = df.copy()
+        
+        # Remove rows where item is NaN/None
+        df_clean = df_clean.dropna(subset=[item_col])
+        
+        # Convert all items to strings and strip whitespace
+        df_clean[item_col] = df_clean[item_col].astype(str).str.strip()
+        
+        # Remove empty strings
+        df_clean = df_clean[df_clean[item_col] != '']
+        df_clean = df_clean[df_clean[item_col] != 'nan']
+        df_clean = df_clean[df_clean[item_col] != 'None']
+        
+        # Group by transaction and create lists
+        transactions = df_clean.groupby(transaction_col)[item_col].apply(list).tolist()
+        
+        # Remove any empty transactions
+        transactions = [t for t in transactions if len(t) > 0]
+        
         return transactions
     
     def encode_transactions(self, transactions: List[List[str]]) -> pd.DataFrame:
