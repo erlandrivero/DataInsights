@@ -8,7 +8,15 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.stattools import adfuller, acf, pacf
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 import pmdarima as pm
-from prophet import Prophet
+
+# Prophet is optional
+try:
+    from prophet import Prophet
+    PROPHET_AVAILABLE = True
+except ImportError:
+    Prophet = None
+    PROPHET_AVAILABLE = False
+
 from typing import Dict, Any, Tuple, List
 import plotly.graph_objects as go
 import plotly.express as px
@@ -233,6 +241,9 @@ class TimeSeriesAnalyzer:
         Returns:
             Dictionary with model info and forecast
         """
+        if not PROPHET_AVAILABLE:
+            raise ValueError("Prophet is not installed. Install it with: pip install prophet")
+        
         if self.ts_data is None:
             raise ValueError("Time series data must be set first using set_time_column()")
         
