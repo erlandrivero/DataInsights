@@ -3457,16 +3457,16 @@ def show_anomaly_detection():
         
         fig = detector.create_2d_scatter(use_pca=use_pca)
         
-        # Fix cursor issue with custom CSS
-        st.markdown("""
-        <style>
-        .js-plotly-plot .plotly, .js-plotly-plot .plotly div {
-            cursor: default !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        
-        st.plotly_chart(fig, use_container_width=True)
+        # Keep toolbar but fix cursor behavior
+        st.plotly_chart(
+            fig, 
+            use_container_width=True,
+            config={
+                'displayModeBar': True,  # Keep toolbar visible
+                'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d'],  # Remove tools that cause cursor issues
+                'displaylogo': False  # Hide Plotly logo
+            }
+        )
         
         # Detailed analysis tabs
         st.divider()
