@@ -113,38 +113,50 @@ class TextAnalyzer:
         
         return results
     
-    def get_word_frequency(self, n_words: int = 50) -> pd.DataFrame:
+    def get_word_frequency(self, n_words: int = 50, max_samples: int = 5000) -> pd.DataFrame:
         """
-        Get word frequency counts.
+        Get word frequency counts (optimized with sampling).
         
         Args:
             n_words: Number of top words to return
+            max_samples: Maximum texts to process (for performance)
             
         Returns:
             DataFrame with words and their frequencies
         """
-        all_words = []
+        # Sample if dataset is large
+        if len(self.text_series) > max_samples:
+            text_sample = self.text_series.sample(n=max_samples, random_state=42)
+            print(f"Analyzing {max_samples} sampled texts for word frequency")
+        else:
+            text_sample = self.text_series
         
-        for text in self.text_series:
-            cleaned = self.clean_text(text)
-            tokens = word_tokenize(cleaned)
-            tokens = [word for word in tokens if word not in self.stop_words and len(word) > 2]
-            all_words.extend(tokens)
+        # Vectorized text cleaning and tokenization
+        all_text = ' '.join(text_sample.astype(str))
+        cleaned = self.clean_text(all_text)
         
-        word_freq = pd.Series(all_words).value_counts().head(n_words)
+        # Tokenize all at once (much faster)
+        tokens = word_tokenize(cleaned)
+        
+        # Filter stopwords and short words
+        tokens = [word for word in tokens if word not in self.stop_words and len(word) > 2]
+        
+        # Get frequency counts
+        word_freq = pd.Series(tokens).value_counts().head(n_words)
         
         return pd.DataFrame({
             'word': word_freq.index,
             'frequency': word_freq.values
         })
     
-    def get_topic_modeling(self, num_topics: int = 5, n_words: int = 10) -> Dict[int, List[str]]:
+    def get_topic_modeling(self, num_topics: int = 5, n_words: int = 10, max_samples: int = 3000) -> Dict[int, List[str]]:
         """
-        Perform topic modeling using LDA.
+        Perform topic modeling using LDA (optimized with sampling).
         
         Args:
             num_topics: Number of topics to extract
             n_words: Number of words per topic
+            max_samples: Maximum texts to process (for performance)
             
         Returns:
             Dictionary mapping topic number to top words
@@ -152,7 +164,14 @@ class TextAnalyzer:
         from sklearn.feature_extraction.text import CountVectorizer
         from sklearn.decomposition import LatentDirichletAllocation
         
-        cleaned_texts = [self.clean_text(text) for text in self.text_series]
+        # Sample if dataset is large
+        if len(self.text_series) > max_samples:
+            text_sample = self.text_series.sample(n=max_samples, random_state=42)
+            print(f"Using {max_samples} sampled texts for topic modeling")
+        else:
+            text_sample = self.text_series
+        
+        cleaned_texts = [self.clean_text(text) for text in text_sample]
         
         vectorizer = CountVectorizer(
             max_features=1000,
