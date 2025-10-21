@@ -10,6 +10,30 @@ An AI-powered business intelligence assistant that helps you analyze data, gener
 - 📈 **Visualizations**: Interactive charts (histograms, scatter, box plots, heatmaps)
 - 📄 **Professional Reports**: Generate and export business-ready reports
 - 📥 **Export Options**: Download data, reports, and analysis in multiple formats
+- 🧺 **Market Basket Analysis**: Apriori algorithm for discovering item associations
+
+## Market Basket Analysis Module 🧺
+
+DataInsight AI now includes a comprehensive **Market Basket Analysis** module for discovering patterns in transactional data.
+
+### Features:
+- 🧺 Apriori algorithm implementation
+- 📊 Interactive threshold controls (support, confidence, lift)
+- 📈 Multiple visualizations (scatter plot, network graph, top items)
+- 💡 AI-generated business insights
+- 📥 Export rules and comprehensive reports
+- 🔍 Search and filter functionality
+- 📚 Built-in educational guide
+
+### Quick Start:
+1. Navigate to "Market Basket Analysis" page
+2. Load sample groceries data (9,835 transactions) or upload your own
+3. Adjust thresholds (support, confidence, lift)
+4. Click "Run Market Basket Analysis"
+5. Explore interactive visualizations and insights
+6. Download rules and reports
+
+See [MBA_GUIDE.md](MBA_GUIDE.md) for detailed instructions and business applications.
 
 ## Live Demo
 

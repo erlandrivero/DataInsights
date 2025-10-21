@@ -74,7 +74,7 @@ def main():
         st.header("📊 Navigation")
         page = st.radio(
             "Select a page:",
-            ["Home", "Data Upload", "Analysis", "Insights", "Reports"],
+            ["Home", "Data Upload", "Analysis", "Insights", "Reports", "Market Basket Analysis"],
             key="navigation"
         )
         
@@ -162,6 +162,8 @@ def main():
         show_insights()
     elif page == "Reports":
         show_reports()
+    elif page == "Market Basket Analysis":
+        show_market_basket_analysis()
 
 def show_home():
     st.header("Welcome to DataInsight AI! 👋")
@@ -271,8 +273,124 @@ def show_data_upload():
             else:
                 st.success("✅ No significant data quality issues detected!")
             
-            # Navigation hint
-            st.info("👉 Navigate to **Analysis** to explore your data further!")
+            # Association Rules Table
+            st.divider()
+            st.subheader("📋 3. Association Rules")
+            
+            # Prepare display dataframe
+            display_rules = rules.copy()
+            
+            # Format itemsets as strings
+            display_rules['Antecedents'] = display_rules['antecedents'].apply(
+                lambda x: mba.format_itemset(x)
+            )
+            display_rules['Consequents'] = display_rules['consequents'].apply(
+                lambda x: mba.format_itemset(x)
+            )
+            
+            # Select columns to display
+            display_cols = [
+                'Antecedents', 
+                'Consequents', 
+                'support', 
+                'confidence', 
+                'lift',
+                'leverage',
+                'conviction'
+            ]
+            
+            # Rename for better display
+            display_rules_formatted = display_rules[display_cols].copy()
+            display_rules_formatted.columns = [
+                'Antecedents (If)', 
+                'Consequents (Then)', 
+                'Support', 
+                'Confidence', 
+                'Lift',
+                'Leverage',
+                'Conviction'
+            ]
+            
+            # Round numeric columns
+            numeric_cols = ['Support', 'Confidence', 'Lift', 'Leverage', 'Conviction']
+            display_rules_formatted[numeric_cols] = display_rules_formatted[numeric_cols].round(4)
+            
+            # Sorting options
+            col1, col2 = st.columns([1, 3])
+            with col1:
+                sort_by = st.selectbox(
+                    "Sort by:",
+                    ['Lift', 'Confidence', 'Support', 'Leverage', 'Conviction'],
+                    key="sort_by"
+                )
+            with col2:
+                top_n = st.slider(
+                    "Show top N rules:",
+                    min_value=5,
+                    max_value=min(100, len(display_rules_formatted)),
+                    value=min(15, len(display_rules_formatted)),
+                    step=5,
+                    key="top_n_rules"
+                )
+            
+            # Sort and display
+            sorted_rules = display_rules_formatted.sort_values(sort_by, ascending=False).head(top_n)
+            
+            st.dataframe(
+                sorted_rules,
+                use_container_width=True,
+                hide_index=True
+            )
+            
+            # Export options
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Export all rules as CSV
+                csv = display_rules_formatted.to_csv(index=False)
+                st.download_button(
+                    label="📥 Download All Rules (CSV)",
+                    data=csv,
+                    file_name=f"association_rules_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            
+            with col2:
+                # Export top rules as CSV
+                csv_top = sorted_rules.to_csv(index=False)
+                st.download_button(
+                    label=f"📥 Download Top {top_n} Rules (CSV)",
+                    data=csv_top,
+                    file_name=f"top_{top_n}_rules_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            
+            # Search functionality
+            with st.expander("🔍 Search Rules"):
+                search_item = st.text_input(
+                    "Search for item in rules:",
+                    placeholder="e.g., whole milk",
+                    key="search_item"
+                )
+                
+                if search_item:
+                    # Filter rules containing the search item
+                    filtered_rules = display_rules_formatted[
+                        display_rules_formatted['Antecedents (If)'].str.contains(search_item, case=False, na=False) |
+                        display_rules_formatted['Consequents (Then)'].str.contains(search_item, case=False, na=False)
+                    ]
+                    
+                    if len(filtered_rules) > 0:
+                        st.write(f"**Found {len(filtered_rules)} rules containing '{search_item}':**")
+                        st.dataframe(
+                            filtered_rules.sort_values('Lift', ascending=False),
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                    else:
+                        st.info(f"No rules found containing '{search_item}'")
             
         except Exception as e:
             st.error(f"Error loading file: {str(e)}")
@@ -670,6 +788,702 @@ def show_reports():
                 mime="text/plain",
                 use_container_width=True
             )
+
+def show_market_basket_analysis():
+    """Market Basket Analysis page."""
+    st.header("🧺 Market Basket Analysis")
+    
+    # Help section
+    with st.expander("ℹ️ What is Market Basket Analysis?"):
+        st.markdown("""
+        **Market Basket Analysis (MBA)** is a data mining technique that discovers relationships 
+        between items in transactional data.
+        
+        ### Key Concepts:
+        
+        - **Support:** How frequently an itemset appears in transactions
+          - Formula: `support(A) = transactions containing A / total transactions`
+          - Example: If milk appears in 500 of 1000 transactions, support = 0.5
+        
+        - **Confidence:** Probability of buying B given A was purchased
+          - Formula: `confidence(A→B) = support(A,B) / support(A)`
+          - Example: If 80% of milk buyers also buy bread, confidence = 0.8
+        
+        - **Lift:** How much more likely B is purchased when A is purchased
+          - Formula: `lift(A→B) = support(A,B) / (support(A) × support(B))`
+          - Lift > 1: Positive correlation (items bought together)
+          - Lift = 1: No correlation (independent)
+          - Lift < 1: Negative correlation (items not bought together)
+        
+        ### The Apriori Algorithm:
+        
+        1. **Find frequent itemsets:** Items/combinations that appear often
+        2. **Generate rules:** Create "if-then" associations
+        3. **Filter by metrics:** Keep only strong, meaningful rules
+        
+        ### Business Applications:
+        
+        - 🛒 **Retail:** Product placement, bundling, promotions
+        - 🎬 **Entertainment:** Movie/music recommendations
+        - 🏥 **Healthcare:** Symptom co-occurrence, treatment patterns
+        - 📚 **Education:** Course recommendations
+        - 🍔 **Food Service:** Menu combinations, upselling
+        """)
+    
+    st.markdown("""
+    Discover hidden patterns in transactional data using the **Apriori algorithm**.
+    Find which items are frequently purchased together and generate actionable business insights.
+    """)
+    
+    # Import MBA utilities
+    from utils.market_basket import MarketBasketAnalyzer
+    
+    # Initialize analyzer in session state
+    if 'mba' not in st.session_state:
+        st.session_state.mba = MarketBasketAnalyzer()
+    
+    mba = st.session_state.mba
+    
+    # Data source selection
+    st.subheader("📤 1. Load Transaction Data")
+    
+    data_source = st.radio(
+        "Choose data source:",
+        ["Sample Groceries Dataset", "Upload Custom Data"],
+        key="mba_data_source"
+    )
+    
+    transactions = None
+    
+    if data_source == "Sample Groceries Dataset":
+        if st.button("📥 Load Groceries Data", type="primary"):
+            with st.spinner("Loading groceries dataset..."):
+                try:
+                    transactions = mba.load_groceries_data()
+                    st.session_state.mba_transactions = transactions
+                    st.success(f"✅ Loaded {len(transactions)} transactions!")
+                    
+                    # Show sample
+                    st.write("**Sample transactions:**")
+                    for i, trans in enumerate(transactions[:5], 1):
+                        st.write(f"{i}. {trans}")
+                        
+                except Exception as e:
+                    st.error(f"Error loading data: {str(e)}")
+    
+    else:  # Upload custom data
+        st.info("""
+        **Upload Format:**
+        - CSV file with two columns: `transaction_id` and `item`
+        - Each row represents one item in a transaction
+        - Example:
+          ```
+          transaction_id,item
+          1,bread
+          1,milk
+          2,eggs
+          2,bread
+          ```
+        """)
+        
+        uploaded_file = st.file_uploader(
+            "Upload transaction CSV",
+            type=['csv'],
+            key="mba_upload"
+        )
+        
+        if uploaded_file is not None:
+            try:
+                df = pd.read_csv(uploaded_file)
+                
+                # Let user select columns
+                col1, col2 = st.columns(2)
+                with col1:
+                    trans_col = st.selectbox("Transaction ID column:", df.columns, key="trans_col")
+                with col2:
+                    item_col = st.selectbox("Item column:", df.columns, key="item_col")
+                
+                if st.button("Process Uploaded Data", type="primary"):
+                    transactions = mba.parse_uploaded_transactions(df, trans_col, item_col)
+                    st.session_state.mba_transactions = transactions
+                    st.success(f"✅ Processed {len(transactions)} transactions!")
+                    
+                    # Show sample
+                    st.write("**Sample transactions:**")
+                    for i, trans in enumerate(transactions[:5], 1):
+                        st.write(f"{i}. {trans}")
+                        
+            except Exception as e:
+                st.error(f"Error processing file: {str(e)}")
+    
+    # Only show analysis if transactions are loaded
+    if 'mba_transactions' not in st.session_state:
+        st.info("👆 Load transaction data to begin analysis")
+        return
+    
+    transactions = st.session_state.mba_transactions
+    
+    # Encode transactions
+    if 'mba_encoded' not in st.session_state:
+        with st.spinner("Encoding transactions..."):
+            df_encoded = mba.encode_transactions(transactions)
+            st.session_state.mba_encoded = df_encoded
+    
+    df_encoded = st.session_state.mba_encoded
+    
+    # Display dataset info
+    st.divider()
+    st.subheader("📊 Dataset Overview")
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Transactions", f"{len(transactions):,}")
+    with col2:
+        st.metric("Unique Items", f"{len(df_encoded.columns):,}")
+    with col3:
+        avg_basket = sum(len(t) for t in transactions) / len(transactions)
+        st.metric("Avg Basket Size", f"{avg_basket:.1f}")
+    
+    # Threshold controls
+    st.divider()
+    st.subheader("🎛️ 2. Adjust Thresholds")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        min_support = st.slider(
+            "Minimum Support",
+            min_value=0.001,
+            max_value=0.1,
+            value=0.01,
+            step=0.001,
+            format="%.3f",
+            help="Minimum frequency of itemsets (e.g., 0.01 = 1% of transactions)"
+        )
+    
+    with col2:
+        min_confidence = st.slider(
+            "Minimum Confidence",
+            min_value=0.1,
+            max_value=1.0,
+            value=0.2,
+            step=0.05,
+            format="%.2f",
+            help="Minimum probability of consequent given antecedent"
+        )
+    
+    with col3:
+        min_lift = st.slider(
+            "Minimum Lift",
+            min_value=1.0,
+            max_value=5.0,
+            value=1.0,
+            step=0.1,
+            format="%.1f",
+            help="Minimum lift value (>1 means positive correlation)"
+        )
+    
+    # Run analysis button
+    if st.button("🚀 Run Market Basket Analysis", type="primary", use_container_width=True):
+        with st.spinner("Mining frequent itemsets and generating rules..."):
+            try:
+                # Validate thresholds
+                if min_support <= 0 or min_support > 1:
+                    st.error("❌ Minimum support must be between 0 and 1")
+                    st.stop()
+                
+                if min_confidence <= 0 or min_confidence > 1:
+                    st.error("❌ Minimum confidence must be between 0 and 1")
+                    st.stop()
+                
+                if min_lift < 0:
+                    st.error("❌ Minimum lift must be positive")
+                    st.stop()
+                
+                # Find frequent itemsets
+                itemsets = mba.find_frequent_itemsets(min_support=min_support)
+                
+                if len(itemsets) == 0:
+                    st.warning(f"⚠️ No frequent itemsets found with support >= {min_support}. Try lowering the minimum support.")
+                    st.stop()
+                
+                st.session_state.mba_itemsets = itemsets
+                
+                # Generate rules
+                rules = mba.generate_association_rules(
+                    metric='lift',
+                    min_threshold=min_lift,
+                    min_confidence=min_confidence,
+                    min_support=min_support
+                )
+                
+                if len(rules) == 0:
+                    st.warning(f"""
+                    ⚠️ No association rules found with current thresholds:
+                    - Support >= {min_support}
+                    - Confidence >= {min_confidence}
+                    - Lift >= {min_lift}
+                    
+                    **Try:**
+                    - Lowering minimum support
+                    - Lowering minimum confidence
+                    - Lowering minimum lift
+                    """)
+                    st.stop()
+                
+                st.session_state.mba_rules = rules
+                
+                st.success(f"✅ Found {len(itemsets)} frequent itemsets and {len(rules)} association rules!")
+                
+            except ValueError as e:
+                st.error(f"❌ Validation error: {str(e)}")
+            except Exception as e:
+                st.error(f"❌ Error during analysis: {str(e)}")
+                st.info("💡 Try adjusting the thresholds or checking your data format.")
+    
+    # Show results if available
+    if 'mba_rules' in st.session_state:
+        rules = st.session_state.mba_rules
+        
+        if len(rules) == 0:
+            st.warning("⚠️ No rules found with current thresholds. Try lowering the values.")
+        else:
+            # Summary metrics
+            st.divider()
+            st.subheader("📈 Analysis Summary")
+            
+            summary = mba.get_rules_summary()
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Total Rules", f"{summary['total_rules']:,}")
+            with col2:
+                st.metric("Avg Support", f"{summary['avg_support']:.4f}")
+            with col3:
+                st.metric("Avg Confidence", f"{summary['avg_confidence']:.3f}")
+            with col4:
+                st.metric("Avg Lift", f"{summary['avg_lift']:.2f}")
+            
+            # Association Rules Table
+            st.divider()
+            st.subheader("📋 3. Association Rules")
+            
+            # Prepare display dataframe
+            display_rules = rules.copy()
+            
+            # Format itemsets as strings
+            display_rules['Antecedents'] = display_rules['antecedents'].apply(
+                lambda x: mba.format_itemset(x)
+            )
+            display_rules['Consequents'] = display_rules['consequents'].apply(
+                lambda x: mba.format_itemset(x)
+            )
+            
+            # Select columns to display
+            display_cols = [
+                'Antecedents', 
+                'Consequents', 
+                'support', 
+                'confidence', 
+                'lift',
+                'leverage',
+                'conviction'
+            ]
+            
+            # Rename for better display
+            display_rules_formatted = display_rules[display_cols].copy()
+            display_rules_formatted.columns = [
+                'Antecedents (If)', 
+                'Consequents (Then)', 
+                'Support', 
+                'Confidence', 
+                'Lift',
+                'Leverage',
+                'Conviction'
+            ]
+            
+            # Round numeric columns
+            numeric_cols = ['Support', 'Confidence', 'Lift', 'Leverage', 'Conviction']
+            display_rules_formatted[numeric_cols] = display_rules_formatted[numeric_cols].round(4)
+            
+            # Sorting options
+            col1, col2 = st.columns([1, 3])
+            with col1:
+                sort_by = st.selectbox(
+                    "Sort by:",
+                    ['Lift', 'Confidence', 'Support', 'Leverage', 'Conviction'],
+                    key="sort_by"
+                )
+            with col2:
+                top_n = st.slider(
+                    "Show top N rules:",
+                    min_value=5,
+                    max_value=min(100, len(display_rules_formatted)),
+                    value=min(15, len(display_rules_formatted)),
+                    step=5,
+                    key="top_n_rules"
+                )
+            
+            # Sort and display
+            sorted_rules = display_rules_formatted.sort_values(sort_by, ascending=False).head(top_n)
+            
+            st.dataframe(
+                sorted_rules,
+                use_container_width=True,
+                hide_index=True
+            )
+            
+            # Export options
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Export all rules as CSV
+                csv = display_rules_formatted.to_csv(index=False)
+                st.download_button(
+                    label="📥 Download All Rules (CSV)",
+                    data=csv,
+                    file_name=f"association_rules_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            
+            with col2:
+                # Export top rules as CSV
+                csv_top = sorted_rules.to_csv(index=False)
+                st.download_button(
+                    label=f"📥 Download Top {top_n} Rules (CSV)",
+                    data=csv_top,
+                    file_name=f"top_{top_n}_rules_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            
+            # Search functionality
+            with st.expander("🔍 Search Rules"):
+                search_item = st.text_input(
+                    "Search for item in rules:",
+                    placeholder="e.g., whole milk",
+                    key="search_item"
+                )
+                
+                if search_item:
+                    # Filter rules containing the search item
+                    filtered_rules = display_rules_formatted[
+                        display_rules_formatted['Antecedents (If)'].str.contains(search_item, case=False, na=False) |
+                        display_rules_formatted['Consequents (Then)'].str.contains(search_item, case=False, na=False)
+                    ]
+                    
+                    if len(filtered_rules) > 0:
+                        st.write(f"**Found {len(filtered_rules)} rules containing '{search_item}':**")
+                        st.dataframe(
+                            filtered_rules.sort_values('Lift', ascending=False),
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                    else:
+                        st.info(f"No rules found containing '{search_item}'")
+            
+            # Visualizations
+            st.divider()
+            st.subheader("📈 4. Visualizations")
+            
+            # Tabs for different visualizations
+            viz_tab1, viz_tab2, viz_tab3 = st.tabs([
+                "📊 Scatter Plot", 
+                "🕸️ Network Graph", 
+                "📊 Top Items"
+            ])
+            
+            with viz_tab1:
+                st.markdown("""
+                **Support vs Confidence Scatter Plot**
+                - Each point represents an association rule
+                - Size of bubble indicates Lift value
+                - Color intensity shows Lift strength
+                - Hover for rule details
+                """)
+                
+                fig_scatter = mba.create_scatter_plot()
+                st.plotly_chart(fig_scatter, use_container_width=True)
+                
+                # Interpretation guide
+                with st.expander("💡 How to interpret this chart"):
+                    st.markdown("""
+                    - **Top-right corner:** High support AND high confidence (strong, frequent rules)
+                    - **Large bubbles:** High lift (strong association)
+                    - **Small bubbles:** Low lift (weak association)
+                    - **Bottom-left:** Low support AND low confidence (weak, rare rules)
+                    
+                    **Best rules:** Look for large bubbles in the top-right area!
+                    """)
+            
+            with viz_tab2:
+                st.markdown("""
+                **Network Graph of Item Associations**
+                - Shows relationships between items
+                - Arrows point from antecedent → consequent
+                - Based on top rules by lift
+                """)
+                
+                # Number of rules to show
+                network_top_n = st.slider(
+                    "Number of top rules to visualize:",
+                    min_value=5,
+                    max_value=30,
+                    value=15,
+                    step=5,
+                    key="network_top_n"
+                )
+                
+                fig_network = mba.create_network_graph(top_n=network_top_n)
+                st.plotly_chart(fig_network, use_container_width=True)
+                
+                with st.expander("💡 How to interpret this graph"):
+                    st.markdown("""
+                    - **Nodes:** Individual items
+                    - **Arrows:** Association rules (A → B means "if A, then B")
+                    - **Clusters:** Items that frequently appear together
+                    - **Central nodes:** Items involved in many rules
+                    
+                    **Business insight:** Items connected by arrows should be:
+                    - Placed near each other in store
+                    - Bundled in promotions
+                    - Cross-promoted in marketing
+                    """)
+            
+            with viz_tab3:
+                st.markdown("""
+                **Most Frequent Items**
+                - Shows items that appear most often in transactions
+                - Helps identify popular products
+                """)
+                
+                top_items = mba.get_top_items(top_n=15)
+                
+                if not top_items.empty:
+                    import plotly.express as px
+                    
+                    fig_items = px.bar(
+                        top_items,
+                        x='Frequency',
+                        y='Item',
+                        orientation='h',
+                        title='Top 15 Most Frequent Items',
+                        labels={'Frequency': 'Number of Transactions', 'Item': 'Item'},
+                        color='Support',
+                        color_continuous_scale='Blues'
+                    )
+                    
+                    fig_items.update_layout(
+                        yaxis={'categoryorder': 'total ascending'},
+                        height=500
+                    )
+                    
+                    st.plotly_chart(fig_items, use_container_width=True)
+                    
+                    # Show table
+                    st.dataframe(
+                        top_items.style.format({
+                            'Frequency': '{:,.0f}',
+                            'Support': '{:.4f}'
+                        }),
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                else:
+                    st.info("No item frequency data available")
+            
+            # Business Insights
+            st.divider()
+            st.subheader("💡 5. Business Insights & Recommendations")
+            
+            st.markdown("""
+            Based on the association rules discovered, here are actionable business recommendations:
+            """)
+            
+            # Generate insights
+            insights = mba.generate_insights(top_n=5)
+            
+            for insight in insights:
+                st.markdown(insight)
+                st.markdown("---")
+            
+            # Additional analysis
+            with st.expander("📊 Advanced Insights"):
+                st.markdown("### Rule Strength Distribution")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    # Lift distribution
+                    import plotly.express as px
+                    
+                    fig_lift = px.histogram(
+                        rules,
+                        x='lift',
+                        nbins=30,
+                        title='Distribution of Lift Values',
+                        labels={'lift': 'Lift', 'count': 'Number of Rules'}
+                    )
+                    fig_lift.add_vline(
+                        x=rules['lift'].mean(),
+                        line_dash="dash",
+                        line_color="red",
+                        annotation_text=f"Mean: {rules['lift'].mean():.2f}"
+                    )
+                    st.plotly_chart(fig_lift, use_container_width=True)
+                
+                with col2:
+                    # Confidence distribution
+                    fig_conf = px.histogram(
+                        rules,
+                        x='confidence',
+                        nbins=30,
+                        title='Distribution of Confidence Values',
+                        labels={'confidence': 'Confidence', 'count': 'Number of Rules'}
+                    )
+                    fig_conf.add_vline(
+                        x=rules['confidence'].mean(),
+                        line_dash="dash",
+                        line_color="red",
+                        annotation_text=f"Mean: {rules['confidence'].mean():.2f}"
+                    )
+                    st.plotly_chart(fig_conf, use_container_width=True)
+                
+                # Top antecedents and consequents
+                st.markdown("### Most Common Items in Rules")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("**Top Antecedents (If):**")
+                    # Count antecedents
+                    ant_items = []
+                    for itemset in rules['antecedents']:
+                        ant_items.extend(list(itemset))
+                    
+                    ant_counts = pd.Series(ant_items).value_counts().head(10)
+                    st.dataframe(
+                        pd.DataFrame({
+                            'Item': ant_counts.index,
+                            'Appears in Rules': ant_counts.values
+                        }),
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                
+                with col2:
+                    st.markdown("**Top Consequents (Then):**")
+                    # Count consequents
+                    cons_items = []
+                    for itemset in rules['consequents']:
+                        cons_items.extend(list(itemset))
+                    
+                    cons_counts = pd.Series(cons_items).value_counts().head(10)
+                    st.dataframe(
+                        pd.DataFrame({
+                            'Item': cons_counts.index,
+                            'Appears in Rules': cons_counts.values
+                        }),
+                        use_container_width=True,
+                        hide_index=True
+                    )
+            
+            # Business strategies
+            with st.expander("🎯 Strategic Recommendations"):
+                st.markdown("""
+                ### How to Use These Insights
+                
+                #### 1. **Store Layout Optimization**
+                - Place frequently associated items near each other
+                - Create "discovery zones" for high-lift pairs
+                - Use end-cap displays for complementary products
+                
+                #### 2. **Promotional Strategies**
+                - **Bundle Deals:** Combine items with high confidence
+                - **Cross-Promotions:** "Customers who bought X also bought Y"
+                - **Discount Strategies:** Discount antecedent to drive consequent sales
+                
+                #### 3. **Inventory Management**
+                - Stock associated items proportionally
+                - Predict demand for consequents based on antecedent sales
+                - Avoid stockouts of frequently paired items
+                
+                #### 4. **Marketing & Personalization**
+                - **Email Campaigns:** Recommend consequents to antecedent buyers
+                - **Website Recommendations:** "You might also like..."
+                - **Targeted Ads:** Show consequent ads to antecedent purchasers
+                
+                #### 5. **Product Development**
+                - Create new products combining popular associations
+                - Develop private-label bundles
+                - Design combo packages
+                
+                ### Metrics to Track
+                - **Basket Size:** Average items per transaction
+                - **Attachment Rate:** % of antecedent buyers who also buy consequent
+                - **Bundle Performance:** Sales lift from bundled promotions
+                - **Cross-Sell Success:** Conversion rate of recommendations
+                """)
+            
+            # Export full report
+            st.divider()
+            
+            if st.button("📄 Generate Full Report", use_container_width=True):
+                with st.spinner("Generating comprehensive report..."):
+                    # Create report content
+                    report = f"""
+# Market Basket Analysis Report
+**Generated:** {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+## Dataset Summary
+- **Total Transactions:** {len(transactions):,}
+- **Unique Items:** {len(df_encoded.columns):,}
+- **Average Basket Size:** {sum(len(t) for t in transactions) / len(transactions):.2f}
+
+## Analysis Parameters
+- **Minimum Support:** {min_support}
+- **Minimum Confidence:** {min_confidence}
+- **Minimum Lift:** {min_lift}
+
+## Results
+- **Frequent Itemsets Found:** {len(st.session_state.mba_itemsets):,}
+- **Association Rules Generated:** {len(rules):,}
+- **Average Support:** {summary['avg_support']:.4f}
+- **Average Confidence:** {summary['avg_confidence']:.4f}
+- **Average Lift:** {summary['avg_lift']:.2f}
+
+## Top 10 Association Rules
+
+{sorted_rules.head(10).to_markdown(index=False)}
+
+## Business Insights
+
+{chr(10).join(insights)}
+
+## Recommendations
+
+Based on this analysis, we recommend:
+
+1. **Product Placement:** Position highly associated items in proximity
+2. **Promotional Bundles:** Create bundles from high-confidence rules
+3. **Cross-Selling:** Implement recommendation systems based on these rules
+4. **Inventory Planning:** Stock associated items proportionally
+5. **Marketing Campaigns:** Target customers with personalized recommendations
+
+---
+*Report generated by DataInsight AI - Market Basket Analysis Module*
+"""
+                    
+                    st.download_button(
+                        label="📥 Download Report (Markdown)",
+                        data=report,
+                        file_name=f"mba_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.md",
+                        mime="text/markdown",
+                        use_container_width=True
+                    )
+                    
+                    st.success("✅ Report generated! Click download button above.")
 
 if __name__ == "__main__":
     main()
