@@ -211,6 +211,22 @@ class ColumnDetector:
         }
     
     @staticmethod
+    def get_time_series_column_suggestions(df: pd.DataFrame) -> dict:
+        """
+        Get suggested columns for Time Series Forecasting.
+        
+        Args:
+            df: DataFrame to analyze
+            
+        Returns:
+            Dictionary with 'date' and 'value' suggestions
+        """
+        return {
+            'date': ColumnDetector.detect_date_column(df),
+            'value': ColumnDetector.detect_amount_column(df)  # Reuse amount detection for numeric values
+        }
+    
+    @staticmethod
     def validate_mba_suitability(df: pd.DataFrame) -> dict:
         """
         Validate if dataset is suitable for Market Basket Analysis.
@@ -325,6 +341,64 @@ class ColumnDetector:
                 elif date_range_days < 90:
                     warnings.append(f"⚠️ Transaction history spans only {date_range_days} days")
                     recommendations.append("For better Recency analysis, 6+ months of data is recommended")
+            except:
+                pass
+        
+        return {
+            'suitable': suitable,
+            'warnings': warnings,
+            'recommendations': recommendations,
+            'confidence': 'high' if suitable and len(warnings) == 0 else 'medium' if suitable else 'low'
+        }
+    
+    @staticmethod
+    def validate_time_series_suitability(df: pd.DataFrame) -> dict:
+        """
+        Validate if dataset is suitable for Time Series Forecasting.
+        
+        Args:
+            df: DataFrame to analyze
+            
+        Returns:
+            Dictionary with 'suitable' (bool), 'warnings' (list), 'recommendations' (list)
+        """
+        warnings = []
+        recommendations = []
+        suitable = True
+        
+        # Check if we can find required columns
+        suggestions = ColumnDetector.get_time_series_column_suggestions(df)
+        
+        if not suggestions['date']:
+            warnings.append("⚠️ No date/time column detected")
+            recommendations.append("Time series requires a date or datetime column")
+            suitable = False
+        
+        if not suggestions['value']:
+            warnings.append("⚠️ No numeric value column detected")
+            recommendations.append("Time series requires a numeric column to forecast")
+            suitable = False
+        
+        # Check for sufficient data points
+        if len(df) < 30:
+            warnings.append(f"⚠️ Only {len(df)} data points - very limited for forecasting")
+            recommendations.append("Time series forecasting works best with 100+ data points")
+            suitable = False
+        elif len(df) < 50:
+            warnings.append(f"⚠️ Only {len(df)} data points - limited forecast accuracy")
+            recommendations.append("For better forecasts, 100+ data points recommended")
+        
+        # Check date range if date column exists
+        if suggestions['date']:
+            try:
+                dates = pd.to_datetime(df[suggestions['date']])
+                date_range_days = (dates.max() - dates.min()).days
+                if date_range_days < 30:
+                    warnings.append(f"⚠️ Time series spans only {date_range_days} days")
+                    recommendations.append("Longer time periods (6+ months) produce better forecasts")
+                elif date_range_days < 90:
+                    warnings.append(f"⚠️ Time series spans {date_range_days} days")
+                    recommendations.append("6+ months of data recommended for seasonal patterns")
             except:
                 pass
         

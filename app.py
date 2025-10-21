@@ -3664,15 +3664,45 @@ def show_time_series_forecasting():
     
     df = st.session_state.data
     
+    # Get smart column suggestions
+    from utils.column_detector import ColumnDetector
+    suggestions = ColumnDetector.get_time_series_column_suggestions(df)
+    
+    # Validate data suitability
+    validation = ColumnDetector.validate_time_series_suitability(df)
+    
+    if not validation['suitable']:
+        st.error("❌ **Dataset Not Suitable for Time Series Forecasting**")
+        for warning in validation['warnings']:
+            st.warning(warning)
+        st.info("**💡 Recommendations:**")
+        for rec in validation['recommendations']:
+            st.write(f"- {rec}")
+        return
+    elif len(validation['warnings']) > 0:
+        with st.expander("⚠️ Data Quality Warnings", expanded=False):
+            for warning in validation['warnings']:
+                st.warning(warning)
+            if validation['recommendations']:
+                st.info("**Recommendations:**")
+                for rec in validation['recommendations']:
+                    st.write(f"- {rec}")
+    else:
+        st.success(f"✅ **Dataset looks suitable for Time Series** (Confidence: {validation['confidence']})")
+    
     # Column selection
     st.subheader("📊 1. Configure Time Series")
+    st.info("💡 **Smart Detection:** Columns are auto-selected based on your data. You can change them if needed.")
     
     col1, col2 = st.columns(2)
     
     with col1:
+        # Find index of suggested date column
+        date_idx = list(df.columns).index(suggestions['date']) if suggestions['date'] in df.columns else 0
         time_col = st.selectbox(
             "Select Date/Time Column:",
             df.columns,
+            index=date_idx,
             help="Column containing dates or timestamps"
         )
     
@@ -3682,9 +3712,12 @@ def show_time_series_forecasting():
             st.error("❌ No numeric columns found")
             return
         
+        # Find index of suggested value column
+        value_idx = numeric_cols.index(suggestions['value']) if suggestions['value'] in numeric_cols else 0
         value_col = st.selectbox(
             "Select Value Column:",
             numeric_cols,
+            index=value_idx,
             help="Numeric column to forecast"
         )
     
