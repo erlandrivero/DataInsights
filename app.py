@@ -1040,8 +1040,7 @@ def show_insights():
                     'result': result
                 })
                 
-                # Clear input
-                st.session_state.question_input = ""
+                # Rerun to show new result
                 st.rerun()
                 
             except Exception as e:
