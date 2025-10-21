@@ -45,12 +45,14 @@ class RFMAnalyzer:
         
         # Calculate RFM metrics
         rfm = df.groupby(customer_col).agg({
-            date_col: lambda x: (reference_date - x.max()).days,  # Recency
-            customer_col: 'count',  # Frequency
-            amount_col: 'sum'  # Monetary
+            date_col: [
+                ('Recency', lambda x: (reference_date - x.max()).days),  # Recency
+                ('Frequency', 'count')  # Frequency (count of transactions)
+            ],
+            amount_col: ('Monetary', 'sum')  # Monetary
         }).reset_index()
         
-        # Rename columns
+        # Flatten column names
         rfm.columns = [customer_col, 'Recency', 'Frequency', 'Monetary']
         
         return rfm
