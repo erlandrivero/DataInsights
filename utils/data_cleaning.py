@@ -184,7 +184,7 @@ class DataCleaner:
                 else:  # drop
                     continue
                 
-                self.df[col].fillna(fill_value, inplace=True)
+                self.df[col] = self.df[col].fillna(fill_value)
                 total_filled += missing_count
                 filled_by_column[col] = missing_count
             
@@ -194,7 +194,7 @@ class DataCleaner:
                     # Use mode for categorical
                     if len(self.df[col].mode()) > 0:
                         fill_value = self.df[col].mode()[0]
-                        self.df[col].fillna(fill_value, inplace=True)
+                        self.df[col] = self.df[col].fillna(fill_value)
                         total_filled += missing_count
                         filled_by_column[col] = missing_count
         
