@@ -77,7 +77,7 @@ def main():
         st.header("📊 Navigation")
         page = st.radio(
             "Select a page:",
-            ["Home", "Data Upload", "Analysis", "Anomaly Detection", "Insights", "Market Basket Analysis", "RFM Analysis", "Time Series Forecasting", "Text Mining & NLP", "ML Classification", "Monte Carlo Simulation", "Reports"],
+            ["Home", "Data Upload", "Data Analysis & Cleaning", "Anomaly Detection", "Insights", "Market Basket Analysis", "RFM Analysis", "Time Series Forecasting", "Text Mining & NLP", "ML Classification", "Monte Carlo Simulation", "Reports"],
             key="navigation"
         )
         
@@ -159,7 +159,7 @@ def main():
         show_home()
     elif page == "Data Upload":
         show_data_upload()
-    elif page == "Analysis":
+    elif page == "Data Analysis & Cleaning":
         show_analysis()
     elif page == "Insights":
         show_insights()
