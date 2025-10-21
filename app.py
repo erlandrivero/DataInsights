@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 from dotenv import load_dotenv
 import os
 
@@ -681,12 +682,97 @@ def show_analysis():
                             st.error(f"Error generating suggestions: {str(e)}")
             else:
                 suggestions = st.session_state.cleaning_suggestions
+                
+                st.info("💡 Review each suggestion below. You can apply fixes directly or copy the code to run manually.")
+                
                 for i, suggestion in enumerate(suggestions):
-                    with st.expander(f"💡 Suggestion {i+1}: {suggestion.get('issue', 'N/A')}"):
+                    with st.expander(f"💡 Suggestion {i+1}: {suggestion.get('issue', 'N/A')}", expanded=False):
                         st.write("**What to do:**", suggestion.get('suggestion', 'N/A'))
                         st.write("**Why:**", suggestion.get('reason', 'N/A'))
+                        
                         if suggestion.get('code'):
                             st.code(suggestion['code'], language='python')
+                            
+                            col1, col2, col3 = st.columns([2, 2, 1])
+                            
+                            with col1:
+                                if st.button(f"✅ Apply This Fix", key=f"apply_fix_{i}", type="primary"):
+                                    try:
+                                        # Create a copy of the dataframe to apply fix
+                                        df_copy = df.copy()
+                                        
+                                        # Execute the cleaning code
+                                        # Make df available in the exec context
+                                        exec_globals = {'df': df_copy, 'pd': pd, 'np': np}
+                                        exec(suggestion['code'], exec_globals)
+                                        
+                                        # Update the dataframe in session state
+                                        st.session_state.data = exec_globals.get('df', df_copy)
+                                        
+                                        # Clear cached analysis to force refresh
+                                        if 'profile' in st.session_state:
+                                            del st.session_state.profile
+                                        if 'issues' in st.session_state:
+                                            del st.session_state.issues
+                                        if 'cleaning_suggestions' in st.session_state:
+                                            del st.session_state.cleaning_suggestions
+                                        
+                                        st.success(f"✅ Fix applied successfully! Data updated.")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"❌ Error applying fix: {str(e)}")
+                            
+                            with col2:
+                                if st.button(f"👁️ Preview Impact", key=f"preview_{i}"):
+                                    try:
+                                        df_copy = df.copy()
+                                        exec_globals = {'df': df_copy, 'pd': pd, 'np': np}
+                                        exec(suggestion['code'], exec_globals)
+                                        df_cleaned = exec_globals.get('df', df_copy)
+                                        
+                                        st.write("**Before:**")
+                                        st.write(f"- Rows: {len(df)}, Columns: {len(df.columns)}")
+                                        st.write(f"- Missing values: {df.isnull().sum().sum()}")
+                                        
+                                        st.write("**After:**")
+                                        st.write(f"- Rows: {len(df_cleaned)}, Columns: {len(df_cleaned.columns)}")
+                                        st.write(f"- Missing values: {df_cleaned.isnull().sum().sum()}")
+                                    except Exception as e:
+                                        st.error(f"Error previewing: {str(e)}")
+                
+                st.divider()
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("🔄 Regenerate All Suggestions", use_container_width=True):
+                        del st.session_state.cleaning_suggestions
+                        st.rerun()
+                
+                with col2:
+                    if st.button("📥 Download Cleaning Script", use_container_width=True):
+                        # Combine all code into a single script
+                        script = "# Data Cleaning Script\n"
+                        script += "# Generated by DataInsight AI\n\n"
+                        script += "import pandas as pd\nimport numpy as np\n\n"
+                        script += "# Load your data\n"
+                        script += "# df = pd.read_csv('your_data.csv')\n\n"
+                        
+                        for i, suggestion in enumerate(suggestions):
+                            if suggestion.get('code'):
+                                script += f"# Fix {i+1}: {suggestion.get('issue', 'N/A')}\n"
+                                script += f"# {suggestion.get('suggestion', 'N/A')}\n"
+                                script += suggestion['code'] + "\n\n"
+                        
+                        script += "# Save cleaned data\n"
+                        script += "# df.to_csv('cleaned_data.csv', index=False)\n"
+                        
+                        st.download_button(
+                            label="Download Python Script",
+                            data=script,
+                            file_name="data_cleaning_script.py",
+                            mime="text/plain",
+                            use_container_width=True
+                        )
 
 def show_insights():
     st.header("🤖 AI Insights & Natural Language Querying")
