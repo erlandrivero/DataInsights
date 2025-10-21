@@ -7,7 +7,14 @@ import numpy as np
 from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.stattools import adfuller, acf, pacf
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
-import pmdarima as pm
+
+# pmdarima is optional
+try:
+    import pmdarima as pm
+    PMDARIMA_AVAILABLE = True
+except ImportError:
+    pm = None
+    PMDARIMA_AVAILABLE = False
 
 # Prophet is optional
 try:
@@ -183,6 +190,9 @@ class TimeSeriesAnalyzer:
         Returns:
             Dictionary with model info and forecast
         """
+        if not PMDARIMA_AVAILABLE:
+            raise ValueError("pmdarima is not installed. This feature is temporarily unavailable on Python 3.13.")
+        
         if self.ts_data is None:
             raise ValueError("Time series data must be set first using set_time_column()")
         
