@@ -2955,9 +2955,41 @@ def show_ml_classification():
         col1, col2 = st.columns(2)
         
         with col1:
+            # Smart target column detection
+            def detect_target_column(df):
+                """Detect likely target column for classification."""
+                patterns = ['target', 'label', 'class', 'outcome', 'result', 'category', 
+                           'prediction', 'y', 'dependent', 'response', 'status']
+                
+                # Check for pattern matches
+                for col in df.columns:
+                    col_lower = col.lower().replace('_', '').replace(' ', '')
+                    for pattern in patterns:
+                        if pattern in col_lower:
+                            # Verify it's suitable (categorical with reasonable classes)
+                            n_unique = df[col].nunique()
+                            if 2 <= n_unique <= 50:  # Reasonable number of classes
+                                return col
+                
+                # Find categorical columns with reasonable number of classes
+                for col in df.columns:
+                    if df[col].dtype == 'object' or df[col].nunique() <= 20:
+                        n_unique = df[col].nunique()
+                        if 2 <= n_unique <= 50:
+                            return col
+                
+                # Fallback to last column (common ML convention)
+                return df.columns[-1]
+            
+            suggested_target = detect_target_column(df)
+            target_index = list(df.columns).index(suggested_target) if suggested_target in df.columns else 0
+            
+            st.info("💡 **Smart Detection:** Target column auto-selected based on your data. Change if needed.")
+            
             target_col = st.selectbox(
                 "Select Target Column (what to predict)",
                 df.columns,
+                index=target_index,
                 help="Column containing the categories/classes to predict"
             )
             
@@ -3014,51 +3046,75 @@ def show_ml_classification():
         if st.button("🚀 Train Models", type="primary", use_container_width=True):
             from utils.ml_training import MLTrainer
             
-            try:
-                # Initialize trainer
-                with st.spinner("Initializing ML Trainer..."):
-                    trainer = MLTrainer(df, target_col, max_samples=10000)
-                    prep_info = trainer.prepare_data(test_size=test_size/100)
+            # Validate target column before training
+            class_counts = df[target_col].value_counts()
+            min_class_size = class_counts.min()
+            
+            if min_class_size < 2:
+                st.error(f"""
+                ⚠️ **Training Error: Insufficient Samples in Target Classes**
                 
-                # Show preparation info
-                st.success(f"✅ Data prepared: {prep_info['train_size']} train, {prep_info['test_size']} test samples")
-                if prep_info['sampled']:
-                    st.info(f"📊 Dataset sampled to 10,000 rows for performance optimization")
+                The target column '{target_col}' has at least one class with only {min_class_size} sample(s).
+                Machine learning requires a minimum of 2 samples per class for training.
                 
-                # Progress tracking
-                st.divider()
-                st.subheader("⚙️ Training Progress")
+                **Class Distribution:**
+                """)
+                st.dataframe(class_counts.reset_index().rename(columns={'index': 'Class', target_col: 'Count'}), 
+                           use_container_width=True)
                 
-                progress_bar = st.progress(0)
-                status_text = st.empty()
+                st.info("""
+                **💡 Solutions:**
+                1. **Remove rare classes** - Filter out classes with fewer than 2 samples
+                2. **Collect more data** - Gather additional samples for underrepresented classes
+                3. **Combine classes** - Merge similar rare classes into a broader category
+                4. **Choose different target** - Select a target column with better distribution
+                """)
+            else:
+                try:
+                    # Initialize trainer
+                    with st.spinner("Initializing ML Trainer..."):
+                        trainer = MLTrainer(df, target_col, max_samples=10000)
+                        prep_info = trainer.prepare_data(test_size=test_size/100)
                 
-                results = []
-                
-                def progress_callback(current, total, model_name, result):
-                    progress = current / total
-                    progress_bar.progress(progress)
-                    status_text.text(f"Training {current}/{total}: {model_name} - F1: {result['f1']:.4f}")
-                
-                # Train models
-                results = trainer.train_all_models(
-                    selected_models=selected_models,
-                    cv_folds=cv_folds,
-                    progress_callback=progress_callback
-                )
-                
-                # Store results
-                st.session_state.ml_results = results
-                st.session_state.ml_trainer = trainer
-                
-                progress_bar.progress(1.0)
-                status_text.text("✅ Training complete!")
-                
-                st.success(f"🎉 Successfully trained {len(results)} models!")
-                
-            except Exception as e:
-                st.error(f"Error during training: {str(e)}")
-                import traceback
-                st.code(traceback.format_exc())
+                    # Show preparation info
+                    st.success(f"✅ Data prepared: {prep_info['train_size']} train, {prep_info['test_size']} test samples")
+                    if prep_info['sampled']:
+                        st.info(f"📊 Dataset sampled to 10,000 rows for performance optimization")
+                    
+                    # Progress tracking
+                    st.divider()
+                    st.subheader("⚙️ Training Progress")
+                    
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+                    
+                    results = []
+                    
+                    def progress_callback(current, total, model_name, result):
+                        progress = current / total
+                        progress_bar.progress(progress)
+                        status_text.text(f"Training {current}/{total}: {model_name} - F1: {result['f1']:.4f}")
+                    
+                    # Train models
+                    results = trainer.train_all_models(
+                        selected_models=selected_models,
+                        cv_folds=cv_folds,
+                        progress_callback=progress_callback
+                    )
+                    
+                    # Store results
+                    st.session_state.ml_results = results
+                    st.session_state.ml_trainer = trainer
+                    
+                    progress_bar.progress(1.0)
+                    status_text.text("✅ Training complete!")
+                    
+                    st.success(f"🎉 Successfully trained {len(results)} models!")
+                    
+                except Exception as e:
+                    st.error(f"Error during training: {str(e)}")
+                    import traceback
+                    st.code(traceback.format_exc())
     
     # Display results
     if 'ml_results' in st.session_state and 'ml_trainer' in st.session_state:
