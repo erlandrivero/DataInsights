@@ -2993,9 +2993,40 @@ def show_ml_classification():
                 help="Column containing the categories/classes to predict"
             )
             
-            # Show class distribution
+            # Show class distribution and data quality check
             if target_col:
                 class_counts = df[target_col].value_counts()
+                min_class_size = class_counts.min()
+                n_classes = len(class_counts)
+                total_samples = len(df)
+                
+                # Real-time data quality assessment
+                issues = []
+                warnings = []
+                
+                if min_class_size < 2:
+                    issues.append(f"❌ {(class_counts < 2).sum()} class(es) with < 2 samples (CRITICAL)")
+                if total_samples < 50:
+                    warnings.append(f"⚠️ Only {total_samples} samples (recommend 50+)")
+                if n_classes > 50:
+                    warnings.append(f"⚠️ {n_classes} classes (may be slow)")
+                if min_class_size >= 2 and min_class_size < 5:
+                    warnings.append(f"⚠️ Smallest class has only {min_class_size} samples")
+                
+                # Display quality indicator
+                if len(issues) > 0:
+                    st.error("**🚨 Data Quality: NOT SUITABLE FOR TRAINING**")
+                    for issue in issues:
+                        st.write(issue)
+                    st.info("💡 Fix: Remove or combine classes with < 2 samples")
+                elif len(warnings) > 0:
+                    st.warning("**⚠️ Data Quality: TRAINING POSSIBLE (with warnings)**")
+                    for warning in warnings:
+                        st.write(warning)
+                else:
+                    st.success("**✅ Data Quality: EXCELLENT FOR TRAINING**")
+                    st.write(f"✓ {n_classes} classes, {min_class_size} min samples/class")
+                
                 st.write("**Class Distribution:**")
                 fig_dist = px.bar(
                     x=class_counts.index.astype(str),
@@ -3023,6 +3054,95 @@ def show_ml_classification():
                 )
             else:
                 selected_models = None
+            
+            # Model Compatibility Checker
+            with st.expander("📋 Model Availability Checker", expanded=False):
+                st.write("**Real-time compatibility check for all 15 models:**")
+                
+                # Get dataset characteristics
+                n_samples = len(df)
+                n_features = len(df.columns) - 1  # Exclude target
+                n_numeric = len(df.select_dtypes(include=[np.number]).columns)
+                n_categorical = len(df.select_dtypes(include=['object']).columns)
+                
+                # Define model requirements and compatibility
+                from utils.ml_training import MLTrainer
+                temp_trainer = MLTrainer(df, target_col if target_col else df.columns[0])
+                all_models = temp_trainer.get_all_models()
+                
+                # Check each model
+                model_status = []
+                
+                for model_name in all_models.keys():
+                    available = True
+                    reason = "✅ Compatible"
+                    
+                    # Check XGBoost/LightGBM/CatBoost availability
+                    if model_name == "XGBoost":
+                        try:
+                            from xgboost import XGBClassifier
+                        except ImportError:
+                            available = False
+                            reason = "❌ XGBoost not installed"
+                    elif model_name == "LightGBM":
+                        try:
+                            from lightgbm import LGBMClassifier
+                        except ImportError:
+                            available = False
+                            reason = "❌ LightGBM not installed"
+                    elif model_name == "CatBoost":
+                        try:
+                            from catboost import CatBoostClassifier
+                        except ImportError:
+                            available = False
+                            reason = "❌ CatBoost not installed"
+                    
+                    # Check dataset size requirements
+                    if n_samples < 20 and model_name in ["Stacking", "Voting"]:
+                        available = False
+                        reason = f"❌ Need ≥20 samples (have {n_samples})"
+                    elif n_samples < 10:
+                        available = False
+                        reason = f"❌ Need ≥10 samples (have {n_samples})"
+                    
+                    # Check for tree-based models with very few features
+                    if n_features < 2 and "Tree" in model_name:
+                        available = False
+                        reason = f"⚠️ Need ≥2 features (have {n_features})"
+                    
+                    model_status.append({
+                        'Model': model_name,
+                        'Status': '✅ Available' if available else '❌ Unavailable',
+                        'Notes': reason if not available else '✅ Ready'
+                    })
+                
+                # Display as table
+                status_df = pd.DataFrame(model_status)
+                
+                # Color code the display
+                def color_status(row):
+                    if '❌' in row['Status']:
+                        return ['background-color: #ffebee'] * len(row)
+                    elif '⚠️' in row['Notes']:
+                        return ['background-color: #fff8e1'] * len(row)
+                    else:
+                        return ['background-color: #f1f8e9'] * len(row)
+                
+                styled_status = status_df.style.apply(color_status, axis=1)
+                st.dataframe(styled_status, use_container_width=True, height=400)
+                
+                # Summary
+                available_count = sum(1 for m in model_status if '✅' in m['Status'])
+                unavailable_count = len(model_status) - available_count
+                
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    st.metric("Available Models", available_count, delta="Ready to train")
+                with col_b:
+                    if unavailable_count > 0:
+                        st.metric("Unavailable Models", unavailable_count, delta="Check notes", delta_color="inverse")
+                    else:
+                        st.metric("Unavailable Models", 0, delta="All ready!")
             
             # Training config
             test_size = st.slider(
