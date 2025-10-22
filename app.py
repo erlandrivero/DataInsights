@@ -2896,8 +2896,8 @@ def show_ml_classification():
     if st.session_state.data is not None:
         data_source = st.radio(
             "Choose data source:",
-            ["Use uploaded data from Data Upload page", "Upload new file for this analysis"],
-            help="You can use the data you already uploaded or upload a new file"
+            ["Use uploaded data from Data Upload page", "Sample Iris Dataset", "Upload new file for this analysis"],
+            help="You can use the data you already uploaded, try a sample dataset, or upload a new file"
         )
         
         if data_source == "Use uploaded data from Data Upload page":
@@ -2908,7 +2908,34 @@ def show_ml_classification():
             # Show preview
             with st.expander("📋 Data Preview"):
                 st.dataframe(df.head(10), use_container_width=True)
-        else:
+                
+        elif data_source == "Sample Iris Dataset":
+            if st.button("📥 Load Iris Dataset", type="primary"):
+                with st.spinner("Loading Iris dataset..."):
+                    try:
+                        from sklearn.datasets import load_iris
+                        iris = load_iris()
+                        df = pd.DataFrame(iris.data, columns=iris.feature_names)
+                        df['species'] = pd.Categorical.from_codes(iris.target, iris.target_names)
+                        
+                        st.session_state.ml_data = df
+                        st.success(f"✅ Loaded Iris dataset: {len(df)} rows and {len(df.columns)} columns")
+                        
+                        st.info("""
+                        **About this dataset:**
+                        - 🎯 **Target:** species (3 classes: setosa, versicolor, virginica)
+                        - 📊 **Features:** 4 measurements (sepal/petal length/width)
+                        - ✅ **Perfect for ML:** Balanced classes, 150 samples
+                        - 🏆 **Classic:** Most famous classification dataset
+                        """)
+                        
+                        with st.expander("📋 Data Preview"):
+                            st.dataframe(df.head(10), use_container_width=True)
+                            
+                    except Exception as e:
+                        st.error(f"Error loading sample data: {str(e)}")
+                        
+        else:  # Upload new file
             uploaded_file = st.file_uploader(
                 "Upload CSV file with features and target column",
                 type=['csv'],
@@ -2929,25 +2956,55 @@ def show_ml_classification():
             else:
                 st.info("👆 Please upload a CSV file to continue")
     else:
-        st.info("💡 **Tip:** Upload data from the 'Data Upload' page first, or upload a file below")
-        
-        uploaded_file = st.file_uploader(
-            "Upload CSV file with features and target column",
-            type=['csv'],
-            key="ml_upload",
-            help="Must include predictor features and target column"
+        data_source = st.radio(
+            "Choose data source:",
+            ["Sample Iris Dataset", "Upload new file for this analysis"],
+            help="Try the sample dataset or upload your own"
         )
         
-        if uploaded_file is not None:
-            try:
-                df = pd.read_csv(uploaded_file)
-                st.session_state.ml_data = df
-                st.success(f"✅ Loaded {len(df):,} rows and {len(df.columns)} columns")
-                
-                with st.expander("📋 Data Preview"):
-                    st.dataframe(df.head(10), use_container_width=True)
-            except Exception as e:
-                st.error(f"Error loading file: {str(e)}")
+        if data_source == "Sample Iris Dataset":
+            if st.button("📥 Load Iris Dataset", type="primary"):
+                with st.spinner("Loading Iris dataset..."):
+                    try:
+                        from sklearn.datasets import load_iris
+                        iris = load_iris()
+                        df = pd.DataFrame(iris.data, columns=iris.feature_names)
+                        df['species'] = pd.Categorical.from_codes(iris.target, iris.target_names)
+                        
+                        st.session_state.ml_data = df
+                        st.success(f"✅ Loaded Iris dataset: {len(df)} rows and {len(df.columns)} columns")
+                        
+                        st.info("""
+                        **About this dataset:**
+                        - 🎯 **Target:** species (3 classes: setosa, versicolor, virginica)
+                        - 📊 **Features:** 4 measurements (sepal/petal length/width)
+                        - ✅ **Perfect for ML:** Balanced classes, 150 samples
+                        - 🏆 **Classic:** Most famous classification dataset
+                        """)
+                        
+                        with st.expander("📋 Data Preview"):
+                            st.dataframe(df.head(10), use_container_width=True)
+                            
+                    except Exception as e:
+                        st.error(f"Error loading sample data: {str(e)}")
+        else:  # Upload custom data
+            uploaded_file = st.file_uploader(
+                "Upload CSV file with features and target column",
+                type=['csv'],
+                key="ml_upload",
+                help="Must include predictor features and target column"
+            )
+            
+            if uploaded_file is not None:
+                try:
+                    df = pd.read_csv(uploaded_file)
+                    st.session_state.ml_data = df
+                    st.success(f"✅ Loaded {len(df):,} rows and {len(df.columns)} columns")
+                    
+                    with st.expander("📋 Data Preview"):
+                        st.dataframe(df.head(10), use_container_width=True)
+                except Exception as e:
+                    st.error(f"Error loading file: {str(e)}")
     
     # Configuration and training
     if 'ml_data' in st.session_state:
@@ -3001,21 +3058,62 @@ def show_ml_classification():
             if target_col:
                 class_counts = df[target_col].value_counts()
                 min_class_size = class_counts.min()
+                max_class_size = class_counts.max()
                 n_classes = len(class_counts)
                 total_samples = len(df)
+                
+                # Calculate class imbalance ratio
+                imbalance_ratio = max_class_size / min_class_size if min_class_size > 0 else float('inf')
+                
+                # Simulate stratified sampling to see what happens
+                max_samples_for_ml = 10000  # Same as MLTrainer
+                if total_samples > max_samples_for_ml:
+                    # Calculate what min class would become after sampling
+                    sampling_ratio = max_samples_for_ml / total_samples
+                    min_class_after_sampling = int(min_class_size * sampling_ratio)
+                else:
+                    min_class_after_sampling = min_class_size
                 
                 # Real-time data quality assessment
                 issues = []
                 warnings = []
+                recommendations = []
                 
+                # Check 1: Minimum samples
                 if min_class_size < 2:
                     issues.append(f"❌ {(class_counts < 2).sum()} class(es) with < 2 samples (CRITICAL)")
-                if total_samples < 50:
-                    warnings.append(f"⚠️ Only {total_samples} samples (recommend 50+)")
+                    recommendations.append("Remove or combine rare classes")
+                
+                # Check 2: Class imbalance (critical for ML)
+                if imbalance_ratio > 100:
+                    issues.append(f"❌ Severe class imbalance: {imbalance_ratio:.0f}:1 ratio (largest:{max_class_size}, smallest:{min_class_size})")
+                    recommendations.append("This dataset is NOT suitable for classification")
+                    recommendations.append(f"Try: Filter to top 5-10 classes, or use different target column")
+                elif imbalance_ratio > 50:
+                    warnings.append(f"⚠️ High class imbalance: {imbalance_ratio:.0f}:1 ratio")
+                    recommendations.append("Consider balancing techniques or filtering rare classes")
+                
+                # Check 3: After-sampling prediction
+                if total_samples > max_samples_for_ml and min_class_after_sampling < 2:
+                    issues.append(f"❌ After sampling to 10K rows: smallest class will have ~{min_class_after_sampling} samples")
+                    recommendations.append(f"Dataset too large with rare classes - stratified sampling will fail")
+                
+                # Check 4: Too many classes
                 if n_classes > 50:
-                    warnings.append(f"⚠️ {n_classes} classes (may be slow)")
-                if min_class_size >= 2 and min_class_size < 5:
+                    warnings.append(f"⚠️ {n_classes} classes (slow training, low accuracy expected)")
+                    recommendations.append("Consider grouping classes into broader categories")
+                
+                # Check 5: Dataset size
+                if total_samples < 50:
+                    warnings.append(f"⚠️ Only {total_samples} samples (recommend 100+)")
+                elif min_class_size >= 2 and min_class_size < 5:
                     warnings.append(f"⚠️ Smallest class has only {min_class_size} samples")
+                
+                # Check 6: Transactional data patterns (heuristic)
+                if n_classes > 30 and imbalance_ratio > 100:
+                    issues.append("⚠️ This appears to be TRANSACTIONAL data (not classification data)")
+                    recommendations.append("Classification requires balanced target labels, not transaction IDs/countries")
+                    recommendations.append("Try creating a derived target: 'High Value Customer', 'Churn Risk', etc.")
                 
                 # Display quality indicator
                 if len(issues) > 0:
@@ -3399,6 +3497,9 @@ def show_ml_classification():
         
         results_df = pd.DataFrame(results_data)
         
+        # Store in session state for export
+        st.session_state.ml_results_df = results_df
+        
         # Highlight best model
         def highlight_best(row):
             if row['Model'] == best_model['model_name']:
@@ -3672,19 +3773,29 @@ def show_ml_classification():
         
         with col1:
             # Export results
-            results_export = results_df.to_csv(index=False)
-            st.download_button(
-                label="📥 Download Results Table (CSV)",
-                data=results_export,
-                file_name=f"ml_results_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                mime="text/csv",
-                use_container_width=True
-            )
+            if 'ml_results_df' in st.session_state:
+                results_export = st.session_state.ml_results_df.to_csv(index=False)
+                st.download_button(
+                    label="📥 Download Results Table (CSV)",
+                    data=results_export,
+                    file_name=f"ml_results_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            else:
+                st.error("Results not available for export")
         
         with col2:
             # Export best model report
             if best_model:
-                report = f"""
+                try:
+                    # Generate markdown table from results
+                    if 'ml_results_df' in st.session_state:
+                        results_table = st.session_state.ml_results_df.to_markdown(index=False)
+                    else:
+                        results_table = "Results table not available"
+                    
+                    report = f"""
 # Machine Learning Classification Report
 **Generated:** {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
 
@@ -3701,7 +3812,7 @@ def show_ml_classification():
 
 ## All Models Performance
 
-{results_df.to_markdown(index=False)}
+{results_table}
 
 ## Dataset Information
 - **Rows:** {len(df)}
@@ -3712,6 +3823,9 @@ def show_ml_classification():
 ---
 *Report generated by DataInsight AI - Machine Learning Module*
 """
+                except Exception as e:
+                    st.error(f"Error generating report: {str(e)}")
+                    report = "Error generating report"
                 st.download_button(
                     label="📄 Download Best Model Report (MD)",
                     data=report,
