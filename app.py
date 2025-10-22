@@ -4110,10 +4110,13 @@ def show_ml_classification():
                     warnings.append(f"⚠️ High class imbalance: {imbalance_ratio:.0f}:1 ratio")
                     recommendations.append("Imbalanced data may reduce minority class accuracy")
                 
-                # Check 3: After-sampling - WARN if issues expected
+                # Check 3: After-sampling - BLOCK if classes will have <2 samples (CRITICAL)
                 if total_samples > max_samples_for_ml and min_class_after_sampling < 2:
-                    warnings.append(f"⚠️ After sampling to 10K: smallest class will have ~{min_class_after_sampling} samples")
-                    recommendations.append(f"Large dataset with rare classes - consider filtering rare classes first")
+                    issues.append(f"❌ After sampling to 10K, smallest class will have ~{min_class_after_sampling} samples (CRITICAL - will cause stratified split to fail)")
+                    recommendations.append(f"Filter out rare classes OR create binary/grouped target (e.g., 'Top 10 Countries' vs 'Other')")
+                elif total_samples > max_samples_for_ml and min_class_after_sampling < 5:
+                    warnings.append(f"⚠️ After sampling to 10K: smallest class will have ~{min_class_after_sampling} samples (may affect model performance)")
+                    recommendations.append(f"Consider filtering rare classes for better model performance")
                 
                 # Check 4: Too many classes - WARN only
                 if n_classes > 50:
