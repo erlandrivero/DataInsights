@@ -76,10 +76,21 @@ def main():
     # Sidebar
     with st.sidebar:
         st.header("📊 Navigation")
+        
+        # Check if any process is running
+        from utils.process_manager import NavigationGuard
+        guard = NavigationGuard()
+        
+        # Show warning if process is running
+        is_processing = guard.is_any_process_running()
+        if is_processing:
+            st.warning("⚠️ Process running - please wait before navigating")
+        
         page = st.radio(
             "Select a page:",
             ["Home", "Data Upload", "Data Analysis & Cleaning", "Anomaly Detection", "Insights", "Market Basket Analysis", "RFM Analysis", "Time Series Forecasting", "Text Mining & NLP", "ML Classification", "ML Regression", "Monte Carlo Simulation", "Reports"],
-            key="navigation"
+            key="navigation",
+            disabled=is_processing
         )
         
         st.divider()
@@ -686,11 +697,38 @@ def show_analysis():
             submitted = st.form_submit_button("🚀 Clean Data Now", type="primary", use_container_width=True)
         
         if submitted:
-            with st.spinner("🧹 Cleaning data..."):
-                try:
+            from utils.process_manager import ProcessManager
+            
+            # Create process manager
+            pm = ProcessManager("Data_Cleaning")
+            
+            # Show warning about not navigating
+            st.warning("""
+            ⚠️ **Important:** Do not navigate away from this page during cleaning.
+            Navigation is now locked to prevent data loss.
+            """)
+            
+            # Lock navigation
+            pm.lock()
+            
+            try:
+                with st.spinner("🧹 Cleaning data..."):
                     from utils.data_cleaning import DataCleaner
                     
+                    # Progress tracking
+                    st.divider()
+                    st.subheader("⚙️ Cleaning Progress")
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+                    
+                    status_text.text("Initializing data cleaner...")
+                    progress_bar.progress(0.2)
+                    
                     cleaner = DataCleaner(df)
+                    
+                    status_text.text("Running cleaning pipeline...")
+                    progress_bar.progress(0.5)
+                    
                     result = cleaner.clean_pipeline(
                         normalize_cols=normalize_cols,
                         convert_numeric=convert_numeric,
@@ -700,6 +738,9 @@ def show_analysis():
                         drop_high_missing_cols=drop_high_missing,
                         col_threshold=0.8
                     )
+                    
+                    progress_bar.progress(0.8)
+                    status_text.text("Storing cleaned data...")
                     
                     # Store cleaned data and results
                     st.session_state.data = result['cleaned_df']
@@ -712,11 +753,34 @@ def show_analysis():
                         if key in st.session_state:
                             del st.session_state[key]
                     
-                    st.success("✅ Data cleaned successfully!")
-                    st.rerun()
+                    # Save checkpoint
+                    pm.save_checkpoint({
+                        'completed': True,
+                        'original_rows': result['stats']['original_shape'][0],
+                        'cleaned_rows': result['stats']['cleaned_shape'][0],
+                        'quality_score': result['quality_score'],
+                        'timestamp': pd.Timestamp.now().isoformat()
+                    })
                     
-                except Exception as e:
-                    st.error(f"❌ Error during cleaning: {str(e)}")
+                    progress_bar.progress(1.0)
+                    status_text.text("✅ Cleaning complete!")
+                    
+                    st.success("✅ Data cleaned successfully!")
+                    
+            except Exception as e:
+                st.error(f"❌ Error during cleaning: {str(e)}")
+                pm.save_checkpoint({'error': str(e)})
+                import traceback
+                st.code(traceback.format_exc())
+            
+            finally:
+                # Always unlock navigation
+                pm.unlock()
+                st.info("✅ Navigation unlocked - you can now navigate to other pages.")
+                # Small delay before rerun
+                import time
+                time.sleep(1)
+                st.rerun()
         
         # Show cleaning results if available
         if 'cleaning_stats' in st.session_state:
@@ -1232,41 +1296,44 @@ def show_reports():
     if st.button("🎯 Generate Comprehensive Report", type="primary", use_container_width=True):
         with st.spinner("📝 Generating comprehensive report..."):
             try:
+                from utils.report_generator import ReportGenerator
                 from datetime import datetime
                 
-                report_sections = []
+                # Get or create profile and issues
+                if 'profile' not in st.session_state or not st.session_state.profile:
+                    from utils.data_processor import DataProcessor
+                    st.session_state.profile = DataProcessor.profile_data(df)
+                    st.session_state.issues = DataProcessor.detect_data_quality_issues(df)
                 
-                # Header
-                report_sections.append(f"""
-# DataInsight AI - Comprehensive Analysis Report
-**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
----
-
-## Executive Summary
-
-This report provides a comprehensive overview of all analyses performed on your dataset.
-
-### Dataset Overview
-- **Total Records:** {len(df):,}
-- **Total Columns:** {len(df.columns)}
-- **Analyses Completed:** {completed}/{total}
-
----
-""")
+                profile = st.session_state.profile
+                issues = st.session_state.get('issues', [])
                 
-                # Add module summaries if requested
+                # Gather AI insights if requested
+                insights_text = ""
+                if include_insights:
+                    if 'ai_insights' in st.session_state:
+                        insights_text = st.session_state.ai_insights
+                    else:
+                        insights_text = "No AI insights generated yet. Visit the Insights page to generate automated insights."
+                else:
+                    insights_text = "AI insights not included in this report."
+                
+                # Build module summaries
+                module_insights = []
                 if include_module_summaries:
-                    report_sections.append("## Analysis Modules\n\n")
+                    module_insights.append("\n## Advanced Analytics Summary\n")
                     
                     if modules_status['ML Classification']:
                         ml_results = st.session_state.get('ml_results', [])
                         if ml_results:
                             best = max(ml_results, key=lambda x: x.get('accuracy', 0))
-                            report_sections.append(f"""
+                            module_insights.append(f"""
 ### 🤖 ML Classification
 - **Best Model:** {best['model_name']}
 - **Accuracy:** {best['accuracy']:.4f}
+- **Precision:** {best.get('precision', 0):.4f}
+- **Recall:** {best.get('recall', 0):.4f}
+- **F1-Score:** {best.get('f1', 0):.4f}
 - **Models Trained:** {len(ml_results)}
 """)
                     
@@ -1274,73 +1341,113 @@ This report provides a comprehensive overview of all analyses performed on your 
                         mlr_results = st.session_state.get('mlr_results', [])
                         if mlr_results:
                             best = max(mlr_results, key=lambda x: x.get('r2', 0))
-                            report_sections.append(f"""
+                            module_insights.append(f"""
 ### 📈 ML Regression
 - **Best Model:** {best['model_name']}
 - **R² Score:** {best['r2']:.4f}
+- **RMSE:** {best.get('rmse', 0):.4f}
+- **MAE:** {best.get('mae', 0):.4f}
 - **Models Trained:** {len(mlr_results)}
 """)
                     
                     if modules_status['Market Basket Analysis']:
-                        report_sections.append("""
+                        mba_results = st.session_state.get('mba_results', {})
+                        rules_count = len(mba_results.get('rules', []))
+                        module_insights.append(f"""
 ### 🧺 Market Basket Analysis
 - **Status:** Completed
-- **Association rules generated**
-- **Product recommendations available**
+- **Association Rules Generated:** {rules_count}
+- **Top Products:** Analyzed for cross-selling opportunities
+- **Recommendations:** Available for basket optimization
 """)
                     
                     if modules_status['RFM Analysis']:
-                        report_sections.append("""
+                        rfm_results = st.session_state.get('rfm_results', {})
+                        segments = len(rfm_results.get('segments', set()))
+                        module_insights.append(f"""
 ### 👥 RFM Analysis
 - **Status:** Completed
-- **Customer segments identified**
-- **RFM scores calculated**
+- **Customer Segments:** {segments} identified
+- **RFM Scores:** Recency, Frequency, Monetary calculated
+- **Segmentation:** K-Means clustering applied
 """)
                     
                     if modules_status['Anomaly Detection']:
-                        report_sections.append("""
+                        anomaly_results = st.session_state.get('anomaly_results', {})
+                        anomalies = anomaly_results.get('n_anomalies', 0)
+                        module_insights.append(f"""
 ### 🔬 Anomaly Detection
 - **Status:** Completed
-- **Outliers identified**
-- **Anomaly scores calculated**
+- **Outliers Identified:** {anomalies}
+- **Methods:** Isolation Forest, LOF, One-Class SVM
+- **Anomaly Scores:** Calculated and flagged
+""")
+                    
+                    if modules_status['Time Series Forecasting']:
+                        ts_results = st.session_state.get('ts_results', {})
+                        model_used = ts_results.get('model', 'N/A')
+                        module_insights.append(f"""
+### 📊 Time Series Forecasting
+- **Status:** Completed
+- **Model:** {model_used}
+- **Forecast Generated:** Available for future periods
+- **Trend Analysis:** Completed
+""")
+                    
+                    if modules_status['Text Mining & NLP']:
+                        module_insights.append("""
+### 📝 Text Mining & NLP
+- **Status:** Completed
+- **Sentiment Analysis:** Performed
+- **Topic Modeling:** Applied
+- **Named Entity Recognition:** Extracted
 """)
                     
                     if modules_status['Monte Carlo Simulation']:
-                        report_sections.append("""
+                        mc_results = st.session_state.get('mc_results', {})
+                        simulations = mc_results.get('n_simulations', 0)
+                        module_insights.append(f"""
 ### 📈 Monte Carlo Simulation
 - **Status:** Completed
-- **Financial forecasts generated**
-- **Risk analysis performed**
+- **Simulations Run:** {simulations:,}
+- **Risk Metrics:** Calculated
+- **Financial Forecasts:** Generated with confidence intervals
 """)
                 
-                # Recommendations
-                if include_recommendations:
-                    report_sections.append("""
----
-
-## Recommendations
-
-Based on the analyses performed:
-
-1. **Data Quality:** Review identified anomalies and outliers
-2. **Model Deployment:** Consider deploying the best-performing models
-3. **Business Actions:** Implement recommendations from each analysis module
-4. **Continuous Monitoring:** Re-run analyses periodically with new data
-
-""")
+                # Gather cleaning suggestions
+                suggestions = st.session_state.get('cleaning_suggestions', [])
                 
-                # Footer
-                report_sections.append("""
----
-
-*Report generated by DataInsight AI - Comprehensive Analysis Module*
-*For detailed results, see individual module reports*
-""")
+                # Generate base report using ReportGenerator
+                base_report = ReportGenerator.generate_full_report(
+                    df=df,
+                    profile=profile,
+                    issues=issues,
+                    insights=insights_text,
+                    suggestions=suggestions
+                )
                 
-                comprehensive_report = "\n".join(report_sections)
-                st.session_state.comprehensive_report = comprehensive_report
+                # Append module summaries if requested
+                if module_insights:
+                    module_section = "\n".join(module_insights)
+                    # Insert module summaries after the executive summary
+                    base_report = base_report.replace(
+                        "---\n\n## Data Profile",
+                        f"{module_section}\n\n---\n\n## Data Profile"
+                    )
+                
+                # Add analysis completion metrics at the top
+                enhanced_report = base_report.replace(
+                    "# DataInsight AI - Business Intelligence Report",
+                    f"""# DataInsight AI - Comprehensive Business Intelligence Report
+
+**Analyses Completed:** {completed}/{total} modules ({(completed/total)*100:.0f}% complete)  
+**Report Generated:** {datetime.now().strftime('%B %d, %Y at %I:%M %p')}"""
+                )
+                
+                st.session_state.comprehensive_report = enhanced_report
                 
                 st.success("✅ Comprehensive report generated successfully!")
+                st.info(f"📊 Report includes: Data profiling, quality assessment, {completed} module summaries, and recommendations")
                 
             except Exception as e:
                 st.error(f"Error generating report: {str(e)}")
@@ -1682,29 +1789,59 @@ def show_market_basket_analysis():
     
     # Run analysis button
     if st.button("🚀 Run Market Basket Analysis", type="primary", use_container_width=True):
-        with st.spinner("Mining frequent itemsets and generating rules..."):
-            try:
+        from utils.process_manager import ProcessManager
+        
+        # Create process manager
+        pm = ProcessManager("Market_Basket_Analysis")
+        
+        # Show warning about not navigating
+        st.warning("""
+        ⚠️ **Important:** Do not navigate away from this page during analysis.
+        Navigation is now locked to prevent data loss.
+        """)
+        
+        # Lock navigation
+        pm.lock()
+        
+        try:
+            with st.spinner("Mining frequent itemsets and generating rules..."):
                 # Validate thresholds
                 if min_support <= 0 or min_support > 1:
                     st.error("❌ Minimum support must be between 0 and 1")
+                    pm.unlock()
                     st.stop()
                 
                 if min_confidence <= 0 or min_confidence > 1:
                     st.error("❌ Minimum confidence must be between 0 and 1")
+                    pm.unlock()
                     st.stop()
                 
                 if min_lift < 0:
                     st.error("❌ Minimum lift must be positive")
+                    pm.unlock()
                     st.stop()
+                
+                # Progress tracking
+                st.divider()
+                st.subheader("⚙️ Analysis Progress")
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                status_text.text("Mining frequent itemsets...")
+                progress_bar.progress(0.3)
                 
                 # Find frequent itemsets
                 itemsets = mba.find_frequent_itemsets(min_support=min_support)
                 
                 if len(itemsets) == 0:
                     st.warning(f"⚠️ No frequent itemsets found with support >= {min_support}. Try lowering the minimum support.")
+                    pm.unlock()
                     st.stop()
                 
                 st.session_state.mba_itemsets = itemsets
+                
+                progress_bar.progress(0.6)
+                status_text.text(f"Found {len(itemsets)} itemsets, generating rules...")
                 
                 # Generate rules
                 rules = mba.generate_association_rules(
@@ -1713,6 +1850,9 @@ def show_market_basket_analysis():
                     min_confidence=min_confidence,
                     min_support=min_support
                 )
+                
+                progress_bar.progress(0.9)
+                status_text.text("Finalizing results...")
                 
                 if len(rules) == 0:
                     st.warning(f"""
@@ -1726,17 +1866,38 @@ def show_market_basket_analysis():
                     - Lowering minimum confidence
                     - Lowering minimum lift
                     """)
+                    pm.unlock()
                     st.stop()
                 
                 st.session_state.mba_rules = rules
                 
+                # Save checkpoint
+                pm.save_checkpoint({
+                    'completed': True,
+                    'itemsets_count': len(itemsets),
+                    'rules_count': len(rules),
+                    'timestamp': pd.Timestamp.now().isoformat()
+                })
+                
+                progress_bar.progress(1.0)
+                status_text.text("✅ Analysis complete!")
+                
                 st.success(f"✅ Found {len(itemsets)} frequent itemsets and {len(rules)} association rules!")
                 
-            except ValueError as e:
-                st.error(f"❌ Validation error: {str(e)}")
-            except Exception as e:
-                st.error(f"❌ Error during analysis: {str(e)}")
-                st.info("💡 Try adjusting the thresholds or checking your data format.")
+        except ValueError as e:
+            st.error(f"❌ Validation error: {str(e)}")
+            pm.save_checkpoint({'error': str(e)})
+        except Exception as e:
+            st.error(f"❌ Error during analysis: {str(e)}")
+            st.info("💡 Try adjusting the thresholds or checking your data format.")
+            pm.save_checkpoint({'error': str(e)})
+            import traceback
+            st.code(traceback.format_exc())
+        
+        finally:
+            # Always unlock navigation
+            pm.unlock()
+            st.info("✅ Navigation unlocked - you can now navigate to other pages.")
     
     # Show results if available
     if 'mba_rules' in st.session_state:
@@ -2502,8 +2663,31 @@ def show_rfm_analysis():
     st.subheader("🔢 2. Calculate RFM Metrics")
     
     if st.button("📊 Calculate RFM", type="primary", use_container_width=True):
-        with st.spinner("Calculating RFM metrics..."):
-            try:
+        from utils.process_manager import ProcessManager
+        
+        # Create process manager
+        pm = ProcessManager("RFM_Analysis")
+        
+        # Show warning about not navigating
+        st.warning("""
+        ⚠️ **Important:** Do not navigate away from this page during analysis.
+        Navigation is now locked to prevent data loss.
+        """)
+        
+        # Lock navigation
+        pm.lock()
+        
+        try:
+            with st.spinner("Calculating RFM metrics..."):
+                # Progress tracking
+                st.divider()
+                st.subheader("⚙️ Analysis Progress")
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                status_text.text("Calculating RFM metrics...")
+                progress_bar.progress(0.3)
+                
                 # Calculate RFM
                 rfm_data = rfm_analyzer.calculate_rfm(
                     transactions_df, 
@@ -2512,21 +2696,48 @@ def show_rfm_analysis():
                     cols['amount']
                 )
                 
+                progress_bar.progress(0.6)
+                status_text.text("Scoring customers...")
+                
                 # Score RFM
                 rfm_scored = rfm_analyzer.score_rfm(rfm_data, method='quartile')
                 
+                progress_bar.progress(0.8)
+                status_text.text("Segmenting customers...")
+                
                 # Segment customers
                 rfm_segmented = rfm_analyzer.segment_customers(rfm_scored)
+                
+                progress_bar.progress(0.9)
+                status_text.text("Storing results...")
                 
                 # Store in session state
                 st.session_state.rfm_data = rfm_data
                 st.session_state.rfm_scored = rfm_scored
                 st.session_state.rfm_segmented = rfm_segmented
                 
+                # Save checkpoint
+                pm.save_checkpoint({
+                    'completed': True,
+                    'customers_analyzed': len(rfm_data),
+                    'timestamp': pd.Timestamp.now().isoformat()
+                })
+                
+                progress_bar.progress(1.0)
+                status_text.text("✅ RFM analysis complete!")
+                
                 st.success(f"✅ RFM calculated for {len(rfm_data)} customers!")
                 
-            except Exception as e:
-                st.error(f"Error calculating RFM: {str(e)}")
+        except Exception as e:
+            st.error(f"❌ Error calculating RFM: {str(e)}")
+            pm.save_checkpoint({'error': str(e)})
+            import traceback
+            st.code(traceback.format_exc())
+        
+        finally:
+            # Always unlock navigation
+            pm.unlock()
+            st.info("✅ Navigation unlocked - you can now navigate to other pages.")
     
     # Show results if available
     if 'rfm_segmented' in st.session_state:
@@ -2869,9 +3080,32 @@ def show_monte_carlo_simulation():
     
     # Run simulation button
     if st.button("🚀 Run Monte Carlo Simulation", type="primary", use_container_width=True):
-        with st.spinner(f"Running {num_simulations} simulations..."):
-            try:
+        from utils.process_manager import ProcessManager
+        
+        # Create process manager
+        pm = ProcessManager("Monte_Carlo_Simulation")
+        
+        # Show warning about not navigating
+        st.warning("""
+        ⚠️ **Important:** Do not navigate away from this page during simulation.
+        Navigation is now locked to prevent data loss.
+        """)
+        
+        # Lock navigation
+        pm.lock()
+        
+        try:
+            with st.spinner(f"Running {num_simulations} simulations..."):
                 start_price = stock_data['Close'].iloc[-1]
+                
+                # Progress tracking
+                st.divider()
+                st.subheader("⚙️ Simulation Progress")
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                status_text.text(f"Running {num_simulations} simulations for {forecast_days} days...")
+                progress_bar.progress(0.3)
                 
                 # Run simulation
                 simulations = simulator.run_simulation(
@@ -2882,15 +3116,24 @@ def show_monte_carlo_simulation():
                     num_simulations=num_simulations
                 )
                 
+                progress_bar.progress(0.6)
+                status_text.text("Calculating confidence intervals...")
+                
                 # Calculate confidence intervals
                 intervals_dict = simulator.calculate_confidence_intervals(
                     simulations,
                     [level / 100 for level in confidence_levels]
                 )
                 
+                progress_bar.progress(0.8)
+                status_text.text("Calculating risk metrics...")
+                
                 # Calculate risk metrics
                 final_prices = simulations[:, -1]
                 risk_metrics = simulator.get_risk_metrics(final_prices, start_price)
+                
+                progress_bar.progress(0.9)
+                status_text.text("Storing results...")
                 
                 # Store in session state
                 st.session_state.mc_simulations = simulations
@@ -2898,10 +3141,34 @@ def show_monte_carlo_simulation():
                 st.session_state.mc_risk_metrics = risk_metrics
                 st.session_state.mc_forecast_days = forecast_days
                 
+                # Save checkpoint
+                pm.save_checkpoint({
+                    'completed': True,
+                    'num_simulations': num_simulations,
+                    'forecast_days': forecast_days,
+                    'timestamp': pd.Timestamp.now().isoformat()
+                })
+                
+                progress_bar.progress(1.0)
+                status_text.text("✅ Simulation complete!")
+                
                 st.success(f"✅ Completed {num_simulations} simulations for {forecast_days} days!")
                 
-            except Exception as e:
-                st.error(f"Error running simulation: {str(e)}")
+        except Exception as e:
+            st.error(f"❌ Error running simulation: {str(e)}")
+            # Save error checkpoint
+            pm.save_checkpoint({
+                'error': str(e),
+                'num_simulations': num_simulations,
+                'timestamp': pd.Timestamp.now().isoformat()
+            })
+            import traceback
+            st.code(traceback.format_exc())
+        
+        finally:
+            # Always unlock navigation
+            pm.unlock()
+            st.info("✅ Navigation unlocked - you can now navigate to other pages.")
     
     # Show results if available
     if 'mc_simulations' in st.session_state:
@@ -3606,6 +3873,22 @@ def show_ml_classification():
             
             # Only proceed if validation passed
             if validation_passed:
+                from utils.process_manager import ProcessManager, NavigationGuard
+                
+                # Create process manager
+                pm = ProcessManager("ML_Classification")
+                
+                # Show warning about not navigating
+                st.warning("""
+                ⚠️ **Training Process Starting**
+                
+                Training multiple models may take several minutes. Please do not navigate away during this process.
+                Navigation has been temporarily disabled to prevent data loss.
+                """)
+                
+                # Lock navigation
+                pm.lock()
+                
                 try:
                     # Initialize trainer
                     with st.spinner("Initializing ML Trainer..."):
@@ -3623,34 +3906,70 @@ def show_ml_classification():
                     
                     progress_bar = st.progress(0)
                     status_text = st.empty()
+                    results_container = st.container()
                     
                     results = []
+                    total_models = len(selected_models)
                     
-                    def progress_callback(current, total, model_name, result):
-                        progress = current / total
+                    # Train each model
+                    for idx, model_name in enumerate(selected_models):
+                        # Check if process was cancelled
+                        if not pm.is_locked():
+                            with results_container:
+                                st.warning("⚠️ Training cancelled by user. Partial results have been saved.")
+                            break
+                        
+                        # Update progress
+                        progress = idx / total_models
                         progress_bar.progress(progress)
-                        status_text.text(f"Training {current}/{total}: {model_name} - F1: {result['f1']:.4f}")
+                        status_text.text(f"Training model {idx + 1}/{total_models}: {model_name}...")
+                        
+                        # Train single model
+                        result = trainer.train_single_model(model_name, cv_folds=cv_folds)
+                        results.append(result)
+                        
+                        # Show intermediate result
+                        with results_container:
+                            st.write(f"✅ **{model_name}** - Accuracy: {result['accuracy']:.4f}, F1: {result['f1']:.4f}")
+                        
+                        # Save checkpoint every 2 models
+                        if (idx + 1) % 2 == 0:
+                            pm.save_checkpoint({
+                                'completed_models': idx + 1,
+                                'results': results,
+                                'total_models': total_models
+                            })
                     
-                    # Train models
-                    results = trainer.train_all_models(
-                        selected_models=selected_models,
-                        cv_folds=cv_folds,
-                        progress_callback=progress_callback
-                    )
-                    
-                    # Store results
+                    # Store final results
                     st.session_state.ml_results = results
                     st.session_state.ml_trainer = trainer
                     
+                    # Clear progress
                     progress_bar.progress(1.0)
                     status_text.text("✅ Training complete!")
                     
                     st.success(f"🎉 Successfully trained {len(results)} models!")
                     
+                    # Clear checkpoint on successful completion
+                    pm.clear_checkpoint()
+                    
                 except Exception as e:
                     st.error(f"Error during training: {str(e)}")
                     import traceback
                     st.code(traceback.format_exc())
+                    
+                    # Save checkpoint on error for potential recovery
+                    if results:
+                        pm.save_checkpoint({
+                            'error': str(e),
+                            'partial_results': results,
+                            'failed_at': len(results)
+                        })
+                        st.info("💾 Partial results saved. You can review them before retrying.")
+                    
+                finally:
+                    # Always unlock navigation
+                    pm.unlock()
     
     # Display results
     if 'ml_results' in st.session_state and 'ml_trainer' in st.session_state:
@@ -4473,6 +4792,19 @@ def show_ml_regression():
             st.button("🚀 Train Models", type="primary", use_container_width=True, disabled=True)
         elif st.button("🚀 Train Models", type="primary", use_container_width=True):
             from utils.ml_regression import MLRegressor
+            from utils.process_manager import ProcessManager
+            
+            # Create process manager
+            pm = ProcessManager("ML_Regression")
+            
+            # Show warning about not navigating
+            st.warning("""
+            ⚠️ **Important:** Do not navigate away from this page during training.
+            Navigation is now locked to prevent data loss.
+            """)
+            
+            # Lock navigation
+            pm.lock()
             
             try:
                 # Initialize regressor
@@ -4498,6 +4830,14 @@ def show_ml_regression():
                     progress = current / total
                     progress_bar.progress(progress)
                     status_text.text(f"Training {current}/{total}: {model_name} - R²: {result['r2']:.4f}")
+                    
+                    # Save checkpoint every 2 models
+                    if current % 2 == 0:
+                        pm.save_checkpoint({
+                            'completed_models': current,
+                            'total_models': total,
+                            'partial_results': [r['model_name'] for r in results]
+                        })
                 
                 # Train models
                 results = regressor.train_all_models(
@@ -4510,15 +4850,36 @@ def show_ml_regression():
                 st.session_state.mlr_results = results
                 st.session_state.mlr_regressor = regressor
                 
+                # Final checkpoint
+                pm.save_checkpoint({
+                    'completed': True,
+                    'total_models': len(results),
+                    'timestamp': pd.Timestamp.now().isoformat()
+                })
+                
                 progress_bar.progress(1.0)
                 status_text.text("✅ Training complete!")
                 
                 st.success(f"🎉 Successfully trained {len(results)} models!")
                 
             except Exception as e:
-                st.error(f"Error during training: {str(e)}")
+                st.error(f"❌ Error during training: {str(e)}")
+                # Save partial results on error
+                if 'results' in locals() and len(results) > 0:
+                    st.session_state.mlr_results = results
+                    st.session_state.mlr_regressor = regressor
+                    st.warning(f"⚠️ Saved partial results for {len(results)} models")
+                    pm.save_checkpoint({
+                        'error': str(e),
+                        'partial_results': len(results)
+                    })
                 import traceback
                 st.code(traceback.format_exc())
+            
+            finally:
+                # Always unlock navigation
+                pm.unlock()
+                st.info("✅ Navigation unlocked - you can now navigate to other pages.")
     
     # Display results
     if 'mlr_results' in st.session_state and 'mlr_regressor' in st.session_state:
@@ -4845,13 +5206,39 @@ def show_anomaly_detection():
     
     # Run detection button
     if st.button("🚀 Detect Anomalies", type="primary", use_container_width=True):
-        with st.spinner(f"Running {algorithm}..."):
-            try:
+        from utils.process_manager import ProcessManager
+        
+        # Create process manager
+        pm = ProcessManager("Anomaly_Detection")
+        
+        # Show warning about not navigating
+        st.warning("""
+        ⚠️ **Important:** Do not navigate away from this page during detection.
+        Navigation is now locked to prevent data loss.
+        """)
+        
+        # Lock navigation
+        pm.lock()
+        
+        try:
+            with st.spinner(f"Running {algorithm}..."):
                 from utils.anomaly_detection import AnomalyDetector
+                
+                # Progress tracking
+                st.divider()
+                st.subheader("⚙️ Detection Progress")
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                status_text.text("Initializing detector...")
+                progress_bar.progress(0.2)
                 
                 # Initialize detector
                 detector = AnomalyDetector(df)
                 detector.set_features(feature_cols)
+                
+                status_text.text(f"Running {algorithm} algorithm...")
+                progress_bar.progress(0.5)
                 
                 # Run selected algorithm
                 if algorithm == "Isolation Forest":
@@ -4861,15 +5248,37 @@ def show_anomaly_detection():
                 else:  # One-Class SVM
                     results = detector.run_one_class_svm(nu=contamination)
                 
+                progress_bar.progress(0.9)
+                status_text.text("Storing results...")
+                
                 # Store results
                 st.session_state.anomaly_detector = detector
                 st.session_state.anomaly_results = results
                 st.session_state.anomaly_algorithm = algorithm
                 
+                # Save checkpoint
+                pm.save_checkpoint({
+                    'completed': True,
+                    'algorithm': algorithm,
+                    'anomalies_detected': results['num_anomalies'],
+                    'timestamp': pd.Timestamp.now().isoformat()
+                })
+                
+                progress_bar.progress(1.0)
+                status_text.text("✅ Detection complete!")
+                
                 st.success(f"✅ Anomaly detection completed using {algorithm}!")
                 
-            except Exception as e:
-                st.error(f"Error running anomaly detection: {str(e)}")
+        except Exception as e:
+            st.error(f"❌ Error running anomaly detection: {str(e)}")
+            pm.save_checkpoint({'error': str(e)})
+            import traceback
+            st.code(traceback.format_exc())
+        
+        finally:
+            # Always unlock navigation
+            pm.unlock()
+            st.info("✅ Navigation unlocked - you can now navigate to other pages.")
     
     # Show results if available
     if 'anomaly_results' in st.session_state:
@@ -5308,10 +5717,26 @@ def show_time_series_forecasting():
         
         with col1:
             if st.button("🤖 Run ARIMA Forecast", use_container_width=True):
-                with st.spinner("Running Auto-ARIMA..."):
-                    try:
+                from utils.process_manager import ProcessManager
+                
+                pm = ProcessManager("ARIMA_Forecast")
+                pm.lock()
+                
+                try:
+                    with st.spinner("Running Auto-ARIMA..."):
+                        st.warning("⚠️ Navigation locked during forecasting...")
+                        
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+                        
+                        status_text.text("Training ARIMA model...")
+                        progress_bar.progress(0.5)
+                        
                         results = analyzer.run_auto_arima(forecast_periods)
                         st.session_state.arima_results = results
+                        
+                        progress_bar.progress(1.0)
+                        status_text.text("✅ ARIMA complete!")
                         
                         st.success("✅ ARIMA model trained!")
                         
@@ -5326,15 +5751,37 @@ def show_time_series_forecasting():
                         
                         st.dataframe(results['forecast'].head(10), use_container_width=True)
                         
-                    except Exception as e:
-                        st.error(f"Error: {str(e)}")
+                        pm.save_checkpoint({'completed': True, 'model': 'ARIMA'})
+                        
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+                    pm.save_checkpoint({'error': str(e)})
+                finally:
+                    pm.unlock()
+                    st.info("✅ Navigation unlocked")
         
         with col2:
             if st.button("📊 Run Prophet Forecast", use_container_width=True):
-                with st.spinner("Running Prophet..."):
-                    try:
+                from utils.process_manager import ProcessManager
+                
+                pm = ProcessManager("Prophet_Forecast")
+                pm.lock()
+                
+                try:
+                    with st.spinner("Running Prophet..."):
+                        st.warning("⚠️ Navigation locked during forecasting...")
+                        
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+                        
+                        status_text.text("Training Prophet model...")
+                        progress_bar.progress(0.5)
+                        
                         results = analyzer.run_prophet(forecast_periods)
                         st.session_state.prophet_results = results
+                        
+                        progress_bar.progress(1.0)
+                        status_text.text("✅ Prophet complete!")
                         
                         st.success("✅ Prophet model trained!")
                         
@@ -5344,8 +5791,14 @@ def show_time_series_forecasting():
                         st.dataframe(results['forecast'][['ds', 'yhat', 'yhat_lower', 'yhat_upper']].head(10),
                                    use_container_width=True)
                         
-                    except Exception as e:
-                        st.error(f"Error: {str(e)}")
+                        pm.save_checkpoint({'completed': True, 'model': 'Prophet'})
+                        
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+                    pm.save_checkpoint({'error': str(e)})
+                finally:
+                    pm.unlock()
+                    st.info("✅ Navigation unlocked")
         
         # Model comparison
         if 'arima_results' in st.session_state and 'prophet_results' in st.session_state:
@@ -5524,13 +5977,36 @@ def show_text_mining():
             # Only show button if results don't exist
             if 'sentiment_results' not in st.session_state:
                 if st.button("📊 Analyze Sentiment", key="sentiment_btn"):
-                    with st.spinner("Analyzing sentiment..."):
-                        try:
+                    from utils.process_manager import ProcessManager
+                    
+                    pm = ProcessManager("Sentiment_Analysis")
+                    pm.lock()
+                    
+                    try:
+                        with st.spinner("Analyzing sentiment..."):
+                            st.warning("⚠️ Navigation locked during analysis...")
+                            
+                            progress_bar = st.progress(0)
+                            status_text = st.empty()
+                            
+                            status_text.text("Analyzing sentiment scores...")
+                            progress_bar.progress(0.5)
+                            
                             sentiment_df = analyzer.get_sentiment_analysis()
                             st.session_state.sentiment_results = sentiment_df
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error: {str(e)}")
+                            
+                            progress_bar.progress(1.0)
+                            status_text.text("✅ Sentiment analysis complete!")
+                            
+                            pm.save_checkpoint({'completed': True, 'texts_analyzed': len(sentiment_df)})
+                            
+                    except Exception as e:
+                        st.error(f"❌ Error: {str(e)}")
+                        pm.save_checkpoint({'error': str(e)})
+                    finally:
+                        pm.unlock()
+                        st.info("✅ Navigation unlocked")
+                        st.rerun()
             else:
                 if st.button("🔄 Re-analyze Sentiment", key="sentiment_reanalyze"):
                     del st.session_state.sentiment_results
@@ -5610,13 +6086,36 @@ def show_text_mining():
             
             if 'topics' not in st.session_state:
                 if st.button("🔎 Discover Topics", key="topics_btn"):
-                    with st.spinner("Running topic modeling..."):
-                        try:
+                    from utils.process_manager import ProcessManager
+                    
+                    pm = ProcessManager("Topic_Modeling")
+                    pm.lock()
+                    
+                    try:
+                        with st.spinner("Running topic modeling..."):
+                            st.warning("⚠️ Navigation locked during topic modeling...")
+                            
+                            progress_bar = st.progress(0)
+                            status_text = st.empty()
+                            
+                            status_text.text(f"Discovering {num_topics} topics...")
+                            progress_bar.progress(0.5)
+                            
                             topics = analyzer.get_topic_modeling(num_topics, n_words=10)
                             st.session_state.topics = topics
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error: {str(e)}")
+                            
+                            progress_bar.progress(1.0)
+                            status_text.text("✅ Topic modeling complete!")
+                            
+                            pm.save_checkpoint({'completed': True, 'num_topics': num_topics})
+                            
+                    except Exception as e:
+                        st.error(f"❌ Error: {str(e)}")
+                        pm.save_checkpoint({'error': str(e)})
+                    finally:
+                        pm.unlock()
+                        st.info("✅ Navigation unlocked")
+                        st.rerun()
             else:
                 if st.button("🔄 Re-discover Topics", key="topics_reanalyze"):
                     del st.session_state.topics
