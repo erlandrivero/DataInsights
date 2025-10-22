@@ -4473,6 +4473,9 @@ def show_ml_classification():
                     
                     st.info(f"📊 Training {len(models_to_train)} available model(s): {', '.join(models_to_train)}")
                     
+                    # Get all models dictionary
+                    all_models = trainer.get_all_models()
+                    
                     # Progress tracking
                     st.divider()
                     st.subheader("⚙️ Training Progress")
@@ -4497,8 +4500,14 @@ def show_ml_classification():
                         progress_bar.progress(progress)
                         status_text.text(f"Training model {idx + 1}/{total_models}: {model_name}...")
                         
+                        # Get model instance
+                        model = all_models.get(model_name)
+                        if model is None:
+                            st.warning(f"⚠️ Model '{model_name}' not found, skipping...")
+                            continue
+                        
                         # Train single model
-                        result = trainer.train_single_model(model_name, cv_folds=cv_folds)
+                        result = trainer.train_single_model(model_name, model, cv_folds=cv_folds)
                         results.append(result)
                         
                         # Show intermediate result
@@ -6003,8 +6012,11 @@ def show_anomaly_detection():
                 importance = detector.get_feature_importance()
                 
                 if importance is not None:
+                    # Sort by importance in descending order (largest on top)
+                    importance_sorted = importance.sort_values('Importance', ascending=True)  # ascending=True for horizontal bar (puts largest at top)
+                    
                     fig_importance = px.bar(
-                        importance,
+                        importance_sorted,
                         x='Importance',
                         y='Feature',
                         orientation='h',
