@@ -3828,9 +3828,10 @@ def show_ml_classification():
                     warnings.append("⚠️ Data pattern suggests transactional/high-cardinality data")
                     recommendations.append("Tip: Create derived targets like 'High Value', 'Frequent Buyer', etc.")
                 
-                # Store suitability flag for Model Checker and Train button
-                training_suitable = len(issues) == 0
-                st.session_state.ml_training_suitable = training_suitable
+                # LEVEL 1: Data Source Compatibility - Only block on CRITICAL issues
+                data_compatible = len(issues) == 0  # True if no critical issues
+                
+                st.session_state.ml_data_compatible = data_compatible
                 st.session_state.ml_quality_issues = issues
                 st.session_state.ml_quality_warnings = warnings
                 st.session_state.ml_recommendations = recommendations
@@ -3890,72 +3891,69 @@ def show_ml_classification():
             else:
                 selected_models = None
             
-            # Model Compatibility Checker
+            # LEVEL 2: Model Availability Checker - Per-model compatibility
             with st.expander("📋 Model Availability Checker", expanded=False):
-                st.write("**Real-time compatibility check for all 15 models:**")
+                st.write("**Per-model compatibility check:**")
                 
-                # Use stored quality issues from session state
-                training_suitable = st.session_state.get('ml_training_suitable', True)
+                # Get data compatibility from Level 1
+                data_compatible = st.session_state.get('ml_data_compatible', True)
                 quality_issues = st.session_state.get('ml_quality_issues', [])
                 
-                # Show warning banner if there are global issues
-                if not training_suitable and len(quality_issues) > 0:
-                    st.error("🚨 **ALL MODELS BLOCKED** - Data quality issues detected")
-                    for issue in quality_issues[:2]:  # Show first 2 issues
-                        st.write(issue)
+                # Show data-level warning if incompatible
+                if not data_compatible:
+                    st.warning("⚠️ **Data has critical issues** - Models may fail")
+                    for issue in quality_issues:
+                        st.write(f"• {issue}")
+                    st.divider()
                 
-                # Global blocking based on session state
-                global_block = not training_suitable
-                global_reason = quality_issues[0] if len(quality_issues) > 0 else ""
-                
-                # Define model requirements and compatibility
+                # Get all models
                 from utils.ml_training import MLTrainer
                 temp_trainer = MLTrainer(df, target_col if target_col else df.columns[0])
                 all_models = temp_trainer.get_all_models()
                 
-                # Check each model - balanced approach
+                # Check each model individually
                 model_status = []
                 n_samples = len(df)
-                n_features = len(df.columns) - 1  # Exclude target
+                n_features = len(df.columns) - 1
                 
                 for model_name in all_models.keys():
-                    # Check global blocking first (only critical issues)
-                    if global_block:
+                    available = True
+                    reason = "✅ Ready"
+                    
+                    # Check 1: Library availability
+                    if model_name == "XGBoost":
+                        try:
+                            import xgboost
+                        except ImportError:
+                            available = False
+                            reason = "❌ XGBoost not installed"
+                    elif model_name == "LightGBM":
+                        try:
+                            import lightgbm
+                        except ImportError:
+                            available = False
+                            reason = "❌ LightGBM not installed"
+                    elif model_name == "CatBoost":
+                        try:
+                            import catboost
+                        except ImportError:
+                            available = False
+                            reason = "❌ CatBoost not installed"
+                    
+                    # Check 2: Data-level issues (critical ones block all models)
+                    if not data_compatible and available:
                         available = False
-                        reason = global_reason
-                    else:
-                        # Assume available unless proven otherwise
-                        available = True
-                        reason = "✅ Ready"
-                        
-                        # Only check library availability for optional models
-                        if model_name == "XGBoost":
-                            try:
-                                import xgboost
-                                reason = "✅ Ready"
-                            except ImportError:
-                                available = False
-                                reason = "❌ XGBoost not installed"
-                        elif model_name == "LightGBM":
-                            try:
-                                import lightgbm
-                                reason = "✅ Ready"
-                            except ImportError:
-                                available = False
-                                reason = "❌ LightGBM not installed"
-                        elif model_name == "CatBoost":
-                            try:
-                                import catboost
-                                reason = "✅ Ready"
-                            except ImportError:
-                                available = False
-                                reason = "❌ CatBoost not installed"
-                        
-                        # Only warn on very small datasets (not block)
-                        if available and n_samples < 30:
-                            reason = f"⚠️ Small dataset ({n_samples} samples) - results may vary"
-                        elif available and n_samples < 20 and model_name in ["Stacking", "Voting"]:
-                            reason = f"⚠️ Ensemble models work best with 50+ samples"
+                        reason = "❌ Data incompatible"
+                    
+                    # Check 3: Model-specific requirements
+                    if available:
+                        if n_samples < 10:
+                            available = False
+                            reason = f"❌ Need ≥10 samples (have {n_samples})"
+                        elif n_samples < 30:
+                            reason = f"⚠️ Small dataset ({n_samples} samples)"
+                        elif n_samples < 20 and model_name in ["Stacking", "Voting"]:
+                            reason = f"⚠️ Ensemble needs more samples"
                     
                     model_status.append({
                         'Model': model_name,
@@ -3978,13 +3976,17 @@ def show_ml_classification():
                 styled_status = status_df.style.apply(color_status, axis=1)
                 st.dataframe(styled_status, use_container_width=True, height=400)
                 
-                # Summary
-                available_count = sum(1 for m in model_status if '✅' in m['Status'])
+                # Summary and store available models
+                available_models = [m['Model'] for m in model_status if '✅' in m['Status']]
+                available_count = len(available_models)
                 unavailable_count = len(model_status) - available_count
+                
+                # Store for Level 3
+                st.session_state.ml_available_models = available_models
                 
                 col_a, col_b = st.columns(2)
                 with col_a:
-                    st.metric("Available Models", available_count, delta="Ready to train")
+                    st.metric("Available Models", available_count, delta="Ready to train" if available_count > 0 else "None available")
                 with col_b:
                     if unavailable_count > 0:
                         st.metric("Unavailable Models", unavailable_count, delta="Check notes", delta_color="inverse")
@@ -4009,11 +4011,12 @@ def show_ml_classification():
                 help="Number of folds for cross-validation"
             )
         
-        # Train button (disabled if data quality issues)
-        training_suitable = st.session_state.get('ml_training_suitable', True)
+        # LEVEL 3: Train Button - Only enable if models available
+        available_models = st.session_state.get('ml_available_models', [])
+        can_train = len(available_models) > 0
         
-        if not training_suitable:
-            st.error("❌ **Training Blocked** - Fix data quality issues first")
+        if not can_train:
+            st.error("❌ **No Models Available** - Check Model Availability Checker for details")
             st.button("🚀 Train Models", type="primary", use_container_width=True, disabled=True)
         elif st.button("🚀 Train Models", type="primary", use_container_width=True):
             from utils.ml_training import MLTrainer
@@ -4149,13 +4152,20 @@ def show_ml_classification():
                     st.success(f"✅ Data prepared: {prep_info['train_size']} train, {prep_info['test_size']} test samples across {prep_info['n_classes']} classes")
                     st.info(f"📊 Training will use cross-validation with {cv_folds} folds")
                     
-                    # Get models to train
+                    # Get models to train - FILTER to only available
                     if selected_models is None:
-                        # Train all models
-                        models_to_train = list(trainer.get_all_models().keys())
+                        # Train all AVAILABLE models
+                        models_to_train = available_models
                     else:
-                        # Train selected models only
-                        models_to_train = selected_models
+                        # Train only selected AND available
+                        models_to_train = [m for m in selected_models if m in available_models]
+                    
+                    if len(models_to_train) == 0:
+                        st.error("❌ No available models selected")
+                        pm.unlock()
+                        st.stop()
+                    
+                    st.info(f"📊 Training {len(models_to_train)} available model(s): {', '.join(models_to_train)}")
                     
                     # Progress tracking
                     st.divider()
@@ -4895,10 +4905,12 @@ def show_ml_regression():
                         else:
                             warnings.append(f"⚠️ {missing_count} missing values ({missing_pct:.1f}%) - will be handled")
                     
-                    # Store suitability - only block on critical issues
-                    training_suitable = len(issues) == 0
-                    st.session_state.mlr_training_suitable = training_suitable
+                    # LEVEL 1: Data Source Compatibility - Only block on CRITICAL issues
+                    data_compatible = len(issues) == 0
+                    
+                    st.session_state.mlr_data_compatible = data_compatible
                     st.session_state.mlr_quality_issues = issues
+                    st.session_state.mlr_quality_warnings = warnings
                     
                     # Display quality indicator
                     if len(issues) > 0:
@@ -4944,69 +4956,66 @@ def show_ml_regression():
             else:
                 selected_models = None
             
-            # Model Availability Checker
+            # LEVEL 2: Model Availability Checker - Per-model compatibility
             with st.expander("📋 Model Availability Checker", expanded=False):
-                st.write("**Real-time compatibility check for all 15+ models:**")
+                st.write("**Per-model compatibility check:**")
                 
-                # Use stored quality issues from session state
-                training_suitable = st.session_state.get('mlr_training_suitable', True)
+                # Get data compatibility from Level 1
+                data_compatible = st.session_state.get('mlr_data_compatible', True)
                 quality_issues = st.session_state.get('mlr_quality_issues', [])
                 
-                # Show warning banner if there are global issues
-                if not training_suitable and len(quality_issues) > 0:
-                    st.error("🚨 **ALL MODELS BLOCKED** - Data quality issues detected")
-                    for issue in quality_issues[:2]:  # Show first 2 issues
-                        st.write(issue)
-                
-                # Global blocking based on session state
-                global_block = not training_suitable
-                global_reason = quality_issues[0] if len(quality_issues) > 0 else ""
+                # Show data-level warning if incompatible
+                if not data_compatible:
+                    st.warning("⚠️ **Data has critical issues** - Models may fail")
+                    for issue in quality_issues:
+                        st.write(f"• {issue}")
+                    st.divider()
                 
                 # Get all models
                 from utils.ml_regression import MLRegressor
                 temp_regressor = MLRegressor(df, target_col if target_col else df.columns[0])
                 all_models = temp_regressor.get_all_models()
                 
-                # Check each model - balanced approach
+                # Check each model individually
                 model_status = []
                 n_samples = len(df)
                 
                 for model_name in all_models.keys():
-                    # Check global blocking first (only critical issues)
-                    if global_block:
+                    available = True
+                    reason = "✅ Ready"
+                    
+                    # Check 1: Library availability
+                    if model_name == "XGBoost":
+                        try:
+                            import xgboost
+                        except ImportError:
+                            available = False
+                            reason = "❌ XGBoost not installed"
+                    elif model_name == "LightGBM":
+                        try:
+                            import lightgbm
+                        except ImportError:
+                            available = False
+                            reason = "❌ LightGBM not installed"
+                    elif model_name == "CatBoost":
+                        try:
+                            import catboost
+                        except ImportError:
+                            available = False
+                            reason = "❌ CatBoost not installed"
+                    
+                    # Check 2: Data-level issues (critical ones block all models)
+                    if not data_compatible and available:
                         available = False
-                        reason = global_reason
-                    else:
-                        # Assume available unless proven otherwise
-                        available = True
-                        reason = "✅ Ready"
-                        
-                        # Only check library availability for optional models
-                        if model_name == "XGBoost":
-                            try:
-                                import xgboost
-                                reason = "✅ Ready"
-                            except ImportError:
-                                available = False
-                                reason = "❌ XGBoost not installed"
-                        elif model_name == "LightGBM":
-                            try:
-                                import lightgbm
-                                reason = "✅ Ready"
-                            except ImportError:
-                                available = False
-                                reason = "❌ LightGBM not installed"
-                        elif model_name == "CatBoost":
-                            try:
-                                import catboost
-                                reason = "✅ Ready"
-                            except ImportError:
-                                available = False
-                                reason = "❌ CatBoost not installed"
-                        
-                        # Only warn on very small datasets (not block)
-                        if available and n_samples < 30:
-                            reason = f"⚠️ Small dataset ({n_samples} samples) - results may vary"
+                        reason = "❌ Data incompatible"
+                    
+                    # Check 3: Model-specific requirements
+                    if available:
+                        if n_samples < 10:
+                            available = False
+                            reason = f"❌ Need ≥10 samples (have {n_samples})"
+                        elif n_samples < 30:
+                            reason = f"⚠️ Small dataset ({n_samples} samples)"
                     
                     model_status.append({
                         'Model': model_name,
@@ -5029,13 +5038,17 @@ def show_ml_regression():
                 styled_status = status_df.style.apply(color_status, axis=1)
                 st.dataframe(styled_status, use_container_width=True, height=400)
                 
-                # Summary
-                available_count = sum(1 for m in model_status if '✅' in m['Status'])
+                # Summary and store available models
+                available_models = [m['Model'] for m in model_status if '✅' in m['Status']]
+                available_count = len(available_models)
                 unavailable_count = len(model_status) - available_count
+                
+                # Store for Level 3
+                st.session_state.mlr_available_models = available_models
                 
                 col_a, col_b = st.columns(2)
                 with col_a:
-                    st.metric("Available Models", available_count, delta="Ready to train")
+                    st.metric("Available Models", available_count, delta="Ready to train" if available_count > 0 else "None available")
                 with col_b:
                     if unavailable_count > 0:
                         st.metric("Unavailable Models", unavailable_count, delta="Check notes", delta_color="inverse")
@@ -5060,11 +5073,12 @@ def show_ml_regression():
                 help="Number of folds for cross-validation"
             )
         
-        # Train button (disabled if data quality issues)
-        training_suitable = st.session_state.get('mlr_training_suitable', True)
+        # LEVEL 3: Train Button - Only enable if models available
+        available_models = st.session_state.get('mlr_available_models', [])
+        can_train = len(available_models) > 0
         
-        if not training_suitable:
-            st.error("❌ **Training Blocked** - Fix data quality issues first")
+        if not can_train:
+            st.error("❌ **No Models Available** - Check Model Availability Checker for details")
             st.button("🚀 Train Models", type="primary", use_container_width=True, disabled=True)
         elif st.button("🚀 Train Models", type="primary", use_container_width=True):
             from utils.ml_regression import MLRegressor
@@ -5115,9 +5129,24 @@ def show_ml_regression():
                             'partial_results': [r['model_name'] for r in results]
                         })
                 
+                # FILTER to only train available models
+                if selected_models is None:
+                    # Train all AVAILABLE models
+                    models_to_train = available_models
+                else:
+                    # Train only selected AND available
+                    models_to_train = [m for m in selected_models if m in available_models]
+                
+                if len(models_to_train) == 0:
+                    st.error("❌ No available models selected")
+                    pm.unlock()
+                    st.stop()
+                
+                st.info(f"📊 Training {len(models_to_train)} available model(s): {', '.join(models_to_train)}")
+                
                 # Train models
                 results = regressor.train_all_models(
-                    selected_models=selected_models,
+                    selected_models=models_to_train,
                     cv_folds=cv_folds,
                     progress_callback=progress_callback
                 )
