@@ -1165,19 +1165,26 @@ def show_insights():
             st.rerun()
 
 def show_reports():
-    st.header("📄 Business Reports & Exports")
+    # Hero header with gradient
+    st.markdown("""
+    <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                padding: 2rem; border-radius: 10px; margin-bottom: 2rem; color: white;'>
+        <h1 style='margin: 0; color: white;'>📊 Business Intelligence Reports</h1>
+        <p style='margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 1.1rem;'>
+            Generate comprehensive analytics reports with AI-powered insights
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
     
     if st.session_state.data is None:
-        st.warning("⚠️ Please upload data first!")
+        st.error("⚠️ **No Data Loaded**")
+        st.info("💡 Please upload data in the **Data Upload** section to generate reports")
         return
     
     df = st.session_state.data
     
-    st.write("Generate and download professional reports from all your completed analyses.")
-    
     # Check which modules have been run
-    st.divider()
-    st.subheader("📊 Analysis Status")
+    st.subheader("📊 Analytics Dashboard")
     
     # Check which modules have been run - using correct session state keys
     modules_status = {
@@ -1191,41 +1198,67 @@ def show_reports():
         'Text Mining & NLP': ('sentiment_results' in st.session_state or 'topics' in st.session_state),
     }
     
-    col1, col2 = st.columns(2)
-    
     completed = sum(modules_status.values())
     total = len(modules_status)
+    completion_pct = (completed/total)*100 if total > 0 else 0
+    
+    # Key metrics with enhanced styling
+    col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.metric("Completed Analyses", f"{completed}/{total}", 
-                 delta=f"{(completed/total)*100:.0f}% complete")
+        st.metric(
+            "📊 Completed Analyses", 
+            f"{completed}/{total}",
+            delta=f"{completion_pct:.0f}% complete",
+            delta_color="normal"
+        )
     
     with col2:
-        st.metric("Available Reports", completed, 
-                 delta="Ready to download" if completed > 0 else "Run analyses first")
+        st.metric(
+            "📥 Available Reports", 
+            completed,
+            delta="Ready" if completed > 0 else "Pending",
+            delta_color="normal" if completed > 0 else "off"
+        )
     
-    # Module status cards
-    st.write("**Module Status:**")
+    with col3:
+        st.metric(
+            "📈 Data Rows",
+            f"{len(df):,}",
+            delta=f"{len(df.columns)} columns"
+        )
     
-    for i in range(0, len(modules_status), 2):
-        col1, col2 = st.columns(2)
-        modules_items = list(modules_status.items())
-        
-        with col1:
-            if i < len(modules_items):
-                module, status = modules_items[i]
-                if status:
-                    st.success(f"✅ {module}")
-                else:
-                    st.info(f"⚪ {module}")
-        
-        with col2:
-            if i + 1 < len(modules_items):
-                module, status = modules_items[i + 1]
-                if status:
-                    st.success(f"✅ {module}")
-                else:
-                    st.info(f"⚪ {module}")
+    # Progress bar
+    st.progress(completion_pct / 100, text=f"Overall Completion: {completion_pct:.0f}%")
+    
+    st.divider()
+    
+    # Module status cards with improved styling
+    st.write("**📋 Module Status Overview:**")
+    
+    # Create 2-column layout for module cards
+    cols = st.columns(2)
+    modules_items = list(modules_status.items())
+    
+    for idx, (module, status) in enumerate(modules_items):
+        col_idx = idx % 2
+        with cols[col_idx]:
+            if status:
+                st.markdown(f"""
+                <div style='background-color: #d4edda; padding: 1rem; border-radius: 8px; 
+                            border-left: 4px solid #28a745; margin-bottom: 0.5rem;'>
+                    <strong>✅ {module}</strong><br/>
+                    <small style='color: #155724;'>Completed - Report available</small>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div style='background-color: #f8f9fa; padding: 1rem; border-radius: 8px; 
+                            border-left: 4px solid #6c757d; margin-bottom: 0.5rem;'>
+                    <strong>⚪ {module}</strong><br/>
+                    <small style='color: #6c757d;'>Not run yet</small>
+                </div>
+                """, unsafe_allow_html=True)
     
     # Individual Module Reports
     st.divider()
@@ -1295,10 +1328,23 @@ def show_reports():
     
     # Generate comprehensive report
     if st.button("🎯 Generate Comprehensive Report", type="primary", use_container_width=True):
-        with st.spinner("📝 Generating comprehensive report..."):
-            try:
+        from utils.process_manager import ProcessManager
+        
+        pm = ProcessManager("Report_Generation")
+        pm.lock()
+        
+        try:
+            with st.spinner("📝 Generating comprehensive report..."):
+                st.warning("⚠️ Navigation locked during report generation...")
+                
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
                 from utils.report_generator import ReportGenerator
                 from datetime import datetime
+                
+                status_text.text("Gathering data profile...")
+                progress_bar.progress(0.1)
                 
                 # Get or create profile and issues
                 if 'profile' not in st.session_state or not st.session_state.profile:
@@ -1309,6 +1355,9 @@ def show_reports():
                 profile = st.session_state.profile
                 issues = st.session_state.get('issues', [])
                 
+                status_text.text("Gathering AI insights...")
+                progress_bar.progress(0.2)
+                
                 # Gather AI insights if requested
                 insights_text = ""
                 if include_insights:
@@ -1318,6 +1367,9 @@ def show_reports():
                         insights_text = "No AI insights generated yet. Visit the Insights page to generate automated insights."
                 else:
                     insights_text = "AI insights not included in this report."
+                
+                status_text.text("Building module summaries...")
+                progress_bar.progress(0.4)
                 
                 # Build module summaries
                 module_insights = []
@@ -1429,6 +1481,9 @@ def show_reports():
 - **Financial Forecasts:** Generated with confidence intervals
 """)
                 
+                status_text.text("Generating base report...")
+                progress_bar.progress(0.6)
+                
                 # Gather cleaning suggestions
                 suggestions = st.session_state.get('cleaning_suggestions', [])
                 
@@ -1450,6 +1505,9 @@ def show_reports():
                         f"{module_section}\n\n---\n\n## Data Profile"
                     )
                 
+                status_text.text("Enhancing report...")
+                progress_bar.progress(0.8)
+                
                 # Add analysis completion metrics at the top
                 enhanced_report = base_report.replace(
                     "# DataInsight AI - Business Intelligence Report",
@@ -1461,13 +1519,28 @@ def show_reports():
                 
                 st.session_state.comprehensive_report = enhanced_report
                 
+                # Save checkpoint
+                pm.save_checkpoint({
+                    'completed': True,
+                    'modules_included': completed,
+                    'timestamp': datetime.now().isoformat()
+                })
+                
+                progress_bar.progress(1.0)
+                status_text.text("✅ Report generation complete!")
+                
                 st.success("✅ Comprehensive report generated successfully!")
                 st.info(f"📊 Report includes: Data profiling, quality assessment, {completed} module summaries, and recommendations")
                 
-            except Exception as e:
-                st.error(f"Error generating report: {str(e)}")
-                import traceback
-                st.code(traceback.format_exc())
+        except Exception as e:
+            st.error(f"❌ Error generating report: {str(e)}")
+            pm.save_checkpoint({'error': str(e)})
+            import traceback
+            st.code(traceback.format_exc())
+        
+        finally:
+            pm.unlock()
+            st.info("✅ Navigation unlocked")
     
     # Display and download comprehensive report
     if 'comprehensive_report' in st.session_state:
@@ -1477,27 +1550,110 @@ def show_reports():
         # Display report
         st.markdown(st.session_state.comprehensive_report)
         
-        # Download buttons
+        # Download buttons with multiple formats
         from datetime import datetime
-        col1, col2 = st.columns(2)
+        import io
+        
+        st.write("**📥 Export Options:**")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        report_text = st.session_state.comprehensive_report
         
         with col1:
             st.download_button(
-                label="📥 Download Report (Markdown)",
-                data=st.session_state.comprehensive_report,
-                file_name=f"comprehensive_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md",
+                label="📄 Markdown",
+                data=report_text,
+                file_name=f"report_{timestamp}.md",
                 mime="text/markdown",
-                use_container_width=True
+                use_container_width=True,
+                help="Best for GitHub, documentation"
             )
         
         with col2:
             st.download_button(
-                label="📥 Download Report (Text)",
-                data=st.session_state.comprehensive_report,
-                file_name=f"comprehensive_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                label="📝 Text",
+                data=report_text,
+                file_name=f"report_{timestamp}.txt",
                 mime="text/plain",
-                use_container_width=True
+                use_container_width=True,
+                help="Plain text format"
             )
+        
+        with col3:
+            # Convert markdown to HTML
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>DataInsights Report</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }}
+                    h1, h2, h3 {{ color: #333; }}
+                    pre {{ background: #f4f4f4; padding: 10px; border-radius: 5px; }}
+                    code {{ background: #f4f4f4; padding: 2px 5px; border-radius: 3px; }}
+                    table {{ border-collapse: collapse; width: 100%; }}
+                    th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+                    th {{ background-color: #4CAF50; color: white; }}
+                </style>
+            </head>
+            <body>
+                <pre>{report_text}</pre>
+            </body>
+            </html>
+            """
+            
+            st.download_button(
+                label="🌐 HTML",
+                data=html_content,
+                file_name=f"report_{timestamp}.html",
+                mime="text/html",
+                use_container_width=True,
+                help="Web page format"
+            )
+        
+        with col4:
+            # Create Excel export with results data
+            try:
+                excel_buffer = io.BytesIO()
+                with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                    # Write report as text in first sheet
+                    report_df = pd.DataFrame({'Report': [report_text]})
+                    report_df.to_excel(writer, sheet_name='Report', index=False)
+                    
+                    # Add data profile if available
+                    if 'profile' in st.session_state and st.session_state.profile:
+                        profile_df = pd.DataFrame(st.session_state.profile).T
+                        profile_df.to_excel(writer, sheet_name='Data Profile')
+                    
+                    # Add ML results if available
+                    if 'ml_results' in st.session_state:
+                        ml_df = pd.DataFrame(st.session_state.ml_results)
+                        ml_df.to_excel(writer, sheet_name='ML Classification', index=False)
+                    
+                    if 'mlr_results' in st.session_state:
+                        mlr_df = pd.DataFrame(st.session_state.mlr_results)
+                        mlr_df.to_excel(writer, sheet_name='ML Regression', index=False)
+                
+                excel_data = excel_buffer.getvalue()
+                
+                st.download_button(
+                    label="📊 Excel",
+                    data=excel_data,
+                    file_name=f"report_{timestamp}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    help="Excel workbook with multiple sheets"
+                )
+            except Exception as e:
+                st.button(
+                    label="📊 Excel",
+                    use_container_width=True,
+                    disabled=True,
+                    help=f"Excel export unavailable: {str(e)}"
+                )
 
 def show_market_basket_analysis():
     """Market Basket Analysis page."""
@@ -3580,41 +3736,40 @@ def show_ml_classification():
                 warnings = []
                 recommendations = []
                 
-                # Check 1: Minimum samples
+                # Check 1: Minimum samples - ONLY BLOCK if class has 0-1 samples
                 if min_class_size < 2:
-                    issues.append(f"❌ {(class_counts < 2).sum()} class(es) with < 2 samples (CRITICAL)")
-                    recommendations.append("Remove or combine rare classes")
+                    bad_classes_count = (class_counts < 2).sum()
+                    issues.append(f"❌ {bad_classes_count} class(es) with < 2 samples (CRITICAL - will cause train/test split to fail)")
+                    recommendations.append("Remove or combine classes with < 2 samples using Data Cleaning")
                 
-                # Check 2: Class imbalance (critical for ML)
+                # Check 2: Class imbalance - WARN but don't block
                 if imbalance_ratio > 100:
-                    issues.append(f"❌ Severe class imbalance: {imbalance_ratio:.0f}:1 ratio (largest:{max_class_size}, smallest:{min_class_size})")
-                    recommendations.append("This dataset is NOT suitable for classification")
-                    recommendations.append(f"Try: Filter to top 5-10 classes, or use different target column")
+                    warnings.append(f"⚠️ Severe class imbalance: {imbalance_ratio:.0f}:1 ratio (largest:{max_class_size}, smallest:{min_class_size})")
+                    recommendations.append("Consider: Filter to top 10-15 classes, or balance with SMOTE/undersampling")
                 elif imbalance_ratio > 50:
                     warnings.append(f"⚠️ High class imbalance: {imbalance_ratio:.0f}:1 ratio")
-                    recommendations.append("Consider balancing techniques or filtering rare classes")
+                    recommendations.append("Imbalanced data may reduce minority class accuracy")
                 
-                # Check 3: After-sampling prediction
+                # Check 3: After-sampling - WARN if issues expected
                 if total_samples > max_samples_for_ml and min_class_after_sampling < 2:
-                    issues.append(f"❌ After sampling to 10K rows: smallest class will have ~{min_class_after_sampling} samples")
-                    recommendations.append(f"Dataset too large with rare classes - stratified sampling will fail")
+                    warnings.append(f"⚠️ After sampling to 10K: smallest class will have ~{min_class_after_sampling} samples")
+                    recommendations.append(f"Large dataset with rare classes - consider filtering rare classes first")
                 
-                # Check 4: Too many classes
+                # Check 4: Too many classes - WARN only
                 if n_classes > 50:
-                    warnings.append(f"⚠️ {n_classes} classes (slow training, low accuracy expected)")
-                    recommendations.append("Consider grouping classes into broader categories")
+                    warnings.append(f"⚠️ {n_classes} classes - training will be slower, accuracy may be lower")
+                    recommendations.append("Tip: Group similar classes or filter to top 10-20 classes")
                 
-                # Check 5: Dataset size
-                if total_samples < 50:
-                    warnings.append(f"⚠️ Only {total_samples} samples (recommend 100+)")
+                # Check 5: Dataset size - WARN only
+                if total_samples < 30:
+                    warnings.append(f"⚠️ Small dataset ({total_samples} samples) - results may vary. Recommend 100+")
                 elif min_class_size >= 2 and min_class_size < 5:
-                    warnings.append(f"⚠️ Smallest class has only {min_class_size} samples")
+                    warnings.append(f"⚠️ Smallest class has only {min_class_size} samples - may affect accuracy")
                 
-                # Check 6: Transactional data patterns (heuristic)
+                # Check 6: Transactional data - WARN only
                 if n_classes > 30 and imbalance_ratio > 100:
-                    issues.append("⚠️ This appears to be TRANSACTIONAL data (not classification data)")
-                    recommendations.append("Classification requires balanced target labels, not transaction IDs/countries")
-                    recommendations.append("Try creating a derived target: 'High Value Customer', 'Churn Risk', etc.")
+                    warnings.append("⚠️ Data pattern suggests transactional/high-cardinality data")
+                    recommendations.append("Tip: Create derived targets like 'High Value', 'Frequent Buyer', etc.")
                 
                 # Store suitability flag for Model Checker and Train button
                 training_suitable = len(issues) == 0
@@ -3701,50 +3856,49 @@ def show_ml_classification():
                 temp_trainer = MLTrainer(df, target_col if target_col else df.columns[0])
                 all_models = temp_trainer.get_all_models()
                 
-                # Check each model with actual instantiation test
+                # Check each model - balanced approach
                 model_status = []
+                n_samples = len(df)
+                n_features = len(df.columns) - 1  # Exclude target
                 
                 for model_name in all_models.keys():
-                    # Check global blocking first
+                    # Check global blocking first (only critical issues)
                     if global_block:
                         available = False
                         reason = global_reason
                     else:
+                        # Assume available unless proven otherwise
                         available = True
-                        reason = "✅ Compatible"
-                    
-                    # Only check other requirements if not globally blocked
-                    if not global_block:
-                        # Actually try to instantiate the model
-                        try:
-                            model_class = all_models[model_name]
-                            # Try to create instance with minimal params
-                            if model_name in ["XGBoost", "LightGBM", "CatBoost"]:
-                                test_model = model_class(random_state=42, verbose=0)
-                            else:
-                                test_model = model_class(random_state=42)
-                            # If we got here, model is available
-                            available = True
-                            reason = "✅ Compatible"
-                        except ImportError as e:
-                            available = False
-                            reason = f"❌ Not installed: {model_name}"
-                        except Exception as e:
-                            available = False
-                            reason = f"❌ Init failed: {str(e)[:50]}"
+                        reason = "✅ Ready"
                         
-                        # Check dataset size requirements
-                        if available and n_samples < 20 and model_name in ["Stacking", "Voting"]:
-                            available = False
-                            reason = f"❌ Need ≥20 samples (have {n_samples})"
-                        elif available and n_samples < 10:
-                            available = False
-                            reason = f"❌ Need ≥10 samples (have {n_samples})"
+                        # Only check library availability for optional models
+                        if model_name == "XGBoost":
+                            try:
+                                import xgboost
+                                reason = "✅ Ready"
+                            except ImportError:
+                                available = False
+                                reason = "❌ XGBoost not installed"
+                        elif model_name == "LightGBM":
+                            try:
+                                import lightgbm
+                                reason = "✅ Ready"
+                            except ImportError:
+                                available = False
+                                reason = "❌ LightGBM not installed"
+                        elif model_name == "CatBoost":
+                            try:
+                                import catboost
+                                reason = "✅ Ready"
+                            except ImportError:
+                                available = False
+                                reason = "❌ CatBoost not installed"
                         
-                        # Check for tree-based models with very few features
-                        if available and n_features < 2 and "Tree" in model_name:
-                            available = False
-                            reason = f"⚠️ Need ≥2 features (have {n_features})"
+                        # Only warn on very small datasets (not block)
+                        if available and n_samples < 30:
+                            reason = f"⚠️ Small dataset ({n_samples} samples) - results may vary"
+                        elif available and n_samples < 20 and model_name in ["Stacking", "Voting"]:
+                            reason = f"⚠️ Ensemble models work best with 50+ samples"
                     
                     model_status.append({
                         'Model': model_name,
@@ -4649,29 +4803,32 @@ def show_ml_regression():
                     n_unique = target_values.nunique()
                     total_samples = len(df)
                     
-                    # Quality assessment
+                    # Quality assessment - balanced approach
                     issues = []
                     warnings = []
                     
-                    # Check 1: Too few unique values (might be classification)
-                    if n_unique < 10:
-                        issues.append(f"❌ Only {n_unique} unique values (too categorical for regression)")
-                        issues.append("⚠️ This looks like a CLASSIFICATION problem, not regression")
+                    # Check 1: Too few unique values (suggest classification but don't block)
+                    if n_unique < 5:
+                        warnings.append(f"⚠️ Only {n_unique} unique values - consider using ML Classification instead")
+                    elif n_unique < 10:
+                        warnings.append(f"⚠️ {n_unique} unique values - if this is categorical, use ML Classification")
                     
-                    # Check 2: Dataset size
-                    if total_samples < 50:
-                        warnings.append(f"⚠️ Only {total_samples} samples (recommend 100+)")
+                    # Check 2: Dataset size (warn but don't block)
+                    if total_samples < 30:
+                        warnings.append(f"⚠️ Small dataset ({total_samples} samples) - results may vary. Recommend 100+")
                     
-                    # Check 3: Missing values
+                    # Check 3: Missing values (only block if ALL values are missing)
                     missing_count = target_values.isna().sum()
-                    if missing_count > 0:
+                    if missing_count == total_samples:
+                        issues.append(f"❌ All target values are missing - cannot train")
+                    elif missing_count > 0:
                         missing_pct = (missing_count / total_samples) * 100
-                        if missing_pct > 10:
-                            issues.append(f"❌ {missing_count} missing values ({missing_pct:.1f}%)")
+                        if missing_pct > 50:
+                            warnings.append(f"⚠️ {missing_count} missing values ({missing_pct:.1f}%) - will be dropped")
                         else:
-                            warnings.append(f"⚠️ {missing_count} missing values ({missing_pct:.1f}%)")
+                            warnings.append(f"⚠️ {missing_count} missing values ({missing_pct:.1f}%) - will be handled")
                     
-                    # Store suitability
+                    # Store suitability - only block on critical issues
                     training_suitable = len(issues) == 0
                     st.session_state.mlr_training_suitable = training_suitable
                     st.session_state.mlr_quality_issues = issues
@@ -4743,47 +4900,46 @@ def show_ml_regression():
                 temp_regressor = MLRegressor(df, target_col if target_col else df.columns[0])
                 all_models = temp_regressor.get_all_models()
                 
-                # Check each model with actual instantiation test
+                # Check each model - balanced approach
                 model_status = []
+                n_samples = len(df)
                 
                 for model_name in all_models.keys():
-                    # Check global blocking first
+                    # Check global blocking first (only critical issues)
                     if global_block:
                         available = False
                         reason = global_reason
                     else:
+                        # Assume available unless proven otherwise
                         available = True
-                        reason = "✅ Compatible"
-                    
-                    # Only check other requirements if not globally blocked
-                    if not global_block:
-                        # Actually try to instantiate the model
-                        try:
-                            model_class = all_models[model_name]
-                            # Try to create instance with minimal params
-                            if model_name in ["XGBoost", "LightGBM", "CatBoost"]:
-                                test_model = model_class(random_state=42, verbose=0)
-                            else:
-                                test_model = model_class(random_state=42)
-                            # If we got here, model is available
-                            available = True
-                            reason = "✅ Compatible"
-                        except ImportError as e:
-                            available = False
-                            reason = f"❌ Not installed: {model_name}"
-                        except Exception as e:
-                            available = False
-                            reason = f"❌ Init failed: {str(e)[:50]}"
+                        reason = "✅ Ready"
                         
-                        # Check dataset size requirements
-                        n_samples = len(df)
-                        if n_samples < 20 and available:
-                            available = False
-                            reason = f"❌ Need ≥20 samples (have {n_samples})"
-                        elif n_samples < 50 and available:
-                            # Warning but still available
-                            if reason == "✅ Compatible":
-                                reason = f"⚠️ Only {n_samples} samples (recommend 50+)"
+                        # Only check library availability for optional models
+                        if model_name == "XGBoost":
+                            try:
+                                import xgboost
+                                reason = "✅ Ready"
+                            except ImportError:
+                                available = False
+                                reason = "❌ XGBoost not installed"
+                        elif model_name == "LightGBM":
+                            try:
+                                import lightgbm
+                                reason = "✅ Ready"
+                            except ImportError:
+                                available = False
+                                reason = "❌ LightGBM not installed"
+                        elif model_name == "CatBoost":
+                            try:
+                                import catboost
+                                reason = "✅ Ready"
+                            except ImportError:
+                                available = False
+                                reason = "❌ CatBoost not installed"
+                        
+                        # Only warn on very small datasets (not block)
+                        if available and n_samples < 30:
+                            reason = f"⚠️ Small dataset ({n_samples} samples) - results may vary"
                     
                     model_status.append({
                         'Model': model_name,
