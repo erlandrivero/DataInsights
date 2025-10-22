@@ -5048,23 +5048,25 @@ def show_ml_classification():
                 
                 # Feature Importance
                 if best_details['feature_importance']:
-                    st.write("**Feature Importance:**")
+                    st.write("**Top 10 Most Important Features:**")
                     
                     feat_imp = best_details['feature_importance']
                     importance_df = pd.DataFrame({
                         'Feature': feat_imp['features'],
                         'Importance': feat_imp['importances']
                     })
+                    # Sort descending and take top 10, then reverse for proper chart display (highest at top)
                     importance_df = importance_df.sort_values('Importance', ascending=False).head(10)
+                    importance_df = importance_df.sort_values('Importance', ascending=True)  # Reverse for chart display
                     
                     fig_imp = px.bar(
                         importance_df,
                         x='Importance',
                         y='Feature',
                         orientation='h',
-                        title='Top 10 Most Important Features'
+                        title='Top 10 Most Important Features (Highest to Lowest)'
                     )
-                    fig_imp.update_layout(height=400)
+                    fig_imp.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
                     st.plotly_chart(fig_imp, use_container_width=True)
                 
                 # Model info
@@ -5174,6 +5176,10 @@ def show_ml_classification():
                     else:
                         results_table = "Results table not available"
                     
+                    # Format metrics safely
+                    roc_auc_str = f"{best_model['roc_auc']:.4f}" if best_model['roc_auc'] is not None else 'N/A'
+                    cv_mean_str = f"{best_model['cv_mean']:.4f}" if best_model['cv_mean'] is not None else 'N/A'
+                    
                     report = f"""
 # Machine Learning Classification Report
 **Generated:** {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
@@ -5185,8 +5191,8 @@ def show_ml_classification():
 - **Precision:** {best_model['precision']:.4f}
 - **Recall:** {best_model['recall']:.4f}
 - **F1 Score:** {best_model['f1']:.4f}
-- **ROC-AUC:** {best_model['roc_auc']:.4f if best_model['roc_auc'] else 'N/A'}
-- **CV Mean:** {best_model['cv_mean']:.4f if best_model['cv_mean'] else 'N/A'}
+- **ROC-AUC:** {roc_auc_str}
+- **CV Mean:** {cv_mean_str}
 - **Training Time:** {best_model['training_time']:.3f}s
 
 ## All Models Performance
@@ -5914,16 +5920,18 @@ def show_ml_regression():
         if best_model.get('feature_importance'):
             st.write("**Top 10 Most Important Features:**")
             feat_imp = best_model['feature_importance']
-            feat_imp_sorted = sorted(feat_imp.items(), key=lambda x: x[1])[:10]  # Ascending for bottom-to-top display
+            # Sort descending and take top 10, then reverse for proper chart display (highest at top)
+            feat_imp_sorted = sorted(feat_imp.items(), key=lambda x: x[1], reverse=True)[:10]
+            feat_imp_sorted = sorted(feat_imp_sorted, key=lambda x: x[1])  # Reverse for chart display
             
             fig_imp = px.bar(
                 x=[x[1] for x in feat_imp_sorted],
                 y=[x[0] for x in feat_imp_sorted],
                 orientation='h',
-                title='Top 10 Most Important Features',
+                title='Top 10 Most Important Features (Highest to Lowest)',
                 labels={'x': 'Importance Score', 'y': 'Feature'}
             )
-            fig_imp.update_layout(height=400)
+            fig_imp.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
             st.plotly_chart(fig_imp, use_container_width=True)
         
         # Export section
@@ -5947,6 +5955,11 @@ def show_ml_regression():
         with col2:
             # Export best model report
             if best_model:
+                # Format metrics safely
+                mape_str = f"{best_model['mape']:.2f}%" if best_model['mape'] is not None else 'N/A'
+                cv_mean_str = f"{best_model['cv_mean']:.4f}" if best_model['cv_mean'] is not None else 'N/A'
+                results_table = st.session_state.mlr_results_df.to_markdown(index=False) if 'mlr_results_df' in st.session_state else 'Results not available'
+                
                 report = f"""
 # Machine Learning Regression Report
 **Generated:** {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
@@ -5957,13 +5970,13 @@ def show_ml_regression():
 - **R² Score:** {best_model['r2']:.4f}
 - **RMSE:** {best_model['rmse']:.2f}
 - **MAE:** {best_model['mae']:.2f}
-- **MAPE:** {f"{best_model['mape']:.2f}%" if best_model['mape'] else 'N/A'}
-- **CV R² Mean:** {f"{best_model['cv_mean']:.4f}" if best_model['cv_mean'] else 'N/A'}
+- **MAPE:** {mape_str}
+- **CV R² Mean:** {cv_mean_str}
 - **Training Time:** {best_model['training_time']:.3f}s
 
 ## All Models Performance
 
-{st.session_state.mlr_results_df.to_markdown(index=False) if 'mlr_results_df' in st.session_state else 'Results not available'}
+{results_table}
 
 ## Dataset Information
 - **Rows:** {len(df)}
@@ -6283,20 +6296,22 @@ def show_anomaly_detection():
         
         with tab2:
             if algorithm == "Isolation Forest":
-                st.write("**Feature Importance for Anomaly Detection:**")
+                st.write("**Top 10 Most Important Features for Anomaly Detection:**")
                 importance = detector.get_feature_importance()
                 
                 if importance is not None:
-                    # Sort by importance in descending order (largest on top)
-                    importance_sorted = importance.sort_values('Importance', ascending=True)  # ascending=True for horizontal bar (puts largest at top)
+                    # Sort descending and take top 10, then reverse for proper chart display (highest at top)
+                    importance_sorted = importance.sort_values('Importance', ascending=False).head(10)
+                    importance_sorted = importance_sorted.sort_values('Importance', ascending=True)  # Reverse for chart display
                     
                     fig_importance = px.bar(
                         importance_sorted,
                         x='Importance',
                         y='Feature',
                         orientation='h',
-                        title='Feature Contribution to Anomaly Detection'
+                        title='Top 10 Features Contributing to Anomaly Detection (Highest to Lowest)'
                     )
+                    fig_importance.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
                     st.plotly_chart(fig_importance, use_container_width=True)
             else:
                 st.info(f"Feature importance is only available for Isolation Forest. Current algorithm: {algorithm}")
