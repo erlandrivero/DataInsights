@@ -390,53 +390,31 @@ def show_data_upload():
         
         # Load button handler
         if load_button:
-            try:
-                import openml
-                
-                # Progress tracking
-                progress_bar = st.progress(0)
-                status_text = st.empty()
-                
-                status_text.text(f"📥 Downloading dataset {dataset_id} from OpenML...")
-                progress_bar.progress(0.2)
-                
-                dataset = openml.datasets.get_dataset(dataset_id)
-                X, y, categorical_indicator, attribute_names = dataset.get_data(
-                    dataset_format="dataframe"
-                )
-                
-                progress_bar.progress(0.4)
-                status_text.text("🔄 Processing data...")
-                
-                # Combine features and target
-                if y is not None:
-                    df = X.copy()
-                    df['target'] = y
-                else:
-                    df = X
-                
-                st.session_state.data = df
-                
-                progress_bar.progress(0.6)
-                status_text.text("📊 Analyzing data quality...")
-                
-                # Profile data
-                from utils.data_processor import DataProcessor
-                profile = DataProcessor.profile_data(df)
-                st.session_state.profile = profile
-                
-                progress_bar.progress(0.8)
-                status_text.text("🔍 Detecting quality issues...")
-                
-                issues = DataProcessor.detect_data_quality_issues(df)
-                st.session_state.issues = issues
-                
-                progress_bar.progress(1.0)
-                status_text.text("✅ Complete!")
-                
-                # Clear progress indicators
-                progress_bar.empty()
-                status_text.empty()
+            with st.spinner(f"🔄 Loading dataset {dataset_id} from OpenML... This may take 30-60 seconds for large datasets."):
+                try:
+                    import openml
+                    
+                    dataset = openml.datasets.get_dataset(dataset_id)
+                    X, y, categorical_indicator, attribute_names = dataset.get_data(
+                        dataset_format="dataframe"
+                    )
+                    
+                    # Combine features and target
+                    if y is not None:
+                        df = X.copy()
+                        df['target'] = y
+                    else:
+                        df = X
+                    
+                    st.session_state.data = df
+                    
+                    # Profile data
+                    from utils.data_processor import DataProcessor
+                    profile = DataProcessor.profile_data(df)
+                    st.session_state.profile = profile
+                    
+                    issues = DataProcessor.detect_data_quality_issues(df)
+                    st.session_state.issues = issues
                     
                 success_msg = f"✅ Successfully loaded {dataset.name} (ID: {dataset_id})!"
                 st.success(success_msg)
@@ -455,15 +433,15 @@ def show_data_upload():
                     st.metric("Dataset ID", dataset_id)
                 
                 st.dataframe(df.head(10), use_container_width=True)
-                
-            except Exception as e:
-                st.error(f"Error loading OpenML dataset: {str(e)}")
-                st.info("""
-                💡 **Troubleshooting:**
-                - Verify the dataset ID exists on OpenML
-                - Some datasets may require additional processing
-                - Check your internet connection
-                """)
+                    
+                except Exception as e:
+                    st.error(f"Error loading OpenML dataset: {str(e)}")
+                    st.info("""
+                    💡 **Troubleshooting:**
+                    - Verify the dataset ID exists on OpenML
+                    - Some datasets may require additional processing
+                    - Check your internet connection
+                    """)
     
     with tab3:
         st.subheader("Load from Kaggle")
