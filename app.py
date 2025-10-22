@@ -3177,6 +3177,7 @@ def show_ml_classification():
             
             # Check 1: Minimum 2 samples per class
             if min_class_size < 2:
+                validation_passed = False
                 st.error(f"""
                 ⚠️ **Validation Failed: Insufficient Samples per Class**
                 
@@ -3197,8 +3198,9 @@ def show_ml_classification():
                 
             # Check 2: Enough samples for stratified split with current test_size
             elif min_class_size < min_required:
-                st.warning(f"""
-                ⚠️ **Warning: Small Class Sizes for Stratified Split**
+                validation_passed = False
+                st.error(f"""
+                ⚠️ **Validation Failed: Insufficient Samples for Stratified Split**
                 
                 With test size of **{test_size}%**, each class should have at least **{min_required} samples**.
                 The smallest class has only **{min_class_size} samples**.
@@ -3209,12 +3211,12 @@ def show_ml_classification():
                            use_container_width=True)
                 
                 st.info(f"""
-                **💡 Recommendations:**
-                - **Reduce test size** to 10-15% (currently {test_size}%)
-                - **Filter rare classes** with < {min_required} samples
-                - **This may still work** but could cause stratification issues
+                **💡 Solutions:**
+                1. **Reduce test size** to 10-15% (currently {test_size}%)
+                2. **Filter rare classes** with < {min_required} samples
+                3. **Combine classes** to reduce number of small classes
                 
-                Try reducing the test size slider above and click Train again.
+                **Action Required:** Adjust settings above and click Train again.
                 """)
                 
             # Check 3: Too many classes
