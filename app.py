@@ -1799,8 +1799,8 @@ Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
                 status_text.text("Generating base report...")
                 progress_bar.progress(0.6)
                 
-                # Gather cleaning suggestions
-                suggestions = st.session_state.get('cleaning_suggestions', [])
+                # Gather cleaning suggestions (only if recommendations enabled)
+                suggestions = st.session_state.get('cleaning_suggestions', []) if include_recommendations else []
                 
                 # Generate base report
                 if df is not None and profile is not None:
@@ -1813,6 +1813,12 @@ Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
                         suggestions=suggestions
                     )
                     
+                    # Remove recommendations section if not requested
+                    if not include_recommendations:
+                        import re
+                        # Remove the entire Recommendations section
+                        base_report = re.sub(r'---\n\n## Recommendations.*?(?=---\n|$)', '', base_report, flags=re.DOTALL)
+                    
                     # Append module summaries if requested
                     if module_insights:
                         module_section = "\n".join(module_insights)
@@ -1821,9 +1827,84 @@ Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
                             "---\n\n## Data Profile",
                             f"{module_section}\n\n---\n\n## Data Profile"
                         )
+                    
+                    # Add visualization descriptions if requested
+                    if include_visualizations:
+                        viz_section = "\n\n---\n\n## Visualizations Generated\n\n"
+                        viz_section += "The following visualizations were created during analysis:\n\n"
+                        
+                        viz_count = 0
+                        if modules_status['ML Classification']:
+                            viz_section += "### ML Classification\n"
+                            viz_section += "- Model performance comparison bar chart (accuracy, precision, recall, F1-score)\n"
+                            viz_section += "- Confusion matrix heatmap for best model\n"
+                            viz_section += "- ROC curves for model comparison\n\n"
+                            viz_count += 3
+                        
+                        if modules_status['ML Regression']:
+                            viz_section += "### ML Regression\n"
+                            viz_section += "- Model performance comparison (R², RMSE, MAE)\n"
+                            viz_section += "- Actual vs Predicted scatter plot\n"
+                            viz_section += "- Residual distribution plot\n\n"
+                            viz_count += 3
+                        
+                        if modules_status['Market Basket Analysis']:
+                            viz_section += "### Market Basket Analysis\n"
+                            viz_section += "- Association rules scatter plot (support vs confidence, sized by lift)\n"
+                            viz_section += "- Top product associations network graph\n"
+                            viz_section += "- Support-confidence heatmap\n\n"
+                            viz_count += 3
+                        
+                        if modules_status['RFM Analysis']:
+                            viz_section += "### RFM Analysis\n"
+                            viz_section += "- Customer segmentation distribution bar chart\n"
+                            viz_section += "- RFM scores 3D scatter plot\n"
+                            viz_section += "- Segment characteristics heatmap\n\n"
+                            viz_count += 3
+                        
+                        if modules_status['Anomaly Detection']:
+                            viz_section += "### Anomaly Detection\n"
+                            viz_section += "- Anomaly distribution pie chart\n"
+                            viz_section += "- Anomaly scores scatter plot (PCA projection)\n"
+                            viz_section += "- Feature importance bar chart\n\n"
+                            viz_count += 3
+                        
+                        if modules_status['Time Series Forecasting']:
+                            viz_section += "### Time Series Forecasting\n"
+                            viz_section += "- Historical data with trend line\n"
+                            viz_section += "- Forecast plot with confidence intervals\n"
+                            viz_section += "- Seasonal decomposition plots\n\n"
+                            viz_count += 3
+                        
+                        if modules_status['Text Mining & NLP']:
+                            viz_section += "### Text Mining & NLP\n"
+                            viz_section += "- Sentiment distribution pie chart\n"
+                            viz_section += "- Word cloud of frequent terms\n"
+                            viz_section += "- Topic modeling visualization\n\n"
+                            viz_count += 3
+                        
+                        if modules_status['Monte Carlo Simulation']:
+                            viz_section += "### Monte Carlo Simulation\n"
+                            viz_section += "- Return distribution histogram\n"
+                            viz_section += "- Cumulative probability curve\n"
+                            viz_section += "- Risk metrics visualization\n\n"
+                            viz_count += 3
+                        
+                        if viz_count > 0:
+                            viz_section += f"**Total visualizations:** {viz_count} charts generated\n"
+                            viz_section += "\n*Note: All visualizations are interactive and can be downloaded individually.*\n"
+                            # Insert before Conclusion section
+                            base_report = base_report.replace(
+                                "---\n\n## Conclusion",
+                                f"{viz_section}\n---\n\n## Conclusion"
+                            )
                 else:
                     # Module-only report (no dataset loaded)
                     module_section = "\n".join(module_insights) if module_insights else "No modules completed yet."
+                    recommendations_section = ""
+                    if include_recommendations:
+                        recommendations_section = """\n---\n\n## Recommendations\n\n- Upload a dataset in the Data Upload section for comprehensive data profiling\n- Continue running analyses to gain deeper insights\n- Use individual module export functions for detailed results\n"""
+                    
                     base_report = f"""# DataInsight AI - Analytics Report
 
 **Report Generated:** {datetime.now().strftime('%B %d, %Y at %I:%M %p')}
@@ -1832,15 +1913,7 @@ Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
 
 This report contains results from completed analytics modules.
 
-{module_section}
-
----
-
-## Recommendations
-
-- Upload a dataset in the Data Upload section for comprehensive data profiling
-- Continue running analyses to gain deeper insights
-- Use individual module export functions for detailed results
+{module_section}{recommendations_section}
 """
                 
                 status_text.text("Enhancing report...")
