@@ -3059,11 +3059,38 @@ def show_ml_classification():
             with st.expander("📋 Model Availability Checker", expanded=False):
                 st.write("**Real-time compatibility check for all 15 models:**")
                 
+                # Show warning banner if there are global issues
+                if target_col:
+                    class_counts_check = df[target_col].value_counts()
+                    min_class_check = class_counts_check.min()
+                    if min_class_check < 2:
+                        st.error("🚨 **ALL MODELS BLOCKED** - Target column has classes with < 2 samples")
+                    elif min_class_check < 5:
+                        st.warning("⚠️ **ALL MODELS BLOCKED** - Insufficient samples for stratified split")
+                
                 # Get dataset characteristics
                 n_samples = len(df)
                 n_features = len(df.columns) - 1  # Exclude target
                 n_numeric = len(df.select_dtypes(include=[np.number]).columns)
                 n_categorical = len(df.select_dtypes(include=['object']).columns)
+                
+                # Check target column class distribution (CRITICAL)
+                class_counts = df[target_col].value_counts()
+                min_class_size = class_counts.min()
+                test_size_val = 20  # Default from slider
+                min_required = max(2, int(np.ceil(1 / (test_size_val/100))))
+                
+                # Global blocking issues
+                global_block = False
+                global_reason = ""
+                
+                if min_class_size < 2:
+                    global_block = True
+                    num_bad_classes = (class_counts < 2).sum()
+                    global_reason = f"❌ {num_bad_classes} class(es) with < 2 samples"
+                elif min_class_size < min_required:
+                    global_block = True
+                    global_reason = f"❌ Min class size ({min_class_size}) < required ({min_required})"
                 
                 # Define model requirements and compatibility
                 from utils.ml_training import MLTrainer
@@ -3074,41 +3101,48 @@ def show_ml_classification():
                 model_status = []
                 
                 for model_name in all_models.keys():
-                    available = True
-                    reason = "✅ Compatible"
-                    
-                    # Check XGBoost/LightGBM/CatBoost availability
-                    if model_name == "XGBoost":
-                        try:
-                            from xgboost import XGBClassifier
-                        except ImportError:
-                            available = False
-                            reason = "❌ XGBoost not installed"
-                    elif model_name == "LightGBM":
-                        try:
-                            from lightgbm import LGBMClassifier
-                        except ImportError:
-                            available = False
-                            reason = "❌ LightGBM not installed"
-                    elif model_name == "CatBoost":
-                        try:
-                            from catboost import CatBoostClassifier
-                        except ImportError:
-                            available = False
-                            reason = "❌ CatBoost not installed"
-                    
-                    # Check dataset size requirements
-                    if n_samples < 20 and model_name in ["Stacking", "Voting"]:
+                    # Check global blocking first
+                    if global_block:
                         available = False
-                        reason = f"❌ Need ≥20 samples (have {n_samples})"
-                    elif n_samples < 10:
-                        available = False
-                        reason = f"❌ Need ≥10 samples (have {n_samples})"
+                        reason = global_reason
+                    else:
+                        available = True
+                        reason = "✅ Compatible"
                     
-                    # Check for tree-based models with very few features
-                    if n_features < 2 and "Tree" in model_name:
-                        available = False
-                        reason = f"⚠️ Need ≥2 features (have {n_features})"
+                    # Only check other requirements if not globally blocked
+                    if not global_block:
+                        # Check XGBoost/LightGBM/CatBoost availability
+                        if model_name == "XGBoost":
+                            try:
+                                from xgboost import XGBClassifier
+                            except ImportError:
+                                available = False
+                                reason = "❌ XGBoost not installed"
+                        elif model_name == "LightGBM":
+                            try:
+                                from lightgbm import LGBMClassifier
+                            except ImportError:
+                                available = False
+                                reason = "❌ LightGBM not installed"
+                        elif model_name == "CatBoost":
+                            try:
+                                from catboost import CatBoostClassifier
+                            except ImportError:
+                                available = False
+                                reason = "❌ CatBoost not installed"
+                        
+                        # Check dataset size requirements
+                        if n_samples < 20 and model_name in ["Stacking", "Voting"]:
+                            available = False
+                            reason = f"❌ Need ≥20 samples (have {n_samples})"
+                        elif n_samples < 10:
+                            available = False
+                            reason = f"❌ Need ≥10 samples (have {n_samples})"
+                        
+                        # Check for tree-based models with very few features
+                        if n_features < 2 and "Tree" in model_name:
+                            available = False
+                            reason = f"⚠️ Need ≥2 features (have {n_features})"
                     
                     model_status.append({
                         'Model': model_name,
