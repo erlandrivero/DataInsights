@@ -416,23 +416,23 @@ def show_data_upload():
                     issues = DataProcessor.detect_data_quality_issues(df)
                     st.session_state.issues = issues
                     
-                success_msg = f"✅ Successfully loaded {dataset.name} (ID: {dataset_id})!"
-                st.success(success_msg)
-                
-                # Show full description and metadata in expander
-                with st.expander("📋 Dataset Information & Citation", expanded=True):
-                    st.markdown(dataset.description)
-                
-                # Show dataset info
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Rows", len(df))
-                with col2:
-                    st.metric("Columns", len(df.columns))
-                with col3:
-                    st.metric("Dataset ID", dataset_id)
-                
-                st.dataframe(df.head(10), use_container_width=True)
+                    success_msg = f"✅ Successfully loaded {dataset.name} (ID: {dataset_id})!"
+                    st.success(success_msg)
+                    
+                    # Show full description and metadata in expander
+                    with st.expander("📋 Dataset Information & Citation", expanded=True):
+                        st.markdown(dataset.description)
+                    
+                    # Show dataset info
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Rows", len(df))
+                    with col2:
+                        st.metric("Columns", len(df.columns))
+                    with col3:
+                        st.metric("Dataset ID", dataset_id)
+                    
+                    st.dataframe(df.head(10), use_container_width=True)
                     
                 except Exception as e:
                     st.error(f"Error loading OpenML dataset: {str(e)}")
