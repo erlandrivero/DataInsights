@@ -3046,30 +3046,93 @@ def show_ml_classification():
         if st.button("🚀 Train Models", type="primary", use_container_width=True):
             from utils.ml_training import MLTrainer
             
-            # Validate target column before training
+            # Comprehensive validation before training
             class_counts = df[target_col].value_counts()
             min_class_size = class_counts.min()
+            n_classes = len(class_counts)
+            total_samples = len(df)
             
+            # Calculate minimum required samples per class for stratified split
+            min_required = max(2, int(np.ceil(1 / (test_size/100))))  # At least 1 sample in test set
+            
+            # Check 1: Minimum 2 samples per class
             if min_class_size < 2:
                 st.error(f"""
-                ⚠️ **Training Error: Insufficient Samples in Target Classes**
+                ⚠️ **Validation Failed: Insufficient Samples per Class**
                 
-                The target column '{target_col}' has at least one class with only {min_class_size} sample(s).
-                Machine learning requires a minimum of 2 samples per class for training.
+                The target column '{target_col}' has at least one class with only **{min_class_size}** sample(s).
                 
-                **Class Distribution:**
+                **Requirement:** Each class needs **at least 2 samples** for stratified train-test split.
                 """)
                 st.dataframe(class_counts.reset_index().rename(columns={'index': 'Class', target_col: 'Count'}), 
                            use_container_width=True)
                 
                 st.info("""
                 **💡 Solutions:**
-                1. **Remove rare classes** - Filter out classes with fewer than 2 samples
-                2. **Collect more data** - Gather additional samples for underrepresented classes
-                3. **Combine classes** - Merge similar rare classes into a broader category
-                4. **Choose different target** - Select a target column with better distribution
+                1. **Filter Data** - Remove classes with < 2 samples before training
+                2. **Collect More Data** - Gather additional samples for rare classes  
+                3. **Combine Classes** - Merge similar rare classes into broader categories
+                4. **Choose Different Target** - Select a column with better class balance
                 """)
+                
+            # Check 2: Enough samples for stratified split with current test_size
+            elif min_class_size < min_required:
+                st.warning(f"""
+                ⚠️ **Warning: Small Class Sizes for Stratified Split**
+                
+                With test size of **{test_size}%**, each class should have at least **{min_required} samples**.
+                The smallest class has only **{min_class_size} samples**.
+                
+                **Class Distribution:**
+                """)
+                st.dataframe(class_counts.reset_index().rename(columns={'index': 'Class', target_col: 'Count'}), 
+                           use_container_width=True)
+                
+                st.info(f"""
+                **💡 Recommendations:**
+                - **Reduce test size** to 10-15% (currently {test_size}%)
+                - **Filter rare classes** with < {min_required} samples
+                - **This may still work** but could cause stratification issues
+                
+                Try reducing the test size slider above and click Train again.
+                """)
+                
+            # Check 3: Too many classes
+            elif n_classes > 50:
+                st.warning(f"""
+                ⚠️ **Warning: Large Number of Classes**
+                
+                Target has **{n_classes} classes**. This is a multi-class classification problem.
+                
+                **Note:** Some models may take longer to train with many classes.
+                """)
+                st.info("Continuing with training... Some models may have reduced performance with many classes.")
+                
+                # Continue with training
+                validation_passed = True
+            
+            # Check 4: Dataset too small
+            elif total_samples < 50:
+                st.warning(f"""
+                ⚠️ **Warning: Small Dataset**
+                
+                Dataset has only **{total_samples} samples**. Minimum recommended: **50-100 samples**.
+                
+                **Impact:** 
+                - Results may not be reliable
+                - Cross-validation may struggle  
+                - Model performance metrics could be unstable
+                """)
+                
+                st.info("You can continue, but consider collecting more data for better results.")
+                validation_passed = True
+            
             else:
+                # All validations passed
+                validation_passed = True
+            
+            # Only proceed if validation passed
+            if validation_passed:
                 try:
                     # Initialize trainer
                     with st.spinner("Initializing ML Trainer..."):
