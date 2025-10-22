@@ -1179,15 +1179,16 @@ def show_reports():
     st.divider()
     st.subheader("📊 Analysis Status")
     
+    # Check which modules have been run - using correct session state keys
     modules_status = {
-        'Market Basket Analysis': 'mba_results' in st.session_state,
-        'RFM Analysis': 'rfm_results' in st.session_state,
-        'Monte Carlo Simulation': 'mc_results' in st.session_state,
+        'Market Basket Analysis': 'mba_rules' in st.session_state,
+        'RFM Analysis': 'rfm_segmented' in st.session_state,
+        'Monte Carlo Simulation': 'mc_simulations' in st.session_state,
         'ML Classification': 'ml_results' in st.session_state,
         'ML Regression': 'mlr_results' in st.session_state,
         'Anomaly Detection': 'anomaly_results' in st.session_state,
-        'Time Series Forecasting': 'ts_results' in st.session_state,
-        'Text Mining & NLP': 'text_results' in st.session_state,
+        'Time Series Forecasting': ('arima_results' in st.session_state or 'prophet_results' in st.session_state),
+        'Text Mining & NLP': ('sentiment_results' in st.session_state or 'topics' in st.session_state),
     }
     
     col1, col2 = st.columns(2)
@@ -1351,8 +1352,8 @@ def show_reports():
 """)
                     
                     if modules_status['Market Basket Analysis']:
-                        mba_results = st.session_state.get('mba_results', {})
-                        rules_count = len(mba_results.get('rules', []))
+                        mba_rules = st.session_state.get('mba_rules', pd.DataFrame())
+                        rules_count = len(mba_rules)
                         module_insights.append(f"""
 ### 🧺 Market Basket Analysis
 - **Status:** Completed
@@ -1362,55 +1363,69 @@ def show_reports():
 """)
                     
                     if modules_status['RFM Analysis']:
-                        rfm_results = st.session_state.get('rfm_results', {})
-                        segments = len(rfm_results.get('segments', set()))
+                        rfm_segmented = st.session_state.get('rfm_segmented', pd.DataFrame())
+                        segments = rfm_segmented['Segment'].nunique() if 'Segment' in rfm_segmented.columns else 0
                         module_insights.append(f"""
 ### 👥 RFM Analysis
 - **Status:** Completed
 - **Customer Segments:** {segments} identified
+- **Customers Analyzed:** {len(rfm_segmented)}
 - **RFM Scores:** Recency, Frequency, Monetary calculated
 - **Segmentation:** K-Means clustering applied
 """)
                     
                     if modules_status['Anomaly Detection']:
                         anomaly_results = st.session_state.get('anomaly_results', {})
-                        anomalies = anomaly_results.get('n_anomalies', 0)
+                        anomalies = anomaly_results.get('num_anomalies', 0)
+                        algorithm = st.session_state.get('anomaly_algorithm', 'N/A')
                         module_insights.append(f"""
 ### 🔬 Anomaly Detection
 - **Status:** Completed
+- **Algorithm:** {algorithm}
 - **Outliers Identified:** {anomalies}
-- **Methods:** Isolation Forest, LOF, One-Class SVM
 - **Anomaly Scores:** Calculated and flagged
 """)
                     
                     if modules_status['Time Series Forecasting']:
-                        ts_results = st.session_state.get('ts_results', {})
-                        model_used = ts_results.get('model', 'N/A')
+                        has_arima = 'arima_results' in st.session_state
+                        has_prophet = 'prophet_results' in st.session_state
+                        models_used = []
+                        if has_arima:
+                            models_used.append('ARIMA')
+                        if has_prophet:
+                            models_used.append('Prophet')
                         module_insights.append(f"""
 ### 📊 Time Series Forecasting
 - **Status:** Completed
-- **Model:** {model_used}
+- **Models:** {', '.join(models_used) if models_used else 'N/A'}
 - **Forecast Generated:** Available for future periods
 - **Trend Analysis:** Completed
 """)
                     
                     if modules_status['Text Mining & NLP']:
-                        module_insights.append("""
+                        sentiment_df = st.session_state.get('sentiment_results', pd.DataFrame())
+                        topics = st.session_state.get('topics', {})
+                        texts_analyzed = len(sentiment_df) if not sentiment_df.empty else 0
+                        num_topics = len(topics)
+                        module_insights.append(f"""
 ### 📝 Text Mining & NLP
 - **Status:** Completed
-- **Sentiment Analysis:** Performed
-- **Topic Modeling:** Applied
-- **Named Entity Recognition:** Extracted
+- **Texts Analyzed:** {texts_analyzed}
+- **Sentiment Analysis:** {'Completed' if not sentiment_df.empty else 'N/A'}
+- **Topic Modeling:** {f'{num_topics} topics discovered' if num_topics > 0 else 'N/A'}
 """)
                     
                     if modules_status['Monte Carlo Simulation']:
-                        mc_results = st.session_state.get('mc_results', {})
-                        simulations = mc_results.get('n_simulations', 0)
+                        mc_simulations = st.session_state.get('mc_simulations', None)
+                        mc_risk_metrics = st.session_state.get('mc_risk_metrics', {})
+                        simulations = mc_simulations.shape[0] if mc_simulations is not None else 0
+                        expected_return = mc_risk_metrics.get('expected_return', 0)
                         module_insights.append(f"""
 ### 📈 Monte Carlo Simulation
 - **Status:** Completed
 - **Simulations Run:** {simulations:,}
-- **Risk Metrics:** Calculated
+- **Expected Return:** {expected_return:.2f}%
+- **Risk Metrics:** VaR, CVaR calculated
 - **Financial Forecasts:** Generated with confidence intervals
 """)
                 
