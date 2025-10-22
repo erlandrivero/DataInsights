@@ -6320,13 +6320,25 @@ def show_time_series_forecasting():
         st.divider()
         st.subheader("🔮 3. Generate Forecasts")
         
-        forecast_periods = st.slider(
-            "Forecast Horizon (periods):",
-            min_value=7,
-            max_value=365,
-            value=30,
-            help="Number of periods to forecast into the future"
-        )
+        col_config1, col_config2 = st.columns(2)
+        
+        with col_config1:
+            forecast_periods = st.slider(
+                "Forecast Horizon (periods):",
+                min_value=7,
+                max_value=365,
+                value=30,
+                help="Number of periods to forecast into the future"
+            )
+        
+        with col_config2:
+            use_seasonal = st.selectbox(
+                "Seasonality:",
+                ["Auto-detect", "Non-seasonal (Faster)", "Seasonal"],
+                help="Non-seasonal is much faster for large datasets"
+            )
+            # Convert to boolean
+            seasonal_param = None if use_seasonal == "Auto-detect" else (use_seasonal == "Seasonal")
         
         col1, col2 = st.columns(2)
         
@@ -6340,14 +6352,21 @@ def show_time_series_forecasting():
                 try:
                     with st.spinner("Running Auto-ARIMA..."):
                         st.warning("⚠️ Navigation locked during forecasting...")
+                        st.info("💡 ARIMA training may take 30-60 seconds for large datasets. Please wait...")
                         
                         progress_bar = st.progress(0)
                         status_text = st.empty()
                         
-                        status_text.text("Training ARIMA model...")
+                        status_text.text("Training ARIMA model (this may take a minute)...")
                         progress_bar.progress(0.5)
                         
-                        results = analyzer.run_auto_arima(forecast_periods)
+                        # Check dataset size and warn if too large
+                        ts_len = len(analyzer.ts_data)
+                        if ts_len > 500:
+                            st.info(f"ℹ️ Large dataset ({ts_len} observations). Using last 500 for training to prevent timeouts.")
+                        
+                        # Run ARIMA with optimized parameters
+                        results = analyzer.run_auto_arima(forecast_periods, seasonal=seasonal_param)
                         st.session_state.arima_results = results
                         
                         progress_bar.progress(1.0)
@@ -6373,14 +6392,23 @@ def show_time_series_forecasting():
                     
                     # Common ARIMA failure reasons
                     error_str = str(e).lower()
+                    ts_len = len(analyzer.ts_data)
+                    
                     if 'non-stationary' in error_str or 'stationary' in error_str:
                         st.warning("⚠️ **Data may be non-stationary.** Try differencing the data first.")
                     elif 'constant' in error_str or 'variance' in error_str:
                         st.warning("⚠️ **Data has constant values or zero variance.** ARIMA requires variation in the data.")
                     elif 'too few' in error_str or 'observations' in error_str:
                         st.warning("⚠️ **Not enough data points.** ARIMA requires at least 30-50 observations.")
+                    elif 'timeout' in error_str or 'memory' in error_str:
+                        st.warning("⚠️ **Resource limit exceeded.** Try 'Non-seasonal (Faster)' option or reduce dataset size.")
                     else:
-                        st.info("💡 **Troubleshooting:** Check if your data has trends, sufficient observations, and no constant values.")
+                        st.info("💡 **Troubleshooting Tips:**")
+                        st.write("- Try **Non-seasonal (Faster)** option")
+                        st.write("- Reduce forecast horizon")
+                        st.write("- Check if data has trends and variation")
+                        if ts_len > 500:
+                            st.warning(f"⚠️ Large dataset ({ts_len} observations) may exceed cloud limits. Algorithm is already optimized but very large datasets may still timeout.")
                     
                     # Show full traceback for debugging
                     with st.expander("🔍 Full Error Details"):

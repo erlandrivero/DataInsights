@@ -180,12 +180,13 @@ class TimeSeriesAnalyzer:
         
         return acf_values, pacf_values
     
-    def run_auto_arima(self, forecast_periods: int = 30) -> Dict[str, Any]:
+    def run_auto_arima(self, forecast_periods: int = 30, seasonal: bool = None) -> Dict[str, Any]:
         """
         Run auto-ARIMA to find best model and generate forecast.
         
         Args:
             forecast_periods: Number of periods to forecast
+            seasonal: Force seasonal (True) or non-seasonal (False). None = auto-detect
             
         Returns:
             Dictionary with model info and forecast
@@ -196,19 +197,49 @@ class TimeSeriesAnalyzer:
         if self.ts_data is None:
             raise ValueError("Time series data must be set first using set_time_column()")
         
-        # Fit auto ARIMA
+        # Sample large datasets to prevent cloud timeouts
+        ts_to_fit = self.ts_data
+        if len(self.ts_data) > 500:
+            # Use last 500 observations for training to reduce computation
+            ts_to_fit = self.ts_data.iloc[-500:]
+            warnings.warn(f"Dataset has {len(self.ts_data)} observations. Using last 500 for faster training.")
+        
+        # Auto-detect if seasonal model is needed
+        if seasonal is None:
+            # Only use seasonal if dataset is large enough (need at least 2 seasons)
+            inferred_freq = pd.infer_freq(ts_to_fit.index)
+            if inferred_freq and len(ts_to_fit) >= 24:
+                seasonal = True
+                m = 12 if 'M' in str(inferred_freq) else 7 if 'D' in str(inferred_freq) else 12
+            else:
+                seasonal = False
+                m = 1
+        else:
+            m = 12 if seasonal else 1
+        
+        # Fit auto ARIMA with cloud-friendly parameters
+        # Heavily optimized for Streamlit Cloud resource limits
         self.arima_model = pm.auto_arima(
-            self.ts_data,
-            start_p=0, start_q=0,
-            max_p=5, max_q=5,
-            seasonal=True,
-            m=12,  # Monthly seasonality
+            ts_to_fit,
+            start_p=1, start_q=1,  # Start with simple model
+            max_p=2, max_q=2,  # Very conservative limits for cloud
+            max_order=4,  # Strict complexity limit
+            seasonal=seasonal,
+            m=m,
             d=None,
             D=None,
+            start_P=0, start_Q=0,  # Seasonal starting points
+            max_P=1, max_Q=1,  # Minimal seasonal terms
+            max_d=2,
+            max_D=1,
             trace=False,
             error_action='ignore',
             suppress_warnings=True,
-            stepwise=True
+            stepwise=True,  # Fast stepwise search
+            n_jobs=1,
+            information_criterion='aic',
+            with_intercept='auto',
+            maxiter=50  # Limit iterations per model
         )
         
         # Generate forecast
