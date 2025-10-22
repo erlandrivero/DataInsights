@@ -4872,9 +4872,9 @@ def show_ml_classification():
         
         results_df = pd.DataFrame(results_data)
         
-        # Sort by Accuracy (best to worst)
-        results_df['_acc_sort'] = results_df['Accuracy'].astype(float)
-        results_df = results_df.sort_values('_acc_sort', ascending=False).drop('_acc_sort', axis=1).reset_index(drop=True)
+        # Sort by F1 Score (best to worst)
+        results_df['_f1_sort'] = results_df['F1 Score'].astype(float)
+        results_df = results_df.sort_values('_f1_sort', ascending=False).drop('_f1_sort', axis=1).reset_index(drop=True)
         
         # Store in session state for export
         st.session_state.ml_results_df = results_df
