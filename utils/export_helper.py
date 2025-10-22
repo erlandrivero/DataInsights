@@ -26,12 +26,44 @@ class ExportHelper:
     @staticmethod
     def export_analysis_summary(profile: Dict[str, Any], issues: List[Dict[str, Any]]) -> str:
         """Export analysis summary as JSON."""
+        # Helper function to convert numpy/pandas types to native Python types
+        def convert_to_serializable(obj):
+            """Recursively convert non-serializable types to serializable ones."""
+            if isinstance(obj, dict):
+                return {key: convert_to_serializable(value) for key, value in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_to_serializable(item) for item in obj]
+            elif isinstance(obj, (pd.Series, pd.DataFrame)):
+                return convert_to_serializable(obj.to_dict())
+            elif pd.api.types.is_integer_dtype(type(obj)) or hasattr(obj, 'item'):
+                # Handle numpy int64, int32, etc.
+                try:
+                    return int(obj)
+                except (ValueError, TypeError):
+                    return str(obj)
+            elif pd.api.types.is_float_dtype(type(obj)) or isinstance(obj, float):
+                # Handle numpy float64, float32, etc.
+                try:
+                    return float(obj)
+                except (ValueError, TypeError):
+                    return str(obj)
+            elif isinstance(obj, (pd.Timestamp, datetime)):
+                return obj.isoformat()
+            elif hasattr(obj, 'tolist'):
+                # Handle numpy arrays
+                return obj.tolist()
+            elif hasattr(obj, '__dict__'):
+                # Handle custom objects
+                return str(obj)
+            else:
+                return obj
+        
         summary = {
             'generated_at': datetime.now().isoformat(),
-            'basic_info': profile['basic_info'],
-            'column_info': profile['column_info'],
-            'missing_data': profile['missing_data'],
-            'quality_issues': issues
+            'basic_info': convert_to_serializable(profile.get('basic_info', {})),
+            'column_info': convert_to_serializable(profile.get('column_info', [])),
+            'missing_data': convert_to_serializable(profile.get('missing_data', {})),
+            'quality_issues': convert_to_serializable(issues)
         }
         return json.dumps(summary, indent=2)
     

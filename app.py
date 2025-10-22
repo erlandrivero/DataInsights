@@ -1999,6 +1999,205 @@ This report contains results from completed analytics modules.
                     disabled=True,
                     help=f"Excel export unavailable: {str(e)}"
                 )
+        
+        # Advanced Export Options with Visualizations
+        st.divider()
+        st.write("**🎨 Advanced Exports with Visualizations:**")
+        st.caption("Export reports with embedded charts and graphs from your analyses")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        # Collect available charts from session state
+        available_charts = []
+        
+        # Check for ML Classification charts
+        if 'ml_results' in st.session_state and st.session_state.ml_results:
+            try:
+                from utils.visualizations import Visualizer
+                ml_results_df = pd.DataFrame(st.session_state.ml_results)
+                fig = Visualizer.create_model_comparison(ml_results_df, 'accuracy')
+                if fig:
+                    available_charts.append(("ML Classification - Model Comparison", fig))
+            except:
+                pass
+        
+        # Check for ML Regression charts
+        if 'mlr_results' in st.session_state and st.session_state.mlr_results:
+            try:
+                from utils.visualizations import Visualizer
+                mlr_results_df = pd.DataFrame(st.session_state.mlr_results)
+                fig = Visualizer.create_model_comparison(mlr_results_df, 'r2')
+                if fig:
+                    available_charts.append(("ML Regression - Model Comparison", fig))
+            except:
+                pass
+        
+        # Check for Market Basket charts
+        if 'association_rules' in st.session_state:
+            try:
+                rules = st.session_state.association_rules
+                if len(rules) > 0:
+                    fig = px.scatter(
+                        rules.head(20),
+                        x='support',
+                        y='confidence',
+                        size='lift',
+                        hover_data=['antecedents', 'consequents'],
+                        title='Top 20 Association Rules',
+                        labels={'support': 'Support', 'confidence': 'Confidence', 'lift': 'Lift'}
+                    )
+                    available_charts.append(("Market Basket Analysis - Association Rules", fig))
+            except:
+                pass
+        
+        # Check for RFM Analysis charts
+        if 'rfm_data' in st.session_state:
+            try:
+                rfm_data = st.session_state.rfm_data
+                if 'segment' in rfm_data.columns:
+                    segment_counts = rfm_data['segment'].value_counts()
+                    fig = px.bar(
+                        x=segment_counts.index,
+                        y=segment_counts.values,
+                        title='Customer Segmentation Distribution',
+                        labels={'x': 'Segment', 'y': 'Count'}
+                    )
+                    available_charts.append(("RFM Analysis - Customer Segments", fig))
+            except:
+                pass
+        
+        # Check for Anomaly Detection charts
+        if 'anomaly_results' in st.session_state:
+            try:
+                anomaly_results = st.session_state.anomaly_results
+                if isinstance(anomaly_results, pd.DataFrame) and len(anomaly_results) > 0:
+                    anomaly_counts = anomaly_results['anomaly_type'].value_counts()
+                    fig = px.pie(
+                        values=anomaly_counts.values,
+                        names=anomaly_counts.index,
+                        title='Anomaly Detection Results'
+                    )
+                    available_charts.append(("Anomaly Detection - Distribution", fig))
+            except:
+                pass
+        
+        with col1:
+            # HTML Export with Interactive Charts
+            if st.button("🌐 HTML with Charts", use_container_width=True, help="Interactive web page with embedded Plotly charts"):
+                try:
+                    from utils.advanced_report_exporter import AdvancedReportExporter
+                    
+                    with st.spinner("Generating HTML report with charts..."):
+                        html_report = AdvancedReportExporter.create_html_report(
+                            markdown_content=report_text,
+                            charts=available_charts,
+                            title="DataInsight AI - Comprehensive Report"
+                        )
+                        
+                        st.download_button(
+                            label="💾 Download HTML Report",
+                            data=html_report,
+                            file_name=f"report_with_charts_{timestamp}.html",
+                            mime="text/html",
+                            use_container_width=True,
+                            type="primary"
+                        )
+                        
+                        st.success(f"✅ HTML report generated with {len(available_charts)} chart(s)!")
+                        st.info("💡 Open the HTML file in any browser to view interactive charts")
+                
+                except Exception as e:
+                    st.error(f"❌ HTML export failed: {str(e)}")
+                    st.info("💡 Try the basic HTML export instead")
+        
+        with col2:
+            # Markdown + Images ZIP Export
+            if st.button("📦 Markdown + Images", use_container_width=True, help="ZIP file with markdown report and PNG chart images"):
+                try:
+                    from utils.advanced_report_exporter import AdvancedReportExporter
+                    
+                    with st.spinner("Creating ZIP package with images..."):
+                        # Check if kaleido is available for image generation
+                        try:
+                            import kaleido
+                            has_kaleido = True
+                        except ImportError:
+                            has_kaleido = False
+                            st.warning("⚠️ Kaleido not installed - charts will be skipped. Install with: pip install kaleido")
+                        
+                        zip_data = AdvancedReportExporter.create_markdown_with_images_zip(
+                            markdown_content=report_text,
+                            charts=available_charts if has_kaleido else [],
+                            filename_prefix="report"
+                        )
+                        
+                        st.download_button(
+                            label="💾 Download ZIP Package",
+                            data=zip_data,
+                            file_name=f"report_package_{timestamp}.zip",
+                            mime="application/zip",
+                            use_container_width=True,
+                            type="primary"
+                        )
+                        
+                        if has_kaleido:
+                            st.success(f"✅ ZIP package created with {len(available_charts)} image(s)!")
+                        else:
+                            st.success("✅ ZIP package created (text only - install kaleido for images)")
+                        st.info("💡 Extract the ZIP to view markdown with linked images")
+                
+                except Exception as e:
+                    st.error(f"❌ ZIP export failed: {str(e)}")
+                    st.info("💡 Try the basic Markdown export instead")
+        
+        with col3:
+            # PDF Export
+            if st.button("📄 PDF Report", use_container_width=True, help="PDF document with embedded charts"):
+                try:
+                    from utils.advanced_report_exporter import AdvancedReportExporter
+                    
+                    with st.spinner("Generating PDF report..."):
+                        # Check for required libraries
+                        try:
+                            import weasyprint
+                            lib_name = "weasyprint"
+                        except ImportError:
+                            try:
+                                import reportlab
+                                lib_name = "reportlab"
+                            except ImportError:
+                                lib_name = None
+                        
+                        if lib_name:
+                            pdf_data = AdvancedReportExporter.create_pdf_report(
+                                markdown_content=report_text,
+                                charts=available_charts,
+                                title="DataInsight AI - Comprehensive Report"
+                            )
+                            
+                            st.download_button(
+                                label="💾 Download PDF Report",
+                                data=pdf_data,
+                                file_name=f"report_{timestamp}.pdf",
+                                mime="application/pdf",
+                                use_container_width=True,
+                                type="primary"
+                            )
+                            
+                            st.success(f"✅ PDF generated with {lib_name}!")
+                            st.info("💡 PDF includes static chart images")
+                        else:
+                            st.error("❌ PDF generation requires additional libraries")
+                            st.info("Install one of:\n- `pip install weasyprint` (recommended)\n- `pip install reportlab`")
+                
+                except Exception as e:
+                    st.error(f"❌ PDF export failed: {str(e)}")
+                    st.info("💡 Use HTML or Markdown export instead")
+        
+        if available_charts:
+            st.caption(f"✨ {len(available_charts)} visualization(s) available for export")
+        else:
+            st.caption("ℹ️ No visualizations available yet. Run analyses to generate charts for export.")
 
 def show_market_basket_analysis():
     """Market Basket Analysis page."""
