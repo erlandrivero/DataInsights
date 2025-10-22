@@ -3488,6 +3488,29 @@ def show_ml_classification():
     if 'ml_data' in st.session_state:
         df = st.session_state.ml_data
         
+        # Check if previous quality check failed and show prominent warning
+        if 'ml_training_suitable' in st.session_state and not st.session_state.ml_training_suitable:
+            st.error("""
+            ### 🚫 DATA NOT SUITABLE FOR CLASSIFICATION
+            
+            Your dataset has quality issues that prevent ML training. Please review the issues below and fix your data.
+            """)
+            
+            quality_issues = st.session_state.get('ml_quality_issues', [])
+            recommendations = st.session_state.get('ml_recommendations', [])
+            
+            if quality_issues:
+                st.write("**Issues Found:**")
+                for issue in quality_issues:
+                    st.write(f"• {issue}")
+            
+            if recommendations:
+                st.info("**💡 How to Fix:**")
+                for rec in recommendations:
+                    st.write(f"• {rec}")
+            
+            st.divider()
+        
         st.divider()
         st.subheader("🎯 2. Configure Training")
         
@@ -3678,7 +3701,7 @@ def show_ml_classification():
                 temp_trainer = MLTrainer(df, target_col if target_col else df.columns[0])
                 all_models = temp_trainer.get_all_models()
                 
-                # Check each model
+                # Check each model with actual instantiation test
                 model_status = []
                 
                 for model_name in all_models.keys():
@@ -3692,36 +3715,34 @@ def show_ml_classification():
                     
                     # Only check other requirements if not globally blocked
                     if not global_block:
-                        # Check XGBoost/LightGBM/CatBoost availability
-                        if model_name == "XGBoost":
-                            try:
-                                from xgboost import XGBClassifier
-                            except ImportError:
-                                available = False
-                                reason = "❌ XGBoost not installed"
-                        elif model_name == "LightGBM":
-                            try:
-                                from lightgbm import LGBMClassifier
-                            except ImportError:
-                                available = False
-                                reason = "❌ LightGBM not installed"
-                        elif model_name == "CatBoost":
-                            try:
-                                from catboost import CatBoostClassifier
-                            except ImportError:
-                                available = False
-                                reason = "❌ CatBoost not installed"
+                        # Actually try to instantiate the model
+                        try:
+                            model_class = all_models[model_name]
+                            # Try to create instance with minimal params
+                            if model_name in ["XGBoost", "LightGBM", "CatBoost"]:
+                                test_model = model_class(random_state=42, verbose=0)
+                            else:
+                                test_model = model_class(random_state=42)
+                            # If we got here, model is available
+                            available = True
+                            reason = "✅ Compatible"
+                        except ImportError as e:
+                            available = False
+                            reason = f"❌ Not installed: {model_name}"
+                        except Exception as e:
+                            available = False
+                            reason = f"❌ Init failed: {str(e)[:50]}"
                         
                         # Check dataset size requirements
-                        if n_samples < 20 and model_name in ["Stacking", "Voting"]:
+                        if available and n_samples < 20 and model_name in ["Stacking", "Voting"]:
                             available = False
                             reason = f"❌ Need ≥20 samples (have {n_samples})"
-                        elif n_samples < 10:
+                        elif available and n_samples < 10:
                             available = False
                             reason = f"❌ Need ≥10 samples (have {n_samples})"
                         
                         # Check for tree-based models with very few features
-                        if n_features < 2 and "Tree" in model_name:
+                        if available and n_features < 2 and "Tree" in model_name:
                             available = False
                             reason = f"⚠️ Need ≥2 features (have {n_features})"
                     
@@ -4549,6 +4570,25 @@ def show_ml_regression():
     if 'mlr_data' in st.session_state:
         df = st.session_state.mlr_data
         
+        # Check if previous quality check failed and show prominent warning
+        if 'mlr_training_suitable' in st.session_state and not st.session_state.mlr_training_suitable:
+            st.error("""
+            ### 🚫 DATA NOT SUITABLE FOR REGRESSION
+            
+            Your dataset has quality issues that prevent ML training. Please review the issues below and fix your data.
+            """)
+            
+            quality_issues = st.session_state.get('mlr_quality_issues', [])
+            
+            if quality_issues:
+                st.write("**Issues Found:**")
+                for issue in quality_issues:
+                    st.write(f"• {issue}")
+                
+                st.info("**💡 Tip:** If your target has few unique values (< 10), use **ML Classification** instead.")
+            
+            st.divider()
+        
         st.divider()
         st.subheader("🎯 2. Configure Training")
         
@@ -4703,7 +4743,7 @@ def show_ml_regression():
                 temp_regressor = MLRegressor(df, target_col if target_col else df.columns[0])
                 all_models = temp_regressor.get_all_models()
                 
-                # Check each model
+                # Check each model with actual instantiation test
                 model_status = []
                 
                 for model_name in all_models.keys():
@@ -4717,32 +4757,30 @@ def show_ml_regression():
                     
                     # Only check other requirements if not globally blocked
                     if not global_block:
-                        # Check XGBoost/LightGBM/CatBoost availability
-                        if model_name == "XGBoost":
-                            try:
-                                from xgboost import XGBRegressor
-                            except ImportError:
-                                available = False
-                                reason = "❌ XGBoost not installed"
-                        elif model_name == "LightGBM":
-                            try:
-                                from lightgbm import LGBMRegressor
-                            except ImportError:
-                                available = False
-                                reason = "❌ LightGBM not installed"
-                        elif model_name == "CatBoost":
-                            try:
-                                from catboost import CatBoostRegressor
-                            except ImportError:
-                                available = False
-                                reason = "❌ CatBoost not installed"
+                        # Actually try to instantiate the model
+                        try:
+                            model_class = all_models[model_name]
+                            # Try to create instance with minimal params
+                            if model_name in ["XGBoost", "LightGBM", "CatBoost"]:
+                                test_model = model_class(random_state=42, verbose=0)
+                            else:
+                                test_model = model_class(random_state=42)
+                            # If we got here, model is available
+                            available = True
+                            reason = "✅ Compatible"
+                        except ImportError as e:
+                            available = False
+                            reason = f"❌ Not installed: {model_name}"
+                        except Exception as e:
+                            available = False
+                            reason = f"❌ Init failed: {str(e)[:50]}"
                         
                         # Check dataset size requirements
                         n_samples = len(df)
-                        if n_samples < 20:
+                        if n_samples < 20 and available:
                             available = False
                             reason = f"❌ Need ≥20 samples (have {n_samples})"
-                        elif n_samples < 50:
+                        elif n_samples < 50 and available:
                             # Warning but still available
                             if reason == "✅ Compatible":
                                 reason = f"⚠️ Only {n_samples} samples (recommend 50+)"
@@ -4957,9 +4995,9 @@ def show_ml_regression():
         tab1, tab2, tab3 = st.tabs(["📊 R² Comparison", "📉 Error Metrics", "⏱️ Training Time"])
         
         with tab1:
-            # R² comparison
+            # R² comparison - sort ascending so best model appears at TOP of chart
             r2_scores = [(r['model_name'], r['r2']) for r in successful_results]
-            r2_scores.sort(key=lambda x: x[1], reverse=True)
+            r2_scores.sort(key=lambda x: x[1])  # Ascending order for bottom-to-top display
             
             fig_r2 = px.bar(
                 x=[x[1] for x in r2_scores],
@@ -5034,13 +5072,14 @@ def show_ml_regression():
         if best_model.get('feature_importance'):
             st.write("**Top 10 Most Important Features:**")
             feat_imp = best_model['feature_importance']
-            feat_imp_sorted = sorted(feat_imp.items(), key=lambda x: x[1], reverse=True)[:10]
+            feat_imp_sorted = sorted(feat_imp.items(), key=lambda x: x[1])[:10]  # Ascending for bottom-to-top display
             
             fig_imp = px.bar(
                 x=[x[1] for x in feat_imp_sorted],
                 y=[x[0] for x in feat_imp_sorted],
                 orientation='h',
-                title='Top 10 Most Important Features'
+                title='Top 10 Most Important Features',
+                labels={'x': 'Importance Score', 'y': 'Feature'}
             )
             fig_imp.update_layout(height=400)
             st.plotly_chart(fig_imp, use_container_width=True)
