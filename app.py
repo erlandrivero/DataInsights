@@ -2564,6 +2564,20 @@ def show_monte_carlo_simulation():
             value="AAPL",
             help="Enter stock ticker (e.g., AAPL, MSFT, GOOGL, TSLA)"
         ).upper()
+        
+        # Show company name if ticker is valid
+        if ticker:
+            try:
+                import yfinance as yf
+                stock = yf.Ticker(ticker)
+                info = stock.info
+                company_name = info.get('longName', info.get('shortName', ''))
+                if company_name:
+                    st.caption(f"📌 **{ticker}** = {company_name}")
+                else:
+                    st.caption(f"ℹ️ Ticker: {ticker}")
+            except:
+                st.caption(f"ℹ️ Ticker: {ticker}")
     
     with col2:
         lookback_days = st.number_input(
