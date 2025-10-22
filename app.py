@@ -4137,12 +4137,22 @@ def show_ml_classification():
                     # Initialize trainer
                     with st.spinner("Initializing ML Trainer..."):
                         trainer = MLTrainer(df, target_col, max_samples=10000)
+                    
+                    # Prepare data
+                    with st.spinner("Preparing data for training..."):
                         prep_info = trainer.prepare_data(test_size=test_size/100)
                 
                     # Show preparation info
-                    st.success(f"✅ Data prepared: {prep_info['train_size']} train, {prep_info['test_size']} test samples")
-                    if prep_info['sampled']:
-                        st.info(f"📊 Dataset sampled to 10,000 rows for performance optimization")
+                    st.success(f"✅ Data prepared: {prep_info['train_size']} train, {prep_info['test_size']} test samples across {prep_info['n_classes']} classes")
+                    st.info(f"📊 Training will use cross-validation with {cv_folds} folds")
+                    
+                    # Get models to train
+                    if selected_models is None:
+                        # Train all models
+                        models_to_train = list(trainer.get_all_models().keys())
+                    else:
+                        # Train selected models only
+                        models_to_train = selected_models
                     
                     # Progress tracking
                     st.divider()
@@ -4153,10 +4163,10 @@ def show_ml_classification():
                     results_container = st.container()
                     
                     results = []
-                    total_models = len(selected_models)
+                    total_models = len(models_to_train)
                     
                     # Train each model
-                    for idx, model_name in enumerate(selected_models):
+                    for idx, model_name in enumerate(models_to_train):
                         # Check if process was cancelled
                         if not pm.is_locked():
                             with results_container:
