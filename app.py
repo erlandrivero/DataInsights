@@ -3025,7 +3025,10 @@ def show_ml_classification():
                         st.write(warning)
                 else:
                     st.success("**✅ Data Quality: EXCELLENT FOR TRAINING**")
-                    st.write(f"✓ {n_classes} classes, {min_class_size} min samples/class")
+                    st.write(f"✓ {n_classes} classes, **{min_class_size} min samples/class**")
+                
+                # Always show actual min class size for debugging
+                st.caption(f"🔍 Debug: Target='{target_col}', Min Class Size={min_class_size}, Total Classes={n_classes}")
                 
                 st.write("**Class Distribution:**")
                 fig_dist = px.bar(
@@ -3212,14 +3215,27 @@ def show_ml_classification():
             # Check 1: Minimum 2 samples per class
             if min_class_size < 2:
                 validation_passed = False
+                
+                # Show detailed debugging info
+                bad_classes = class_counts[class_counts < 2]
+                
                 st.error(f"""
                 ⚠️ **Validation Failed: Insufficient Samples per Class**
                 
-                The target column '{target_col}' has at least one class with only **{min_class_size}** sample(s).
+                **Target Column:** '{target_col}'  
+                **Total Classes:** {n_classes}  
+                **Minimum Class Size:** {min_class_size} sample(s)  
+                **Classes with < 2 samples:** {len(bad_classes)}
                 
                 **Requirement:** Each class needs **at least 2 samples** for stratified train-test split.
                 """)
+                
+                st.write("**Full Class Distribution:**")
                 st.dataframe(class_counts.reset_index().rename(columns={'index': 'Class', target_col: 'Count'}), 
+                           use_container_width=True)
+                
+                st.write("**❌ Problem Classes (< 2 samples):**")
+                st.dataframe(bad_classes.reset_index().rename(columns={'index': 'Class', target_col: 'Count'}), 
                            use_container_width=True)
                 
                 st.info("""
