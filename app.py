@@ -3516,6 +3516,10 @@ def show_ml_classification():
         
         results_df = pd.DataFrame(results_data)
         
+        # Sort by Accuracy (best to worst)
+        results_df['_acc_sort'] = results_df['Accuracy'].astype(float)
+        results_df = results_df.sort_values('_acc_sort', ascending=False).drop('_acc_sort', axis=1).reset_index(drop=True)
+        
         # Store in session state for export
         st.session_state.ml_results_df = results_df
         
@@ -4374,6 +4378,11 @@ def show_ml_regression():
             })
         
         results_df = pd.DataFrame(results_data)
+        
+        # Sort by R² (best to worst)
+        results_df['_r2_sort'] = results_df['R²'].astype(float)
+        results_df = results_df.sort_values('_r2_sort', ascending=False).drop('_r2_sort', axis=1).reset_index(drop=True)
+        
         st.session_state.mlr_results_df = results_df
         
         # Highlight best model
