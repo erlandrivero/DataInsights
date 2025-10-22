@@ -418,7 +418,10 @@ def show_data_upload():
                     
                     success_msg = f"✅ Successfully loaded {dataset.name} (ID: {dataset_id})!"
                     st.success(success_msg)
-                    st.info(f"**Description:** {dataset.description[:300]}...")
+                    
+                    # Show full description and metadata in expander
+                    with st.expander("📋 Dataset Information & Citation", expanded=True):
+                        st.markdown(dataset.description)
                     
                     # Show dataset info
                     col1, col2, col3 = st.columns(3)
