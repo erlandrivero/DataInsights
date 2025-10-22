@@ -3115,16 +3115,33 @@ def show_ml_classification():
                     recommendations.append("Classification requires balanced target labels, not transaction IDs/countries")
                     recommendations.append("Try creating a derived target: 'High Value Customer', 'Churn Risk', etc.")
                 
+                # Store suitability flag for Model Checker and Train button
+                training_suitable = len(issues) == 0
+                st.session_state.ml_training_suitable = training_suitable
+                st.session_state.ml_quality_issues = issues
+                st.session_state.ml_quality_warnings = warnings
+                st.session_state.ml_recommendations = recommendations
+                
                 # Display quality indicator
                 if len(issues) > 0:
                     st.error("**🚨 Data Quality: NOT SUITABLE FOR TRAINING**")
                     for issue in issues:
                         st.write(issue)
-                    st.info("💡 Fix: Remove or combine classes with < 2 samples")
+                    
+                    if len(recommendations) > 0:
+                        st.info("**💡 Recommendations:**")
+                        for rec in recommendations:
+                            st.write(f"• {rec}")
+                            
                 elif len(warnings) > 0:
                     st.warning("**⚠️ Data Quality: TRAINING POSSIBLE (with warnings)**")
                     for warning in warnings:
                         st.write(warning)
+                    
+                    if len(recommendations) > 0:
+                        with st.expander("💡 Recommendations"):
+                            for rec in recommendations:
+                                st.write(f"• {rec}")
                 else:
                     st.success("**✅ Data Quality: EXCELLENT FOR TRAINING**")
                     st.write(f"✓ {n_classes} classes, **{min_class_size} min samples/class**")
@@ -3164,38 +3181,19 @@ def show_ml_classification():
             with st.expander("📋 Model Availability Checker", expanded=False):
                 st.write("**Real-time compatibility check for all 15 models:**")
                 
+                # Use stored quality issues from session state
+                training_suitable = st.session_state.get('ml_training_suitable', True)
+                quality_issues = st.session_state.get('ml_quality_issues', [])
+                
                 # Show warning banner if there are global issues
-                if target_col:
-                    class_counts_check = df[target_col].value_counts()
-                    min_class_check = class_counts_check.min()
-                    if min_class_check < 2:
-                        st.error("🚨 **ALL MODELS BLOCKED** - Target column has classes with < 2 samples")
-                    elif min_class_check < 5:
-                        st.warning("⚠️ **ALL MODELS BLOCKED** - Insufficient samples for stratified split")
+                if not training_suitable and len(quality_issues) > 0:
+                    st.error("🚨 **ALL MODELS BLOCKED** - Data quality issues detected")
+                    for issue in quality_issues[:2]:  # Show first 2 issues
+                        st.write(issue)
                 
-                # Get dataset characteristics
-                n_samples = len(df)
-                n_features = len(df.columns) - 1  # Exclude target
-                n_numeric = len(df.select_dtypes(include=[np.number]).columns)
-                n_categorical = len(df.select_dtypes(include=['object']).columns)
-                
-                # Check target column class distribution (CRITICAL)
-                class_counts = df[target_col].value_counts()
-                min_class_size = class_counts.min()
-                test_size_val = 20  # Default from slider
-                min_required = max(2, int(np.ceil(1 / (test_size_val/100))))
-                
-                # Global blocking issues
-                global_block = False
-                global_reason = ""
-                
-                if min_class_size < 2:
-                    global_block = True
-                    num_bad_classes = (class_counts < 2).sum()
-                    global_reason = f"❌ {num_bad_classes} class(es) with < 2 samples"
-                elif min_class_size < min_required:
-                    global_block = True
-                    global_reason = f"❌ Min class size ({min_class_size}) < required ({min_required})"
+                # Global blocking based on session state
+                global_block = not training_suitable
+                global_reason = quality_issues[0] if len(quality_issues) > 0 else ""
                 
                 # Define model requirements and compatibility
                 from utils.ml_training import MLTrainer
@@ -3301,8 +3299,13 @@ def show_ml_classification():
                 help="Number of folds for cross-validation"
             )
         
-        # Train button
-        if st.button("🚀 Train Models", type="primary", use_container_width=True):
+        # Train button (disabled if data quality issues)
+        training_suitable = st.session_state.get('ml_training_suitable', True)
+        
+        if not training_suitable:
+            st.error("❌ **Training Blocked** - Fix data quality issues first")
+            st.button("🚀 Train Models", type="primary", use_container_width=True, disabled=True)
+        elif st.button("🚀 Train Models", type="primary", use_container_width=True):
             from utils.ml_training import MLTrainer
             
             # Comprehensive validation before training
