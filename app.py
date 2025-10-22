@@ -4162,6 +4162,107 @@ def show_ml_regression():
             else:
                 selected_models = None
             
+            # Model Availability Checker
+            with st.expander("📋 Model Availability Checker", expanded=False):
+                st.write("**Real-time compatibility check for all 15+ models:**")
+                
+                # Use stored quality issues from session state
+                training_suitable = st.session_state.get('mlr_training_suitable', True)
+                quality_issues = st.session_state.get('mlr_quality_issues', [])
+                
+                # Show warning banner if there are global issues
+                if not training_suitable and len(quality_issues) > 0:
+                    st.error("🚨 **ALL MODELS BLOCKED** - Data quality issues detected")
+                    for issue in quality_issues[:2]:  # Show first 2 issues
+                        st.write(issue)
+                
+                # Global blocking based on session state
+                global_block = not training_suitable
+                global_reason = quality_issues[0] if len(quality_issues) > 0 else ""
+                
+                # Get all models
+                from utils.ml_regression import MLRegressor
+                temp_regressor = MLRegressor(df, target_col if target_col else df.columns[0])
+                all_models = temp_regressor.get_all_models()
+                
+                # Check each model
+                model_status = []
+                
+                for model_name in all_models.keys():
+                    # Check global blocking first
+                    if global_block:
+                        available = False
+                        reason = global_reason
+                    else:
+                        available = True
+                        reason = "✅ Compatible"
+                    
+                    # Only check other requirements if not globally blocked
+                    if not global_block:
+                        # Check XGBoost/LightGBM/CatBoost availability
+                        if model_name == "XGBoost":
+                            try:
+                                from xgboost import XGBRegressor
+                            except ImportError:
+                                available = False
+                                reason = "❌ XGBoost not installed"
+                        elif model_name == "LightGBM":
+                            try:
+                                from lightgbm import LGBMRegressor
+                            except ImportError:
+                                available = False
+                                reason = "❌ LightGBM not installed"
+                        elif model_name == "CatBoost":
+                            try:
+                                from catboost import CatBoostRegressor
+                            except ImportError:
+                                available = False
+                                reason = "❌ CatBoost not installed"
+                        
+                        # Check dataset size requirements
+                        n_samples = len(df)
+                        if n_samples < 20:
+                            available = False
+                            reason = f"❌ Need ≥20 samples (have {n_samples})"
+                        elif n_samples < 50:
+                            # Warning but still available
+                            if reason == "✅ Compatible":
+                                reason = f"⚠️ Only {n_samples} samples (recommend 50+)"
+                    
+                    model_status.append({
+                        'Model': model_name,
+                        'Status': '✅ Available' if available else '❌ Unavailable',
+                        'Notes': reason if not available else '✅ Ready'
+                    })
+                
+                # Display as table
+                status_df = pd.DataFrame(model_status)
+                
+                # Color code the display
+                def color_status(row):
+                    if '❌' in row['Status']:
+                        return ['background-color: #ffebee'] * len(row)
+                    elif '⚠️' in row['Notes']:
+                        return ['background-color: #fff8e1'] * len(row)
+                    else:
+                        return ['background-color: #f1f8e9'] * len(row)
+                
+                styled_status = status_df.style.apply(color_status, axis=1)
+                st.dataframe(styled_status, use_container_width=True, height=400)
+                
+                # Summary
+                available_count = sum(1 for m in model_status if '✅' in m['Status'])
+                unavailable_count = len(model_status) - available_count
+                
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    st.metric("Available Models", available_count, delta="Ready to train")
+                with col_b:
+                    if unavailable_count > 0:
+                        st.metric("Unavailable Models", unavailable_count, delta="Check notes", delta_color="inverse")
+                    else:
+                        st.metric("Unavailable Models", 0, delta="All ready!")
+            
             # Training config
             test_size = st.slider(
                 "Test Set Size (%)",
