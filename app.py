@@ -5566,7 +5566,7 @@ def show_anomaly_detection():
                 pm.save_checkpoint({
                     'completed': True,
                     'algorithm': algorithm,
-                    'anomalies_detected': results['num_anomalies'],
+                    'anomalies_detected': results.get('num_anomalies', len(results.get('anomaly_indices', []))),
                     'timestamp': pd.Timestamp.now().isoformat()
                 })
                 
