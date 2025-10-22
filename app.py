@@ -1101,79 +1101,259 @@ def show_insights():
             st.rerun()
 
 def show_reports():
-    st.header("📄 Business Reports")
+    st.header("📄 Business Reports & Exports")
     
     if st.session_state.data is None:
         st.warning("⚠️ Please upload data first!")
         return
     
     df = st.session_state.data
-    profile = st.session_state.get('profile', {})
-    issues = st.session_state.get('issues', [])
     
-    st.write("Generate professional business reports from your data analysis.")
+    st.write("Generate and download professional reports from all your completed analyses.")
     
-    # Report options
-    st.subheader("📋 Report Configuration")
+    # Check which modules have been run
+    st.divider()
+    st.subheader("📊 Analysis Status")
+    
+    modules_status = {
+        'Market Basket Analysis': 'mba_results' in st.session_state,
+        'RFM Analysis': 'rfm_results' in st.session_state,
+        'Monte Carlo Simulation': 'mc_results' in st.session_state,
+        'ML Classification': 'ml_results' in st.session_state,
+        'ML Regression': 'mlr_results' in st.session_state,
+        'Anomaly Detection': 'anomaly_results' in st.session_state,
+        'Time Series Forecasting': 'ts_results' in st.session_state,
+        'Text Mining & NLP': 'text_results' in st.session_state,
+    }
+    
+    col1, col2 = st.columns(2)
+    
+    completed = sum(modules_status.values())
+    total = len(modules_status)
+    
+    with col1:
+        st.metric("Completed Analyses", f"{completed}/{total}", 
+                 delta=f"{(completed/total)*100:.0f}% complete")
+    
+    with col2:
+        st.metric("Available Reports", completed, 
+                 delta="Ready to download" if completed > 0 else "Run analyses first")
+    
+    # Module status cards
+    st.write("**Module Status:**")
+    
+    for i in range(0, len(modules_status), 2):
+        col1, col2 = st.columns(2)
+        modules_items = list(modules_status.items())
+        
+        with col1:
+            if i < len(modules_items):
+                module, status = modules_items[i]
+                if status:
+                    st.success(f"✅ {module}")
+                else:
+                    st.info(f"⚪ {module}")
+        
+        with col2:
+            if i + 1 < len(modules_items):
+                module, status = modules_items[i + 1]
+                if status:
+                    st.success(f"✅ {module}")
+                else:
+                    st.info(f"⚪ {module}")
+    
+    # Individual Module Reports
+    st.divider()
+    st.subheader("📥 Download Individual Reports")
+    
+    if completed == 0:
+        st.info("👆 No analyses completed yet. Run some analyses to generate reports!")
+    else:
+        st.write("Download reports from completed analyses:")
+        
+        # Market Basket Analysis
+        if modules_status['Market Basket Analysis']:
+            with st.expander("🧺 Market Basket Analysis Report"):
+                st.write("**Association rules and product recommendations**")
+                if st.button("Generate MBA Report", key="gen_mba"):
+                    # Generate and download MBA report
+                    st.info("Report available in Market Basket Analysis page Export section")
+        
+        # RFM Analysis
+        if modules_status['RFM Analysis']:
+            with st.expander("👥 RFM Analysis Report"):
+                st.write("**Customer segmentation and insights**")
+                if st.button("Generate RFM Report", key="gen_rfm"):
+                    st.info("Report available in RFM Analysis page Export section")
+        
+        # Monte Carlo
+        if modules_status['Monte Carlo Simulation']:
+            with st.expander("📈 Monte Carlo Simulation Report"):
+                st.write("**Financial forecasting and risk analysis**")
+                if st.button("Generate Monte Carlo Report", key="gen_mc"):
+                    st.info("Report available in Monte Carlo Simulation page Export section")
+        
+        # ML Classification
+        if modules_status['ML Classification']:
+            with st.expander("🤖 ML Classification Report"):
+                st.write("**Model performance and best model details**")
+                if st.button("Generate Classification Report", key="gen_mlc"):
+                    st.info("Report available in ML Classification page Export section")
+        
+        # ML Regression
+        if modules_status['ML Regression']:
+            with st.expander("📈 ML Regression Report"):
+                st.write("**Regression model results and predictions**")
+                if st.button("Generate Regression Report", key="gen_mlr"):
+                    st.info("Report available in ML Regression page Export section")
+        
+        # Anomaly Detection
+        if modules_status['Anomaly Detection']:
+            with st.expander("🔬 Anomaly Detection Report"):
+                st.write("**Outlier detection and anomaly insights**")
+                if st.button("Generate Anomaly Report", key="gen_anom"):
+                    st.info("Report available in Anomaly Detection page Export section")
+    
+    # Comprehensive Report
+    st.divider()
+    st.subheader("📋 Comprehensive Summary Report")
     
     col1, col2 = st.columns(2)
     
     with col1:
         include_insights = st.checkbox("Include AI Insights", value=True)
-        include_visualizations = st.checkbox("Include Visualizations", value=True)
+        include_recommendations = st.checkbox("Include Recommendations", value=True)
     
     with col2:
-        include_recommendations = st.checkbox("Include Recommendations", value=True)
-        include_code = st.checkbox("Include Code Snippets", value=False)
+        include_module_summaries = st.checkbox("Include All Module Summaries", value=True)
+        include_visualizations = st.checkbox("Include Visualization Descriptions", value=False)
     
-    # Generate report button
-    if st.button("🎯 Generate Report", type="primary", use_container_width=True):
-        with st.spinner("📝 Generating professional report..."):
+    # Generate comprehensive report
+    if st.button("🎯 Generate Comprehensive Report", type="primary", use_container_width=True):
+        with st.spinner("📝 Generating comprehensive report..."):
             try:
-                from utils.report_generator import ReportGenerator
-                from utils.ai_helper import AIHelper
                 from datetime import datetime
                 
-                # Get or generate insights
-                if include_insights:
-                    if 'ai_insights' not in st.session_state:
-                        ai = AIHelper()
-                        insights = ai.generate_data_insights(df, profile)
-                        st.session_state.ai_insights = insights
-                    else:
-                        insights = st.session_state.ai_insights
-                else:
-                    insights = "AI insights not included in this report."
+                report_sections = []
                 
-                # Get or generate suggestions
+                # Header
+                report_sections.append(f"""
+# DataInsight AI - Comprehensive Analysis Report
+**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+---
+
+## Executive Summary
+
+This report provides a comprehensive overview of all analyses performed on your dataset.
+
+### Dataset Overview
+- **Total Records:** {len(df):,}
+- **Total Columns:** {len(df.columns)}
+- **Analyses Completed:** {completed}/{total}
+
+---
+""")
+                
+                # Add module summaries if requested
+                if include_module_summaries:
+                    report_sections.append("## Analysis Modules\n\n")
+                    
+                    if modules_status['ML Classification']:
+                        ml_results = st.session_state.get('ml_results', [])
+                        if ml_results:
+                            best = max(ml_results, key=lambda x: x.get('accuracy', 0))
+                            report_sections.append(f"""
+### 🤖 ML Classification
+- **Best Model:** {best['model_name']}
+- **Accuracy:** {best['accuracy']:.4f}
+- **Models Trained:** {len(ml_results)}
+""")
+                    
+                    if modules_status['ML Regression']:
+                        mlr_results = st.session_state.get('mlr_results', [])
+                        if mlr_results:
+                            best = max(mlr_results, key=lambda x: x.get('r2', 0))
+                            report_sections.append(f"""
+### 📈 ML Regression
+- **Best Model:** {best['model_name']}
+- **R² Score:** {best['r2']:.4f}
+- **Models Trained:** {len(mlr_results)}
+""")
+                    
+                    if modules_status['Market Basket Analysis']:
+                        report_sections.append("""
+### 🧺 Market Basket Analysis
+- **Status:** Completed
+- **Association rules generated**
+- **Product recommendations available**
+""")
+                    
+                    if modules_status['RFM Analysis']:
+                        report_sections.append("""
+### 👥 RFM Analysis
+- **Status:** Completed
+- **Customer segments identified**
+- **RFM scores calculated**
+""")
+                    
+                    if modules_status['Anomaly Detection']:
+                        report_sections.append("""
+### 🔬 Anomaly Detection
+- **Status:** Completed
+- **Outliers identified**
+- **Anomaly scores calculated**
+""")
+                    
+                    if modules_status['Monte Carlo Simulation']:
+                        report_sections.append("""
+### 📈 Monte Carlo Simulation
+- **Status:** Completed
+- **Financial forecasts generated**
+- **Risk analysis performed**
+""")
+                
+                # Recommendations
                 if include_recommendations:
-                    if 'cleaning_suggestions' not in st.session_state and issues:
-                        ai = AIHelper()
-                        suggestions = ai.generate_cleaning_suggestions(df, issues)
-                        st.session_state.cleaning_suggestions = suggestions
-                    else:
-                        suggestions = st.session_state.get('cleaning_suggestions', [])
-                else:
-                    suggestions = []
+                    report_sections.append("""
+---
+
+## Recommendations
+
+Based on the analyses performed:
+
+1. **Data Quality:** Review identified anomalies and outliers
+2. **Model Deployment:** Consider deploying the best-performing models
+3. **Business Actions:** Implement recommendations from each analysis module
+4. **Continuous Monitoring:** Re-run analyses periodically with new data
+
+""")
                 
-                # Generate report
-                report = ReportGenerator.generate_full_report(
-                    df, profile, issues, insights, suggestions
-                )
+                # Footer
+                report_sections.append("""
+---
+
+*Report generated by DataInsight AI - Comprehensive Analysis Module*
+*For detailed results, see individual module reports*
+""")
                 
-                st.session_state.generated_report = report
-                st.success("✅ Report generated successfully!")
+                comprehensive_report = "\n".join(report_sections)
+                st.session_state.comprehensive_report = comprehensive_report
+                
+                st.success("✅ Comprehensive report generated successfully!")
                 
             except Exception as e:
                 st.error(f"Error generating report: {str(e)}")
+                import traceback
+                st.code(traceback.format_exc())
     
-    # Display report
-    if 'generated_report' in st.session_state:
+    # Display and download comprehensive report
+    if 'comprehensive_report' in st.session_state:
         st.divider()
         st.subheader("📄 Generated Report")
         
         # Display report
-        st.markdown(st.session_state.generated_report)
+        st.markdown(st.session_state.comprehensive_report)
         
         # Download buttons
         from datetime import datetime
@@ -1182,8 +1362,8 @@ def show_reports():
         with col1:
             st.download_button(
                 label="📥 Download Report (Markdown)",
-                data=st.session_state.generated_report,
-                file_name=f"datainsight_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md",
+                data=st.session_state.comprehensive_report,
+                file_name=f"comprehensive_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md",
                 mime="text/markdown",
                 use_container_width=True
             )
@@ -1191,8 +1371,8 @@ def show_reports():
         with col2:
             st.download_button(
                 label="📥 Download Report (Text)",
-                data=st.session_state.generated_report,
-                file_name=f"datainsight_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                data=st.session_state.comprehensive_report,
+                file_name=f"comprehensive_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
                 mime="text/plain",
                 use_container_width=True
             )
