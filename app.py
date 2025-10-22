@@ -1253,6 +1253,91 @@ def show_reports():
     # Progress bar
     st.progress(completion_pct / 100, text=f"Overall Completion: {completion_pct:.0f}%")
     
+    # Key Insights Cards
+    if completed > 0:
+        st.divider()
+        st.subheader("🎯 Key Insights at a Glance")
+        
+        insight_cols = st.columns(min(completed, 4))
+        col_idx = 0
+        
+        # ML Classification Insights
+        if modules_status['ML Classification']:
+            with insight_cols[col_idx % 4]:
+                ml_results = st.session_state.get('ml_results', [])
+                if ml_results:
+                    best = max(ml_results, key=lambda x: x.get('accuracy', 0))
+                    st.metric(
+                        "🤖 Best ML Model",
+                        best['model_name'],
+                        delta=f"{best['accuracy']:.1%} accuracy"
+                    )
+            col_idx += 1
+        
+        # ML Regression Insights
+        if modules_status['ML Regression']:
+            with insight_cols[col_idx % 4]:
+                mlr_results = st.session_state.get('mlr_results', [])
+                if mlr_results:
+                    best = max(mlr_results, key=lambda x: x.get('r2', 0))
+                    st.metric(
+                        "📈 Best Regressor",
+                        best['model_name'],
+                        delta=f"R²: {best['r2']:.3f}"
+                    )
+            col_idx += 1
+        
+        # Market Basket Insights
+        if modules_status['Market Basket Analysis']:
+            with insight_cols[col_idx % 4]:
+                mba_rules = st.session_state.get('mba_rules', pd.DataFrame())
+                if not mba_rules.empty:
+                    st.metric(
+                        "🧺 Association Rules",
+                        len(mba_rules),
+                        delta=f"Max confidence: {mba_rules['confidence'].max():.1%}"
+                    )
+            col_idx += 1
+        
+        # RFM Insights
+        if modules_status['RFM Analysis']:
+            with insight_cols[col_idx % 4]:
+                rfm_data = st.session_state.get('rfm_segmented', pd.DataFrame())
+                if not rfm_data.empty:
+                    segments = rfm_data['Segment'].nunique()
+                    st.metric(
+                        "👥 Customer Segments",
+                        segments,
+                        delta=f"{len(rfm_data)} customers"
+                    )
+            col_idx += 1
+        
+        # Anomaly Detection Insights
+        if modules_status['Anomaly Detection'] and col_idx < 4:
+            with insight_cols[col_idx % 4]:
+                anomaly_results = st.session_state.get('anomaly_results', {})
+                if anomaly_results:
+                    anomalies = anomaly_results.get('num_anomalies', 0)
+                    total = anomaly_results.get('total_points', 1)
+                    st.metric(
+                        "🔬 Anomalies Found",
+                        anomalies,
+                        delta=f"{(anomalies/total)*100:.1f}% of data"
+                    )
+            col_idx += 1
+        
+        # Monte Carlo Insights
+        if modules_status['Monte Carlo Simulation'] and col_idx < 4:
+            with insight_cols[col_idx % 4]:
+                mc_metrics = st.session_state.get('mc_risk_metrics', {})
+                if mc_metrics:
+                    st.metric(
+                        "📈 Expected Return",
+                        f"{mc_metrics.get('expected_return', 0):.2f}%",
+                        delta=f"VaR: {mc_metrics.get('var_95', 0):.2f}%"
+                    )
+            col_idx += 1
+    
     st.divider()
     
     # Module status cards with improved styling
@@ -1295,44 +1380,244 @@ def show_reports():
         if modules_status['Market Basket Analysis']:
             with st.expander("🧺 Market Basket Analysis Report"):
                 st.write("**Association rules and product recommendations**")
-                if st.button("Generate MBA Report", key="gen_mba"):
-                    # Generate and download MBA report
-                    st.info("Report available in Market Basket Analysis page Export section")
+                mba_rules = st.session_state.get('mba_rules', pd.DataFrame())
+                if not mba_rules.empty:
+                    report = f"""# Market Basket Analysis Report
+                    
+Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+## Summary
+- Total Rules Generated: {len(mba_rules)}
+- Top Rule Support: {mba_rules['support'].max():.4f}
+- Top Rule Confidence: {mba_rules['confidence'].max():.4f}
+
+## Top 10 Association Rules
+{mba_rules.head(10).to_markdown(index=False)}
+
+## Insights
+The analysis reveals key product associations that can be used for:
+- Cross-selling recommendations
+- Product placement optimization
+- Bundle offerings
+- Marketing campaigns
+"""
+                    st.download_button("📥 Download Report", report, f"mba_report_{pd.Timestamp.now().strftime('%Y%m%d')}.md", "text/markdown", key="dl_mba")
         
         # RFM Analysis
         if modules_status['RFM Analysis']:
             with st.expander("👥 RFM Analysis Report"):
                 st.write("**Customer segmentation and insights**")
-                if st.button("Generate RFM Report", key="gen_rfm"):
-                    st.info("Report available in RFM Analysis page Export section")
+                rfm_data = st.session_state.get('rfm_segmented', pd.DataFrame())
+                if not rfm_data.empty:
+                    segments = rfm_data['Segment'].value_counts()
+                    report = f"""# RFM Analysis Report
+                    
+Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+## Summary
+- Total Customers: {len(rfm_data)}
+- Customer Segments: {rfm_data['Segment'].nunique()}
+
+## Segment Distribution
+{segments.to_markdown()}
+
+## Average RFM Scores by Segment
+{rfm_data.groupby('Segment')[['R_Score', 'F_Score', 'M_Score']].mean().to_markdown()}
+
+## Business Recommendations
+Use these segments for targeted marketing campaigns and customer retention strategies.
+"""
+                    st.download_button("📥 Download Report", report, f"rfm_report_{pd.Timestamp.now().strftime('%Y%m%d')}.md", "text/markdown", key="dl_rfm")
         
         # Monte Carlo
         if modules_status['Monte Carlo Simulation']:
             with st.expander("📈 Monte Carlo Simulation Report"):
                 st.write("**Financial forecasting and risk analysis**")
-                if st.button("Generate Monte Carlo Report", key="gen_mc"):
-                    st.info("Report available in Monte Carlo Simulation page Export section")
+                mc_metrics = st.session_state.get('mc_risk_metrics', {})
+                if mc_metrics:
+                    report = f"""# Monte Carlo Simulation Report
+                    
+Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+## Summary
+- Expected Return: {mc_metrics.get('expected_return', 0):.2f}%
+- Value at Risk (VaR): {mc_metrics.get('var_95', 0):.2f}%
+- Conditional VaR: {mc_metrics.get('cvar_95', 0):.2f}%
+- Sharpe Ratio: {mc_metrics.get('sharpe_ratio', 0):.4f}
+
+## Risk Assessment
+The simulation provides probabilistic forecasts for financial planning and risk management.
+"""
+                    st.download_button("📥 Download Report", report, f"montecarlo_report_{pd.Timestamp.now().strftime('%Y%m%d')}.md", "text/markdown", key="dl_mc")
         
         # ML Classification
         if modules_status['ML Classification']:
             with st.expander("🤖 ML Classification Report"):
                 st.write("**Model performance and best model details**")
-                if st.button("Generate Classification Report", key="gen_mlc"):
-                    st.info("Report available in ML Classification page Export section")
+                ml_results = st.session_state.get('ml_results', [])
+                if ml_results:
+                    best = max(ml_results, key=lambda x: x.get('accuracy', 0))
+                    report = f"""# ML Classification Report
+                    
+Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+## Best Model: {best['model_name']}
+- Accuracy: {best['accuracy']:.4f}
+- Precision: {best.get('precision', 0):.4f}
+- Recall: {best.get('recall', 0):.4f}
+- F1-Score: {best.get('f1', 0):.4f}
+
+## All Models Comparison
+{pd.DataFrame(ml_results)[['model_name', 'accuracy', 'precision', 'recall', 'f1']].to_markdown(index=False)}
+
+## Recommendation
+Use {best['model_name']} for production deployment based on highest accuracy.
+"""
+                    st.download_button("📥 Download Report", report, f"classification_report_{pd.Timestamp.now().strftime('%Y%m%d')}.md", "text/markdown", key="dl_mlc")
         
         # ML Regression
         if modules_status['ML Regression']:
             with st.expander("📈 ML Regression Report"):
                 st.write("**Regression model results and predictions**")
-                if st.button("Generate Regression Report", key="gen_mlr"):
-                    st.info("Report available in ML Regression page Export section")
+                mlr_results = st.session_state.get('mlr_results', [])
+                if mlr_results:
+                    best = max(mlr_results, key=lambda x: x.get('r2', 0))
+                    report = f"""# ML Regression Report
+                    
+Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+## Best Model: {best['model_name']}
+- R² Score: {best['r2']:.4f}
+- RMSE: {best.get('rmse', 0):.4f}
+- MAE: {best.get('mae', 0):.4f}
+
+## All Models Comparison
+{pd.DataFrame(mlr_results)[['model_name', 'r2', 'rmse', 'mae']].to_markdown(index=False)}
+
+## Recommendation
+Use {best['model_name']} for prediction based on highest R² score.
+"""
+                    st.download_button("📥 Download Report", report, f"regression_report_{pd.Timestamp.now().strftime('%Y%m%d')}.md", "text/markdown", key="dl_mlr")
         
         # Anomaly Detection
         if modules_status['Anomaly Detection']:
             with st.expander("🔬 Anomaly Detection Report"):
                 st.write("**Outlier detection and anomaly insights**")
-                if st.button("Generate Anomaly Report", key="gen_anom"):
-                    st.info("Report available in Anomaly Detection page Export section")
+                anomaly_results = st.session_state.get('anomaly_results', {})
+                if anomaly_results:
+                    report = f"""# Anomaly Detection Report
+                    
+Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+## Summary
+- Algorithm: {st.session_state.get('anomaly_algorithm', 'N/A')}
+- Outliers Detected: {anomaly_results.get('num_anomalies', 0)}
+- Data Points Analyzed: {anomaly_results.get('total_points', 0)}
+
+## Anomaly Distribution
+Anomalies represent unusual patterns that may require investigation.
+
+## Recommendations
+Review detected anomalies for:
+- Data quality issues
+- Fraudulent transactions
+- System errors
+- Unusual customer behavior
+"""
+                    st.download_button("📥 Download Report", report, f"anomaly_report_{pd.Timestamp.now().strftime('%Y%m%d')}.md", "text/markdown", key="dl_anom")
+        
+        # Time Series Forecasting
+        if modules_status['Time Series Forecasting']:
+            with st.expander("📊 Time Series Forecasting Report"):
+                st.write("**Forecast results and trend analysis**")
+                has_arima = 'arima_results' in st.session_state
+                has_prophet = 'prophet_results' in st.session_state
+                
+                if has_arima or has_prophet:
+                    models_used = []
+                    model_details = []
+                    
+                    if has_arima:
+                        models_used.append('ARIMA')
+                        arima_results = st.session_state.arima_results
+                        model_details.append(f"""
+### ARIMA Model
+- Model Order: {arima_results.get('model_order', 'N/A')}
+- AIC: {arima_results.get('aic', 0):.2f}
+- BIC: {arima_results.get('bic', 0):.2f}
+""")
+                    
+                    if has_prophet:
+                        models_used.append('Prophet')
+                        model_details.append("""
+### Prophet Model
+- Automatic seasonality detection
+- Trend and holiday effects included
+""")
+                    
+                    report = f"""# Time Series Forecasting Report
+                    
+Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+## Summary
+- Models Used: {', '.join(models_used)}
+- Forecast completed successfully
+
+{''.join(model_details)}
+
+## Applications
+Use these forecasts for:
+- Demand planning
+- Resource allocation
+- Budget forecasting
+- Capacity planning
+"""
+                    st.download_button("📥 Download Report", report, f"timeseries_report_{pd.Timestamp.now().strftime('%Y%m%d')}.md", "text/markdown", key="dl_ts")
+        
+        # Text Mining
+        if modules_status['Text Mining & NLP']:
+            with st.expander("💬 Text Mining Report"):
+                st.write("**Sentiment analysis and text insights**")
+                sentiment_df = st.session_state.get('sentiment_results', pd.DataFrame())
+                topics = st.session_state.get('topics', {})
+                
+                if not sentiment_df.empty or topics:
+                    sentiment_summary = ""
+                    if not sentiment_df.empty:
+                        positive = (sentiment_df['sentiment'] == 'positive').sum()
+                        negative = (sentiment_df['sentiment'] == 'negative').sum()
+                        neutral = (sentiment_df['sentiment'] == 'neutral').sum()
+                        sentiment_summary = f"""
+## Sentiment Analysis
+- Total Texts Analyzed: {len(sentiment_df)}
+- Positive: {positive} ({positive/len(sentiment_df)*100:.1f}%)
+- Negative: {negative} ({negative/len(sentiment_df)*100:.1f}%)
+- Neutral: {neutral} ({neutral/len(sentiment_df)*100:.1f}%)
+"""
+                    
+                    topic_summary = ""
+                    if topics:
+                        topic_summary = f"""
+## Topic Modeling
+- Topics Discovered: {len(topics)}
+- Key themes identified in text corpus
+"""
+                    
+                    report = f"""# Text Mining & NLP Report
+                    
+Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+{sentiment_summary}
+
+{topic_summary}
+
+## Applications
+- Customer feedback analysis
+- Brand sentiment monitoring
+- Content categorization
+- Trend identification
+"""
+                    st.download_button("📥 Download Report", report, f"textmining_report_{pd.Timestamp.now().strftime('%Y%m%d')}.md", "text/markdown", key="dl_txt")
     
     # Comprehensive Report
     st.divider()
