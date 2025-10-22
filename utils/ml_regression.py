@@ -114,6 +114,25 @@ class MLRegressor:
         self.X = self.df.drop(columns=[self.target_column]).copy()
         self.y = self.df[self.target_column].copy()
         
+        # Handle datetime columns - convert to numeric features or drop
+        datetime_cols = []
+        for col in self.X.columns:
+            if pd.api.types.is_datetime64_any_dtype(self.X[col]):
+                datetime_cols.append(col)
+                try:
+                    # Try to extract useful features from datetime
+                    self.X[f'{col}_year'] = pd.to_datetime(self.X[col]).dt.year
+                    self.X[f'{col}_month'] = pd.to_datetime(self.X[col]).dt.month
+                    self.X[f'{col}_day'] = pd.to_datetime(self.X[col]).dt.day
+                    self.X[f'{col}_dayofweek'] = pd.to_datetime(self.X[col]).dt.dayofweek
+                    # Drop original datetime column
+                    self.X = self.X.drop(columns=[col])
+                    warnings.warn(f"Converted datetime column '{col}' to numeric features (year, month, day, dayofweek)")
+                except:
+                    # If extraction fails, just drop the column
+                    self.X = self.X.drop(columns=[col])
+                    warnings.warn(f"Dropped datetime column '{col}' - could not convert to numeric features")
+        
         # Store feature names
         self.feature_names = list(self.X.columns)
         
