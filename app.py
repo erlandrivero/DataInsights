@@ -6084,7 +6084,24 @@ def show_time_series_forecasting():
                         pm.save_checkpoint({'completed': True, 'model': 'ARIMA'})
                         
                 except Exception as e:
-                    st.error(f"❌ Error: {str(e)}")
+                    st.error(f"❌ ARIMA Error: {str(e)}")
+                    
+                    # Common ARIMA failure reasons
+                    error_str = str(e).lower()
+                    if 'non-stationary' in error_str or 'stationary' in error_str:
+                        st.warning("⚠️ **Data may be non-stationary.** Try differencing the data first.")
+                    elif 'constant' in error_str or 'variance' in error_str:
+                        st.warning("⚠️ **Data has constant values or zero variance.** ARIMA requires variation in the data.")
+                    elif 'too few' in error_str or 'observations' in error_str:
+                        st.warning("⚠️ **Not enough data points.** ARIMA requires at least 30-50 observations.")
+                    else:
+                        st.info("💡 **Troubleshooting:** Check if your data has trends, sufficient observations, and no constant values.")
+                    
+                    # Show full traceback for debugging
+                    with st.expander("🔍 Full Error Details"):
+                        import traceback
+                        st.code(traceback.format_exc())
+                    
                     pm.save_checkpoint({'error': str(e)})
                 finally:
                     pm.unlock()
@@ -6124,7 +6141,24 @@ def show_time_series_forecasting():
                         pm.save_checkpoint({'completed': True, 'model': 'Prophet'})
                         
                 except Exception as e:
-                    st.error(f"❌ Error: {str(e)}")
+                    st.error(f"❌ Prophet Error: {str(e)}")
+                    
+                    # Common Prophet failure reasons
+                    error_str = str(e).lower()
+                    if 'dataframe' in error_str or 'ds' in error_str or 'y' in error_str:
+                        st.warning("⚠️ **Data format issue.** Prophet requires columns 'ds' (dates) and 'y' (values).")
+                    elif 'date' in error_str or 'datetime' in error_str:
+                        st.warning("⚠️ **Date parsing error.** Ensure your date column has valid datetime values.")
+                    elif 'inf' in error_str or 'nan' in error_str:
+                        st.warning("⚠️ **Data contains infinity or NaN values.** Clean your data before forecasting.")
+                    else:
+                        st.info("💡 **Troubleshooting:** Ensure your data has valid dates and numeric values with no gaps.")
+                    
+                    # Show full traceback for debugging
+                    with st.expander("🔍 Full Error Details"):
+                        import traceback
+                        st.code(traceback.format_exc())
+                    
                     pm.save_checkpoint({'error': str(e)})
                 finally:
                     pm.unlock()
