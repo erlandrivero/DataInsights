@@ -1315,10 +1315,10 @@ def show_reports():
         # Anomaly Detection Insights
         if modules_status['Anomaly Detection'] and col_idx < 4:
             with insight_cols[col_idx % 4]:
-                anomaly_results = st.session_state.get('anomaly_results', {})
-                if anomaly_results:
-                    anomalies = anomaly_results.get('num_anomalies', 0)
-                    total = anomaly_results.get('total_points', 1)
+                anomaly_results = st.session_state.get('anomaly_results', None)
+                if anomaly_results is not None and isinstance(anomaly_results, pd.DataFrame) and len(anomaly_results) > 0:
+                    anomalies = sum(anomaly_results['is_anomaly'])
+                    total = len(anomaly_results)
                     st.metric(
                         "🔬 Anomalies Found",
                         anomalies,
@@ -1503,16 +1503,19 @@ Use {best['model_name']} for prediction based on highest R² score.
         if modules_status['Anomaly Detection']:
             with st.expander("🔬 Anomaly Detection Report"):
                 st.write("**Outlier detection and anomaly insights**")
-                anomaly_results = st.session_state.get('anomaly_results', {})
-                if anomaly_results:
+                anomaly_results = st.session_state.get('anomaly_results', None)
+                if anomaly_results is not None and isinstance(anomaly_results, pd.DataFrame) and len(anomaly_results) > 0:
+                    num_anomalies = sum(anomaly_results['is_anomaly'])
+                    total_points = len(anomaly_results)
                     report = f"""# Anomaly Detection Report
                     
 Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
 
 ## Summary
 - Algorithm: {st.session_state.get('anomaly_algorithm', 'N/A')}
-- Outliers Detected: {anomaly_results.get('num_anomalies', 0)}
-- Data Points Analyzed: {anomaly_results.get('total_points', 0)}
+- Outliers Detected: {num_anomalies}
+- Data Points Analyzed: {total_points}
+- Percentage: {(num_anomalies/total_points)*100:.2f}%
 
 ## Anomaly Distribution
 Anomalies represent unusual patterns that may require investigation.
