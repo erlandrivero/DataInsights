@@ -4838,6 +4838,8 @@ def show_ml_classification():
         
         # Summary metrics
         successful_results = [r for r in results if r['success']]
+        # Sort by F1 Score to get the best model
+        successful_results = sorted(successful_results, key=lambda x: x['f1'], reverse=True)
         best_model = successful_results[0] if successful_results else None
         
         col1, col2, col3, col4 = st.columns(4)
