@@ -390,58 +390,80 @@ def show_data_upload():
         
         # Load button handler
         if load_button:
-            with st.spinner(f"Loading dataset {dataset_id} from OpenML..."):
-                try:
-                    import openml
+            try:
+                import openml
+                
+                # Progress tracking
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                status_text.text(f"📥 Downloading dataset {dataset_id} from OpenML...")
+                progress_bar.progress(0.2)
+                
+                dataset = openml.datasets.get_dataset(dataset_id)
+                X, y, categorical_indicator, attribute_names = dataset.get_data(
+                    dataset_format="dataframe"
+                )
+                
+                progress_bar.progress(0.4)
+                status_text.text("🔄 Processing data...")
+                
+                # Combine features and target
+                if y is not None:
+                    df = X.copy()
+                    df['target'] = y
+                else:
+                    df = X
+                
+                st.session_state.data = df
+                
+                progress_bar.progress(0.6)
+                status_text.text("📊 Analyzing data quality...")
+                
+                # Profile data
+                from utils.data_processor import DataProcessor
+                profile = DataProcessor.profile_data(df)
+                st.session_state.profile = profile
+                
+                progress_bar.progress(0.8)
+                status_text.text("🔍 Detecting quality issues...")
+                
+                issues = DataProcessor.detect_data_quality_issues(df)
+                st.session_state.issues = issues
+                
+                progress_bar.progress(1.0)
+                status_text.text("✅ Complete!")
+                
+                # Clear progress indicators
+                progress_bar.empty()
+                status_text.empty()
                     
-                    dataset = openml.datasets.get_dataset(dataset_id)
-                    X, y, categorical_indicator, attribute_names = dataset.get_data(
-                        dataset_format="dataframe"
-                    )
-                    
-                    # Combine features and target
-                    if y is not None:
-                        df = X.copy()
-                        df['target'] = y
-                    else:
-                        df = X
-                    
-                    st.session_state.data = df
-                    
-                    # Profile data
-                    from utils.data_processor import DataProcessor
-                    profile = DataProcessor.profile_data(df)
-                    st.session_state.profile = profile
-                    
-                    issues = DataProcessor.detect_data_quality_issues(df)
-                    st.session_state.issues = issues
-                    
-                    success_msg = f"✅ Successfully loaded {dataset.name} (ID: {dataset_id})!"
-                    st.success(success_msg)
-                    
-                    # Show full description and metadata in expander
-                    with st.expander("📋 Dataset Information & Citation", expanded=True):
-                        st.markdown(dataset.description)
-                    
-                    # Show dataset info
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("Rows", len(df))
-                    with col2:
-                        st.metric("Columns", len(df.columns))
-                    with col3:
-                        st.metric("Dataset ID", dataset_id)
-                    
-                    st.dataframe(df.head(10), use_container_width=True)
-                    
-                except Exception as e:
-                    st.error(f"Error loading OpenML dataset: {str(e)}")
-                    st.info("""
-                    💡 **Troubleshooting:**
-                    - Verify the dataset ID exists on OpenML
-                    - Some datasets may require additional processing
-                    - Check your internet connection
-                    """)
+                success_msg = f"✅ Successfully loaded {dataset.name} (ID: {dataset_id})!"
+                st.success(success_msg)
+                
+                # Show full description and metadata in expander
+                with st.expander("📋 Dataset Information & Citation", expanded=True):
+                    st.markdown(dataset.description)
+                
+                # Show dataset info
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Rows", len(df))
+                with col2:
+                    st.metric("Columns", len(df.columns))
+                with col3:
+                    st.metric("Dataset ID", dataset_id)
+                
+                st.dataframe(df.head(10), use_container_width=True)
+                
+            except Exception as e:
+                st.error(f"Error loading OpenML dataset: {str(e)}")
+                st.info("""
+                💡 **Troubleshooting:**
+                - Verify the dataset ID exists on OpenML
+                - Some datasets may require additional processing
+                - Check your internet connection
+                """)
     
     with tab3:
         st.subheader("Load from Kaggle")
@@ -1811,6 +1833,9 @@ def show_market_basket_analysis():
         # Validate data suitability
         validation = ColumnDetector.validate_mba_suitability(df)
         
+        # Store validation result
+        st.session_state.mba_data_suitable = validation['suitable']
+        
         if not validation['suitable']:
             st.error("❌ **Dataset Not Suitable for Market Basket Analysis**")
             for warning in validation['warnings']:
@@ -1821,6 +1846,7 @@ def show_market_basket_analysis():
             st.write("**Consider using:**")
             st.write("- Sample Groceries Dataset (built-in)")
             st.write("- A different dataset with transactional data")
+            st.stop()  # STOP here - don't show process button
         elif len(validation['warnings']) > 0:
             with st.expander("⚠️ Data Quality Warnings", expanded=False):
                 for warning in validation['warnings']:
@@ -1858,7 +1884,12 @@ def show_market_basket_analysis():
                 help="Column containing item names or product descriptions"
             )
         
-        if st.button("🔄 Process Loaded Data", type="primary"):
+        # Only show button if data is suitable
+        data_suitable = st.session_state.get('mba_data_suitable', True)
+        
+        if not data_suitable:
+            st.error("❌ **Cannot process - data incompatible with Market Basket Analysis**")
+        elif st.button("🔄 Process Loaded Data", type="primary"):
             with st.spinner("Processing transactions..."):
                 try:
                     transactions = mba.parse_uploaded_transactions(df, trans_col, item_col)
@@ -2661,6 +2692,9 @@ def show_rfm_analysis():
         # Validate data suitability
         validation = ColumnDetector.validate_rfm_suitability(df)
         
+        # Store validation result
+        st.session_state.rfm_data_suitable = validation['suitable']
+        
         if not validation['suitable']:
             st.error("❌ **Dataset Not Suitable for RFM Analysis**")
             for warning in validation['warnings']:
@@ -2671,6 +2705,7 @@ def show_rfm_analysis():
             st.write("**Consider using:**")
             st.write("- Sample RFM Data (built-in)")
             st.write("- A dataset with customer transactions over time")
+            st.stop()  # STOP here - don't show process button
         elif len(validation['warnings']) > 0:
             with st.expander("⚠️ Data Quality Warnings", expanded=False):
                 for warning in validation['warnings']:
@@ -2729,7 +2764,12 @@ def show_rfm_analysis():
                 help="⚠️ Must be NUMERIC column with transaction amounts"
             )
         
-        if st.button("🔄 Process Loaded Data for RFM", type="primary"):
+        # Only show button if data is suitable
+        data_suitable = st.session_state.get('rfm_data_suitable', True)
+        
+        if not data_suitable:
+            st.error("❌ **Cannot process - data incompatible with RFM Analysis**")
+        elif st.button("🔄 Process Loaded Data for RFM", type="primary"):
             with st.spinner("Processing RFM data..."):
                 try:
                     # Validate column selections
@@ -4701,9 +4741,9 @@ def show_ml_regression():
                         st.info("""
                         **About this dataset:**
                         - 🎯 **Target:** MEDV (Median home value in $1000s)
-                        - 📊 **Features:** 7 attributes (crime, rooms, age, distance, tax, education, demographics)
-                        - ✅ **Perfect for Regression:** Continuous target, real-world features
-                        - 🏆 **Classic:** Famous regression dataset
+                        - 📊 **Features:** 7 attributes
+                        - ✅ **Perfect for Regression**
+                        - 🏆 **Classic dataset**
                         """)
                         
                         with st.expander("📋 Data Preview"):
@@ -5255,8 +5295,8 @@ def show_ml_regression():
                 x=[x[1] for x in r2_scores],
                 y=[x[0] for x in r2_scores],
                 orientation='h',
-                labels={'x': 'R² Score', 'y': 'Model'},
                 title='Model Performance (R² Score - Higher is Better)',
+                labels={'x': 'R² Score', 'y': 'Model'},
                 color=[x[1] for x in r2_scores],
                 color_continuous_scale='Greens'
             )
@@ -5291,8 +5331,8 @@ def show_ml_regression():
                 y=[x[0] for x in time_data],
                 x=[x[1] for x in time_data],
                 orientation='h',
-                labels={'x': 'Training Time (seconds)', 'y': 'Model'},
                 title='Training Time Comparison',
+                labels={'x': 'Training Time (seconds)', 'y': 'Model'},
                 color=colors,
                 color_discrete_map={'green': '#90EE90', 'yellow': '#FFD700', 'red': '#FFB6C1'}
             )
@@ -5624,7 +5664,8 @@ def show_anomaly_detection():
         show_filter = st.radio(
             "Display:",
             ["All Records", "Anomalies Only", "Normal Only"],
-            horizontal=True
+            horizontal=True,
+            key="show_filter"
         )
         
         if show_filter == "Anomalies Only":
@@ -5868,6 +5909,9 @@ def show_time_series_forecasting():
     # Validate data suitability
     validation = ColumnDetector.validate_time_series_suitability(df)
     
+    # Store validation result
+    st.session_state.ts_data_suitable = validation['suitable']
+    
     if not validation['suitable']:
         st.error("❌ **Dataset Not Suitable for Time Series Forecasting**")
         for warning in validation['warnings']:
@@ -5875,7 +5919,9 @@ def show_time_series_forecasting():
         st.info("**💡 Recommendations:**")
         for rec in validation['recommendations']:
             st.write(f"- {rec}")
-        return
+        st.write("**This dataset does not contain time series data.**")
+        st.write("Time series forecasting requires sequential data with timestamps.")
+        return  # Already has return - good!
     elif len(validation['warnings']) > 0:
         with st.expander("⚠️ Data Quality Warnings", expanded=False):
             for warning in validation['warnings']:
