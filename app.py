@@ -454,6 +454,10 @@ def show_data_upload():
             key="kaggle_dataset"
         )
         
+        # Add helpful hint if input is empty
+        if not kaggle_dataset:
+            st.caption("💡 Tip: Type the dataset name above and press **Enter** to enable the button")
+        
         if st.button("📥 Load Kaggle Dataset", type="primary", disabled=not kaggle_dataset):
             with st.spinner(f"Downloading {kaggle_dataset} from Kaggle..."):
                 try:
