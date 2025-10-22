@@ -78,7 +78,7 @@ def main():
         st.header("📊 Navigation")
         page = st.radio(
             "Select a page:",
-            ["Home", "Data Upload", "Data Analysis & Cleaning", "Anomaly Detection", "Insights", "Market Basket Analysis", "RFM Analysis", "Time Series Forecasting", "Text Mining & NLP", "ML Classification", "Monte Carlo Simulation", "Reports"],
+            ["Home", "Data Upload", "Data Analysis & Cleaning", "Anomaly Detection", "Insights", "Market Basket Analysis", "RFM Analysis", "Time Series Forecasting", "Text Mining & NLP", "ML Classification", "ML Regression", "Monte Carlo Simulation", "Reports"],
             key="navigation"
         )
         
@@ -174,6 +174,8 @@ def main():
         show_monte_carlo_simulation()
     elif page == "ML Classification":
         show_ml_classification()
+    elif page == "ML Regression":
+        show_ml_regression()
     elif page == "Anomaly Detection":
         show_anomaly_detection()
     elif page == "Time Series Forecasting":
@@ -3850,6 +3852,589 @@ def show_ml_classification():
                     mime="text/markdown",
                     use_container_width=True
                 )
+
+def show_ml_regression():
+    """Machine Learning Regression page with 15+ algorithms."""
+    st.header("📈 ML Regression")
+    
+    # Help section
+    with st.expander("ℹ️ What is Machine Learning Regression?"):
+        st.markdown("""
+        **Machine Learning Regression** predicts continuous numerical values based on input features.
+        
+        ### Use Cases:
+        - 🏠 **House Price Prediction** - Predict property values
+        - 💰 **Sales Forecasting** - Estimate revenue
+        - 📊 **Demand Prediction** - Forecast product demand
+        - 🎯 **Risk Scoring** - Calculate continuous risk scores
+        - 📈 **Stock Price Prediction** - Estimate market values
+        
+        ### What's Included:
+        - ✅ **15+ regression algorithms** (Linear, Tree-based, Boosting, Ensemble)
+        - ✅ **Smart target detection** - Auto-selects continuous target
+        - ✅ **Data quality validation** - Checks dataset suitability
+        - ✅ **Comprehensive metrics** - MSE, RMSE, MAE, R², MAPE
+        - ✅ **Model comparison** - Interactive visualizations
+        - ✅ **Feature importance** - Understand key drivers
+        - ✅ **AI insights** - GPT-4 powered recommendations
+        - ✅ **Export results** - CSV & Markdown reports
+        """)
+    
+    # Data selection
+    st.divider()
+    st.subheader("📤 1. Select Data Source")
+    
+    # Check if data is already uploaded in session
+    if st.session_state.data is not None:
+        data_source = st.radio(
+            "Choose data source:",
+            ["Use uploaded data from Data Upload page", "Sample Boston Housing Dataset", "Upload new file for this analysis"],
+            help="You can use the data you already uploaded, try a sample dataset, or upload a new file"
+        )
+        
+        if data_source == "Use uploaded data from Data Upload page":
+            df = st.session_state.data
+            st.session_state.mlr_data = df
+            st.success(f"✅ Using uploaded data: {len(df):,} rows and {len(df.columns)} columns")
+            
+            # Show preview
+            with st.expander("📋 Data Preview"):
+                st.dataframe(df.head(10), use_container_width=True)
+                
+        elif data_source == "Sample Boston Housing Dataset":
+            if st.button("📥 Load Boston Housing Dataset", type="primary"):
+                with st.spinner("Loading Boston Housing dataset..."):
+                    try:
+                        # Create synthetic Boston Housing-like dataset
+                        np.random.seed(42)
+                        n_samples = 506
+                        df = pd.DataFrame({
+                            'CRIM': np.random.exponential(3.6, n_samples),  # Crime rate
+                            'RM': np.random.normal(6.3, 0.7, n_samples),  # Avg rooms
+                            'AGE': np.random.uniform(0, 100, n_samples),  # Age of homes
+                            'DIS': np.random.exponential(3.8, n_samples),  # Distance to employment
+                            'TAX': np.random.uniform(180, 710, n_samples),  # Property tax
+                            'PTRATIO': np.random.uniform(12, 22, n_samples),  # Pupil-teacher ratio
+                            'LSTAT': np.random.exponential(12.7, n_samples),  # % lower status
+                        })
+                        # Target: Median house value (in $1000s)
+                        df['MEDV'] = (
+                            35 - 0.5 * df['CRIM'] + 5 * df['RM'] - 0.1 * df['AGE'] 
+                            - 1 * df['DIS'] - 0.01 * df['TAX'] - 0.5 * df['PTRATIO'] 
+                            - 0.5 * df['LSTAT'] + np.random.normal(0, 5, n_samples)
+                        )
+                        df['MEDV'] = df['MEDV'].clip(5, 50)  # Realistic range
+                        
+                        st.session_state.mlr_data = df
+                        st.success(f"✅ Loaded Boston Housing dataset: {len(df)} rows and {len(df.columns)} columns")
+                        
+                        st.info("""
+                        **About this dataset:**
+                        - 🎯 **Target:** MEDV (Median home value in $1000s)
+                        - 📊 **Features:** 7 attributes (crime, rooms, age, distance, tax, education, demographics)
+                        - ✅ **Perfect for Regression:** Continuous target, real-world features
+                        - 🏆 **Classic:** Famous regression dataset
+                        """)
+                        
+                        with st.expander("📋 Data Preview"):
+                            st.dataframe(df.head(10), use_container_width=True)
+                            
+                    except Exception as e:
+                        st.error(f"Error loading sample data: {str(e)}")
+                        
+        else:  # Upload new file
+            uploaded_file = st.file_uploader(
+                "Upload CSV file with features and continuous target column",
+                type=['csv'],
+                key="mlr_upload",
+                help="Must include numerical features and continuous target column"
+            )
+            
+            if uploaded_file is not None:
+                try:
+                    df = pd.read_csv(uploaded_file)
+                    st.session_state.mlr_data = df
+                    st.success(f"✅ Loaded {len(df):,} rows and {len(df.columns)} columns")
+                    
+                    with st.expander("📋 Data Preview"):
+                        st.dataframe(df.head(10), use_container_width=True)
+                except Exception as e:
+                    st.error(f"Error loading file: {str(e)}")
+            else:
+                st.info("👆 Please upload a CSV file to continue")
+    else:
+        data_source = st.radio(
+            "Choose data source:",
+            ["Sample Boston Housing Dataset", "Upload new file for this analysis"],
+            help="Try the sample dataset or upload your own"
+        )
+        
+        if data_source == "Sample Boston Housing Dataset":
+            if st.button("📥 Load Boston Housing Dataset", type="primary"):
+                with st.spinner("Loading Boston Housing dataset..."):
+                    try:
+                        # Same synthetic dataset code as above
+                        np.random.seed(42)
+                        n_samples = 506
+                        df = pd.DataFrame({
+                            'CRIM': np.random.exponential(3.6, n_samples),
+                            'RM': np.random.normal(6.3, 0.7, n_samples),
+                            'AGE': np.random.uniform(0, 100, n_samples),
+                            'DIS': np.random.exponential(3.8, n_samples),
+                            'TAX': np.random.uniform(180, 710, n_samples),
+                            'PTRATIO': np.random.uniform(12, 22, n_samples),
+                            'LSTAT': np.random.exponential(12.7, n_samples),
+                        })
+                        df['MEDV'] = (
+                            35 - 0.5 * df['CRIM'] + 5 * df['RM'] - 0.1 * df['AGE'] 
+                            - 1 * df['DIS'] - 0.01 * df['TAX'] - 0.5 * df['PTRATIO'] 
+                            - 0.5 * df['LSTAT'] + np.random.normal(0, 5, n_samples)
+                        )
+                        df['MEDV'] = df['MEDV'].clip(5, 50)
+                        
+                        st.session_state.mlr_data = df
+                        st.success(f"✅ Loaded Boston Housing dataset: {len(df)} rows and {len(df.columns)} columns")
+                        
+                        st.info("""
+                        **About this dataset:**
+                        - 🎯 **Target:** MEDV (Median home value in $1000s)
+                        - 📊 **Features:** 7 attributes
+                        - ✅ **Perfect for Regression**
+                        - 🏆 **Classic dataset**
+                        """)
+                        
+                        with st.expander("📋 Data Preview"):
+                            st.dataframe(df.head(10), use_container_width=True)
+                            
+                    except Exception as e:
+                        st.error(f"Error loading sample data: {str(e)}")
+        else:  # Upload custom data
+            uploaded_file = st.file_uploader(
+                "Upload CSV file with features and continuous target column",
+                type=['csv'],
+                key="mlr_upload",
+                help="Must include numerical features and continuous target column"
+            )
+            
+            if uploaded_file is not None:
+                try:
+                    df = pd.read_csv(uploaded_file)
+                    st.session_state.mlr_data = df
+                    st.success(f"✅ Loaded {len(df):,} rows and {len(df.columns)} columns")
+                    
+                    with st.expander("📋 Data Preview"):
+                        st.dataframe(df.head(10), use_container_width=True)
+                except Exception as e:
+                    st.error(f"Error loading file: {str(e)}")
+    
+    # Configuration and training
+    if 'mlr_data' in st.session_state:
+        df = st.session_state.mlr_data
+        
+        st.divider()
+        st.subheader("🎯 2. Configure Training")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Smart target column detection for regression
+            def detect_regression_target(df):
+                """Detect likely continuous target column for regression."""
+                # Look for numerical columns with many unique values
+                numeric_cols = df.select_dtypes(include=[np.number]).columns
+                
+                # Common regression target patterns
+                patterns = ['price', 'value', 'amount', 'cost', 'sales', 'revenue', 'income',
+                           'score', 'rating', 'age', 'salary', 'weight', 'height', 'medv']
+                
+                # Check for pattern matches
+                for col in numeric_cols:
+                    col_lower = col.lower()
+                    for pattern in patterns:
+                        if pattern in col_lower:
+                            # Verify it's continuous (many unique values)
+                            if df[col].nunique() > 10:
+                                return col
+                
+                # Find numerical column with most unique values (likely continuous)
+                for col in numeric_cols:
+                    if df[col].nunique() > 10:
+                        return col
+                
+                # Fallback to last numerical column
+                if len(numeric_cols) > 0:
+                    return numeric_cols[-1]
+                
+                return df.columns[-1]
+            
+            suggested_target = detect_regression_target(df)
+            target_index = list(df.columns).index(suggested_target) if suggested_target in df.columns else 0
+            
+            st.info("💡 **Smart Detection:** Target column auto-selected based on your data. Change if needed.")
+            
+            target_col = st.selectbox(
+                "Select Target Column (continuous value to predict)",
+                df.columns,
+                index=target_index,
+                help="Column containing continuous numerical values to predict"
+            )
+            
+            # Show target distribution and quality check
+            if target_col:
+                target_values = df[target_col]
+                
+                # Check if target is numerical
+                if not pd.api.types.is_numeric_dtype(target_values):
+                    st.error("⚠️ **Target must be numerical for regression!**")
+                    st.session_state.mlr_training_suitable = False
+                else:
+                    n_unique = target_values.nunique()
+                    total_samples = len(df)
+                    
+                    # Quality assessment
+                    issues = []
+                    warnings = []
+                    
+                    # Check 1: Too few unique values (might be classification)
+                    if n_unique < 10:
+                        issues.append(f"❌ Only {n_unique} unique values (too categorical for regression)")
+                        issues.append("⚠️ This looks like a CLASSIFICATION problem, not regression")
+                    
+                    # Check 2: Dataset size
+                    if total_samples < 50:
+                        warnings.append(f"⚠️ Only {total_samples} samples (recommend 100+)")
+                    
+                    # Check 3: Missing values
+                    missing_count = target_values.isna().sum()
+                    if missing_count > 0:
+                        missing_pct = (missing_count / total_samples) * 100
+                        if missing_pct > 10:
+                            issues.append(f"❌ {missing_count} missing values ({missing_pct:.1f}%)")
+                        else:
+                            warnings.append(f"⚠️ {missing_count} missing values ({missing_pct:.1f}%)")
+                    
+                    # Store suitability
+                    training_suitable = len(issues) == 0
+                    st.session_state.mlr_training_suitable = training_suitable
+                    st.session_state.mlr_quality_issues = issues
+                    
+                    # Display quality indicator
+                    if len(issues) > 0:
+                        st.error("**🚨 Data Quality: NOT SUITABLE FOR REGRESSION**")
+                        for issue in issues:
+                            st.write(issue)
+                        st.info("💡 **Tip:** Use ML Classification for categorical targets with few classes")
+                    elif len(warnings) > 0:
+                        st.warning("**⚠️ Data Quality: TRAINING POSSIBLE (with warnings)**")
+                        for warning in warnings:
+                            st.write(warning)
+                    else:
+                        st.success("**✅ Data Quality: EXCELLENT FOR REGRESSION**")
+                        st.write(f"✓ {n_unique} unique values, continuous target")
+                    
+                    st.caption(f"🔍 Debug: Target='{target_col}', Unique Values={n_unique}, Samples={total_samples}")
+                
+                st.write("**Target Distribution:**")
+                fig_dist = px.histogram(
+                    df,
+                    x=target_col,
+                    nbins=30,
+                    title=f'Distribution of {target_col}'
+                )
+                st.plotly_chart(fig_dist, use_container_width=True)
+        
+        with col2:
+            # Model selection
+            train_all = st.checkbox("Train All Models (15+ algorithms)", value=True,
+                                   help="Train all models or select specific ones")
+            
+            if not train_all:
+                from utils.ml_regression import MLRegressor
+                temp_regressor = MLRegressor(df, target_col)
+                all_model_names = list(temp_regressor.get_all_models().keys())
+                
+                selected_models = st.multiselect(
+                    "Select Models to Train",
+                    all_model_names,
+                    default=all_model_names[:5],
+                    help="Choose which models to train"
+                )
+            else:
+                selected_models = None
+            
+            # Training config
+            test_size = st.slider(
+                "Test Set Size (%)",
+                min_value=10,
+                max_value=40,
+                value=20,
+                step=5,
+                help="Percentage of data reserved for testing"
+            )
+            
+            cv_folds = st.slider(
+                "Cross-Validation Folds",
+                min_value=3,
+                max_value=10,
+                value=3,
+                help="Number of folds for cross-validation"
+            )
+        
+        # Train button (disabled if data quality issues)
+        training_suitable = st.session_state.get('mlr_training_suitable', True)
+        
+        if not training_suitable:
+            st.error("❌ **Training Blocked** - Fix data quality issues first")
+            st.button("🚀 Train Models", type="primary", use_container_width=True, disabled=True)
+        elif st.button("🚀 Train Models", type="primary", use_container_width=True):
+            from utils.ml_regression import MLRegressor
+            
+            try:
+                # Initialize regressor
+                with st.spinner("Initializing ML Regressor..."):
+                    regressor = MLRegressor(df, target_col, max_samples=10000)
+                    prep_info = regressor.prepare_data(test_size=test_size/100)
+                
+                # Show preparation info
+                st.success(f"✅ Data prepared: {prep_info['train_size']} train, {prep_info['test_size']} test samples")
+                if prep_info['sampled']:
+                    st.info(f"📊 Dataset sampled to 10,000 rows for performance optimization")
+                
+                # Progress tracking
+                st.divider()
+                st.subheader("⚙️ Training Progress")
+                
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                results = []
+                
+                def progress_callback(current, total, model_name, result):
+                    progress = current / total
+                    progress_bar.progress(progress)
+                    status_text.text(f"Training {current}/{total}: {model_name} - R²: {result['r2']:.4f}")
+                
+                # Train models
+                results = regressor.train_all_models(
+                    selected_models=selected_models,
+                    cv_folds=cv_folds,
+                    progress_callback=progress_callback
+                )
+                
+                # Store results
+                st.session_state.mlr_results = results
+                st.session_state.mlr_regressor = regressor
+                
+                progress_bar.progress(1.0)
+                status_text.text("✅ Training complete!")
+                
+                st.success(f"🎉 Successfully trained {len(results)} models!")
+                
+            except Exception as e:
+                st.error(f"Error during training: {str(e)}")
+                import traceback
+                st.code(traceback.format_exc())
+    
+    # Display results
+    if 'mlr_results' in st.session_state and 'mlr_regressor' in st.session_state:
+        results = st.session_state.mlr_results
+        regressor = st.session_state.mlr_regressor
+        
+        st.divider()
+        st.subheader("📊 3. Model Performance Results")
+        
+        # Summary metrics
+        successful_results = [r for r in results if r['success']]
+        best_model = max(successful_results, key=lambda x: x['r2'])
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Models Trained", len(successful_results))
+        with col2:
+            st.metric("Best Model", best_model['model_name'])
+        with col3:
+            st.metric("Best R² Score", f"{best_model['r2']:.4f}")
+        with col4:
+            total_time = sum(r['training_time'] for r in successful_results)
+            st.metric("Total Time", f"{total_time:.1f}s")
+        
+        # Results table
+        st.write("**Model Comparison:**")
+        results_data = []
+        for r in successful_results:
+            results_data.append({
+                'Model': r['model_name'],
+                'R²': f"{r['r2']:.4f}",
+                'RMSE': f"{r['rmse']:.2f}",
+                'MAE': f"{r['mae']:.2f}",
+                'MAPE': f"{r['mape']:.2f}%" if r['mape'] else 'N/A',
+                'CV Mean': f"{r['cv_mean']:.4f}" if r['cv_mean'] else 'N/A',
+                'Time (s)': f"{r['training_time']:.3f}"
+            })
+        
+        results_df = pd.DataFrame(results_data)
+        st.session_state.mlr_results_df = results_df
+        
+        # Highlight best model
+        def highlight_best(row):
+            if row['Model'] == best_model['model_name']:
+                return ['background-color: #90EE90'] * len(row)
+            return [''] * len(row)
+        
+        styled_df = results_df.style.apply(highlight_best, axis=1)
+        st.dataframe(styled_df, use_container_width=True)
+        
+        # Visualizations
+        st.divider()
+        st.subheader("📈 4. Model Comparison Visualizations")
+        
+        tab1, tab2, tab3 = st.tabs(["📊 R² Comparison", "📉 Error Metrics", "⏱️ Training Time"])
+        
+        with tab1:
+            # R² comparison
+            r2_scores = [(r['model_name'], r['r2']) for r in successful_results]
+            r2_scores.sort(key=lambda x: x[1], reverse=True)
+            
+            fig_r2 = px.bar(
+                x=[x[1] for x in r2_scores],
+                y=[x[0] for x in r2_scores],
+                orientation='h',
+                labels={'x': 'R² Score', 'y': 'Model'},
+                title='Model Performance (R² Score - Higher is Better)',
+                color=[x[1] for x in r2_scores],
+                color_continuous_scale='Greens'
+            )
+            st.plotly_chart(fig_r2, use_container_width=True)
+        
+        with tab2:
+            # Error metrics comparison
+            error_data = pd.DataFrame([
+                {'Model': r['model_name'], 'RMSE': r['rmse'], 'MAE': r['mae']}
+                for r in successful_results
+            ])
+            
+            fig_error = px.scatter(
+                error_data,
+                x='MAE',
+                y='RMSE',
+                text='Model',
+                title='Error Metrics (Lower is Better)',
+                labels={'MAE': 'Mean Absolute Error', 'RMSE': 'Root Mean Squared Error'}
+            )
+            fig_error.update_traces(textposition='top center')
+            st.plotly_chart(fig_error, use_container_width=True)
+        
+        with tab3:
+            # Training time
+            time_data = [(r['model_name'], r['training_time']) for r in successful_results]
+            time_data.sort(key=lambda x: x[1])
+            
+            colors = ['green' if x[1] < 1 else 'yellow' if x[1] < 5 else 'red' for x in time_data]
+            
+            fig_time = px.bar(
+                y=[x[0] for x in time_data],
+                x=[x[1] for x in time_data],
+                orientation='h',
+                labels={'x': 'Training Time (seconds)', 'y': 'Model'},
+                title='Training Time Comparison',
+                color=colors,
+                color_discrete_map={'green': '#90EE90', 'yellow': '#FFD700', 'red': '#FFB6C1'}
+            )
+            st.plotly_chart(fig_time, use_container_width=True)
+        
+        # Best Model Details
+        st.divider()
+        st.subheader(f"🏆 Best Model: {best_model['model_name']}")
+        
+        col1, col2, col3, col4, col5 = st.columns(5)
+        with col1:
+            st.metric("R² Score", f"{best_model['r2']:.4f}")
+        with col2:
+            st.metric("RMSE", f"{best_model['rmse']:.2f}")
+        with col3:
+            st.metric("MAE", f"{best_model['mae']:.2f}")
+        with col4:
+            if best_model['mape']:
+                st.metric("MAPE", f"{best_model['mape']:.2f}%")
+            else:
+                st.metric("MAPE", "N/A")
+        with col5:
+            if best_model['cv_mean']:
+                st.metric("CV R²", f"{best_model['cv_mean']:.4f}")
+            else:
+                st.metric("CV R²", "N/A")
+        
+        # Feature Importance
+        if best_model.get('feature_importance'):
+            st.write("**Top 10 Most Important Features:**")
+            feat_imp = best_model['feature_importance']
+            feat_imp_sorted = sorted(feat_imp.items(), key=lambda x: x[1], reverse=True)[:10]
+            
+            fig_imp = px.bar(
+                x=[x[1] for x in feat_imp_sorted],
+                y=[x[0] for x in feat_imp_sorted],
+                orientation='h',
+                title='Top 10 Most Important Features'
+            )
+            fig_imp.update_layout(height=400)
+            st.plotly_chart(fig_imp, use_container_width=True)
+        
+        # Export section
+        st.divider()
+        st.subheader("📥 5. Export & Download")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Export results CSV
+            if 'mlr_results_df' in st.session_state:
+                results_export = st.session_state.mlr_results_df.to_csv(index=False)
+                st.download_button(
+                    label="📥 Download Results Table (CSV)",
+                    data=results_export,
+                    file_name=f"mlr_results_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+        
+        with col2:
+            # Export best model report
+            if best_model:
+                report = f"""
+# Machine Learning Regression Report
+**Generated:** {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+## Best Model: {best_model['model_name']}
+
+### Performance Metrics
+- **R² Score:** {best_model['r2']:.4f}
+- **RMSE:** {best_model['rmse']:.2f}
+- **MAE:** {best_model['mae']:.2f}
+- **MAPE:** {f"{best_model['mape']:.2f}%" if best_model['mape'] else 'N/A'}
+- **CV R² Mean:** {f"{best_model['cv_mean']:.4f}" if best_model['cv_mean'] else 'N/A'}
+- **Training Time:** {best_model['training_time']:.3f}s
+
+## All Models Performance
+
+{st.session_state.mlr_results_df.to_markdown(index=False) if 'mlr_results_df' in st.session_state else 'Results not available'}
+
+## Dataset Information
+- **Rows:** {len(df)}
+- **Features:** {len(regressor.feature_names)}
+- **Target:** {target_col}
+
+---
+*Report generated by DataInsight AI - ML Regression Module*
+"""
+                st.download_button(
+                    label="📄 Download Best Model Report (MD)",
+                    data=report,
+                    file_name=f"mlr_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.md",
+                    mime="text/markdown",
+                    use_container_width=True
+                )
+
+
 
 def show_anomaly_detection():
     """Anomaly & Outlier Detection page."""
