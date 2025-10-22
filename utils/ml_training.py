@@ -69,10 +69,18 @@ class MLTrainer:
         self.target_column = target_column
         self.max_samples = max_samples
         
-        # Sample if dataset is large
+        # Sample if dataset is large (STRATIFIED to maintain class distribution)
         if len(self.df) > max_samples:
-            self.df = self.df.sample(n=max_samples, random_state=42)
-            self.sampled = True
+            # Use stratified sampling to maintain class proportions
+            try:
+                self.df = self.df.groupby(target_column, group_keys=False).apply(
+                    lambda x: x.sample(min(len(x), max(1, int(max_samples * len(x) / len(self.df)))), random_state=42)
+                ).reset_index(drop=True)
+                self.sampled = True
+            except:
+                # Fallback to random sampling if stratified fails
+                self.df = self.df.sample(n=min(max_samples, len(self.df)), random_state=42)
+                self.sampled = True
         else:
             self.sampled = False
         
