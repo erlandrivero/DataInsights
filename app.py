@@ -1176,12 +1176,24 @@ def show_reports():
     </div>
     """, unsafe_allow_html=True)
     
-    if st.session_state.data is None:
-        st.error("⚠️ **No Data Loaded**")
-        st.info("💡 Please upload data in the **Data Upload** section to generate reports")
+    # Check if ANY analysis has been completed
+    any_analysis_complete = any([
+        'mba_rules' in st.session_state,
+        'rfm_segmented' in st.session_state,
+        'mc_simulations' in st.session_state,
+        'ml_results' in st.session_state,
+        'mlr_results' in st.session_state,
+        'anomaly_results' in st.session_state,
+        'arima_results' in st.session_state or 'prophet_results' in st.session_state,
+        'sentiment_results' in st.session_state or 'topics' in st.session_state
+    ])
+    
+    if st.session_state.data is None and not any_analysis_complete:
+        st.error("⚠️ **No Data or Analyses Completed**")
+        st.info("💡 Please upload data in the **Data Upload** section or run some analyses to generate reports")
         return
     
-    df = st.session_state.data
+    df = st.session_state.data if st.session_state.data is not None else None
     
     # Check which modules have been run
     st.subheader("📊 Analytics Dashboard")
@@ -1222,11 +1234,18 @@ def show_reports():
         )
     
     with col3:
-        st.metric(
-            "📈 Data Rows",
-            f"{len(df):,}",
-            delta=f"{len(df.columns)} columns"
-        )
+        if df is not None:
+            st.metric(
+                "📈 Data Rows",
+                f"{len(df):,}",
+                delta=f"{len(df.columns)} columns"
+            )
+        else:
+            st.metric(
+                "📈 Analyses",
+                "Module-based",
+                delta="No dataset loaded"
+            )
     
     # Progress bar
     st.progress(completion_pct / 100, text=f"Overall Completion: {completion_pct:.0f}%")
@@ -1346,14 +1365,19 @@ def show_reports():
                 status_text.text("Gathering data profile...")
                 progress_bar.progress(0.1)
                 
-                # Get or create profile and issues
-                if 'profile' not in st.session_state or not st.session_state.profile:
-                    from utils.data_processor import DataProcessor
-                    st.session_state.profile = DataProcessor.profile_data(df)
-                    st.session_state.issues = DataProcessor.detect_data_quality_issues(df)
-                
-                profile = st.session_state.profile
-                issues = st.session_state.get('issues', [])
+                # Get or create profile and issues (only if df exists)
+                if df is not None:
+                    if 'profile' not in st.session_state or not st.session_state.profile:
+                        from utils.data_processor import DataProcessor
+                        st.session_state.profile = DataProcessor.profile_data(df)
+                        st.session_state.issues = DataProcessor.detect_data_quality_issues(df)
+                    
+                    profile = st.session_state.profile
+                    issues = st.session_state.get('issues', [])
+                else:
+                    # No dataset loaded - module-only analysis
+                    profile = None
+                    issues = []
                 
                 status_text.text("Gathering AI insights...")
                 progress_bar.progress(0.2)
@@ -1487,35 +1511,65 @@ def show_reports():
                 # Gather cleaning suggestions
                 suggestions = st.session_state.get('cleaning_suggestions', [])
                 
-                # Generate base report using ReportGenerator
-                base_report = ReportGenerator.generate_full_report(
-                    df=df,
-                    profile=profile,
-                    issues=issues,
-                    insights=insights_text,
-                    suggestions=suggestions
-                )
-                
-                # Append module summaries if requested
-                if module_insights:
-                    module_section = "\n".join(module_insights)
-                    # Insert module summaries after the executive summary
-                    base_report = base_report.replace(
-                        "---\n\n## Data Profile",
-                        f"{module_section}\n\n---\n\n## Data Profile"
+                # Generate base report
+                if df is not None and profile is not None:
+                    # Full report with data profiling
+                    base_report = ReportGenerator.generate_full_report(
+                        df=df,
+                        profile=profile,
+                        issues=issues,
+                        insights=insights_text,
+                        suggestions=suggestions
                     )
+                    
+                    # Append module summaries if requested
+                    if module_insights:
+                        module_section = "\n".join(module_insights)
+                        # Insert module summaries after the executive summary
+                        base_report = base_report.replace(
+                            "---\n\n## Data Profile",
+                            f"{module_section}\n\n---\n\n## Data Profile"
+                        )
+                else:
+                    # Module-only report (no dataset loaded)
+                    module_section = "\n".join(module_insights) if module_insights else "No modules completed yet."
+                    base_report = f"""# DataInsight AI - Analytics Report
+
+**Report Generated:** {datetime.now().strftime('%B %d, %Y at %I:%M %p')}
+
+## Executive Summary
+
+This report contains results from completed analytics modules.
+
+{module_section}
+
+---
+
+## Recommendations
+
+- Upload a dataset in the Data Upload section for comprehensive data profiling
+- Continue running analyses to gain deeper insights
+- Use individual module export functions for detailed results
+"""
                 
                 status_text.text("Enhancing report...")
                 progress_bar.progress(0.8)
                 
                 # Add analysis completion metrics at the top
-                enhanced_report = base_report.replace(
-                    "# DataInsight AI - Business Intelligence Report",
-                    f"""# DataInsight AI - Comprehensive Business Intelligence Report
+                if "# DataInsight AI - Business Intelligence Report" in base_report:
+                    enhanced_report = base_report.replace(
+                        "# DataInsight AI - Business Intelligence Report",
+                        f"""# DataInsight AI - Comprehensive Business Intelligence Report
 
 **Analyses Completed:** {completed}/{total} modules ({(completed/total)*100:.0f}% complete)  
 **Report Generated:** {datetime.now().strftime('%B %d, %Y at %I:%M %p')}"""
-                )
+                    )
+                else:
+                    # Already has title from module-only report
+                    enhanced_report = base_report.replace(
+                        "**Report Generated:**",
+                        f"**Analyses Completed:** {completed}/{total} modules ({(completed/total)*100:.0f}% complete)\n\n**Report Generated:**"
+                    )
                 
                 st.session_state.comprehensive_report = enhanced_report
                 
