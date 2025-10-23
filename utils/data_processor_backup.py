@@ -1,110 +1,28 @@
-"""Data processing utilities for DataInsights with caching and type hints.
-
-This module provides comprehensive data loading, validation, and profiling
-capabilities with Streamlit caching for improved performance.
-
-Author: DataInsights Team
-Phase 2 Enhancement: Oct 23, 2025
-"""
-
 import pandas as pd
 import numpy as np
-import streamlit as st
-from typing import Dict, Any, List, Optional, Union
-from io import BytesIO
-
+from typing import Dict, Any, List
 
 class DataProcessor:
-    """Handles data loading, validation, and profiling with caching.
-    
-    This class provides static methods for processing uploaded data,
-    generating comprehensive profiles, and detecting quality issues.
-    All methods use Streamlit caching for optimal performance.
-    
-    Attributes:
-        None - All methods are static
-    
-    Example:
-        >>> # Load data with automatic caching
-        >>> df = DataProcessor.load_data(uploaded_file)
-        >>> 
-        >>> # Generate profile (cached for 30 min)
-        >>> profile = DataProcessor.profile_data(df)
-        >>> 
-        >>> # Detect quality issues
-        >>> issues = DataProcessor.detect_data_quality_issues(df)
-    """
+    """Handles data loading, validation, and profiling."""
     
     @staticmethod
-    @st.cache_data(ttl=3600, show_spinner=False)
-    def load_data(file: Union[BytesIO, Any]) -> pd.DataFrame:
-        """Load data from uploaded file with 1-hour caching.
-        
-        Supports CSV and Excel file formats. Results are cached to improve
-        performance on repeated loads of the same file.
-        
-        Args:
-            file: Uploaded file object from st.file_uploader
-                 Must have a .name attribute with file extension
-        
-        Returns:
-            Loaded dataset as pandas DataFrame
-        
-        Raises:
-            ValueError: If file format is not supported (not CSV/Excel)
-            Exception: If file cannot be read or parsed
-            
-        Example:
-            >>> uploaded = st.file_uploader("Upload CSV", type=['csv'])
-            >>> if uploaded:
-            >>>     df = DataProcessor.load_data(uploaded)
-            >>>     st.write(f"Loaded {len(df)} rows")
-        
-        Note:
-            Cache persists for 1 hour (3600 seconds) or until app restart
-        """
+    def load_data(file) -> pd.DataFrame:
+        """Load data from uploaded file."""
         try:
             if file.name.endswith('.csv'):
                 df = pd.read_csv(file)
             elif file.name.endswith(('.xlsx', '.xls')):
                 df = pd.read_excel(file)
             else:
-                raise ValueError(
-                    "Unsupported file format. Please upload CSV or Excel files."
-                )
+                raise ValueError("Unsupported file format. Please upload CSV or Excel files.")
             
             return df
         except Exception as e:
             raise Exception(f"Error loading file: {str(e)}")
     
     @staticmethod
-    @st.cache_data(ttl=1800, show_spinner=False)
     def profile_data(df: pd.DataFrame) -> Dict[str, Any]:
-        """Generate comprehensive data profile with 30-minute caching.
-        
-        Analyzes dataset structure, missing values, numeric statistics,
-        and categorical summaries. Results cached for performance.
-        
-        Args:
-            df: DataFrame to profile
-        
-        Returns:
-            Dictionary containing:
-                - basic_info (dict): Row/column counts, memory usage, duplicates
-                - column_info (list): Per-column statistics and samples
-                - missing_data (dict): Missing value summary
-                - numeric_summary (dict): Statistics for numeric columns
-                - categorical_summary (dict): Top values for categorical columns
-        
-        Example:
-            >>> profile = DataProcessor.profile_data(df)
-            >>> print(f"Rows: {profile['basic_info']['rows']}")
-            >>> print(f"Missing: {profile['missing_data']['missing_percentage']}")
-        
-        Note:
-            - Limits categorical summary to first 5 columns
-            - Cache persists for 30 minutes (1800 seconds)
-        """
+        """Generate comprehensive data profile."""
         profile = {
             'basic_info': {
                 'rows': len(df),
@@ -165,35 +83,9 @@ class DataProcessor:
         return profile
     
     @staticmethod
-    @st.cache_data(ttl=1800, show_spinner=False)
     def detect_data_quality_issues(df: pd.DataFrame) -> List[Dict[str, Any]]:
-        """Detect potential data quality issues with caching.
-        
-        Analyzes dataset for common quality problems including missing values,
-        duplicates, constant columns, and high cardinality categorical variables.
-        
-        Args:
-            df: DataFrame to analyze for quality issues
-        
-        Returns:
-            List of issue dictionaries, each containing:
-                - type (str): Issue category
-                - column (str): Affected column name
-                - severity (str): 'High', 'Medium', or 'Low'
-                - description (str): Human-readable description
-        
-        Example:
-            >>> issues = DataProcessor.detect_data_quality_issues(df)
-            >>> high_issues = [i for i in issues if i['severity'] == 'High']
-            >>> print(f"Found {len(high_issues)} high-severity issues")
-        
-        Note:
-            - Missing value thresholds: >50% = High, >20% = Medium
-            - Duplicate threshold: >10% = High, otherwise Medium
-            - High cardinality: >90% unique values
-            - Cache persists for 30 minutes
-        """
-        issues: List[Dict[str, Any]] = []
+        """Detect potential data quality issues."""
+        issues = []
         
         # Check for high missing values
         for col in df.columns:
