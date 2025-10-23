@@ -1,28 +1,94 @@
-"""
-Market Basket Analysis utilities using Apriori algorithm.
+"""Market Basket Analysis utilities using Apriori algorithm for DataInsights.
+
+This module provides comprehensive market basket analysis capabilities including
+frequent itemset mining, association rule generation, and business insights.
+
+Author: DataInsights Team
+Phase 2 Enhancement: Oct 23, 2025
 """
 
 import pandas as pd
 import numpy as np
 from mlxtend.preprocessing import TransactionEncoder
 from mlxtend.frequent_patterns import apriori, association_rules
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Optional, Union
 import networkx as nx
 import plotly.graph_objects as go
 import plotly.express as px
 
+
 class MarketBasketAnalyzer:
-    """Handles Market Basket Analysis operations."""
+    """Handles Market Basket Analysis using the Apriori algorithm.
+    
+    This class provides complete functionality for analyzing transaction data
+    to discover frequent itemsets and generate association rules for business
+    insights like product recommendations and store layout optimization.
+    
+    Attributes:
+        transactions (List[List[str]]): Original transaction data
+        df_encoded (pd.DataFrame): One-hot encoded transaction matrix
+        frequent_itemsets (pd.DataFrame): Discovered frequent itemsets
+        rules (pd.DataFrame): Generated association rules
+    
+    Example:
+        >>> # Basic workflow
+        >>> analyzer = MarketBasketAnalyzer()
+        >>> 
+        >>> # Load data
+        >>> transactions = analyzer.load_groceries_data()
+        >>> 
+        >>> # Encode and analyze
+        >>> analyzer.encode_transactions(transactions)
+        >>> itemsets = analyzer.find_frequent_itemsets(min_support=0.01)
+        >>> rules = analyzer.generate_association_rules(
+        >>>     metric='lift',
+        >>>     min_threshold=1.0
+        >>> )
+        >>> 
+        >>> # Get insights
+        >>> insights = analyzer.generate_insights(top_n=5)
+    
+    Note:
+        - Uses the Apriori algorithm for efficient itemset mining
+        - Supports both sample datasets and user-uploaded data
+        - All metrics (support, confidence, lift) are calculated automatically
+    """
     
     def __init__(self):
-        self.transactions = None
-        self.df_encoded = None
-        self.frequent_itemsets = None
-        self.rules = None
+        """Initialize MarketBasketAnalyzer with empty state.
+        
+        All attributes are set to None initially and populated through
+        the analysis workflow methods.
+        """
+        self.transactions: Optional[List[List[str]]] = None
+        self.df_encoded: Optional[pd.DataFrame] = None
+        self.frequent_itemsets: Optional[pd.DataFrame] = None
+        self.rules: Optional[pd.DataFrame] = None
     
     @staticmethod
     def load_groceries_data() -> List[List[str]]:
-        """Load the groceries dataset from URL."""
+        """Load the standard groceries dataset from remote repository.
+        
+        Downloads the popular groceries dataset commonly used for market
+        basket analysis examples and tutorials.
+        
+        Returns:
+            List of transactions where each transaction is a list of item names
+        
+        Raises:
+            Exception: If download fails or data cannot be parsed
+        
+        Example:
+            >>> analyzer = MarketBasketAnalyzer()
+            >>> transactions = analyzer.load_groceries_data()
+            >>> print(f"Loaded {len(transactions)} transactions")
+            Loaded 9835 transactions
+        
+        Note:
+            - Data source: Machine Learning with R datasets repository
+            - No preprocessing required - data is ready to use
+            - Contains ~9,800 grocery store transactions
+        """
         import requests
         
         url = "https://raw.githubusercontent.com/stedy/Machine-Learning-with-R-datasets/master/groceries.csv"
@@ -40,20 +106,46 @@ class MarketBasketAnalyzer:
             raise Exception(f"Error loading groceries data: {str(e)}")
     
     @staticmethod
-    def parse_uploaded_transactions(df: pd.DataFrame, transaction_col: str, item_col: str) -> List[List[str]]:
-        """
-        Parse uploaded CSV into transaction format.
+    def parse_uploaded_transactions(
+        df: pd.DataFrame, 
+        transaction_col: str, 
+        item_col: str
+    ) -> List[List[str]]:
+        """Parse uploaded CSV data into transaction format for analysis.
+        
+        Converts a DataFrame with transaction IDs and item columns into
+        the list-of-lists format required by the Apriori algorithm. Includes
+        comprehensive data cleaning to handle missing values and invalid items.
         
         Args:
-            df: DataFrame with transaction data
-            transaction_col: Column name for transaction ID
-            item_col: Column name for items
-            
-        Returns:
-            List of transactions (each transaction is a list of items)
-        """
-        import pandas as pd
+            df: DataFrame containing transaction data
+            transaction_col: Name of column containing transaction/basket IDs
+            item_col: Name of column containing item names
         
+        Returns:
+            List of transactions where each transaction is a list of item strings
+        
+        Example:
+            >>> # Sample DataFrame format
+            >>> df = pd.DataFrame({
+            >>>     'TransactionID': [1, 1, 2, 2, 3],
+            >>>     'Item': ['Milk', 'Bread', 'Milk', 'Eggs', 'Bread']
+            >>> })
+            >>> 
+            >>> analyzer = MarketBasketAnalyzer()
+            >>> transactions = analyzer.parse_uploaded_transactions(
+            >>>     df, 'TransactionID', 'Item'
+            >>> )
+            >>> print(transactions)
+            [['Milk', 'Bread'], ['Milk', 'Eggs'], ['Bread']]
+        
+        Note:
+            - Automatically removes NaN values and empty strings
+            - Converts all items to strings
+            - Strips whitespace from item names
+            - Filters out common null representations ('nan', 'None', etc.)
+            - Removes empty transactions
+        """
         # Clean the data before processing
         df_clean = df.copy()
         
@@ -68,7 +160,9 @@ class MarketBasketAnalyzer:
         df_clean = df_clean[~df_clean[item_col].isin(['nan', 'None', 'NaN', 'NONE'])]
         
         # Group by transaction and create lists
-        transactions = df_clean.groupby(transaction_col)[item_col].apply(lambda x: [str(i) for i in x]).tolist()
+        transactions = df_clean.groupby(transaction_col)[item_col].apply(
+            lambda x: [str(i) for i in x]
+        ).tolist()
         
         # Remove any empty transactions
         transactions = [t for t in transactions if len(t) > 0]
@@ -76,14 +170,36 @@ class MarketBasketAnalyzer:
         return transactions
     
     def encode_transactions(self, transactions: List[List[str]]) -> pd.DataFrame:
-        """
-        One-hot encode transactions for Apriori algorithm.
+        """One-hot encode transactions for Apriori algorithm processing.
+        
+        Transforms transaction data from list format to binary matrix format
+        (one-hot encoding) where each row is a transaction and each column
+        is an item. Cell values are True/False indicating item presence.
         
         Args:
-            transactions: List of transactions
-            
+            transactions: List of transactions (each transaction is a list of items)
+        
         Returns:
-            One-hot encoded DataFrame
+            One-hot encoded DataFrame with True/False values
+            - Rows: Transactions
+            - Columns: Unique items
+            - Values: Boolean indicating item presence
+        
+        Example:
+            >>> transactions = [['Milk', 'Bread'], ['Milk'], ['Bread', 'Eggs']]
+            >>> analyzer = MarketBasketAnalyzer()
+            >>> encoded = analyzer.encode_transactions(transactions)
+            >>> print(encoded)
+               Bread   Eggs   Milk
+            0   True  False   True
+            1  False  False   True
+            2   True   True  False
+        
+        Note:
+            - Uses mlxtend's TransactionEncoder for efficient encoding
+            - Automatically handles mixed types by converting to strings
+            - Filters out null values and empty strings
+            - Stores result in self.df_encoded for later use
         """
         self.transactions = transactions
         
@@ -92,7 +208,10 @@ class MarketBasketAnalyzer:
         cleaned_transactions = []
         for transaction in transactions:
             # Convert each item to string, filter out 'nan' and empty strings
-            cleaned_items = [str(item) for item in transaction if str(item) not in ['nan', 'None', '']]
+            cleaned_items = [
+                str(item) for item in transaction 
+                if str(item) not in ['nan', 'None', '']
+            ]
             if cleaned_items:  # Only add non-empty transactions
                 cleaned_transactions.append(cleaned_items)
         
@@ -103,17 +222,45 @@ class MarketBasketAnalyzer:
         return self.df_encoded
     
     def find_frequent_itemsets(self, min_support: float = 0.01) -> pd.DataFrame:
-        """
-        Find frequent itemsets using Apriori algorithm.
+        """Find frequent itemsets using the Apriori algorithm.
+        
+        Discovers all itemsets (combinations of items) that appear together
+        in transactions with frequency above the minimum support threshold.
         
         Args:
-            min_support: Minimum support threshold
-            
+            min_support: Minimum support threshold (0.0 to 1.0)
+                        - 0.01 = itemset must appear in at least 1% of transactions
+                        - 0.1 = itemset must appear in at least 10% of transactions
+                        - Lower values find more (but potentially less meaningful) itemsets
+        
         Returns:
-            DataFrame of frequent itemsets
+            DataFrame with columns:
+                - support: Frequency of the itemset (0.0 to 1.0)
+                - itemsets: Frozenset of items in the itemset
+                - length: Number of items in the itemset
+        
+        Raises:
+            ValueError: If transactions haven't been encoded yet
+        
+        Example:
+            >>> analyzer.encode_transactions(transactions)
+            >>> itemsets = analyzer.find_frequent_itemsets(min_support=0.02)
+            >>> 
+            >>> # View most frequent itemsets
+            >>> print(itemsets.sort_values('support', ascending=False).head())
+            >>> 
+            >>> # Filter by itemset size
+            >>> pairs = itemsets[itemsets['length'] == 2]
+            >>> print(f"Found {len(pairs)} frequent pairs")
+        
+        Note:
+            - Uses Apriori algorithm for efficient mining
+            - Result is stored in self.frequent_itemsets
+            - Required before generating association rules
+            - Higher min_support = faster computation, fewer results
         """
         if self.df_encoded is None:
-            raise ValueError("Transactions must be encoded first")
+            raise ValueError("Transactions must be encoded first using encode_transactions()")
         
         self.frequent_itemsets = apriori(
             self.df_encoded, 
@@ -121,7 +268,7 @@ class MarketBasketAnalyzer:
             use_colnames=True
         )
         
-        # Add itemset length
+        # Add itemset length for easy filtering
         self.frequent_itemsets['length'] = self.frequent_itemsets['itemsets'].apply(len)
         
         return self.frequent_itemsets
@@ -133,20 +280,60 @@ class MarketBasketAnalyzer:
         min_confidence: float = 0.2,
         min_support: float = 0.01
     ) -> pd.DataFrame:
-        """
-        Generate association rules from frequent itemsets.
+        """Generate association rules from frequent itemsets.
+        
+        Creates "if-then" rules showing relationships between items, useful for
+        product recommendations, bundling strategies, and store layout optimization.
         
         Args:
-            metric: Metric to use for filtering ('lift', 'confidence', 'support')
-            min_threshold: Minimum threshold for the metric
-            min_confidence: Minimum confidence
-            min_support: Minimum support
-            
+            metric: Metric to use for initial filtering
+                   - 'lift': Strength of association (default)
+                   - 'confidence': Conditional probability
+                   - 'support': Frequency of rule
+            min_threshold: Minimum value for the chosen metric
+                          - For lift: 1.0 = no association, >1.0 = positive association
+                          - For confidence: 0.0 to 1.0 (probability)
+            min_confidence: Minimum confidence threshold (0.0 to 1.0)
+                           - 0.5 = consequent bought 50% of time when antecedent bought
+            min_support: Minimum support threshold (0.0 to 1.0)
+                        - 0.01 = rule must occur in at least 1% of transactions
+        
         Returns:
-            DataFrame of association rules
+            DataFrame with columns:
+                - antecedents: Items on left side of rule (IF items)
+                - consequents: Items on right side of rule (THEN items)
+                - support: Frequency of complete rule
+                - confidence: P(consequents | antecedents)
+                - lift: Strength of association
+                - And other metrics (leverage, conviction, etc.)
+            Sorted by lift (descending), then confidence, then support
+        
+        Raises:
+            ValueError: If frequent itemsets haven't been generated yet
+        
+        Example:
+            >>> # Generate rules
+            >>> rules = analyzer.generate_association_rules(
+            >>>     metric='lift',
+            >>>     min_threshold=2.0,  # 2x more likely than random
+            >>>     min_confidence=0.3  # 30% probability
+            >>> )
+            >>> 
+            >>> # View top rules
+            >>> for _, rule in rules.head().iterrows():
+            >>>     print(f"{rule['antecedents']} → {rule['consequents']}")
+            >>>     print(f"  Lift: {rule['lift']:.2f}")
+        
+        Note:
+            - Lift > 1.0 = positive association (items bought together)
+            - Lift = 1.0 = no association (independent)
+            - Lift < 1.0 = negative association (items rarely bought together)
+            - Result stored in self.rules
         """
         if self.frequent_itemsets is None:
-            raise ValueError("Frequent itemsets must be generated first")
+            raise ValueError(
+                "Frequent itemsets must be generated first using find_frequent_itemsets()"
+            )
         
         self.rules = association_rules(
             self.frequent_itemsets, 
@@ -169,8 +356,27 @@ class MarketBasketAnalyzer:
         return self.rules
     
     @staticmethod
-    def format_itemset(itemset) -> str:
-        """Format frozenset as readable string."""
+    def format_itemset(itemset: Union[frozenset, set]) -> str:
+        """Format frozenset or set as human-readable string.
+        
+        Converts frozenset to sorted, comma-separated string for display.
+        
+        Args:
+            itemset: Frozenset or set of items
+        
+        Returns:
+            Formatted string like "{Item1, Item2, Item3}"
+        
+        Example:
+            >>> itemset = frozenset(['Milk', 'Bread', 'Eggs'])
+            >>> formatted = MarketBasketAnalyzer.format_itemset(itemset)
+            >>> print(formatted)
+            {Bread, Eggs, Milk}
+        
+        Note:
+            - Items are sorted alphabetically for consistency
+            - Falls back to unsorted if sorting fails
+        """
         try:
             # Convert all items to strings and sort
             items = [str(item) for item in itemset]
@@ -180,7 +386,31 @@ class MarketBasketAnalyzer:
             return '{' + ', '.join(str(item) for item in itemset) + '}'
     
     def get_rules_summary(self) -> Dict[str, Any]:
-        """Get summary statistics of the rules."""
+        """Get summary statistics of generated association rules.
+        
+        Calculates aggregate metrics for all discovered rules including
+        averages and maximums for support, confidence, and lift.
+        
+        Returns:
+            Dictionary containing:
+                - total_rules (int): Number of rules found
+                - avg_support (float): Average support across all rules
+                - avg_confidence (float): Average confidence across all rules
+                - avg_lift (float): Average lift across all rules
+                - max_lift (float): Highest lift value (if rules exist)
+                - max_confidence (float): Highest confidence value (if rules exist)
+        
+        Example:
+            >>> analyzer.generate_association_rules()
+            >>> summary = analyzer.get_rules_summary()
+            >>> 
+            >>> st.metric("Total Rules", summary['total_rules'])
+            >>> st.metric("Average Lift", f"{summary['avg_lift']:.2f}")
+        
+        Note:
+            - Returns zeros if no rules found
+            - Useful for dashboard displays and reporting
+        """
         if self.rules is None or len(self.rules) == 0:
             return {
                 'total_rules': 0,
@@ -199,7 +429,28 @@ class MarketBasketAnalyzer:
         }
     
     def get_top_items(self, top_n: int = 10) -> pd.DataFrame:
-        """Get top N most frequent items."""
+        """Get top N most frequently purchased items.
+        
+        Calculates item frequencies and support values from encoded transactions.
+        
+        Args:
+            top_n: Number of top items to return (default: 10)
+        
+        Returns:
+            DataFrame with columns:
+                - Item: Item name
+                - Frequency: Count of transactions containing item
+                - Support: Proportion of transactions containing item (0.0 to 1.0)
+            Sorted by frequency (descending)
+        
+        Example:
+            >>> top_items = analyzer.get_top_items(top_n=5)
+            >>> st.dataframe(top_items)
+        
+        Note:
+            - Returns empty DataFrame if transactions not encoded yet
+            - Support = Frequency / Total Transactions
+        """
         if self.df_encoded is None:
             return pd.DataFrame()
         
@@ -212,7 +463,24 @@ class MarketBasketAnalyzer:
         })
     
     def create_scatter_plot(self) -> go.Figure:
-        """Create scatter plot of Support vs Confidence (size = Lift)."""
+        """Create interactive scatter plot of association rules.
+        
+        Visualizes rules with support on x-axis, confidence on y-axis,
+        and lift represented by bubble size and color.
+        
+        Returns:
+            Plotly Figure object for display with st.plotly_chart()
+        
+        Example:
+            >>> fig = analyzer.create_scatter_plot()
+            >>> st.plotly_chart(fig, use_container_width=True)
+        
+        Note:
+            - Bubble size proportional to lift
+            - Color intensity represents lift value
+            - Hover shows complete rule details
+            - Returns empty figure if no rules exist
+        """
         if self.rules is None or len(self.rules) == 0:
             return go.Figure()
         
@@ -252,7 +520,28 @@ class MarketBasketAnalyzer:
         return fig
     
     def create_network_graph(self, top_n: int = 15) -> go.Figure:
-        """Create network graph of top association rules."""
+        """Create network graph visualization of top association rules.
+        
+        Shows items as nodes and rules as directed edges, useful for
+        understanding complex item relationships.
+        
+        Args:
+            top_n: Number of top rules to display (default: 15)
+        
+        Returns:
+            Plotly Figure object showing network graph
+        
+        Example:
+            >>> fig = analyzer.create_network_graph(top_n=20)
+            >>> st.plotly_chart(fig, use_container_width=True)
+        
+        Note:
+            - Nodes: Items
+            - Edges: Rules (directed from antecedent to consequent)
+            - Edge weight represents lift value
+            - Uses spring layout algorithm for positioning
+            - Returns empty figure if no rules exist
+        """
         if self.rules is None or len(self.rules) == 0:
             return go.Figure()
         
@@ -332,7 +621,28 @@ class MarketBasketAnalyzer:
         return fig
     
     def generate_insights(self, top_n: int = 5) -> List[str]:
-        """Generate business insights from top rules."""
+        """Generate actionable business insights from top association rules.
+        
+        Creates human-readable recommendations based on strongest rules,
+        including specific business actions like bundling and placement.
+        
+        Args:
+            top_n: Number of top rules to generate insights for (default: 5)
+        
+        Returns:
+            List of formatted insight strings with markdown formatting
+        
+        Example:
+            >>> insights = analyzer.generate_insights(top_n=3)
+            >>> for insight in insights:
+            >>>     st.markdown(insight)
+        
+        Note:
+            - Insights sorted by lift (strongest associations first)
+            - Each insight includes lift, support, confidence interpretations
+            - Provides specific business recommendations
+            - Returns helpful message if no rules found
+        """
         if self.rules is None or len(self.rules) == 0:
             return ["No rules found. Try adjusting the thresholds."]
         
