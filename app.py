@@ -3618,12 +3618,16 @@ def show_rfm_analysis():
             key="viz_option"
         )
         
-        if viz_option == "Cluster" and 'rfm_clustered' in st.session_state:
-            fig_3d = rfm_analyzer.create_rfm_scatter_3d(st.session_state.rfm_clustered, color_col='Cluster')
+        if viz_option == "Cluster":
+            if 'rfm_clustered' in st.session_state:
+                fig_3d = rfm_analyzer.create_rfm_scatter_3d(st.session_state.rfm_clustered, color_col='Cluster')
+                st.plotly_chart(fig_3d, use_container_width=True)
+            else:
+                st.warning("⚠️ Please run K-Means Clustering first (Section 3 above) to view cluster-based visualization.")
+                st.info("💡 Click the '🔄 Run K-Means Clustering' button in Section 3, then return here to view by cluster.")
         else:
             fig_3d = rfm_analyzer.create_rfm_scatter_3d(rfm_segmented, color_col='Segment')
-        
-        st.plotly_chart(fig_3d, use_container_width=True)
+            st.plotly_chart(fig_3d, use_container_width=True)
         
         # Business Insights
         st.divider()
