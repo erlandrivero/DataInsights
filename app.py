@@ -6008,6 +6008,70 @@ def show_ml_regression():
             fig_imp.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
             st.plotly_chart(fig_imp, use_container_width=True)
         
+        # AI-Powered Insights
+        st.divider()
+        st.subheader("✨ AI-Powered Insights")
+        
+        if st.button("🤖 Generate AI Insights", key="mlr_ai_insights", use_container_width=True):
+            try:
+                from utils.ai_helper import AIHelper
+                ai = AIHelper()
+                
+                with st.spinner("Analyzing regression results and generating insights..."):
+                    # Prepare context
+                    context = f"""
+                    Machine Learning Regression Results:
+                    
+                    Dataset: {len(df)} rows, {len(df.columns)} columns
+                    Target: {target_col}
+                    
+                    Models Trained: {len(successful_results)}
+                    Best Model: {best_model['model_name']}
+                    Best R² Score: {best_model['r2']:.4f}
+                    Best RMSE: {best_model['rmse']:.2f}
+                    Best MAE: {best_model['mae']:.2f}
+                    
+                    Top 3 Models:
+                    """
+                    
+                    for i, r in enumerate(successful_results[:3], 1):
+                        context += f"\n{i}. {r['model_name']}: R²={r['r2']:.4f}, RMSE={r['rmse']:.2f}, MAE={r['mae']:.2f}"
+                    
+                    prompt = f"""
+                    As a senior data science consultant, analyze these machine learning regression results and provide:
+                    
+                    1. **Performance Analysis** (2-3 sentences): Why did {best_model['model_name']} perform best? What does the R² score tell us about model fit?
+                    
+                    2. **Model Comparison** (2-3 sentences): Key differences between top 3 models and when to use each. Which model offers best trade-offs?
+                    
+                    3. **Business Recommendations** (3-4 bullet points): Which model to deploy and why? Consider accuracy, speed, interpretability, and prediction reliability.
+                    
+                    4. **Improvement Suggestions** (3-4 bullet points): How to potentially improve performance? Consider feature engineering, hyperparameter tuning, ensemble methods.
+                    
+                    5. **Deployment Considerations** (2-3 bullet points): What to watch for in production? How to monitor model performance over time?
+                    
+                    {context}
+                    
+                    Be specific, actionable, and business-focused. Use clear language. Interpret R², RMSE, and MAE in practical terms.
+                    """
+                    
+                    response = ai.client.chat.completions.create(
+                        model="gpt-4",
+                        messages=[
+                            {"role": "system", "content": "You are a senior data science consultant providing actionable ML insights for regression problems."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.7,
+                        max_tokens=1500
+                    )
+                    
+                    st.markdown(response.choices[0].message.content)
+                    
+            except Exception as e:
+                st.error(f"Error generating insights: {str(e)}")
+                if "openai" in str(e).lower() or "api" in str(e).lower():
+                    st.info("💡 Make sure your OpenAI API key is configured in the secrets.")
+        
         # Export section
         st.divider()
         st.subheader("📥 5. Export & Download")
