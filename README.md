@@ -1,4 +1,4 @@
-# DataInsight AI 🎯
+# DataInsights 🎯
 
 An AI-powered business intelligence assistant that helps you analyze data, generate insights, and create professional reports using natural language.
 
@@ -14,7 +14,7 @@ An AI-powered business intelligence assistant that helps you analyze data, gener
 
 ## Market Basket Analysis Module 🧺
 
-DataInsight AI now includes a comprehensive **Market Basket Analysis** module for discovering patterns in transactional data.
+DataInsights now includes a comprehensive **Market Basket Analysis** module for discovering patterns in transactional data.
 
 ### Features:
 - 🧺 Apriori algorithm implementation
@@ -37,7 +37,7 @@ See [MBA_GUIDE.md](MBA_GUIDE.md) for detailed instructions and business applicat
 
 ## Live Demo
 
-🚀 [Try DataInsight AI](https://your-app-name.streamlit.app) _(Update after deployment)_
+🚀 [Try DataInsights](https://your-app-name.streamlit.app) _(Update after deployment)_
 
 ## Local Setup
 
