@@ -249,3 +249,97 @@ class ExportHelper:
             Multiplies value by 100 before formatting
         """
         return f"{value * 100:.{decimals}f}%"
+    
+    @staticmethod
+    def create_data_dictionary(df: pd.DataFrame, profile: Dict[str, Any]) -> bytes:
+        """Create comprehensive data dictionary for a DataFrame.
+        
+        Generates a detailed data dictionary document describing each column's
+        characteristics including data types, statistics, missing values, and
+        sample data.
+        
+        Args:
+            df (pd.DataFrame): DataFrame to document
+            profile (Dict[str, Any]): Data profile from DataProcessor.profile_data()
+        
+        Returns:
+            bytes: UTF-8 encoded text document ready for download
+        
+        Example:
+            >>> profile = DataProcessor.profile_data(df)
+            >>> dictionary = ExportHelper.create_data_dictionary(df, profile)
+            >>> st.download_button("Download", dictionary, "data_dictionary.txt")
+        
+        Note:
+            - Includes column-by-column breakdown
+            - Shows sample values for each column
+            - Documents data quality issues
+            - Formatted as plain text for universal readability
+        """
+        lines = []
+        lines.append("=" * 80)
+        lines.append("DATA DICTIONARY")
+        lines.append("=" * 80)
+        lines.append(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        lines.append(f"Total Rows: {len(df):,}")
+        lines.append(f"Total Columns: {len(df.columns)}")
+        lines.append("")
+        
+        # Dataset Overview
+        lines.append("-" * 80)
+        lines.append("DATASET OVERVIEW")
+        lines.append("-" * 80)
+        if profile:
+            lines.append(f"Memory Usage: {profile.get('memory_usage', 'N/A')}")
+            lines.append(f"Missing Values: {profile.get('missing_percentage', 'N/A')}")
+            lines.append(f"Duplicate Rows: {profile.get('duplicate_rows', 'N/A')}")
+        lines.append("")
+        
+        # Column Details
+        lines.append("-" * 80)
+        lines.append("COLUMN DETAILS")
+        lines.append("-" * 80)
+        
+        for idx, col in enumerate(df.columns, 1):
+            lines.append(f"\n{idx}. {col}")
+            lines.append("   " + "-" * 70)
+            
+            # Data type
+            lines.append(f"   Data Type: {df[col].dtype}")
+            
+            # Unique values
+            n_unique = df[col].nunique()
+            lines.append(f"   Unique Values: {n_unique:,}")
+            
+            # Missing values
+            n_missing = df[col].isnull().sum()
+            pct_missing = (n_missing / len(df)) * 100 if len(df) > 0 else 0
+            lines.append(f"   Missing Values: {n_missing:,} ({pct_missing:.1f}%)")
+            
+            # Sample values (first 5 non-null unique values)
+            sample_values = df[col].dropna().unique()[:5]
+            if len(sample_values) > 0:
+                sample_str = ", ".join([str(v)[:50] for v in sample_values])
+                lines.append(f"   Sample Values: {sample_str}")
+            
+            # Statistics for numeric columns
+            if pd.api.types.is_numeric_dtype(df[col]):
+                lines.append(f"   Min: {df[col].min()}")
+                lines.append(f"   Max: {df[col].max()}")
+                lines.append(f"   Mean: {df[col].mean():.2f}")
+                lines.append(f"   Median: {df[col].median():.2f}")
+                lines.append(f"   Std Dev: {df[col].std():.2f}")
+            
+            # Value counts for categorical with few unique values
+            if n_unique <= 10 and n_unique > 0:
+                lines.append(f"   Value Distribution:")
+                value_counts = df[col].value_counts().head(10)
+                for val, count in value_counts.items():
+                    pct = (count / len(df)) * 100
+                    lines.append(f"      {val}: {count:,} ({pct:.1f}%)")
+        
+        lines.append("\n" + "=" * 80)
+        lines.append("END OF DATA DICTIONARY")
+        lines.append("=" * 80)
+        
+        return "\n".join(lines).encode('utf-8')
