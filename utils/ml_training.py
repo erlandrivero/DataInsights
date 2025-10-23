@@ -1,6 +1,40 @@
-"""
-Comprehensive Machine Learning Training Module
-Implements 15 classification algorithms with full evaluation pipeline
+"""Comprehensive Machine Learning Classification Training Module.
+
+This module implements a complete ML classification pipeline with 15 algorithms including
+linear models, tree-based methods, boosting ensembles, and meta-learners. Features automatic
+data preprocessing, stratified sampling, cross-validation, and comprehensive evaluation metrics.
+
+Typical usage example:
+    trainer = MLTrainer(df, target_column='Churn', max_samples=10000)
+    prep_info = trainer.prepare_data(test_size=0.2)
+    all_models = trainer.get_all_models()
+    results = trainer.train_all_models(selected_models=['Random Forest', 'XGBoost'])
+    best_model_info = trainer.get_best_model_details(results)
+
+Classes:
+    MLTrainer: Main class for ML classification training and evaluation.
+
+Supported Algorithms:
+    Linear: Ridge, SGD, Perceptron (3)
+    Trees: Decision Tree, Random Forest, Extra Trees (3)
+    Boosting: AdaBoost, Gradient Boosting, Hist GB, XGBoost, LightGBM, CatBoost (6)
+    Ensembles: Bagging, Voting, Stacking (3)
+
+Features:
+    - Automatic categorical encoding with LabelEncoder
+    - Datetime feature extraction (year, month, day, dayofweek)
+    - Stratified train-test split
+    - StandardScaler normalization
+    - Cross-validation with F1 scoring
+    - Multi-class compatible metrics
+    - Feature importance extraction
+    - Intelligent sampling for large datasets (stratified)
+
+Notes:
+    - XGBoost, LightGBM, CatBoost are optional dependencies
+    - Handles both binary and multi-class classification
+    - Optimized for datasets up to 10,000 samples (configurable)
+    - All models use random_state=42 for reproducibility
 """
 
 import pandas as pd
@@ -56,14 +90,30 @@ class MLTrainer:
     Optimized for performance and memory efficiency.
     """
     
-    def __init__(self, df: pd.DataFrame, target_column: str, max_samples: int = 10000):
-        """
-        Initialize ML Trainer.
+    def __init__(self, df: pd.DataFrame, target_column: str, max_samples: int = 10000) -> None:
+        """Initialize ML classification trainer with data and configuration.
+        
+        Creates a new MLTrainer instance with automatic stratified sampling for large
+        datasets to optimize training performance while maintaining class distribution.
         
         Args:
-            df: Input DataFrame
-            target_column: Name of target column
-            max_samples: Maximum samples for training (performance optimization)
+            df (pd.DataFrame): Input DataFrame containing features and target column.
+            target_column (str): Name of the column to predict (classification target).
+            max_samples (int): Maximum number of samples to use for training. Datasets
+                larger than this will be stratified sampled to maintain class proportions.
+                Default is 10,000.
+        
+        Examples:
+            >>> df = pd.read_csv('customer_churn.csv')
+            >>> trainer = MLTrainer(df, target_column='Churn', max_samples=5000)
+            >>> print(f"Sampled: {trainer.sampled}, Rows: {len(trainer.df)}")
+        
+        Notes:
+            - Makes a copy of input DataFrame
+            - Uses stratified sampling to preserve class distribution
+            - Falls back to random sampling if stratification fails
+            - Sets sampled=True if sampling occurred
+            - Call prepare_data() next to preprocess features
         """
         self.df = df.copy()
         self.target_column = target_column
@@ -97,15 +147,40 @@ class MLTrainer:
         self.class_names = []
         
     def prepare_data(self, test_size: float = 0.2, random_state: int = 42) -> Dict[str, Any]:
-        """
-        Prepare data for training with proper encoding and scaling.
+        """Prepare data for ML training with encoding, scaling, and splitting.
+        
+        This method performs comprehensive data preprocessing including datetime feature
+        extraction, categorical encoding, target encoding, train-test split (stratified),
+        and feature scaling.
         
         Args:
-            test_size: Fraction of data for testing
-            random_state: Random seed
+            test_size (float): Proportion of dataset to use for testing (0.0-1.0).
+                Default is 0.2 (20% test, 80% train).
+            random_state (int): Random seed for reproducible splits. Default is 42.
             
         Returns:
-            Dictionary with preparation details
+            Dict[str, Any]: Preparation summary containing:
+                - n_samples (int): Total number of samples
+                - n_features (int): Number of features after preprocessing
+                - n_classes (int): Number of unique target classes
+                - train_size (int): Number of training samples
+                - test_size (int): Number of test samples
+                - sampled (bool): Whether dataset was sampled
+                - class_names (List[str]): Names of target classes
+        
+        Examples:
+            >>> trainer = MLTrainer(df, 'Churn')
+            >>> info = trainer.prepare_data(test_size=0.25)
+            >>> print(f"Features: {info['n_features']}, Classes: {info['n_classes']}")
+            >>> print(f"Train: {info['train_size']}, Test: {info['test_size']}")
+        
+        Notes:
+            - Datetime columns converted to numeric features (year, month, day, dayofweek)
+            - Categorical features encoded with LabelEncoder
+            - Target variable encoded if categorical
+            - StandardScaler applied to features
+            - Stratified split maintains class distribution
+            - Sets instance attributes: X_train, X_test, y_train, y_test
         """
         # Separate features and target
         self.X = self.df.drop(columns=[self.target_column]).copy()
@@ -172,11 +247,28 @@ class MLTrainer:
         }
     
     def get_all_models(self) -> Dict[str, Any]:
-        """
-        Get dictionary of all 15 classification models.
+        """Get dictionary of all 15 available classification models.
+        
+        Returns a dictionary mapping model names to initialized model instances.
+        Models are configured with default hyperparameters optimized for general use.
         
         Returns:
-            Dictionary mapping model names to model objects
+            Dict[str, Any]: Dictionary with model names as keys and sklearn-compatible
+                model instances as values. Total of 12-15 models depending on optional
+                library availability (XGBoost, LightGBM, CatBoost).
+        
+        Examples:
+            >>> trainer = MLTrainer(df, 'Target')
+            >>> models = trainer.get_all_models()
+            >>> print(f"Available models: {list(models.keys())}")
+            >>> print(f"Total: {len(models)} models")
+        
+        Notes:
+            - All models use random_state=42 for reproducibility
+            - XGBoost, LightGBM, CatBoost only included if installed
+            - Models grouped by type: Linear (3), Trees (3), Boosting (6), Ensembles (3)
+            - All models are freshly initialized (not fitted)
+            - Use train_single_model() or train_all_models() to train
         """
         models = {}
         
@@ -238,16 +330,48 @@ class MLTrainer:
         model: Any,
         cv_folds: int = 3
     ) -> Dict[str, Any]:
-        """
-        Train and evaluate a single model.
+        """Train and comprehensively evaluate a single classification model.
+        
+        This method trains a model on the training set, generates predictions on the test
+        set, computes evaluation metrics (accuracy, precision, recall, F1, ROC-AUC), and
+        performs cross-validation for robustness assessment.
         
         Args:
-            model_name: Name of the model
-            model: Model instance
-            cv_folds: Number of cross-validation folds
+            model_name (str): Human-readable name of the model (e.g., 'Random Forest').
+            model (Any): Initialized sklearn-compatible model instance to train.
+            cv_folds (int): Number of cross-validation folds for F1 scoring. Default is 3.
+                Must be >= 2. Use higher values (5-10) for more reliable estimates.
             
         Returns:
-            Dictionary with all evaluation metrics
+            Dict[str, Any]: Comprehensive evaluation results containing:
+                - model_name (str): Name of the model
+                - model (Any): Fitted model instance
+                - accuracy (float): Test set accuracy (0.0-1.0)
+                - precision (float): Precision score (binary/weighted)
+                - recall (float): Recall score (binary/weighted)
+                - f1 (float): F1 score (binary/weighted)
+                - roc_auc (float|None): ROC-AUC score (None if unavailable)
+                - cv_scores (List[float]): Cross-validation F1 scores
+                - cv_mean (float|None): Mean CV score
+                - cv_std (float|None): Standard deviation of CV scores
+                - training_time (float): Training time in seconds
+                - success (bool): True if training succeeded
+                - error (str|None): Error message if training failed
+        
+        Examples:
+            >>> trainer = MLTrainer(df, 'Churn')
+            >>> trainer.prepare_data()
+            >>> models = trainer.get_all_models()
+            >>> result = trainer.train_single_model('Random Forest', models['Random Forest'])
+            >>> print(f"Accuracy: {result['accuracy']:.3f}")
+            >>> print(f"F1: {result['f1']:.3f}, CV Mean: {result['cv_mean']:.3f}")
+        
+        Notes:
+            - Uses weighted averaging for multi-class metrics
+            - ROC-AUC computed for both binary and multi-class
+            - Cross-validation uses StratifiedKFold
+            - Returns error dict with success=False if training fails
+            - Training time includes fitting only (not CV)
         """
         try:
             # Track training time

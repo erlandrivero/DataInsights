@@ -1,18 +1,60 @@
-"""
-RFM Analysis and Customer Segmentation utilities.
+"""RFM Analysis and Customer Segmentation Utilities.
+
+This module provides comprehensive tools for performing RFM (Recency, Frequency, Monetary)
+analysis and customer segmentation. It implements industry-standard RFM scoring, K-Means
+clustering, and rule-based customer segmentation with detailed business insights.
+
+Typical usage example:
+    analyzer = RFMAnalyzer()
+    rfm_data = analyzer.calculate_rfm(df, 'CustomerID', 'InvoiceDate', 'TotalAmount')
+    rfm_scored = analyzer.score_rfm(rfm_data, method='quartile')
+    rfm_segmented = analyzer.segment_customers(rfm_scored)
+    profiles = analyzer.get_segment_profiles(rfm_segmented, 'CustomerID')
+
+Attributes:
+    rfm_data (Optional[pd.DataFrame]): Original RFM metrics data.
+    scaled_data (Optional[np.ndarray]): Scaled features for clustering.
+    clusters (Optional[np.ndarray]): Cluster assignments from K-Means.
+    scaler (StandardScaler): Scaler for feature normalization.
+
 """
 
 import pandas as pd
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional, Union
+import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 
 class RFMAnalyzer:
-    """Handles RFM Analysis and Customer Segmentation."""
+    """Handles RFM Analysis and Customer Segmentation.
+    
+    This class provides a complete toolkit for RFM (Recency, Frequency, Monetary) analysis,
+    including RFM calculation, scoring methods, K-Means clustering, rule-based segmentation,
+    and comprehensive visualizations.
+    
+    Attributes:
+        rfm_data (Optional[pd.DataFrame]): Original RFM metrics data.
+        scaled_data (Optional[np.ndarray]): Scaled features for clustering.
+        clusters (Optional[np.ndarray]): Cluster assignments from K-Means.
+        scaler (StandardScaler): Scaler for feature normalization.
+    
+    Examples:
+        >>> analyzer = RFMAnalyzer()
+        >>> rfm = analyzer.calculate_rfm(transactions_df, 'CustomerID', 'Date', 'Amount')
+        >>> scored = analyzer.score_rfm(rfm, method='quartile')
+        >>> segmented = analyzer.segment_customers(scored)
+        >>> print(segmented[['CustomerID', 'Segment']].head())
+    
+    Notes:
+        - Recency: Days since last purchase (lower is better)
+        - Frequency: Number of transactions (higher is better)
+        - Monetary: Total spending (higher is better)
+        - Supports both quartile (1-4) and quintile (1-5) scoring
+    """
     
     def __init__(self):
         self.rfm_data = None
@@ -21,20 +63,50 @@ class RFMAnalyzer:
         self.scaler = StandardScaler()
     
     @staticmethod
+    @st.cache_data(ttl=1800)
     def calculate_rfm(df: pd.DataFrame, customer_col: str, date_col: str, amount_col: str, 
-                      reference_date: datetime = None) -> pd.DataFrame:
-        """
-        Calculate RFM metrics from transactional data.
+                      reference_date: Optional[datetime] = None) -> pd.DataFrame:
+        """Calculate RFM (Recency, Frequency, Monetary) metrics from transactional data.
+        
+        This method aggregates transaction-level data into customer-level RFM metrics.
+        Recency represents days since last purchase, Frequency counts transactions,
+        and Monetary sums transaction amounts.
         
         Args:
-            df: DataFrame with transaction data
-            customer_col: Customer ID column name
-            date_col: Transaction date column name
-            amount_col: Transaction amount column name
-            reference_date: Reference date for recency (default: max date + 1 day)
+            df (pd.DataFrame): DataFrame containing transaction data with customer IDs,
+                dates, and amounts.
+            customer_col (str): Name of the column containing customer identifiers.
+            date_col (str): Name of the column containing transaction dates.
+            amount_col (str): Name of the column containing transaction amounts.
+            reference_date (Optional[datetime]): Reference date for calculating recency.
+                If None, uses the maximum date in the dataset plus 1 day.
+                Default is None.
             
         Returns:
-            DataFrame with RFM metrics per customer
+            pd.DataFrame: DataFrame with one row per customer containing:
+                - customer_col: Customer identifier
+                - Recency: Days since last purchase
+                - Frequency: Number of transactions
+                - Monetary: Total transaction amount
+        
+        Examples:
+            >>> transactions = pd.DataFrame({
+            ...     'CustomerID': [1, 1, 2, 2, 3],
+            ...     'Date': ['2024-01-01', '2024-01-15', '2024-01-10', '2024-01-20', '2024-01-05'],
+            ...     'Amount': [100, 150, 200, 300, 50]
+            ... })
+            >>> rfm = RFMAnalyzer.calculate_rfm(
+            ...     transactions, 'CustomerID', 'Date', 'Amount'
+            ... )
+            >>> print(rfm.columns)
+            Index(['CustomerID', 'Recency', 'Frequency', 'Monetary'], dtype='object')
+        
+        Notes:
+            - Date column must be convertible to datetime format
+            - Recency is calculated in days (integer)
+            - Frequency is a count of transactions (not unique days)
+            - Monetary is the sum of all transaction amounts
+            - Missing values in amount column will affect monetary calculations
         """
         # Ensure date column is datetime
         df[date_col] = pd.to_datetime(df[date_col])
@@ -61,16 +133,42 @@ class RFMAnalyzer:
         return rfm
     
     @staticmethod
+    @st.cache_data(ttl=1800)
     def score_rfm(rfm: pd.DataFrame, method: str = 'quartile') -> pd.DataFrame:
-        """
-        Score RFM metrics using quartiles or quantiles.
+        """Score RFM metrics using quartile or quintile binning.
+        
+        This method assigns numerical scores (1-4 for quartile, 1-5 for quintile) to each
+        RFM metric. Recency scores are reversed (lower days = higher score) since recent
+        customers are more valuable. Frequency and Monetary scores are direct (higher = better).
         
         Args:
-            rfm: DataFrame with RFM metrics
-            method: 'quartile' (1-4) or 'quintile' (1-5)
+            rfm (pd.DataFrame): DataFrame containing Recency, Frequency, and Monetary columns.
+            method (str): Scoring method - either 'quartile' for 1-4 scores or 'quintile'
+                for 1-5 scores. Default is 'quartile'.
             
         Returns:
-            DataFrame with RFM scores
+            pd.DataFrame: Original DataFrame with added columns:
+                - R_Score: Recency score (4/5 = most recent)
+                - F_Score: Frequency score (4/5 = highest frequency)
+                - M_Score: Monetary score (4/5 = highest value)
+                - RFM_Score: Concatenated string score (e.g., '444')
+                - RFM_Total: Sum of individual scores (e.g., 12)
+        
+        Examples:
+            >>> rfm_data = pd.DataFrame({
+            ...     'CustomerID': [1, 2, 3, 4],
+            ...     'Recency': [5, 30, 60, 90],
+            ...     'Frequency': [10, 5, 2, 1],
+            ...     'Monetary': [1000, 500, 200, 100]
+            ... })
+            >>> scored = RFMAnalyzer.score_rfm(rfm_data, method='quartile')
+            >>> print(scored[['R_Score', 'F_Score', 'M_Score', 'RFM_Score']].head())
+        
+        Notes:
+            - Uses pd.qcut for equal-frequency binning
+            - Handles duplicate bin edges with duplicates='drop'
+            - RFM_Score is string concatenation for pattern matching
+            - RFM_Total is numeric sum for ranking
         """
         rfm_scored = rfm.copy()
         
@@ -118,15 +216,31 @@ class RFMAnalyzer:
         return rfm_scored
     
     def perform_kmeans_clustering(self, rfm: pd.DataFrame, n_clusters: int = 4) -> pd.DataFrame:
-        """
-        Perform K-Means clustering on RFM data.
+        """Perform K-Means clustering on RFM metrics for customer segmentation.
+        
+        This method applies K-Means clustering to scaled RFM features to identify
+        natural customer segments. Features are standardized using StandardScaler
+        before clustering to ensure equal weighting.
         
         Args:
-            rfm: DataFrame with RFM metrics
-            n_clusters: Number of clusters
+            rfm (pd.DataFrame): DataFrame containing Recency, Frequency, and Monetary columns.
+            n_clusters (int): Number of customer segments to create. Default is 4.
+                Typical values: 3-6 clusters.
             
         Returns:
-            DataFrame with cluster assignments
+            pd.DataFrame: Original DataFrame with added 'Cluster' column containing
+                cluster assignments (0 to n_clusters-1).
+        
+        Examples:
+            >>> analyzer = RFMAnalyzer()
+            >>> rfm_clustered = analyzer.perform_kmeans_clustering(rfm_data, n_clusters=5)
+            >>> print(rfm_clustered['Cluster'].value_counts())
+        
+        Notes:
+            - Uses StandardScaler for feature normalization
+            - K-Means parameters: random_state=42, n_init=10
+            - Stores scaled_data and clusters as instance attributes
+            - For optimal k, use calculate_elbow_curve() first
         """
         # Store original data
         self.rfm_data = rfm.copy()
@@ -172,15 +286,47 @@ class RFMAnalyzer:
         return list(cluster_range), inertias
     
     @staticmethod
+    @st.cache_data(ttl=1800)
     def segment_customers(rfm_scored: pd.DataFrame) -> pd.DataFrame:
-        """
-        Segment customers based on RFM scores.
+        """Assign customers to business segments using rule-based RFM scoring.
+        
+        This method implements industry-standard RFM segmentation logic to classify
+        customers into 11 distinct business segments (Champions, Loyal, At Risk, etc.)
+        based on their R_Score, F_Score, and M_Score values.
         
         Args:
-            rfm_scored: DataFrame with RFM scores
+            rfm_scored (pd.DataFrame): DataFrame containing R_Score, F_Score, and M_Score
+                columns (typically from score_rfm() method).
             
         Returns:
-            DataFrame with customer segments
+            pd.DataFrame: Original DataFrame with added 'Segment' column containing
+                one of 11 segment labels:
+                - Champions: Best customers (high RFM)
+                - Loyal Customers: Reliable high-value customers
+                - Potential Loyalists: Recent, growing engagement
+                - New Customers: Recently acquired
+                - Promising: Potential for growth
+                - Need Attention: Declining engagement
+                - About to Sleep: Showing disengagement
+                - At Risk: Previously valuable, now inactive
+                - Cannot Lose Them: High-value customers at risk
+                - Hibernating: Long inactive, low engagement
+                - Lost: Churned customers
+        
+        Examples:
+            >>> scored_rfm = RFMAnalyzer.score_rfm(rfm_data)
+            >>> segmented = RFMAnalyzer.segment_customers(scored_rfm)
+            >>> print(segmented['Segment'].value_counts())
+            Champions             1250
+            Loyal Customers        980
+            At Risk                456
+            ...
+        
+        Notes:
+            - Assumes quartile scoring (1-4 scale)
+            - Segments are mutually exclusive
+            - Logic prioritizes high-value at-risk customers
+            - Use get_segment_profiles() for segment analysis
         """
         rfm_segmented = rfm_scored.copy()
         
@@ -226,16 +372,38 @@ class RFMAnalyzer:
         return rfm_segmented
     
     @staticmethod
-    def get_segment_profiles(rfm_segmented: pd.DataFrame, customer_col: str = None) -> pd.DataFrame:
-        """
-        Get aggregate statistics for each segment.
+    @st.cache_data(ttl=1800)
+    def get_segment_profiles(rfm_segmented: pd.DataFrame, customer_col: Optional[str] = None) -> pd.DataFrame:
+        """Calculate aggregate statistics and profiles for each customer segment.
+        
+        This method computes mean RFM values and customer counts for each segment,
+        providing a high-level overview of segment characteristics.
         
         Args:
-            rfm_segmented: DataFrame with customer segments
-            customer_col: Customer ID column name
+            rfm_segmented (pd.DataFrame): DataFrame with 'Segment' column and RFM metrics.
+            customer_col (Optional[str]): Name of customer ID column for counting unique
+                customers. If None, counts rows instead. Default is None.
             
         Returns:
-            DataFrame with segment profiles
+            pd.DataFrame: Segment profile summary with columns:
+                - Segment: Segment name
+                - Customer_Count: Number of customers in segment
+                - Avg_Recency: Mean recency (days)
+                - Avg_Frequency: Mean frequency (transactions)
+                - Avg_Monetary: Mean monetary value
+                - Avg_R_Score: Mean R score
+                - Avg_F_Score: Mean F score  
+                - Avg_M_Score: Mean M score
+                Sorted by Customer_Count descending.
+        
+        Examples:
+            >>> profiles = RFMAnalyzer.get_segment_profiles(segmented_df, 'CustomerID')
+            >>> print(profiles[['Segment', 'Customer_Count', 'Avg_Monetary']].head())
+        
+        Notes:
+            - All averages are calculated using mean()
+            - Results sorted by customer count (largest segments first)
+            - Useful for executive summaries and segment comparison
         """
         if customer_col:
             group_col = 'Segment'
@@ -275,7 +443,29 @@ class RFMAnalyzer:
     
     @staticmethod
     def create_rfm_scatter_3d(rfm: pd.DataFrame, color_col: str = 'Cluster') -> go.Figure:
-        """Create 3D scatter plot of RFM metrics."""
+        """Create interactive 3D scatter plot visualizing RFM customer segments.
+        
+        This visualization displays customers in 3D space with Recency, Frequency,
+        and Monetary as axes, colored by segment or cluster assignment.
+        
+        Args:
+            rfm (pd.DataFrame): DataFrame with Recency, Frequency, Monetary columns.
+            color_col (str): Column name to use for color coding points. Typically
+                'Cluster' or 'Segment'. Default is 'Cluster'.
+            
+        Returns:
+            go.Figure: Plotly 3D scatter plot figure object, ready to display.
+        
+        Examples:
+            >>> fig = RFMAnalyzer.create_rfm_scatter_3d(rfm_clustered, color_col='Cluster')
+            >>> fig.show()
+        
+        Notes:
+            - Height fixed at 600px
+            - Marker size: 5
+            - Fully interactive (rotate, zoom, pan)
+            - Axes labeled with units
+        """
         fig = px.scatter_3d(
             rfm,
             x='Recency',
@@ -316,7 +506,27 @@ class RFMAnalyzer:
     
     @staticmethod
     def create_segment_distribution(rfm_segmented: pd.DataFrame) -> go.Figure:
-        """Create bar chart of segment distribution."""
+        """Create bar chart showing customer distribution across segments.
+        
+        This visualization displays the number of customers in each segment,
+        helping identify the largest and smallest customer groups.
+        
+        Args:
+            rfm_segmented (pd.DataFrame): DataFrame with 'Segment' column.
+            
+        Returns:
+            go.Figure: Plotly bar chart figure showing segment distribution.
+        
+        Examples:
+            >>> fig = RFMAnalyzer.create_segment_distribution(segmented_data)
+            >>> fig.show()
+        
+        Notes:
+            - Bars colored with Blues color scale
+            - X-axis labels rotated -45° for readability
+            - Height: 500px
+            - Interactive tooltips show exact counts
+        """
         segment_counts = rfm_segmented['Segment'].value_counts().reset_index()
         segment_counts.columns = ['Segment', 'Count']
         

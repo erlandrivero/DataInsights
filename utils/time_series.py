@@ -1,5 +1,24 @@
-"""
-Time Series Analysis and Forecasting utilities.
+"""Time Series Analysis and Forecasting Utilities.
+
+This module provides comprehensive tools for time series analysis including decomposition,
+stationarity testing, autocorrelation analysis, and forecasting with ARIMA and Prophet models.
+Optimized for Streamlit Cloud with intelligent sampling and parameter constraints.
+
+Typical usage example:
+    analyzer = TimeSeriesAnalyzer(df)
+    ts_data = analyzer.set_time_column('Date', 'Sales')
+    components = analyzer.decompose_time_series(model='additive')
+    arima_results = analyzer.run_auto_arima(forecast_periods=30)
+    fig = analyzer.create_forecast_plot('arima')
+
+Classes:
+    TimeSeriesAnalyzer: Main class for time series operations.
+
+Notes:
+    - ARIMA uses pmdarima (unavailable on Python 3.13)
+    - Prophet requires separate installation
+    - Auto-samples datasets >500 obs for cloud performance
+    - Cloud-optimized ARIMA: max_p=2, max_q=2
 """
 
 import pandas as pd
@@ -24,7 +43,7 @@ except ImportError:
     Prophet = None
     PROPHET_AVAILABLE = False
 
-from typing import Dict, Any, Tuple, List
+from typing import Dict, Any, Tuple, List, Optional
 import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta
@@ -34,12 +53,24 @@ warnings.filterwarnings('ignore')
 class TimeSeriesAnalyzer:
     """Handles time series data analysis and forecasting."""
     
-    def __init__(self, df: pd.DataFrame):
-        """
-        Initialize the TimeSeriesAnalyzer with a dataframe.
+    def __init__(self, df: pd.DataFrame) -> None:
+        """Initialize TimeSeriesAnalyzer with input dataframe.
+        
+        Prepares a new analyzer instance for time series analysis on the provided
+        DataFrame. Initializes all internal state variables.
         
         Args:
-            df: Input dataframe
+            df (pd.DataFrame): Input DataFrame containing time series data with at least
+                one datetime column and one numeric value column.
+        
+        Examples:
+            >>> df = pd.read_csv('sales_data.csv')
+            >>> analyzer = TimeSeriesAnalyzer(df)
+        
+        Notes:
+            - Makes a copy of the input DataFrame
+            - Call set_time_column() before analysis methods
+            - All models and forecasts stored as instance attributes
         """
         self.df = df.copy()
         self.time_col = None
@@ -180,16 +211,47 @@ class TimeSeriesAnalyzer:
         
         return acf_values, pacf_values
     
-    def run_auto_arima(self, forecast_periods: int = 30, seasonal: bool = None) -> Dict[str, Any]:
-        """
-        Run auto-ARIMA to find best model and generate forecast.
+    def run_auto_arima(self, forecast_periods: int = 30, seasonal: Optional[bool] = None) -> Dict[str, Any]:
+        """Run Auto-ARIMA model selection and generate forecasts.
+        
+        This method automatically selects the best ARIMA(p,d,q)(P,D,Q)m model using
+        stepwise search algorithm. Cloud-optimized with reduced search space (max_p=2, max_q=2)
+        and automatic sampling for datasets >500 observations.
         
         Args:
-            forecast_periods: Number of periods to forecast
-            seasonal: Force seasonal (True) or non-seasonal (False). None = auto-detect
+            forecast_periods (int): Number of future time periods to forecast. Default is 30.
+            seasonal (Optional[bool]): Seasonality setting:
+                - True: Force seasonal ARIMA model
+                - False: Force non-seasonal ARIMA model
+                - None: Auto-detect based on data characteristics
+                Default is None (auto-detect).
             
         Returns:
-            Dictionary with model info and forecast
+            Dict[str, Any]: Dictionary containing:
+                - model_order (tuple): ARIMA (p, d, q) order
+                - seasonal_order (tuple): Seasonal (P, D, Q, m) order
+                - aic (float): Akaike Information Criterion
+                - bic (float): Bayesian Information Criterion
+                - forecast (pd.DataFrame): Forecast with confidence intervals
+                - summary (str): Full model summary
+        
+        Raises:
+            ValueError: If pmdarima not installed or ts_data not set.
+        
+        Examples:
+            >>> analyzer = TimeSeriesAnalyzer(sales_df)
+            >>> analyzer.set_time_column('Date', 'Revenue')
+            >>> results = analyzer.run_auto_arima(forecast_periods=60, seasonal=True)
+            >>> print(f"Best model: ARIMA{results['model_order']}")
+            >>> print(f"AIC: {results['aic']:.2f}")
+        
+        Notes:
+            - Uses last 500 observations for datasets >500 rows
+            - Cloud-optimized: max_p=2, max_q=2, max_order=4
+            - Seasonal m auto-detected: 12 (monthly), 7 (daily)
+            - Stepwise search for performance
+            - 95% confidence intervals included in forecast
+            - pmdarima unavailable on Python 3.13
         """
         if not PMDARIMA_AVAILABLE:
             raise ValueError("pmdarima is not installed. This feature is temporarily unavailable on Python 3.13.")
@@ -273,14 +335,41 @@ class TimeSeriesAnalyzer:
         }
     
     def run_prophet(self, forecast_periods: int = 30) -> Dict[str, Any]:
-        """
-        Run Prophet model for forecasting.
+        """Run Facebook Prophet model for time series forecasting.
+        
+        This method fits a Prophet model with automatic seasonality detection,
+        including weekly and yearly patterns. Prophet is robust to missing data,
+        outliers, and trend changes.
         
         Args:
-            forecast_periods: Number of periods to forecast
+            forecast_periods (int): Number of future time periods to forecast. Default is 30.
             
         Returns:
-            Dictionary with model info and forecast
+            Dict[str, Any]: Dictionary containing:
+                - forecast (pd.DataFrame): Future forecast only with yhat, yhat_lower, yhat_upper
+                - full_forecast (pd.DataFrame): Historical + future forecast
+                - components (Dict): Decomposed components:
+                    - trend: Overall trend component
+                    - weekly: Weekly seasonality (if detected)
+                    - yearly: Yearly seasonality (if detected)
+        
+        Raises:
+            ValueError: If Prophet not installed or ts_data not set.
+        
+        Examples:
+            >>> analyzer = TimeSeriesAnalyzer(traffic_df)
+            >>> analyzer.set_time_column('Timestamp', 'Visitors')
+            >>> results = analyzer.run_prophet(forecast_periods=90)
+            >>> forecast = results['forecast']
+            >>> print(forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].head())
+        
+        Notes:
+            - Automatically detects weekly and yearly seasonality
+            - Daily seasonality disabled by default
+            - Handles missing values and outliers well
+            - Returns 80% confidence intervals (yhat_lower, yhat_upper)
+            - Requires: pip install prophet
+            - Works better with longer time series (>2 cycles)
         """
         if not PROPHET_AVAILABLE:
             raise ValueError("Prophet is not installed. Install it with: pip install prophet")
