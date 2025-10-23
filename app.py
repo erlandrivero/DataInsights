@@ -211,7 +211,7 @@ def show_home():
         st.markdown("""
         <div class="feature-box">
             <h3>🤖 AI Analysis</h3>
-            <p>Ask questions in natural language and get intelligent answers</p>
+            <p>Ask questions in natural language<br>and get intelligent answers</p>
         </div>
         """, unsafe_allow_html=True)
     
