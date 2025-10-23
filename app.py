@@ -4073,6 +4073,78 @@ def show_monte_carlo_simulation():
             5. **Dollar-Cost Averaging:** Spread investment over time to reduce risk
             """)
         
+        # AI-Powered Analysis
+        st.divider()
+        st.subheader("✨ AI-Powered Investment Analysis")
+        
+        if st.button("🤖 Generate AI Analysis", type="primary", use_container_width=True):
+            try:
+                from utils.ai_helper import AIHelper
+                ai = AIHelper()
+                
+                with st.spinner("Analyzing Monte Carlo simulation results with AI..."):
+                    # Prepare context
+                    context = f"""
+                    Monte Carlo Simulation Analysis for {ticker}:
+                    
+                    Simulation Parameters:
+                    - Forecast Period: {forecast_days_actual} days
+                    - Number of Simulations: {num_simulations}
+                    - Starting Price: ${stock_data['Close'].iloc[-1]:.2f}
+                    
+                    Historical Statistics:
+                    - Mean Daily Return: {stats['mean']*100:.3f}%
+                    - Volatility (Std Dev): {stats['std']*100:.3f}%
+                    
+                    Key Risk Metrics:
+                    - Expected Return: {risk_metrics['expected_return']:.2f}%
+                    - Expected Price: ${risk_metrics['expected_price']:.2f}
+                    - Standard Deviation: {risk_metrics['std_dev']:.2f}%
+                    - Value at Risk (95%): {risk_metrics['var_95']:.2f}%
+                    - Conditional VaR (95%): {risk_metrics['cvar_95']:.2f}%
+                    - Probability of Profit: {risk_metrics['probability_profit']:.1f}%
+                    - Price Range: ${risk_metrics['min_price']:.2f} - ${risk_metrics['max_price']:.2f}
+                    """
+                    
+                    prompt = f"""
+                    As a senior financial advisor, analyze these Monte Carlo simulation results and provide:
+                    
+                    1. **Investment Recommendation** (2-3 sentences): Should an investor consider this stock? Why or why not based on the risk/reward profile?
+                    
+                    2. **Risk Assessment** (2-3 sentences): How risky is this investment? Interpret the VaR and volatility in practical terms.
+                    
+                    3. **Optimal Strategy** (3-4 bullet points): What investment strategy would work best? Consider:
+                       - Position sizing
+                       - Entry/exit points
+                       - Risk management tactics
+                       - Time horizon considerations
+                    
+                    4. **Key Concerns** (2-3 bullet points): What should investors watch out for? Red flags or limitations?
+                    
+                    5. **Market Context** (2-3 sentences): How do these metrics compare to typical market expectations? Is the expected return reasonable given the risk?
+                    
+                    {context}
+                    
+                    Be specific, actionable, and investor-focused. Use clear language that a non-expert can understand.
+                    """
+                    
+                    response = ai.client.chat.completions.create(
+                        model="gpt-4",
+                        messages=[
+                            {"role": "system", "content": "You are a senior financial advisor providing actionable investment insights based on quantitative analysis."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.7,
+                        max_tokens=1500
+                    )
+                    
+                    st.markdown(response.choices[0].message.content)
+                    
+            except Exception as e:
+                st.error(f"Error generating AI analysis: {str(e)}")
+                if "openai" in str(e).lower() or "api" in str(e).lower():
+                    st.info("💡 Make sure your OpenAI API key is configured in the secrets.")
+        
         # Export options
         st.divider()
         st.subheader("📥 8. Export Results")
