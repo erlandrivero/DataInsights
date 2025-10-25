@@ -3104,10 +3104,17 @@ def show_market_basket_analysis():
                         # Get top rules for context
                         top_rules = sorted_rules.head(10)
                         rules_text = ""
-                        for idx, row in top_rules.iterrows():
-                            ant = ', '.join(list(row['antecedents']))
-                            cons = ', '.join(list(row['consequents']))
-                            rules_text += f"\n- {ant} → {cons} (Support: {row['support']:.3f}, Confidence: {row['confidence']:.3f}, Lift: {row['lift']:.2f})"
+                        
+                        if len(top_rules) > 0:
+                            for idx, row in top_rules.iterrows():
+                                # Handle frozensets properly
+                                ant_items = list(row['antecedents']) if 'antecedents' in row else []
+                                cons_items = list(row['consequents']) if 'consequents' in row else []
+                                ant = ', '.join(str(item) for item in ant_items)
+                                cons = ', '.join(str(item) for item in cons_items)
+                                rules_text += f"\n- {ant} → {cons} (Support: {row['support']:.3f}, Confidence: {row['confidence']:.3f}, Lift: {row['lift']:.2f})"
+                        else:
+                            rules_text = "\nNo rules found with current thresholds."
                         
                         # Prepare context
                         context = f"""
