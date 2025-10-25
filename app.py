@@ -3086,6 +3086,83 @@ def show_market_basket_analysis():
                 - **Cross-Sell Success:** Conversion rate of recommendations
                 """)
             
+            # AI Insights
+            st.divider()
+            st.subheader("✨ AI-Powered Insights")
+            
+            if st.button("🤖 Generate AI Insights", key="mba_ai_insights", use_container_width=True):
+                try:
+                    from utils.ai_helper import AIHelper
+                    ai = AIHelper()
+                    
+                    with st.spinner("Analyzing market basket patterns and generating insights..."):
+                        # Get top rules for context
+                        top_rules = sorted_rules.head(10)
+                        rules_text = ""
+                        for idx, row in top_rules.iterrows():
+                            ant = ', '.join(list(row['antecedents']))
+                            cons = ', '.join(list(row['consequents']))
+                            rules_text += f"\n- {ant} → {cons} (Support: {row['support']:.3f}, Confidence: {row['confidence']:.3f}, Lift: {row['lift']:.2f})"
+                        
+                        # Prepare context
+                        context = f"""
+                        Market Basket Analysis Results:
+                        
+                        Dataset: {len(transactions):,} transactions, {len(df_encoded.columns):,} unique items
+                        Average Basket Size: {sum(len(t) for t in transactions) / len(transactions):.2f} items
+                        
+                        Analysis Parameters:
+                        - Minimum Support: {min_support}
+                        - Minimum Confidence: {min_confidence}
+                        - Minimum Lift: {min_lift}
+                        
+                        Results:
+                        - Frequent Itemsets: {len(st.session_state.mba_itemsets):,}
+                        - Association Rules: {len(rules):,}
+                        - Average Confidence: {summary['avg_confidence']:.3f}
+                        - Average Lift: {summary['avg_lift']:.2f}
+                        
+                        Top 10 Association Rules:
+                        {rules_text}
+                        """
+                        
+                        prompt = f"""
+                        As a retail analytics expert, analyze these market basket analysis results and provide:
+                        
+                        1. **Key Patterns Discovered** (3-4 sentences): What are the most interesting associations and why do they matter?
+                        
+                        2. **Business Opportunities** (4-5 bullet points): Specific, actionable strategies for:
+                           - Product placement and merchandising
+                           - Promotional bundles and cross-selling
+                           - Pricing strategies
+                           - Inventory optimization
+                        
+                        3. **Customer Behavior Insights** (2-3 sentences): What do these patterns reveal about customer shopping habits?
+                        
+                        4. **Implementation Priorities** (3-4 bullet points): Which rules should be acted on first and why?
+                        
+                        5. **Revenue Impact Estimate** (2-3 sentences): How could implementing these insights affect sales?
+                        
+                        {context}
+                        
+                        Be specific with product names from the rules. Focus on actionable strategies that drive revenue.
+                        """
+                        
+                        response = ai.client.chat.completions.create(
+                            model="gpt-4",
+                            messages=[
+                                {"role": "system", "content": "You are a retail analytics expert specializing in market basket analysis and customer behavior."},
+                                {"role": "user", "content": prompt}
+                            ],
+                            temperature=0.7,
+                            max_tokens=1500
+                        )
+                        
+                        st.markdown(response.choices[0].message.content)
+                        
+                except Exception as e:
+                    st.error(f"Error generating insights: {str(e)}")
+            
             # Export full report
             st.divider()
             
@@ -3643,6 +3720,85 @@ def show_rfm_analysis():
                 with st.expander(f"📋 {segment} ({len(rfm_segmented[rfm_segmented['Segment']==segment])} customers)"):
                     for insight in insights_dict[segment]:
                         st.markdown(insight)
+        
+        # AI Insights
+        st.divider()
+        st.subheader("✨ AI-Powered Insights")
+        
+        if st.button("🤖 Generate AI Insights", key="rfm_ai_insights", use_container_width=True):
+            try:
+                from utils.ai_helper import AIHelper
+                ai = AIHelper()
+                
+                with st.spinner("Analyzing customer segments and generating strategic insights..."):
+                    # Prepare segment summary
+                    segment_summary = ""
+                    for idx, row in profiles.iterrows():
+                        segment_summary += f"\n- **{row['Segment']}**: {row['Customer_Count']} customers, "
+                        segment_summary += f"Avg Recency: {row['Avg_Recency']:.1f} days, "
+                        segment_summary += f"Avg Frequency: {row['Avg_Frequency']:.1f}, "
+                        segment_summary += f"Avg Monetary: ${row['Avg_Monetary']:.2f}"
+                    
+                    # Prepare context
+                    context = f"""
+                    RFM Analysis Results:
+                    
+                    Dataset Overview:
+                    - Total Transactions: {len(transactions_df):,}
+                    - Unique Customers: {transactions_df[cols['customer']].nunique():,}
+                    - Total Revenue: ${total_revenue:,.2f}
+                    - Average Transaction: ${avg_transaction:.2f}
+                    
+                    RFM Metrics:
+                    - Average Recency: {rfm_data['Recency'].mean():.1f} days
+                    - Average Frequency: {rfm_data['Frequency'].mean():.1f} transactions
+                    - Average Monetary: ${rfm_data['Monetary'].mean():.2f}
+                    
+                    Customer Segments:
+                    {segment_summary}
+                    """
+                    
+                    prompt = f"""
+                    As a customer relationship management (CRM) expert, analyze these RFM segmentation results and provide:
+                    
+                    1. **Strategic Overview** (3-4 sentences): What does this customer distribution tell us about the business health and growth stage?
+                    
+                    2. **Segment-Specific Strategies** (5-6 bullet points): For the TOP segments by customer count, provide:
+                       - Specific marketing campaigns to run
+                       - Communication frequency and channels
+                       - Offer types and discount levels
+                       - Retention or acquisition tactics
+                    
+                    3. **Revenue Optimization** (3-4 bullet points): How to maximize customer lifetime value:
+                       - Which segments to prioritize for growth
+                       - Cross-sell and upsell opportunities
+                       - Budget allocation recommendations
+                    
+                    4. **Churn Prevention** (3-4 bullet points): Strategies to prevent customer loss in at-risk segments
+                    
+                    5. **Quick Wins** (3-4 bullet points): Immediate actions to implement this week that will drive results
+                    
+                    6. **Expected Impact** (2-3 sentences): Realistic business outcomes from implementing these strategies
+                    
+                    {context}
+                    
+                    Be specific, actionable, and focus on ROI. Consider typical e-commerce/retail business models.
+                    """
+                    
+                    response = ai.client.chat.completions.create(
+                        model="gpt-4",
+                        messages=[
+                            {"role": "system", "content": "You are a CRM and customer analytics expert specializing in RFM segmentation and customer lifecycle marketing."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.7,
+                        max_tokens=1500
+                    )
+                    
+                    st.markdown(response.choices[0].message.content)
+                    
+            except Exception as e:
+                st.error(f"Error generating insights: {str(e)}")
         
         # Export Options
         st.divider()
