@@ -3101,38 +3101,50 @@ def show_market_basket_analysis():
                     ai = AIHelper()
                     
                     with st.spinner("Analyzing market basket patterns and generating insights..."):
+                        # Get data from session state
+                        rules_data = st.session_state.get('mba_rules', pd.DataFrame())
+                        transactions_data = st.session_state.get('mba_transactions', [])
+                        df_encoded_data = st.session_state.get('mba_encoded', pd.DataFrame())
+                        itemsets_data = st.session_state.get('mba_itemsets', pd.DataFrame())
+                        
+                        if rules_data.empty or len(transactions_data) == 0:
+                            st.error("No analysis results available. Please run Market Basket Analysis first.")
+                            st.stop()
+                        
                         # Get top rules for context
-                        top_rules = sorted_rules.head(10)
+                        top_rules = rules_data.nlargest(10, 'lift')
                         rules_text = ""
                         
                         if len(top_rules) > 0:
                             for idx, row in top_rules.iterrows():
                                 # Handle frozensets properly
-                                ant_items = list(row['antecedents']) if 'antecedents' in row else []
-                                cons_items = list(row['consequents']) if 'consequents' in row else []
-                                ant = ', '.join(str(item) for item in ant_items)
-                                cons = ', '.join(str(item) for item in cons_items)
-                                rules_text += f"\n- {ant} → {cons} (Support: {row['support']:.3f}, Confidence: {row['confidence']:.3f}, Lift: {row['lift']:.2f})"
+                                try:
+                                    ant_items = list(row['antecedents'])
+                                    cons_items = list(row['consequents'])
+                                    ant = ', '.join(str(item) for item in ant_items)
+                                    cons = ', '.join(str(item) for item in cons_items)
+                                    rules_text += f"\n- {ant} → {cons} (Support: {row.get('support', 0):.3f}, Confidence: {row.get('confidence', 0):.3f}, Lift: {row.get('lift', 0):.2f})"
+                                except Exception as e:
+                                    continue
                         else:
                             rules_text = "\nNo rules found with current thresholds."
+                        
+                        # Calculate summary
+                        avg_confidence = rules_data['confidence'].mean() if 'confidence' in rules_data.columns else 0
+                        avg_lift = rules_data['lift'].mean() if 'lift' in rules_data.columns else 0
                         
                         # Prepare context
                         context = f"""
                         Market Basket Analysis Results:
                         
-                        Dataset: {len(transactions):,} transactions, {len(df_encoded.columns):,} unique items
-                        Average Basket Size: {sum(len(t) for t in transactions) / len(transactions):.2f} items
-                        
-                        Analysis Parameters:
-                        - Minimum Support: {min_support}
-                        - Minimum Confidence: {min_confidence}
-                        - Minimum Lift: {min_lift}
+                        Dataset: {len(transactions_data):,} transactions, {len(df_encoded_data.columns):,} unique items
+                        Average Basket Size: {sum(len(t) for t in transactions_data) / len(transactions_data):.2f} items
                         
                         Results:
-                        - Frequent Itemsets: {len(st.session_state.mba_itemsets):,}
-                        - Association Rules: {len(rules):,}
-                        - Average Confidence: {summary['avg_confidence']:.3f}
-                        - Average Lift: {summary['avg_lift']:.2f}
+                        - Frequent Itemsets: {len(itemsets_data):,}
+                        - Association Rules: {len(rules_data):,}
+                        - Average Confidence: {avg_confidence:.3f}
+                        - Average Lift: {avg_lift:.2f}
                         
                         Top 10 Association Rules:
                         {rules_text}
@@ -3762,9 +3774,27 @@ def show_rfm_analysis():
                 ai = AIHelper()
                 
                 with st.spinner("Analyzing customer segments and generating strategic insights..."):
+                    # Get data from session state
+                    rfm_segmented_data = st.session_state.get('rfm_segmented', pd.DataFrame())
+                    rfm_data_state = st.session_state.get('rfm_data', pd.DataFrame())
+                    transactions_df_data = st.session_state.get('rfm_transactions', pd.DataFrame())
+                    cols_data = st.session_state.get('rfm_columns', {})
+                    rfm_analyzer_data = st.session_state.get('rfm_analyzer')
+                    
+                    if rfm_segmented_data.empty or rfm_data_state.empty or transactions_df_data.empty:
+                        st.error("No RFM analysis results available. Please run RFM Analysis first.")
+                        st.stop()
+                    
+                    # Calculate metrics
+                    total_revenue_calc = transactions_df_data[cols_data['amount']].sum()
+                    avg_transaction_calc = transactions_df_data[cols_data['amount']].mean()
+                    
+                    # Get profiles
+                    profiles_data = rfm_analyzer_data.get_segment_profiles(rfm_segmented_data, cols_data['customer'])
+                    
                     # Prepare segment summary
                     segment_summary = ""
-                    for idx, row in profiles.iterrows():
+                    for idx, row in profiles_data.iterrows():
                         segment_summary += f"\n- **{row['Segment']}**: {row['Customer_Count']} customers, "
                         segment_summary += f"Avg Recency: {row['Avg_Recency']:.1f} days, "
                         segment_summary += f"Avg Frequency: {row['Avg_Frequency']:.1f}, "
@@ -3775,15 +3805,15 @@ def show_rfm_analysis():
                     RFM Analysis Results:
                     
                     Dataset Overview:
-                    - Total Transactions: {len(transactions_df):,}
-                    - Unique Customers: {transactions_df[cols['customer']].nunique():,}
-                    - Total Revenue: ${total_revenue:,.2f}
-                    - Average Transaction: ${avg_transaction:.2f}
+                    - Total Transactions: {len(transactions_df_data):,}
+                    - Unique Customers: {transactions_df_data[cols_data['customer']].nunique():,}
+                    - Total Revenue: ${total_revenue_calc:,.2f}
+                    - Average Transaction: ${avg_transaction_calc:.2f}
                     
                     RFM Metrics:
-                    - Average Recency: {rfm_data['Recency'].mean():.1f} days
-                    - Average Frequency: {rfm_data['Frequency'].mean():.1f} transactions
-                    - Average Monetary: ${rfm_data['Monetary'].mean():.2f}
+                    - Average Recency: {rfm_data_state['Recency'].mean():.1f} days
+                    - Average Frequency: {rfm_data_state['Frequency'].mean():.1f} transactions
+                    - Average Monetary: ${rfm_data_state['Monetary'].mean():.2f}
                     
                     Customer Segments:
                     {segment_summary}
@@ -4293,26 +4323,40 @@ def show_monte_carlo_simulation():
                 ai = AIHelper()
                 
                 with st.spinner("Analyzing Monte Carlo simulation results with AI..."):
+                    # Get data from session state
+                    mc_ticker_data = st.session_state.get('mc_ticker', 'Unknown')
+                    mc_stock_data = st.session_state.get('mc_stock_data', pd.DataFrame())
+                    mc_stats_data = st.session_state.get('mc_stats', {})
+                    mc_simulations_data = st.session_state.get('mc_simulations', [])
+                    mc_risk_metrics_data = st.session_state.get('mc_risk_metrics', {})
+                    mc_forecast_days_data = st.session_state.get('mc_forecast_days', 0)
+                    
+                    if mc_stock_data.empty or not mc_risk_metrics_data or len(mc_simulations_data) == 0:
+                        st.error("No Monte Carlo simulation results available. Please run simulation first.")
+                        st.stop()
+                    
+                    num_simulations_calc = len(mc_simulations_data)
+                    
                     # Prepare context
                     context = f"""
-                    Monte Carlo Simulation Analysis for {ticker}:
+                    Monte Carlo Simulation Analysis for {mc_ticker_data}:
                     
                     Simulation Parameters:
-                    - Forecast Period: {forecast_days_actual} days
-                    - Number of Simulations: {num_simulations}
-                    - Starting Price: ${stock_data['Close'].iloc[-1]:.2f}
+                    - Forecast Period: {mc_forecast_days_data} days
+                    - Number of Simulations: {num_simulations_calc}
+                    - Starting Price: ${mc_stock_data['Close'].iloc[-1]:.2f}
                     
                     Historical Statistics:
-                    - Mean Daily Return: {stats['mean']*100:.3f}%
-                    - Volatility (Std Dev): {stats['std']*100:.3f}%
+                    - Mean Daily Return: {mc_stats_data.get('mean', 0)*100:.3f}%
+                    - Volatility (Std Dev): {mc_stats_data.get('std', 0)*100:.3f}%
                     
                     Key Risk Metrics:
-                    - Expected Return: {risk_metrics['expected_return']:.2f}%
-                    - Expected Price: ${risk_metrics['expected_price']:.2f}
-                    - Value at Risk (95%): {risk_metrics['var_95']:.2f}%
-                    - Conditional VaR (95%): {risk_metrics['cvar_95']:.2f}%
-                    - Probability of Profit: {risk_metrics['probability_profit']:.1f}%
-                    - Price Range: ${risk_metrics['min_price']:.2f} - ${risk_metrics['max_price']:.2f}
+                    - Expected Return: {mc_risk_metrics_data.get('expected_return', 0):.2f}%
+                    - Expected Price: ${mc_risk_metrics_data.get('expected_price', 0):.2f}
+                    - Value at Risk (95%): {mc_risk_metrics_data.get('var_95', 0):.2f}%
+                    - Conditional VaR (95%): {mc_risk_metrics_data.get('cvar_95', 0):.2f}%
+                    - Probability of Profit: {mc_risk_metrics_data.get('probability_profit', 0):.1f}%
+                    - Price Range: ${mc_risk_metrics_data.get('min_price', 0):.2f} - ${mc_risk_metrics_data.get('max_price', 0):.2f}
                     """
                     
                     prompt = f"""
@@ -5385,28 +5429,45 @@ def show_ml_classification():
                 ai = AIHelper()
                 
                 with st.spinner("Analyzing results and generating insights..."):
+                    # Get data from session state
+                    ml_results_data = st.session_state.get('ml_results', [])
+                    ml_trainer_data = st.session_state.get('ml_trainer')
+                    ml_data_df = st.session_state.get('ml_data', pd.DataFrame())
+                    
+                    if not ml_results_data or ml_trainer_data is None or ml_data_df.empty:
+                        st.error("No ML results available. Please train models first.")
+                        st.stop()
+                    
+                    # Get successful results and best model
+                    successful_results_data = [r for r in ml_results_data if r.get('accuracy') is not None]
+                    if not successful_results_data:
+                        st.error("No successful model results available.")
+                        st.stop()
+                    
+                    best_model_data = max(successful_results_data, key=lambda x: x.get('f1', 0))
+                    
                     # Prepare context
                     context = f"""
                     Machine Learning Classification Results:
                     
-                    Dataset: {len(df)} rows, {len(df.columns)} columns
-                    Target: {target_col}
-                    Classes: {', '.join(trainer.class_names)}
+                    Dataset: {len(ml_data_df)} rows, {len(ml_data_df.columns)} columns
+                    Target: {ml_trainer_data.target_column}
+                    Classes: {', '.join(ml_trainer_data.class_names)}
                     
-                    Models Trained: {len(successful_results)}
-                    Best Model: {best_model['model_name']}
-                    Best F1 Score: {best_model['f1']:.4f}
+                    Models Trained: {len(successful_results_data)}
+                    Best Model: {best_model_data['model_name']}
+                    Best F1 Score: {best_model_data['f1']:.4f}
                     
                     Top 3 Models:
                     """
                     
-                    for i, r in enumerate(successful_results[:3], 1):
+                    for i, r in enumerate(successful_results_data[:3], 1):
                         context += f"\n{i}. {r['model_name']}: F1={r['f1']:.4f}, Accuracy={r['accuracy']:.4f}"
                     
                     prompt = f"""
                     As a senior data science consultant, analyze these machine learning results and provide:
                     
-                    1. **Performance Analysis** (2-3 sentences): Why did {best_model['model_name']} perform best?
+                    1. **Performance Analysis** (2-3 sentences): Why did {best_model_data['model_name']} perform best?
                     
                     2. **Model Comparison** (2-3 sentences): Key differences between top 3 models and when to use each.
                     
@@ -6253,29 +6314,46 @@ def show_ml_regression():
                 ai = AIHelper()
                 
                 with st.spinner("Analyzing regression results and generating insights..."):
+                    # Get data from session state
+                    mlr_results_data = st.session_state.get('mlr_results', [])
+                    mlr_regressor_data = st.session_state.get('mlr_regressor')
+                    mlr_data_df = st.session_state.get('mlr_data', pd.DataFrame())
+                    
+                    if not mlr_results_data or mlr_regressor_data is None or mlr_data_df.empty:
+                        st.error("No ML Regression results available. Please train models first.")
+                        st.stop()
+                    
+                    # Get successful results and best model
+                    successful_results_data = [r for r in mlr_results_data if r.get('r2') is not None]
+                    if not successful_results_data:
+                        st.error("No successful model results available.")
+                        st.stop()
+                    
+                    best_model_data = max(successful_results_data, key=lambda x: x.get('r2', -999))
+                    
                     # Prepare context
                     context = f"""
                     Machine Learning Regression Results:
                     
-                    Dataset: {len(df)} rows, {len(df.columns)} columns
-                    Target: {target_col}
+                    Dataset: {len(mlr_data_df)} rows, {len(mlr_data_df.columns)} columns
+                    Target: {mlr_regressor_data.target_column}
                     
-                    Models Trained: {len(successful_results)}
-                    Best Model: {best_model['model_name']}
-                    Best R² Score: {best_model['r2']:.4f}
-                    Best RMSE: {best_model['rmse']:.2f}
-                    Best MAE: {best_model['mae']:.2f}
+                    Models Trained: {len(successful_results_data)}
+                    Best Model: {best_model_data['model_name']}
+                    Best R² Score: {best_model_data['r2']:.4f}
+                    Best RMSE: {best_model_data['rmse']:.2f}
+                    Best MAE: {best_model_data['mae']:.2f}
                     
                     Top 3 Models:
                     """
                     
-                    for i, r in enumerate(successful_results[:3], 1):
+                    for i, r in enumerate(successful_results_data[:3], 1):
                         context += f"\n{i}. {r['model_name']}: R²={r['r2']:.4f}, RMSE={r['rmse']:.2f}, MAE={r['mae']:.2f}"
                     
                     prompt = f"""
                     As a senior data science consultant, analyze these machine learning regression results and provide:
                     
-                    1. **Performance Analysis** (2-3 sentences): Why did {best_model['model_name']} perform best? What does the R² score tell us about model fit?
+                    1. **Performance Analysis** (2-3 sentences): Why did {best_model_data['model_name']} perform best? What does the R² score tell us about model fit?
                     
                     2. **Model Comparison** (2-3 sentences): Key differences between top 3 models and when to use each. Which model offers best trade-offs?
                     
