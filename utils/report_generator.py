@@ -75,17 +75,12 @@ This report analyzes a dataset containing **{profile['basic_info']['rows']:,} re
 ### Key Findings
 {insights}
 
-### Data Quality Assessment
+### Data Quality Snapshot
 - **Missing Data:** {profile['missing_data']['missing_percentage']} of values are missing
 - **Duplicate Records:** {profile['basic_info']['duplicates']} duplicate rows identified
 - **Data Completeness:** {100 - float(profile['missing_data']['missing_percentage'].rstrip('%')):.1f}% complete
 
-### Recommendations
-Based on the analysis, we recommend:
-1. Address missing data in critical columns
-2. Remove or investigate duplicate records
-3. Validate data types and formats
-4. Consider additional feature engineering for predictive modeling
+*See detailed Data Quality Assessment and Recommendations sections below.*
 """
         return summary
     
@@ -308,8 +303,6 @@ Based on the analysis, we recommend the following actions:
 ---
 
 {ReportGenerator.generate_data_profile_section(profile)}
-
----
 
 {ReportGenerator.generate_quality_issues_section(issues)}
 

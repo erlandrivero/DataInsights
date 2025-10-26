@@ -2209,8 +2209,60 @@ This report contains results from completed analytics modules.
         # Download buttons with multiple formats
         from datetime import datetime
         import io
+        from utils.advanced_report_exporter import AdvancedReportExporter
         
         st.write("**📥 Export Options:**")
+        
+        # Collect all visualizations from session state
+        charts = []
+        
+        # MBA charts
+        if 'mba_rules' in st.session_state and not st.session_state.mba_rules.empty:
+            try:
+                from utils.market_basket import MarketBasketAnalyzer
+                analyzer = MarketBasketAnalyzer(st.session_state.mba_transactions)
+                analyzer.rules = st.session_state.mba_rules
+                charts.append(("MBA: Rules Scatter Plot", analyzer.create_rules_visualization()))
+            except:
+                pass
+        
+        # RFM charts
+        if 'rfm_analyzer' in st.session_state:
+            try:
+                analyzer = st.session_state.rfm_analyzer
+                charts.append(("RFM: Segment Distribution", analyzer.create_segment_distribution()))
+            except:
+                pass
+        
+        # Anomaly Detection charts
+        if 'anomaly_detector' in st.session_state:
+            try:
+                detector = st.session_state.anomaly_detector
+                charts.append(("Anomaly Detection: Distribution", detector.create_distribution_chart()))
+                charts.append(("Anomaly Detection: Scatter Plot", detector.create_2d_scatter(use_pca=True, show_only_anomalies=True)))
+            except:
+                pass
+        
+        # Time Series charts
+        if 'ts_analyzer' in st.session_state:
+            try:
+                analyzer = st.session_state.ts_analyzer
+                if 'arima_results' in st.session_state:
+                    charts.append(("Time Series: ARIMA Forecast", analyzer.create_forecast_plot('arima')))
+                if 'prophet_results' in st.session_state:
+                    charts.append(("Time Series: Prophet Forecast", analyzer.create_forecast_plot('prophet')))
+            except:
+                pass
+        
+        # Monte Carlo charts
+        if 'mc_simulations' in st.session_state:
+            try:
+                from utils.monte_carlo import MonteCarloSimulator
+                simulator = MonteCarloSimulator(st.session_state.mc_ticker)
+                simulator.simulations = st.session_state.mc_simulations
+                charts.append(("Monte Carlo: Return Distribution", simulator.create_distribution_plot()))
+            except:
+                pass
         
         col1, col2, col3, col4 = st.columns(4)
         
@@ -2228,261 +2280,110 @@ This report contains results from completed analytics modules.
             )
         
         with col2:
-            st.download_button(
-                label="📝 Text",
-                data=report_text,
-                file_name=f"report_{timestamp}.txt",
-                mime="text/plain",
-                use_container_width=True,
-                help="Plain text format"
-            )
+            # Markdown + Images ZIP
+            try:
+                # Check if kaleido is available
+                try:
+                    import kaleido
+                    has_kaleido = True
+                except ImportError:
+                    has_kaleido = False
+                
+                if has_kaleido and charts:
+                    zip_data = AdvancedReportExporter.create_markdown_with_images_zip(
+                        report_text,
+                        charts,
+                        filename_prefix="report"
+                    )
+                    st.download_button(
+                        label="📦 MD + Images",
+                        data=zip_data,
+                        file_name=f"report_{timestamp}.zip",
+                        mime="application/zip",
+                        use_container_width=True,
+                        help="ZIP with markdown and chart images"
+                    )
+                else:
+                    st.download_button(
+                        label="📦 MD + Images",
+                        data=report_text,
+                        file_name=f"report_{timestamp}.md",
+                        mime="text/markdown",
+                        use_container_width=True,
+                        help="Install kaleido for images: pip install kaleido",
+                        disabled=not charts
+                    )
+            except Exception as e:
+                st.download_button(
+                    label="📦 MD + Images",
+                    data=report_text,
+                    file_name=f"report_{timestamp}.md",
+                    mime="text/markdown",
+                    use_container_width=True,
+                    help=f"Error: {str(e)[:50]}",
+                    disabled=True
+                )
         
         with col3:
-            # Convert markdown to HTML
-            html_content = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <title>DataInsights Report</title>
-                <style>
-                    body {{ font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }}
-                    h1, h2, h3 {{ color: #333; }}
-                    pre {{ background: #f4f4f4; padding: 10px; border-radius: 5px; }}
-                    code {{ background: #f4f4f4; padding: 2px 5px; border-radius: 3px; }}
-                    table {{ border-collapse: collapse; width: 100%; }}
-                    th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-                    th {{ background-color: #4CAF50; color: white; }}
-                </style>
-            </head>
-            <body>
-                <pre>{report_text}</pre>
-            </body>
-            </html>
-            """
-            
-            st.download_button(
-                label="🌐 HTML",
-                data=html_content,
-                file_name=f"report_{timestamp}.html",
-                mime="text/html",
-                use_container_width=True,
-                help="Web page format"
-            )
-        
-        with col4:
-            # Create Excel export with results data
+            # HTML with Interactive Charts
             try:
-                excel_buffer = io.BytesIO()
-                with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-                    # Write report as text in first sheet
-                    report_df = pd.DataFrame({'Report': [report_text]})
-                    report_df.to_excel(writer, sheet_name='Report', index=False)
-                    
-                    # Add data profile if available
-                    if 'profile' in st.session_state and st.session_state.profile:
-                        profile_df = pd.DataFrame(st.session_state.profile).T
-                        profile_df.to_excel(writer, sheet_name='Data Profile')
-                    
-                    # Add ML results if available
-                    if 'ml_results' in st.session_state:
-                        ml_df = pd.DataFrame(st.session_state.ml_results)
-                        ml_df.to_excel(writer, sheet_name='ML Classification', index=False)
-                    
-                    if 'mlr_results' in st.session_state:
-                        mlr_df = pd.DataFrame(st.session_state.mlr_results)
-                        mlr_df.to_excel(writer, sheet_name='ML Regression', index=False)
-                
-                excel_data = excel_buffer.getvalue()
+                if charts:
+                    html_content = AdvancedReportExporter.create_html_report(
+                        report_text,
+                        charts,
+                        title="DataInsights - Comprehensive Report"
+                    )
+                else:
+                    # Basic HTML without charts
+                    html_content = AdvancedReportExporter.create_html_report(
+                        report_text,
+                        [],
+                        title="DataInsights - Comprehensive Report"
+                    )
                 
                 st.download_button(
-                    label="📊 Excel",
-                    data=excel_data,
-                    file_name=f"report_{timestamp}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    label="🌐 HTML",
+                    data=html_content,
+                    file_name=f"report_{timestamp}.html",
+                    mime="text/html",
                     use_container_width=True,
-                    help="Excel workbook with multiple sheets"
+                    help="Interactive web page with charts"
                 )
             except Exception as e:
-                st.button(
-                    label="📊 Excel",
+                # Fallback to basic HTML
+                basic_html = f"<html><head><meta charset='UTF-8'><title>Report</title></head><body><pre>{report_text}</pre></body></html>"
+                st.download_button(
+                    label="🌐 HTML",
+                    data=basic_html,
+                    file_name=f"report_{timestamp}.html",
+                    mime="text/html",
                     use_container_width=True,
-                    disabled=True,
-                    help=f"Excel export unavailable: {str(e)}"
+                    help="Basic HTML (charts failed)"
                 )
         
-        # Advanced Export Options with Visualizations
-        st.divider()
-        st.write("**🎨 Advanced Exports with Visualizations:**")
-        st.caption("Export reports with embedded charts and graphs from your analyses")
-        
-        col1, col2, col3 = st.columns(3)
-        
-        # Collect available charts from session state
-        available_charts = []
-        
-        # Check for ML Classification charts
-        if 'ml_results' in st.session_state and st.session_state.ml_results:
-            try:
-                from utils.visualizations import Visualizer
-                ml_results_df = pd.DataFrame(st.session_state.ml_results)
-                fig = Visualizer.create_model_comparison(ml_results_df, 'accuracy')
-                if fig:
-                    available_charts.append(("ML Classification - Model Comparison", fig))
-            except:
-                pass
-        
-        # Check for ML Regression charts
-        if 'mlr_results' in st.session_state and st.session_state.mlr_results:
-            try:
-                from utils.visualizations import Visualizer
-                mlr_results_df = pd.DataFrame(st.session_state.mlr_results)
-                fig = Visualizer.create_model_comparison(mlr_results_df, 'r2')
-                if fig:
-                    available_charts.append(("ML Regression - Model Comparison", fig))
-            except:
-                pass
-        
-        # Check for Market Basket charts
-        if 'association_rules' in st.session_state:
-            try:
-                rules = st.session_state.association_rules
-                if len(rules) > 0:
-                    fig = px.scatter(
-                        rules.head(20),
-                        x='support',
-                        y='confidence',
-                        size='lift',
-                        hover_data=['antecedents', 'consequents'],
-                        title='Top 20 Association Rules',
-                        labels={'support': 'Support', 'confidence': 'Confidence', 'lift': 'Lift'}
-                    )
-                    available_charts.append(("Market Basket Analysis - Association Rules", fig))
-            except:
-                pass
-        
-        # Check for RFM Analysis charts
-        if 'rfm_data' in st.session_state:
-            try:
-                rfm_data = st.session_state.rfm_data
-                if 'segment' in rfm_data.columns:
-                    segment_counts = rfm_data['segment'].value_counts()
-                    fig = px.bar(
-                        x=segment_counts.index,
-                        y=segment_counts.values,
-                        title='Customer Segmentation Distribution',
-                        labels={'x': 'Segment', 'y': 'Count'}
-                    )
-                    available_charts.append(("RFM Analysis - Customer Segments", fig))
-            except:
-                pass
-        
-        # Check for Anomaly Detection charts
-        if 'anomaly_results' in st.session_state:
-            try:
-                anomaly_results = st.session_state.anomaly_results
-                if isinstance(anomaly_results, pd.DataFrame) and len(anomaly_results) > 0:
-                    anomaly_counts = anomaly_results['anomaly_type'].value_counts()
-                    fig = px.pie(
-                        values=anomaly_counts.values,
-                        names=anomaly_counts.index,
-                        title='Anomaly Detection Results'
-                    )
-                    available_charts.append(("Anomaly Detection - Distribution", fig))
-            except:
-                pass
-        
-        with col1:
-            # HTML Export with Interactive Charts
-            if st.button("🌐 HTML with Charts", use_container_width=True, help="Interactive web page with embedded Plotly charts"):
+        with col4:
+            # PDF Report
+            if st.button("📄 PDF Report", use_container_width=True, help="PDF with embedded charts"):
                 try:
-                    from utils.advanced_report_exporter import AdvancedReportExporter
-                    
-                    with st.spinner("Generating HTML report with charts..."):
-                        html_report = AdvancedReportExporter.create_html_report(
-                            markdown_content=report_text,
-                            charts=available_charts,
-                            title="DataInsights - Comprehensive Report"
-                        )
-                        
-                        st.download_button(
-                            label="💾 Download HTML Report",
-                            data=html_report,
-                            file_name=f"report_with_charts_{timestamp}.html",
-                            mime="text/html",
-                            use_container_width=True,
-                            type="primary"
-                        )
-                        
-                        st.success(f"✅ HTML report generated with {len(available_charts)} chart(s)!")
-                        st.info("💡 Open the HTML file in any browser to view interactive charts")
-                
-                except Exception as e:
-                    st.error(f"❌ HTML export failed: {str(e)}")
-                    st.info("💡 Try the basic HTML export instead")
-        
-        with col2:
-            # Markdown + Images ZIP Export
-            if st.button("📦 Markdown + Images", use_container_width=True, help="ZIP file with markdown report and PNG chart images"):
-                try:
-                    from utils.advanced_report_exporter import AdvancedReportExporter
-                    
-                    with st.spinner("Creating ZIP package with images..."):
-                        # Check if kaleido is available for image generation
+                    # Check for required libraries
+                    try:
+                        import weasyprint
+                        lib_available = True
+                        lib_name = "weasyprint"
+                    except ImportError:
                         try:
-                            import kaleido
-                            has_kaleido = True
+                            import reportlab
+                            lib_available = True
+                            lib_name = "reportlab"
                         except ImportError:
-                            has_kaleido = False
-                            st.warning("⚠️ Kaleido not installed - charts will be skipped. Install with: pip install kaleido")
-                        
-                        zip_data = AdvancedReportExporter.create_markdown_with_images_zip(
-                            markdown_content=report_text,
-                            charts=available_charts if has_kaleido else [],
-                            filename_prefix="report"
-                        )
-                        
-                        st.download_button(
-                            label="💾 Download ZIP Package",
-                            data=zip_data,
-                            file_name=f"report_package_{timestamp}.zip",
-                            mime="application/zip",
-                            use_container_width=True,
-                            type="primary"
-                        )
-                        
-                        if has_kaleido:
-                            st.success(f"✅ ZIP package created with {len(available_charts)} image(s)!")
-                        else:
-                            st.success("✅ ZIP package created (text only - install kaleido for images)")
-                        st.info("💡 Extract the ZIP to view markdown with linked images")
-                
-                except Exception as e:
-                    st.error(f"❌ ZIP export failed: {str(e)}")
-                    st.info("💡 Try the basic Markdown export instead")
-        
-        with col3:
-            # PDF Export
-            if st.button("📄 PDF Report", use_container_width=True, help="PDF document with embedded charts"):
-                try:
-                    from utils.advanced_report_exporter import AdvancedReportExporter
+                            lib_available = False
+                            lib_name = None
                     
-                    with st.spinner("Generating PDF report..."):
-                        # Check for required libraries
-                        try:
-                            import weasyprint
-                            lib_name = "weasyprint"
-                        except ImportError:
-                            try:
-                                import reportlab
-                                lib_name = "reportlab"
-                            except ImportError:
-                                lib_name = None
-                        
-                        if lib_name:
+                    if lib_available:
+                        with st.spinner(f"Generating PDF with {lib_name}..."):
                             pdf_data = AdvancedReportExporter.create_pdf_report(
-                                markdown_content=report_text,
-                                charts=available_charts,
+                                report_text,
+                                charts,
                                 title="DataInsights - Comprehensive Report"
                             )
                             
@@ -2491,24 +2392,24 @@ This report contains results from completed analytics modules.
                                 data=pdf_data,
                                 file_name=f"report_{timestamp}.pdf",
                                 mime="application/pdf",
-                                use_container_width=True,
-                                type="primary"
+                                use_container_width=True
                             )
-                            
-                            st.success(f"✅ PDF generated with {lib_name}!")
-                            st.info("💡 PDF includes static chart images")
-                        else:
-                            st.error("❌ PDF generation requires additional libraries")
-                            st.info("Install one of:\n- `pip install weasyprint` (recommended)\n- `pip install reportlab`")
-                
+                            st.success(f"✅ PDF generated with {len(charts)} chart(s)!")
+                    else:
+                        st.error("❌ PDF generation requires additional libraries")
+                        st.info("""**Install one of:**
+- `pip install weasyprint` (recommended)
+- `pip install reportlab`
+
+Use HTML or Markdown+Images export instead.""")
                 except Exception as e:
-                    st.error(f"❌ PDF export failed: {str(e)}")
-                    st.info("💡 Use HTML or Markdown export instead")
+                    st.error(f"PDF generation failed: {str(e)}")
         
-        if available_charts:
-            st.caption(f"✨ {len(available_charts)} visualization(s) available for export")
+        # Show visualization count
+        if charts:
+            st.caption(f"✨ {len(charts)} visualization(s) will be embedded in HTML/PDF exports")
         else:
-            st.caption("ℹ️ No visualizations available yet. Run analyses to generate charts for export.")
+            st.caption("ℹ️ No visualizations available. Run analyses to generate charts for export.")
 
 def show_market_basket_analysis():
     """Market Basket Analysis page."""
