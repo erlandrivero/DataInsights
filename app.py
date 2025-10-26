@@ -1975,10 +1975,19 @@ Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
                     if module_insights:
                         module_section = "\n".join(module_insights)
                         # Insert module summaries after the executive summary
-                        base_report = base_report.replace(
-                            "---\n\n## Data Profile",
-                            f"{module_section}\n\n---\n\n## Data Profile"
-                        )
+                        # Try multiple possible insertion points
+                        if "## Data Profile" in base_report:
+                            base_report = base_report.replace(
+                                "\n## Data Profile",
+                                f"{module_section}\n\n---\n\n## Data Profile"
+                            )
+                        else:
+                            # Fallback: insert after first occurrence of "---" after Executive Summary
+                            parts = base_report.split("## Executive Summary", 1)
+                            if len(parts) == 2:
+                                remaining = parts[1].split("\n---\n", 1)
+                                if len(remaining) == 2:
+                                    base_report = parts[0] + "## Executive Summary" + remaining[0] + f"\n---\n{module_section}\n\n---\n" + remaining[1]
                     
                     # Add visualization descriptions if requested
                     if include_visualizations:
@@ -7710,15 +7719,58 @@ def show_time_series_forecasting():
                     pm.unlock()
                     st.info("✅ Navigation unlocked")
         
-        # Model comparison
-        if 'arima_results' in st.session_state and 'prophet_results' in st.session_state:
+        # Show persistent results for each model
+        if 'arima_results' in st.session_state or 'prophet_results' in st.session_state:
             st.divider()
-            st.subheader("⚖️ 4. Model Comparison")
+            st.subheader("📊 Forecast Results")
             
-            fig = analyzer.create_comparison_plot()
-            st.plotly_chart(fig, use_container_width=True)
+            # Show ARIMA results if available
+            if 'arima_results' in st.session_state:
+                with st.expander("🤖 ARIMA Model Results", expanded=True):
+                    arima_res = st.session_state.arima_results
+                    
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Model Order", f"{arima_res['model_order']}")
+                    with col2:
+                        st.metric("AIC", f"{arima_res['aic']:.2f}")
+                    with col3:
+                        st.metric("BIC", f"{arima_res['bic']:.2f}")
+                    with col4:
+                        st.metric("Seasonal", f"{arima_res['seasonal_order']}")
+                    
+                    fig = analyzer.create_forecast_plot('arima')
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    st.write("**Forecast Data (First 10 periods):**")
+                    st.dataframe(arima_res['forecast'].head(10), use_container_width=True)
             
-            # AI Insights
+            # Show Prophet results if available
+            if 'prophet_results' in st.session_state:
+                with st.expander("📈 Prophet Model Results", expanded=True):
+                    prophet_res = st.session_state.prophet_results
+                    
+                    st.write("**Prophet Model - Automatic Trend & Seasonality Detection**")
+                    
+                    fig = analyzer.create_forecast_plot('prophet')
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    st.write("**Forecast Data (First 10 periods):**")
+                    st.dataframe(prophet_res['forecast'][['ds', 'yhat', 'yhat_lower', 'yhat_upper']].head(10),
+                               use_container_width=True)
+            
+            # Show comparison plot only if both models exist
+            if 'arima_results' in st.session_state and 'prophet_results' in st.session_state:
+                st.divider()
+                st.subheader("⚖️ Model Comparison")
+                
+                fig = analyzer.create_comparison_plot()
+                st.plotly_chart(fig, use_container_width=True)
+            
+            # AI Insights section (available if either model has been run)
+            st.divider()
+            st.subheader("🤖 5. AI-Powered Insights")
+            
             # Display saved insights if they exist
             if 'ts_ai_insights' in st.session_state:
                 st.markdown(st.session_state.ts_ai_insights)
@@ -7730,6 +7782,13 @@ def show_time_series_forecasting():
                         from utils.ai_helper import AIHelper
                         ai = AIHelper()
                         
+                        # Build context based on available models
+                        forecast_summary = f"- Forecast Horizon: {forecast_periods} periods\n"
+                        if 'arima_results' in st.session_state:
+                            forecast_summary += f"                        - ARIMA Forecast Mean: {st.session_state.arima_results['forecast']['forecast'].mean():.2f}\n"
+                        if 'prophet_results' in st.session_state:
+                            forecast_summary += f"                        - Prophet Forecast Mean: {st.session_state.prophet_results['forecast']['yhat'].mean():.2f}\n"
+                        
                         context = f"""
                         Time Series Analysis:
                         - Time Period: {ts_data.index[0]} to {ts_data.index[-1]}
@@ -7739,16 +7798,16 @@ def show_time_series_forecasting():
                         - Trend: {"Increasing" if ts_data.iloc[-10:].mean() > ts_data.iloc[:10].mean() else "Decreasing"}
                         
                         Forecast Summary:
-                        - Forecast Horizon: {forecast_periods} periods
-                        - ARIMA Forecast Mean: {st.session_state.arima_results['forecast']['forecast'].mean():.2f}
-                        - Prophet Forecast Mean: {st.session_state.prophet_results['forecast']['yhat'].mean():.2f}
-                        """
+{forecast_summary}                        """
+                        
+                        model_comparison = ""
+                        if 'arima_results' in st.session_state and 'prophet_results' in st.session_state:
+                            model_comparison = "2. Which model (ARIMA or Prophet) appears more reliable and why\n                        "
                         
                         prompt = f"""
                         As a business analyst, analyze this time series forecast and provide:
                         1. Interpretation of the forecast trends
-                        2. Which model (ARIMA or Prophet) appears more reliable and why
-                        3. Business recommendations based on the forecast
+                        {model_comparison}3. Business recommendations based on the forecast
                         4. Potential risks or opportunities identified
                         
                         {context}
@@ -7777,7 +7836,7 @@ def show_time_series_forecasting():
         # Export section
         if 'arima_results' in st.session_state or 'prophet_results' in st.session_state:
             st.divider()
-            st.subheader("📥 5. Export Results")
+            st.subheader("📥 6. Export Results")
             
             col1, col2, col3 = st.columns(3)
             
