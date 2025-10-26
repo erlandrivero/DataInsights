@@ -7064,12 +7064,93 @@ def show_time_series_forecasting():
         - Good for business time series with holidays
         """)
     
-    # Check if data is loaded
-    if st.session_state.data is None:
-        st.info("👆 Please upload data from the **Data Upload** page first")
-        return
+    # Data source selection
+    st.subheader("📤 1. Load Time Series Data")
     
-    df = st.session_state.data
+    # Check if data is already loaded
+    has_loaded_data = st.session_state.data is not None
+    
+    if has_loaded_data:
+        data_options = ["Use Loaded Dataset", "Use Sample Data", "Upload Custom Data"]
+        default_option = "Use Loaded Dataset"
+    else:
+        data_options = ["Use Sample Data", "Upload Custom Data"]
+        default_option = "Use Sample Data"
+    
+    data_source = st.radio(
+        "Choose data source:",
+        data_options,
+        index=0,
+        key="ts_data_source"
+    )
+    
+    df = None
+    
+    if data_source == "Use Loaded Dataset":
+        st.success("✅ Using dataset from Data Upload section")
+        df = st.session_state.data
+        st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
+    
+    elif data_source == "Use Sample Data":
+        st.info("📊 Using sample airline passengers dataset (1949-1960)")
+        # Create sample time series data - classic airline passengers dataset
+        dates = pd.date_range(start='1949-01', end='1960-12', freq='MS')
+        passengers = [112, 118, 132, 129, 121, 135, 148, 148, 136, 119, 104, 118,
+                     115, 126, 141, 135, 125, 149, 170, 170, 158, 133, 114, 140,
+                     145, 150, 178, 163, 172, 178, 199, 199, 184, 162, 146, 166,
+                     171, 180, 193, 181, 183, 218, 230, 242, 209, 191, 172, 194,
+                     196, 196, 236, 235, 229, 243, 264, 272, 237, 211, 180, 201,
+                     204, 188, 235, 227, 234, 264, 302, 293, 259, 229, 203, 229,
+                     242, 233, 267, 269, 270, 315, 364, 347, 312, 274, 237, 278,
+                     284, 277, 317, 313, 318, 374, 413, 405, 355, 306, 271, 306,
+                     315, 301, 356, 348, 355, 422, 465, 467, 404, 347, 305, 336,
+                     340, 318, 362, 348, 363, 435, 491, 505, 404, 359, 310, 337,
+                     360, 342, 406, 396, 420, 472, 548, 559, 463, 407, 362, 405,
+                     417, 391, 419, 461, 472, 535, 622, 606, 508, 461, 390, 432]
+        
+        df = pd.DataFrame({
+            'Date': dates,
+            'Passengers': passengers
+        })
+        
+        st.success(f"✅ Loaded sample dataset: {len(df)} monthly observations")
+        st.write("**Sample Data Preview:**")
+        st.dataframe(df.head(10), use_container_width=True)
+        
+        st.info("""
+        **About this dataset:**
+        - Monthly totals of international airline passengers (1000s)
+        - Time period: January 1949 to December 1960
+        - Shows clear trend and seasonality
+        - Perfect for learning time series forecasting
+        """)
+    
+    elif data_source == "Upload Custom Data":
+        uploaded_file = st.file_uploader(
+            "Upload your time series data (CSV or Excel)",
+            type=['csv', 'xlsx', 'xls'],
+            key="ts_file_uploader"
+        )
+        
+        if uploaded_file is not None:
+            try:
+                if uploaded_file.name.endswith('.csv'):
+                    df = pd.read_csv(uploaded_file)
+                else:
+                    df = pd.read_excel(uploaded_file)
+                
+                st.success(f"✅ Uploaded {len(df)} rows, {len(df.columns)} columns")
+                st.dataframe(df.head(), use_container_width=True)
+            except Exception as e:
+                st.error(f"Error loading file: {str(e)}")
+                return
+        else:
+            st.info("👆 Please upload a CSV or Excel file containing time series data")
+            return
+    
+    if df is None:
+        st.info("👆 Please select or upload data to continue")
+        return
     
     # Get smart column suggestions
     from utils.column_detector import ColumnDetector
@@ -7103,7 +7184,7 @@ def show_time_series_forecasting():
         st.success(f"✅ **Dataset looks suitable for Time Series** (Confidence: {validation['confidence']})")
     
     # Column selection
-    st.subheader("📊 1. Configure Time Series")
+    st.subheader("📊 2. Configure Time Series")
     st.info("💡 **Smart Detection:** Columns are auto-selected based on your data. You can change them if needed.")
     
     col1, col2 = st.columns(2)
@@ -7170,7 +7251,7 @@ def show_time_series_forecasting():
         
         # Analysis tabs
         st.divider()
-        st.subheader("🔍 2. Time Series Analysis")
+        st.subheader("🔍 3. Time Series Analysis")
         
         tab1, tab2, tab3 = st.tabs(["Decomposition", "Stationarity Test", "Autocorrelation"])
         
@@ -7224,7 +7305,7 @@ def show_time_series_forecasting():
         
         # Forecasting section
         st.divider()
-        st.subheader("🔮 3. Generate Forecasts")
+        st.subheader("🔮 4. Generate Forecasts")
         
         col_config1, col_config2 = st.columns(2)
         
@@ -7578,15 +7659,135 @@ def show_text_mining():
         - Identifies key topics
         """)
     
-    # Check if data is loaded
-    if st.session_state.data is None:
-        st.info("👆 Please upload data from the **Data Upload** page first")
+    # Data source selection
+    st.subheader("📤 1. Load Text Data")
+    
+    # Check if data is already loaded
+    has_loaded_data = st.session_state.data is not None
+    
+    if has_loaded_data:
+        data_options = ["Use Loaded Dataset", "Use Sample Data", "Upload Custom Data"]
+        default_option = "Use Loaded Dataset"
+    else:
+        data_options = ["Use Sample Data", "Upload Custom Data"]
+        default_option = "Use Sample Data"
+    
+    data_source = st.radio(
+        "Choose data source:",
+        data_options,
+        index=0,
+        key="text_data_source"
+    )
+    
+    df = None
+    
+    if data_source == "Use Loaded Dataset":
+        st.success("✅ Using dataset from Data Upload section")
+        df = st.session_state.data
+        st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
+    
+    elif data_source == "Use Sample Data":
+        st.info("📊 Using sample product reviews dataset")
+        # Create sample text data - product reviews
+        sample_reviews = [
+            "This product is absolutely amazing! Best purchase I've made this year.",
+            "Terrible quality, broke after just one week. Very disappointed.",
+            "Good value for money. Works as expected, no complaints.",
+            "Outstanding customer service and fast delivery. Highly recommended!",
+            "Not worth the price. Found better alternatives for less money.",
+            "Exactly what I needed. Great product, will buy again.",
+            "Poor packaging, item arrived damaged. Refund requested.",
+            "Exceeded my expectations! Love the design and functionality.",
+            "Average product, nothing special but does the job.",
+            "Fantastic! My family loves it. Best gift ever!",
+            "Complete waste of money. Save yourself the hassle.",
+            "Decent product but shipping took forever. Would prefer faster delivery.",
+            "Incredible quality and attention to detail. Worth every penny!",
+            "Misleading description. Product doesn't match the photos.",
+            "Pretty good overall. Minor issues but nothing major.",
+            "Absolutely love it! Can't imagine life without it now.",
+            "Returned it immediately. Not as advertised.",
+            "Solid product for the price. Recommended for beginners.",
+            "Horrible experience. Customer support was unhelpful.",
+            "Best in its category! Superior to all competitors.",
+            "Okay for occasional use but not for daily tasks.",
+            "Exceptional build quality and performance. Five stars!",
+            "Disappointed with the features. Expected more functionality.",
+            "Perfect fit and finish. Looks great in my home!",
+            "Unreliable and inconsistent. Wouldn't buy again.",
+            "Great starter product. Good for learning the basics.",
+            "Premium quality at an affordable price. Impressive!",
+            "Functions well but design could be improved.",
+            "Absolutely horrible. One of my worst purchases ever.",
+            "Satisfactory product. Met my basic requirements.",
+            "Brilliant innovation! Revolutionary in its field.",
+            "Cheap materials, feels flimsy. Not durable at all.",
+            "Very pleased with this purchase. Smooth transaction.",
+            "Awful quality control. Multiple defects found.",
+            "Excellent performance and reliability. Highly satisfied!",
+            "Mediocre at best. Nothing to write home about.",
+            "Superb craftsmanship and elegant design. Love it!",
+            "Not user-friendly. Instructions are confusing.",
+            "Top-notch quality! Exceeds industry standards.",
+            "Regret buying this. Should have read reviews first.",
+            "Nice features but overpriced for what you get.",
+            "Phenomenal product! Changed my daily routine for better.",
+            "Broke within days. Very poor construction quality.",
+            "Reliable and consistent. Does exactly what it promises.",
+            "Worst customer service experience ever. Avoid!",
+            "Beautiful aesthetics and great functionality combined.",
+            "Subpar performance. Many better options available.",
+            "Amazing value! Can't believe the quality at this price.",
+            "Frustrating to use. Too many unnecessary complications.",
+            "Impressive technology and innovative features. Recommended!"
+        ]
+        
+        df = pd.DataFrame({
+            'Review': sample_reviews,
+            'ReviewID': range(1, len(sample_reviews) + 1)
+        })
+        
+        st.success(f"✅ Loaded sample dataset: {len(df)} product reviews")
+        st.write("**Sample Data Preview:**")
+        st.dataframe(df.head(10), use_container_width=True)
+        
+        st.info("""
+        **About this dataset:**
+        - 50 product reviews with mixed sentiments
+        - Contains positive, negative, and neutral opinions
+        - Perfect for learning sentiment analysis and text mining
+        - Includes various customer feedback patterns
+        """)
+    
+    elif data_source == "Upload Custom Data":
+        uploaded_file = st.file_uploader(
+            "Upload your text data (CSV or Excel)",
+            type=['csv', 'xlsx', 'xls'],
+            key="text_file_uploader"
+        )
+        
+        if uploaded_file is not None:
+            try:
+                if uploaded_file.name.endswith('.csv'):
+                    df = pd.read_csv(uploaded_file)
+                else:
+                    df = pd.read_excel(uploaded_file)
+                
+                st.success(f"✅ Uploaded {len(df)} rows, {len(df.columns)} columns")
+                st.dataframe(df.head(), use_container_width=True)
+            except Exception as e:
+                st.error(f"Error loading file: {str(e)}")
+                return
+        else:
+            st.info("👆 Please upload a CSV or Excel file containing text data")
+            return
+    
+    if df is None:
+        st.info("👆 Please select or upload data to continue")
         return
     
-    df = st.session_state.data
-    
     # Column selection with smart detection
-    st.subheader("📝 1. Select Text Column")
+    st.subheader("📝 2. Select Text Column")
     
     from utils.column_detector import ColumnDetector
     suggested_col = ColumnDetector.detect_text_column(df)
@@ -7626,7 +7827,7 @@ def show_text_mining():
         
         # Analysis tabs
         st.divider()
-        st.subheader("🔍 2. Text Analysis")
+        st.subheader("🔍 3. Text Analysis")
         
         tab1, tab2, tab3, tab4 = st.tabs(["Sentiment Analysis", "Word Frequency", "Topic Modeling", "AI Summary"])
         
