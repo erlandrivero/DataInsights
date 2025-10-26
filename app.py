@@ -1309,12 +1309,28 @@ def show_reports():
     st.progress(completion_pct / 100, text=f"Overall Completion: {completion_pct:.0f}%")
     
     # Key Insights Cards
-    if completed > 0:
+    if completed > 0 or 'cleaning_stats' in st.session_state:
         st.divider()
         st.subheader("🎯 Key Insights at a Glance")
         
-        insight_cols = st.columns(min(completed, 4))
+        # Count total insights available (including data cleaning)
+        total_insights = completed + (1 if 'cleaning_stats' in st.session_state else 0)
+        insight_cols = st.columns(min(total_insights, 4))
         col_idx = 0
+        
+        # Data Cleaning Insights (show first if available)
+        if 'cleaning_stats' in st.session_state:
+            with insight_cols[col_idx % 4]:
+                stats = st.session_state.cleaning_stats
+                quality = st.session_state.get('cleaning_quality_score', 0)
+                rows_removed = stats.get('rows_removed', 0)
+                
+                st.metric(
+                    "🧹 Data Cleaned",
+                    f"Quality: {quality:.0f}/100",
+                    delta=f"{rows_removed:,} rows removed" if rows_removed > 0 else "No rows removed"
+                )
+            col_idx += 1
         
         # ML Classification Insights
         if modules_status['ML Classification']:
@@ -1400,10 +1416,26 @@ def show_reports():
     
     # Create 2-column layout for module cards
     cols = st.columns(2)
+    
+    # Add Data Cleaning status first if available
+    idx = 0
+    if 'cleaning_stats' in st.session_state:
+        with cols[0]:
+            stats = st.session_state.cleaning_stats
+            quality = st.session_state.get('cleaning_quality_score', 0)
+            st.markdown(f"""
+            <div style='background-color: #d4edda; padding: 1rem; border-radius: 8px; 
+                        border-left: 4px solid #28a745; margin-bottom: 0.5rem;'>
+                <strong>✅ Data Cleaning</strong><br/>
+                <small style='color: #155724;'>Quality Score: {quality:.0f}/100 | {stats.get('rows_removed', 0):,} rows removed</small>
+            </div>
+            """, unsafe_allow_html=True)
+        idx = 1
+    
     modules_items = list(modules_status.items())
     
-    for idx, (module, status) in enumerate(modules_items):
-        col_idx = idx % 2
+    for module_idx, (module, status) in enumerate(modules_items):
+        col_idx = (idx + module_idx) % 2
         with cols[col_idx]:
             if status:
                 st.markdown(f"""
