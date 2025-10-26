@@ -2313,7 +2313,7 @@ This report contains results from completed analytics modules.
                 analyzer = MarketBasketAnalyzer()  # No arguments!
                 analyzer.transactions = st.session_state.mba_transactions
                 analyzer.rules = st.session_state.mba_rules
-                charts.append(("MBA: Rules Scatter Plot", analyzer.create_rules_visualization()))
+                charts.append(("MBA: Rules Scatter Plot", analyzer.create_scatter_plot()))
             except Exception as e:
                 chart_errors.append(f"MBA chart failed: {str(e)}")
         
@@ -2380,8 +2380,62 @@ This report contains results from completed analytics modules.
             except Exception as e:
                 chart_errors.append(f"Text Mining charts failed: {str(e)}")
         
-        # ML Classification - Note: Charts are inline only, not exportable
-        # ML Regression - Note: Charts are inline only, not exportable
+        # ML Regression charts - Create feature importance chart
+        if 'mlr_results' in st.session_state:
+            try:
+                results = st.session_state.mlr_results
+                best_model = max(results, key=lambda x: x.get('r2', 0))
+                
+                # Feature Importance Chart
+                if best_model.get('feature_importance'):
+                    import plotly.express as px
+                    feat_imp = best_model['feature_importance']
+                    # Sort descending and take top 10, then reverse for chart display
+                    feat_imp_sorted = sorted(feat_imp.items(), key=lambda x: x[1], reverse=True)[:10]
+                    feat_imp_sorted = sorted(feat_imp_sorted, key=lambda x: x[1])
+                    
+                    fig_imp = px.bar(
+                        x=[x[1] for x in feat_imp_sorted],
+                        y=[x[0] for x in feat_imp_sorted],
+                        orientation='h',
+                        title=f'ML Regression: Top 10 Features ({best_model["model_name"]})',
+                        labels={'x': 'Importance', 'y': 'Feature'}
+                    )
+                    fig_imp.update_layout(showlegend=False, height=400)
+                    charts.append(("ML Regression: Feature Importance", fig_imp))
+            except Exception as e:
+                chart_errors.append(f"ML Regression chart failed: {str(e)}")
+        
+        # ML Classification charts - Create feature importance chart
+        if 'ml_results' in st.session_state:
+            try:
+                results = st.session_state.ml_results
+                best_model = max(results, key=lambda x: x.get('accuracy', 0))
+                best_details = best_model.get('details', {})
+                
+                # Feature Importance Chart
+                if best_details.get('feature_importance'):
+                    import plotly.express as px
+                    feat_imp = best_details['feature_importance']
+                    # Get top 10 features
+                    importance_df = pd.DataFrame({
+                        'Feature': feat_imp['features'][:10],
+                        'Importance': feat_imp['importances'][:10]
+                    })
+                    # Sort for chart display
+                    importance_df = importance_df.sort_values('Importance')
+                    
+                    fig_imp = px.bar(
+                        importance_df,
+                        x='Importance',
+                        y='Feature',
+                        orientation='h',
+                        title=f'ML Classification: Top 10 Features ({best_model["model_name"]})',
+                    )
+                    fig_imp.update_layout(showlegend=False, height=400)
+                    charts.append(("ML Classification: Feature Importance", fig_imp))
+            except Exception as e:
+                chart_errors.append(f"ML Classification chart failed: {str(e)}")
         
         # Show debug info
         if chart_errors:
@@ -2546,6 +2600,9 @@ This report contains results from completed analytics modules.
                 st.write(f"• Anomaly Detection: {'anomaly_detector' in st.session_state}")
                 st.write(f"• Time Series: {'ts_analyzer' in st.session_state}")
                 st.write(f"• Monte Carlo: {'mc_simulations' in st.session_state}")
+                st.write(f"• Text Mining: {'text_analyzer' in st.session_state}")
+                st.write(f"• ML Regression: {'mlr_results' in st.session_state}")
+                st.write(f"• ML Classification: {'ml_results' in st.session_state}")
 
 def show_market_basket_analysis():
     """Market Basket Analysis page."""
