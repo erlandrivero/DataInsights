@@ -2310,17 +2310,19 @@ This report contains results from completed analytics modules.
         if 'mba_rules' in st.session_state and not st.session_state.mba_rules.empty:
             try:
                 from utils.market_basket import MarketBasketAnalyzer
-                analyzer = MarketBasketAnalyzer(st.session_state.mba_transactions)
+                analyzer = MarketBasketAnalyzer()  # No arguments!
+                analyzer.transactions = st.session_state.mba_transactions
                 analyzer.rules = st.session_state.mba_rules
                 charts.append(("MBA: Rules Scatter Plot", analyzer.create_rules_visualization()))
             except Exception as e:
                 chart_errors.append(f"MBA chart failed: {str(e)}")
         
         # RFM charts
-        if 'rfm_analyzer' in st.session_state:
+        if 'rfm_analyzer' in st.session_state and 'rfm_segmented' in st.session_state:
             try:
-                analyzer = st.session_state.rfm_analyzer
-                charts.append(("RFM: Segment Distribution", analyzer.create_segment_distribution()))
+                from utils.rfm_analysis import RFMAnalyzer
+                rfm_data = st.session_state.rfm_segmented
+                charts.append(("RFM: Segment Distribution", RFMAnalyzer.create_segment_distribution(rfm_data)))
             except Exception as e:
                 chart_errors.append(f"RFM chart failed: {str(e)}")
         
@@ -2328,8 +2330,8 @@ This report contains results from completed analytics modules.
         if 'anomaly_detector' in st.session_state:
             try:
                 detector = st.session_state.anomaly_detector
-                charts.append(("Anomaly Detection: Distribution", detector.create_distribution_chart()))
-                charts.append(("Anomaly Detection: Scatter Plot", detector.create_2d_scatter(use_pca=True, show_only_anomalies=True)))
+                # Only create_2d_scatter exists, not create_distribution_chart
+                charts.append(("Anomaly Detection: Scatter Plot", detector.create_2d_scatter(use_pca=True, show_only_anomalies=False)))
             except Exception as e:
                 chart_errors.append(f"Anomaly Detection charts failed: {str(e)}")
         
@@ -2345,14 +2347,41 @@ This report contains results from completed analytics modules.
                 chart_errors.append(f"Time Series charts failed: {str(e)}")
         
         # Monte Carlo charts
-        if 'mc_simulations' in st.session_state:
+        if 'mc_simulations' in st.session_state and 'mc_stock_data' in st.session_state:
             try:
                 from utils.monte_carlo import MonteCarloSimulator
-                simulator = MonteCarloSimulator(st.session_state.mc_ticker)
+                simulator = MonteCarloSimulator()  # No arguments!
                 simulator.simulations = st.session_state.mc_simulations
-                charts.append(("Monte Carlo: Return Distribution", simulator.create_distribution_plot()))
+                simulator.stock_data = st.session_state.mc_stock_data
+                
+                # Get initial price and final prices from simulations
+                initial_price = st.session_state.mc_stock_data['Close'].iloc[-1]
+                final_prices = simulator.simulations[:, -1]
+                
+                charts.append(("Monte Carlo: Return Distribution", simulator.create_distribution_plot(final_prices, initial_price)))
             except Exception as e:
                 chart_errors.append(f"Monte Carlo chart failed: {str(e)}")
+        
+        # Text Mining charts
+        if 'text_analyzer' in st.session_state:
+            try:
+                analyzer = st.session_state.text_analyzer
+                
+                # Sentiment plot
+                if 'sentiment_results' in st.session_state:
+                    sentiment_df = st.session_state.sentiment_results
+                    charts.append(("Text Mining: Sentiment Analysis", analyzer.create_sentiment_plot(sentiment_df)))
+                
+                # Word frequency plot
+                if 'word_freq_results' in st.session_state:
+                    word_freq_df = st.session_state.word_freq_results
+                    charts.append(("Text Mining: Word Frequency", analyzer.create_word_frequency_plot(word_freq_df)))
+                    
+            except Exception as e:
+                chart_errors.append(f"Text Mining charts failed: {str(e)}")
+        
+        # ML Classification - Note: Charts are inline only, not exportable
+        # ML Regression - Note: Charts are inline only, not exportable
         
         # Show debug info
         if chart_errors:
@@ -2458,25 +2487,25 @@ This report contains results from completed analytics modules.
                 )
         
         with col4:
-            # PDF Report
-            if st.button("📄 PDF Report", use_container_width=True, help="PDF with embedded charts"):
+            # PDF Report - Check for libraries BEFORE showing button
+            try:
+                import weasyprint
+                pdf_lib_available = True
+                pdf_lib_name = "weasyprint"
+            except ImportError:
                 try:
-                    # Check for required libraries
+                    import reportlab
+                    pdf_lib_available = True
+                    pdf_lib_name = "reportlab"
+                except ImportError:
+                    pdf_lib_available = False
+                    pdf_lib_name = None
+            
+            if pdf_lib_available:
+                # Libraries available - show working button
+                if st.button("📄 PDF Report", use_container_width=True, help="Generate PDF with embedded charts"):
                     try:
-                        import weasyprint
-                        lib_available = True
-                        lib_name = "weasyprint"
-                    except ImportError:
-                        try:
-                            import reportlab
-                            lib_available = True
-                            lib_name = "reportlab"
-                        except ImportError:
-                            lib_available = False
-                            lib_name = None
-                    
-                    if lib_available:
-                        with st.spinner(f"Generating PDF with {lib_name}..."):
+                        with st.spinner(f"Generating PDF with {pdf_lib_name}..."):
                             pdf_data = AdvancedReportExporter.create_pdf_report(
                                 report_text,
                                 charts,
@@ -2491,15 +2520,13 @@ This report contains results from completed analytics modules.
                                 use_container_width=True
                             )
                             st.success(f"✅ PDF generated with {len(charts)} chart(s)!")
-                    else:
-                        st.error("❌ PDF generation requires additional libraries")
-                        st.info("""**Install one of:**
-- `pip install weasyprint` (recommended)
-- `pip install reportlab`
-
-Use HTML or Markdown+Images export instead.""")
-                except Exception as e:
-                    st.error(f"PDF generation failed: {str(e)}")
+                    except Exception as e:
+                        st.error(f"PDF generation failed: {str(e)}")
+            else:
+                # Libraries not available - show disabled button with info
+                st.button("📄 PDF Report", use_container_width=True, disabled=True, 
+                         help="PDF export requires weasyprint or reportlab library")
+                st.caption("💡 Use **HTML** or **MD + Images** export instead")
         
         # Show visualization count with details
         if charts:
