@@ -368,6 +368,250 @@ class DataCleaner:
             'recommendations': recommendations
         }
     
+    def trim_string_values(self) -> 'DataCleaner':
+        """
+        Trim whitespace from all string columns and standardize casing.
+        
+        Returns:
+            Self for method chaining
+        """
+        string_cols = self.df.select_dtypes(include=['object']).columns
+        trimmed = 0
+        
+        for col in string_cols:
+            original_nulls = self.df[col].isnull().sum()
+            # Trim whitespace
+            self.df[col] = self.df[col].str.strip()
+            # Restore nulls that might have been converted
+            if original_nulls > 0:
+                self.df.loc[self.df[col] == '', col] = np.nan
+            trimmed += 1
+        
+        if trimmed > 0:
+            self.cleaning_log.append(f"✅ Trimmed whitespace from {trimmed} text columns")
+        
+        return self
+    
+    def remove_outliers(self, columns: List[str] = None, method: str = 'IQR', 
+                       multiplier: float = 1.5) -> 'DataCleaner':
+        """
+        Remove statistical outliers using IQR or Z-score method.
+        
+        Args:
+            columns: List of columns to check for outliers (None = all numeric)
+            method: 'IQR' or 'zscore'
+            multiplier: IQR multiplier (default 1.5) or Z-score threshold (default 3)
+            
+        Returns:
+            Self for method chaining
+        """
+        if columns is None:
+            columns = self.df.select_dtypes(include=['number']).columns.tolist()
+        
+        rows_before = len(self.df)
+        outlier_mask = pd.Series([True] * len(self.df))
+        
+        for col in columns:
+            if col not in self.df.columns:
+                continue
+                
+            if method == 'IQR':
+                Q1 = self.df[col].quantile(0.25)
+                Q3 = self.df[col].quantile(0.75)
+                IQR = Q3 - Q1
+                lower = Q1 - multiplier * IQR
+                upper = Q3 + multiplier * IQR
+                outlier_mask &= (self.df[col] >= lower) & (self.df[col] <= upper)
+            elif method == 'zscore':
+                from scipy import stats
+                z_scores = np.abs(stats.zscore(self.df[col].dropna()))
+                # Create mask for non-null values
+                non_null_mask = self.df[col].notna()
+                col_mask = pd.Series([True] * len(self.df))
+                col_mask[non_null_mask] = z_scores < multiplier
+                outlier_mask &= col_mask
+        
+        self.df = self.df[outlier_mask]
+        outliers_removed = rows_before - len(self.df)
+        
+        if outliers_removed > 0:
+            pct = (outliers_removed / rows_before) * 100
+            self.cleaning_log.append(f"✅ Removed {outliers_removed:,} outlier rows ({pct:.1f}%) using {method} method")
+        else:
+            self.cleaning_log.append("✅ No outliers detected")
+        
+        return self
+    
+    def remove_constant_columns(self) -> 'DataCleaner':
+        """
+        Remove columns with all same values (zero variance).
+        
+        Returns:
+            Self for method chaining
+        """
+        constant_cols = []
+        
+        for col in self.df.columns:
+            if self.df[col].nunique() <= 1:
+                constant_cols.append(col)
+        
+        if constant_cols:
+            self.df = self.df.drop(columns=constant_cols)
+            self.cleaning_log.append(f"✅ Removed {len(constant_cols)} constant columns: {', '.join(constant_cols[:5])}")
+        else:
+            self.cleaning_log.append("✅ No constant columns found")
+        
+        return self
+    
+    def parse_dates(self, date_columns: List[str] = None, auto_detect: bool = True) -> 'DataCleaner':
+        """
+        Parse and standardize date columns.
+        
+        Args:
+            date_columns: List of column names to parse as dates
+            auto_detect: Automatically detect date columns
+            
+        Returns:
+            Self for method chaining
+        """
+        parsed = 0
+        
+        if auto_detect:
+            # Auto-detect potential date columns
+            for col in self.df.select_dtypes(include=['object']).columns:
+                # Try to parse as datetime
+                try:
+                    sample = self.df[col].dropna().head(100)
+                    if len(sample) > 0:
+                        parsed_sample = pd.to_datetime(sample, errors='coerce')
+                        # If >50% of sample parsed successfully, it's likely a date
+                        if parsed_sample.notna().sum() / len(sample) > 0.5:
+                            self.df[col] = pd.to_datetime(self.df[col], errors='coerce')
+                            parsed += 1
+                except:
+                    pass
+        
+        if date_columns:
+            for col in date_columns:
+                if col in self.df.columns:
+                    try:
+                        self.df[col] = pd.to_datetime(self.df[col], errors='coerce')
+                        parsed += 1
+                    except:
+                        pass
+        
+        if parsed > 0:
+            self.cleaning_log.append(f"✅ Parsed {parsed} date columns")
+        
+        return self
+    
+    def remove_empty_rows(self) -> 'DataCleaner':
+        """
+        Remove rows where ALL values are missing.
+        
+        Returns:
+            Self for method chaining
+        """
+        rows_before = len(self.df)
+        self.df = self.df.dropna(how='all')
+        rows_removed = rows_before - len(self.df)
+        
+        if rows_removed > 0:
+            self.cleaning_log.append(f"✅ Removed {rows_removed:,} completely empty rows")
+        else:
+            self.cleaning_log.append("✅ No empty rows found")
+        
+        return self
+    
+    def fix_negative_values(self, columns: List[str] = None, method: str = 'abs') -> 'DataCleaner':
+        """
+        Fix negative values in quantity/amount columns.
+        
+        Args:
+            columns: List of columns to fix (None = auto-detect quantity/amount columns)
+            method: 'abs' (absolute value), 'zero' (replace with 0), 'drop' (remove rows)
+            
+        Returns:
+            Self for method chaining
+        """
+        if columns is None:
+            # Auto-detect quantity/amount/price columns
+            columns = []
+            keywords = ['quantity', 'qty', 'amount', 'price', 'cost', 'count', 'num', 'total']
+            for col in self.df.select_dtypes(include=['number']).columns:
+                if any(keyword in col.lower() for keyword in keywords):
+                    columns.append(col)
+        
+        fixed = 0
+        
+        for col in columns:
+            if col not in self.df.columns:
+                continue
+            
+            neg_count = (self.df[col] < 0).sum()
+            if neg_count > 0:
+                if method == 'abs':
+                    self.df[col] = self.df[col].abs()
+                elif method == 'zero':
+                    self.df[col] = self.df[col].clip(lower=0)
+                elif method == 'drop':
+                    self.df = self.df[self.df[col] >= 0]
+                
+                fixed += neg_count
+        
+        if fixed > 0:
+            self.cleaning_log.append(f"✅ Fixed {fixed:,} negative values using '{method}' method")
+        
+        return self
+    
+    def standardize_categorical(self, columns: List[str] = None, 
+                               consolidate_rare: bool = False,
+                               rare_threshold: float = 0.01) -> 'DataCleaner':
+        """
+        Standardize categorical values (lowercase, trim) and optionally consolidate rare categories.
+        
+        Args:
+            columns: List of columns to standardize (None = all object columns)
+            consolidate_rare: Consolidate categories with <rare_threshold frequency to 'Other'
+            rare_threshold: Threshold for rare categories (default 1%)
+            
+        Returns:
+            Self for method chaining
+        """
+        if columns is None:
+            columns = self.df.select_dtypes(include=['object']).columns.tolist()
+        
+        standardized = 0
+        consolidated = 0
+        
+        for col in columns:
+            if col not in self.df.columns:
+                continue
+            
+            # Standardize: lowercase and trim
+            original_unique = self.df[col].nunique()
+            self.df[col] = self.df[col].str.lower().str.strip()
+            new_unique = self.df[col].nunique()
+            
+            if original_unique != new_unique:
+                standardized += 1
+            
+            # Consolidate rare categories
+            if consolidate_rare:
+                value_counts = self.df[col].value_counts(normalize=True)
+                rare_categories = value_counts[value_counts < rare_threshold].index
+                if len(rare_categories) > 0:
+                    self.df[col] = self.df[col].replace(rare_categories.tolist(), 'other')
+                    consolidated += len(rare_categories)
+        
+        if standardized > 0:
+            self.cleaning_log.append(f"✅ Standardized {standardized} categorical columns")
+        
+        if consolidated > 0:
+            self.cleaning_log.append(f"✅ Consolidated {consolidated} rare categories to 'other'")
+        
+        return self
+    
     def calculate_quality_score(self) -> float:
         """
         Calculate overall data quality score (0-100).
@@ -414,9 +658,19 @@ class DataCleaner:
                       fill_missing: bool = True,
                       missing_strategy: str = 'median',
                       drop_high_missing_cols: bool = False,
-                      col_threshold: float = 0.8) -> Dict[str, Any]:
+                      col_threshold: float = 0.8,
+                      # New parameters
+                      trim_strings: bool = True,
+                      remove_outliers_flag: bool = False,
+                      outlier_method: str = 'IQR',
+                      remove_constant: bool = True,
+                      parse_dates_flag: bool = True,
+                      remove_empty_rows_flag: bool = True,
+                      fix_negatives: bool = False,
+                      negative_method: str = 'abs',
+                      standardize_categorical_flag: bool = False) -> Dict[str, Any]:
         """
-        Execute full cleaning pipeline.
+        Execute full cleaning pipeline with industry-standard techniques.
         
         Args:
             normalize_cols: Normalize column names
@@ -426,31 +680,68 @@ class DataCleaner:
             missing_strategy: Strategy for filling ('median', 'mean', 'mode')
             drop_high_missing_cols: Drop columns with too many missing values
             col_threshold: Threshold for dropping columns
+            trim_strings: Trim whitespace from text columns
+            remove_outliers_flag: Remove statistical outliers
+            outlier_method: Outlier detection method ('IQR' or 'zscore')
+            remove_constant: Remove constant/zero-variance columns
+            parse_dates_flag: Auto-detect and parse date columns
+            remove_empty_rows_flag: Remove rows with all missing values
+            fix_negatives: Fix negative values in quantity/amount columns
+            negative_method: How to fix negatives ('abs', 'zero', 'drop')
+            standardize_categorical_flag: Standardize categorical values
             
         Returns:
             Dictionary with cleaned DataFrame and report
         """
         self.cleaning_log = []
         
-        # Step 1: Normalize column names
+        # Step 1: Remove completely empty rows (early)
+        if remove_empty_rows_flag:
+            self.remove_empty_rows()
+        
+        # Step 2: Normalize column names
         if normalize_cols:
             self.normalize_column_names()
         
-        # Step 2: Drop high missing columns (if enabled)
+        # Step 3: Remove constant columns (early, before type conversion)
+        if remove_constant:
+            self.remove_constant_columns()
+        
+        # Step 4: Drop high missing columns (if enabled)
         if drop_high_missing_cols:
             self.drop_missing_columns(threshold=col_threshold)
         
-        # Step 3: Convert to numeric
+        # Step 5: Trim string values (before type conversion)
+        if trim_strings:
+            self.trim_string_values()
+        
+        # Step 6: Parse dates (before numeric conversion)
+        if parse_dates_flag:
+            self.parse_dates()
+        
+        # Step 7: Convert to numeric
         if convert_numeric:
             self.convert_to_numeric()
         
-        # Step 4: Remove duplicates
+        # Step 8: Fix negative values (after numeric conversion)
+        if fix_negatives:
+            self.fix_negative_values(method=negative_method)
+        
+        # Step 9: Remove duplicates
         if remove_dups:
             self.remove_duplicates()
         
-        # Step 5: Fill missing values
+        # Step 10: Remove outliers (before filling missing values)
+        if remove_outliers_flag:
+            self.remove_outliers(method=outlier_method)
+        
+        # Step 11: Fill missing values
         if fill_missing:
             self.fill_missing_values(strategy=missing_strategy)
+        
+        # Step 12: Standardize categorical values (final step)
+        if standardize_categorical_flag:
+            self.standardize_categorical()
         
         # Calculate final statistics
         final_stats = {

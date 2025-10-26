@@ -681,21 +681,66 @@ def show_analysis():
         with st.form("cleaning_form"):
             st.write("**Select Cleaning Steps:**")
             
-            col1, col2 = st.columns(2)
+            # Create tabs for organizing options
+            basic_tab, advanced_tab = st.tabs(["✅ Basic Cleaning", "⚡ Advanced Options"])
             
-            with col1:
-                normalize_cols = st.checkbox("Normalize column names", value=True, 
-                                            help="Convert to lowercase with underscores")
-                convert_numeric = st.checkbox("Convert to numeric", value=True,
-                                             help="Convert compatible columns to numbers")
-                remove_dups = st.checkbox("Remove duplicate rows", value=True)
+            with basic_tab:
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("**📝 Structure & Format:**")
+                    normalize_cols = st.checkbox("Normalize column names", value=True, 
+                                                help="Convert to lowercase with underscores")
+                    convert_numeric = st.checkbox("Convert to numeric", value=True,
+                                                 help="Convert compatible columns to numbers")
+                    trim_strings = st.checkbox("Trim whitespace from text", value=True,
+                                               help="Remove leading/trailing spaces")
+                    parse_dates = st.checkbox("Auto-parse date columns", value=True,
+                                             help="Automatically detect and parse dates")
+                
+                with col2:
+                    st.markdown("**🧹 Data Quality:**")
+                    remove_dups = st.checkbox("Remove duplicate rows", value=True)
+                    remove_constant = st.checkbox("Remove constant columns", value=True,
+                                                help="Remove columns with all same values")
+                    remove_empty_rows = st.checkbox("Remove empty rows", value=True,
+                                                   help="Remove rows with all missing values")
+                    drop_high_missing = st.checkbox("Drop columns with >80% missing", value=False)
             
-            with col2:
-                fill_missing = st.checkbox("Fill missing values", value=True)
-                missing_strategy = st.selectbox("Missing value strategy:", 
-                                               ["median", "mean", "mode"],
-                                               help="Strategy for filling missing values")
-                drop_high_missing = st.checkbox("Drop columns with >80% missing", value=False)
+            with advanced_tab:
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("**📊 Missing Values:**")
+                    fill_missing = st.checkbox("Fill missing values", value=True)
+                    missing_strategy = st.selectbox("Fill strategy:", 
+                                                   ["median", "mean", "mode"],
+                                                   help="Strategy for filling missing values")
+                    
+                    st.markdown("**🔢 Outliers:**")
+                    remove_outliers = st.checkbox("Remove statistical outliers", value=False,
+                                                 help="Remove data points using IQR method")
+                    if remove_outliers:
+                        outlier_method = st.selectbox("Outlier method:", 
+                                                     ["IQR", "zscore"],
+                                                     help="IQR = 1.5*IQR rule, zscore = 3 std devs")
+                    else:
+                        outlier_method = "IQR"
+                
+                with col2:
+                    st.markdown("**⚠️ Negative Values:**")
+                    fix_negatives = st.checkbox("Fix negative quantities/amounts", value=False,
+                                               help="Auto-detect and fix negative values in qty/amount columns")
+                    if fix_negatives:
+                        negative_method = st.selectbox("Fix method:", 
+                                                      ["abs", "zero", "drop"],
+                                                      help="abs=absolute value, zero=replace with 0, drop=remove rows")
+                    else:
+                        negative_method = "abs"
+                    
+                    st.markdown("**📂 Categorical:**")
+                    standardize_categorical = st.checkbox("Standardize categorical values", value=False,
+                                                        help="Lowercase and trim categorical values")
             
             submitted = st.form_submit_button("🚀 Clean Data Now", type="primary", use_container_width=True)
         
@@ -739,7 +784,17 @@ def show_analysis():
                         fill_missing=fill_missing,
                         missing_strategy=missing_strategy,
                         drop_high_missing_cols=drop_high_missing,
-                        col_threshold=0.8
+                        col_threshold=0.8,
+                        # New parameters
+                        trim_strings=trim_strings,
+                        remove_outliers_flag=remove_outliers,
+                        outlier_method=outlier_method,
+                        remove_constant=remove_constant,
+                        parse_dates_flag=parse_dates,
+                        remove_empty_rows_flag=remove_empty_rows,
+                        fix_negatives=fix_negatives,
+                        negative_method=negative_method,
+                        standardize_categorical_flag=standardize_categorical
                     )
                     
                     progress_bar.progress(0.8)
