@@ -7107,7 +7107,7 @@ def show_anomaly_detection():
         st.divider()
         st.subheader("🔍 7. Detailed Analysis")
         
-        tab1, tab2, tab3 = st.tabs(["Anomaly Profiles", "Feature Importance", "AI Explanation"])
+        tab1, tab2 = st.tabs(["Anomaly Profiles", "Feature Importance"])
         
         with tab1:
             st.write("**Top Anomalies Compared to Normal Data:**")
@@ -7153,72 +7153,73 @@ def show_anomaly_detection():
             else:
                 st.info(f"Feature importance is only available for Isolation Forest. Current algorithm: {algorithm}")
         
-        with tab3:
-            st.write("**AI-Powered Anomaly Explanation:**")
-            
-            # Display saved insights if they exist
-            if 'anomaly_ai_insights' in st.session_state:
-                st.markdown(st.session_state.anomaly_ai_insights)
-                st.info("✅ AI insights saved! These will be included in your report downloads.")
-            
-            if st.button("🤖 Generate AI Explanation", key="anomaly_ai_btn", type="primary"):
-                with st.spinner("Analyzing anomalies with AI..."):
-                    try:
-                        from utils.ai_helper import AIHelper
-                        
-                        ai = AIHelper()
-                        
-                        # Prepare context
-                        top_anomalies = results[results['is_anomaly']].nsmallest(5, 'anomaly_score')
-                        
-                        context = f"""
-                        Anomaly Detection Results:
-                        - Algorithm: {algorithm}
-                        - Total Records: {stats['total_records']}
-                        - Anomalies Found: {stats['num_anomalies']} ({stats['pct_anomalies']:.1f}%)
-                        - Features Analyzed: {', '.join(feature_cols)}
-                        
-                        Top 5 Anomalies:
-                        {top_anomalies[feature_cols + ['anomaly_score']].to_string()}
-                        
-                        Normal Data Statistics:
-                        {results[~results['is_anomaly']][feature_cols].describe().to_string()}
-                        """
-                        
-                        prompt = f"""
-                        You are a data analyst. Analyze these anomaly detection results and provide:
-                        
-                        1. An explanation of what makes these points anomalous
-                        2. Potential business implications or causes
-                        3. Recommended actions for each type of anomaly found
-                        
-                        {context}
-                        
-                        Provide insights in a clear, business-friendly format with specific examples.
-                        """
-                        
-                        # Get AI response
-                        response = ai.client.chat.completions.create(
-                            model="gpt-4",
-                            messages=[
-                                {"role": "system", "content": "You are an expert data analyst specializing in anomaly detection and business insights."},
-                                {"role": "user", "content": prompt}
-                            ],
-                            temperature=0.7,
-                            max_tokens=1500
-                        )
-                        
-                        # Save to session state
-                        st.session_state.anomaly_ai_insights = response.choices[0].message.content
-                        st.success("✅ AI insights generated successfully!")
-                        st.markdown(st.session_state.anomaly_ai_insights)
-                        
-                    except Exception as e:
-                        st.error(f"Error generating AI explanation: {str(e)}")
+        # AI Explanation section (outside tabs to prevent tab reset on button click)
+        st.divider()
+        st.subheader("🤖 8. AI-Powered Anomaly Explanation")
+        
+        # Display saved insights if they exist
+        if 'anomaly_ai_insights' in st.session_state:
+            st.markdown(st.session_state.anomaly_ai_insights)
+            st.info("✅ AI insights saved! These will be included in your report downloads.")
+        
+        if st.button("🤖 Generate AI Explanation", key="anomaly_ai_btn", type="primary"):
+            with st.spinner("Analyzing anomalies with AI..."):
+                try:
+                    from utils.ai_helper import AIHelper
+                    
+                    ai = AIHelper()
+                    
+                    # Prepare context
+                    top_anomalies = results[results['is_anomaly']].nsmallest(5, 'anomaly_score')
+                    
+                    context = f"""
+                    Anomaly Detection Results:
+                    - Algorithm: {algorithm}
+                    - Total Records: {stats['total_records']}
+                    - Anomalies Found: {stats['num_anomalies']} ({stats['pct_anomalies']:.1f}%)
+                    - Features Analyzed: {', '.join(feature_cols)}
+                    
+                    Top 5 Anomalies:
+                    {top_anomalies[feature_cols + ['anomaly_score']].to_string()}
+                    
+                    Normal Data Statistics:
+                    {results[~results['is_anomaly']][feature_cols].describe().to_string()}
+                    """
+                    
+                    prompt = f"""
+                    You are a data analyst. Analyze these anomaly detection results and provide:
+                    
+                    1. An explanation of what makes these points anomalous
+                    2. Potential business implications or causes
+                    3. Recommended actions for each type of anomaly found
+                    
+                    {context}
+                    
+                    Provide insights in a clear, business-friendly format with specific examples.
+                    """
+                    
+                    # Get AI response
+                    response = ai.client.chat.completions.create(
+                        model="gpt-4",
+                        messages=[
+                            {"role": "system", "content": "You are an expert data analyst specializing in anomaly detection and business insights."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.7,
+                        max_tokens=1500
+                    )
+                    
+                    # Save to session state
+                    st.session_state.anomaly_ai_insights = response.choices[0].message.content
+                    st.success("✅ AI insights generated successfully!")
+                    st.markdown(st.session_state.anomaly_ai_insights)
+                    
+                except Exception as e:
+                    st.error(f"Error generating AI explanation: {str(e)}")
         
         # Export section
         st.divider()
-        st.subheader("📥 8. Export Results")
+        st.subheader("📥 9. Export Results")
         
         col1, col2, col3 = st.columns(3)
         
