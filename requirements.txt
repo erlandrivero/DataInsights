@@ -42,10 +42,8 @@ lightgbm
 catboost
 joblib  # For model serialization
 
-# Advanced Report Exports (Optional - for visualizations in exports)
-# kaleido  # For converting Plotly to static images (PNG/PDF) - uncomment if needed
-# reportlab  # For PDF generation - uncomment if needed
-# weasyprint  # For better PDF generation (recommended over reportlab) - uncomment if needed
+# Advanced Report Exports
+kaleido  # For converting Plotly charts to static PNG images in MD+Images export
 
 # Testing & Quality Assurance
 pytest>=7.0.0

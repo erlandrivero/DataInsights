@@ -2447,7 +2447,7 @@ This report contains results from completed analytics modules.
                 for error in chart_errors:
                     st.warning(error)
         
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3 = st.columns(3)
         
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         report_text = st.session_state.comprehensive_report
@@ -2543,48 +2543,6 @@ This report contains results from completed analytics modules.
                     use_container_width=True,
                     help="Basic HTML (charts failed)"
                 )
-        
-        with col4:
-            # PDF Report - Check for libraries BEFORE showing button
-            try:
-                import weasyprint
-                pdf_lib_available = True
-                pdf_lib_name = "weasyprint"
-            except ImportError:
-                try:
-                    import reportlab
-                    pdf_lib_available = True
-                    pdf_lib_name = "reportlab"
-                except ImportError:
-                    pdf_lib_available = False
-                    pdf_lib_name = None
-            
-            if pdf_lib_available:
-                # Libraries available - show working button
-                if st.button("📄 PDF Report", use_container_width=True, help="Generate PDF with embedded charts"):
-                    try:
-                        with st.spinner(f"Generating PDF with {pdf_lib_name}..."):
-                            pdf_data = AdvancedReportExporter.create_pdf_report(
-                                report_text,
-                                charts,
-                                title="DataInsights - Comprehensive Report"
-                            )
-                            
-                            st.download_button(
-                                label="💾 Download PDF Report",
-                                data=pdf_data,
-                                file_name=f"report_{timestamp}.pdf",
-                                mime="application/pdf",
-                                use_container_width=True
-                            )
-                            st.success(f"✅ PDF generated with {len(charts)} chart(s)!")
-                    except Exception as e:
-                        st.error(f"PDF generation failed: {str(e)}")
-            else:
-                # Libraries not available - show disabled button with info
-                st.button("📄 PDF Report", use_container_width=True, disabled=True, 
-                         help="PDF export requires weasyprint or reportlab library")
-                st.caption("💡 Use **HTML** or **MD + Images** export instead")
         
         # Show visualization count with details
         if charts:
