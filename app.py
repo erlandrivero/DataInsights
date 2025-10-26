@@ -1318,11 +1318,11 @@ def show_reports():
                 anomaly_results = st.session_state.get('anomaly_results', None)
                 if anomaly_results is not None and isinstance(anomaly_results, pd.DataFrame) and len(anomaly_results) > 0:
                     anomalies = sum(anomaly_results['is_anomaly'])
-                    total = len(anomaly_results)
+                    anomaly_total = len(anomaly_results)  # Use specific name to avoid collision
                     st.metric(
                         "🔬 Anomalies Found",
                         anomalies,
-                        delta=f"{(anomalies/total)*100:.1f}% of data"
+                        delta=f"{(anomalies/anomaly_total)*100:.1f}% of data"
                     )
             col_idx += 1
         
@@ -1790,13 +1790,28 @@ Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
                     
                     if modules_status['Market Basket Analysis']:
                         mba_rules = st.session_state.get('mba_rules', pd.DataFrame())
-                        rules_count = len(mba_rules)
-                        module_insights.append(f"""
+                        if not mba_rules.empty:
+                            rules_count = len(mba_rules)
+                            max_confidence = mba_rules['confidence'].max()
+                            max_lift = mba_rules['lift'].max()
+                            avg_support = mba_rules['support'].mean()
+                            # Get best rule (highest confidence * lift)
+                            mba_rules['score'] = mba_rules['confidence'] * mba_rules['lift']
+                            best_rule_idx = mba_rules['score'].idxmax()
+                            best_rule = mba_rules.loc[best_rule_idx]
+                            module_insights.append(f"""
 ### 🧺 Market Basket Analysis
-- **Status:** Completed
 - **Association Rules Generated:** {rules_count}
-- **Top Products:** Analyzed for cross-selling opportunities
-- **Recommendations:** Available for basket optimization
+- **Average Support:** {avg_support:.4f}
+- **Max Confidence:** {max_confidence:.4f} ({max_confidence*100:.1f}%)
+- **Max Lift:** {max_lift:.2f}
+- **Best Rule Confidence:** {best_rule['confidence']:.4f}
+- **Best Rule Lift:** {best_rule['lift']:.2f}
+""")
+                        else:
+                            module_insights.append("""
+### 🧺 Market Basket Analysis
+- **Status:** Completed (No rules generated)
 """)
                         if 'mba_ai_insights' in st.session_state:
                             module_insights.append(f"""
@@ -1822,15 +1837,26 @@ Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
 """)
                     
                     if modules_status['Anomaly Detection']:
-                        anomaly_results = st.session_state.get('anomaly_results', {})
-                        anomalies = anomaly_results.get('num_anomalies', 0)
+                        anomaly_results = st.session_state.get('anomaly_results', None)
                         algorithm = st.session_state.get('anomaly_algorithm', 'N/A')
-                        module_insights.append(f"""
+                        if anomaly_results is not None and isinstance(anomaly_results, pd.DataFrame):
+                            anomalies_count = sum(anomaly_results['is_anomaly']) if 'is_anomaly' in anomaly_results.columns else 0
+                            total_records = len(anomaly_results)
+                            anomaly_pct = (anomalies_count / total_records * 100) if total_records > 0 else 0
+                            avg_score = anomaly_results['anomaly_score'].mean() if 'anomaly_score' in anomaly_results.columns else 0
+                            module_insights.append(f"""
+### 🔬 Anomaly Detection
+- **Algorithm:** {algorithm}
+- **Outliers Identified:** {anomalies_count:,} ({anomaly_pct:.2f}% of {total_records:,} records)
+- **Average Anomaly Score:** {avg_score:.4f}
+- **Detection Threshold:** Automatically determined by contamination parameter
+""")
+                        else:
+                            module_insights.append(f"""
 ### 🔬 Anomaly Detection
 - **Status:** Completed
 - **Algorithm:** {algorithm}
-- **Outliers Identified:** {anomalies}
-- **Anomaly Scores:** Calculated and flagged
+- **Results:** Available
 """)
                         if 'anomaly_ai_insights' in st.session_state:
                             module_insights.append(f"""
@@ -1842,16 +1868,31 @@ Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
                         has_arima = 'arima_results' in st.session_state
                         has_prophet = 'prophet_results' in st.session_state
                         models_used = []
+                        model_details = []
+                        
                         if has_arima:
                             models_used.append('ARIMA')
+                            arima_results = st.session_state.arima_results
+                            model_order = arima_results.get('model_order', 'N/A')
+                            aic = arima_results.get('aic', 0)
+                            bic = arima_results.get('bic', 0)
+                            forecast_df = arima_results.get('forecast', pd.DataFrame())
+                            forecast_periods = len(forecast_df)
+                            model_details.append(f"ARIMA{model_order} (AIC: {aic:.2f}, BIC: {bic:.2f})")
+                        
                         if has_prophet:
                             models_used.append('Prophet')
+                            prophet_results = st.session_state.get('prophet_results', {})
+                            prophet_forecast = prophet_results.get('forecast', pd.DataFrame())
+                            prophet_periods = len(prophet_forecast)
+                            model_details.append(f"Prophet ({prophet_periods} periods forecasted)")
+                        
                         module_insights.append(f"""
 ### 📊 Time Series Forecasting
-- **Status:** Completed
-- **Models:** {', '.join(models_used) if models_used else 'N/A'}
-- **Forecast Generated:** Available for future periods
-- **Trend Analysis:** Completed
+- **Models Used:** {', '.join(models_used) if models_used else 'N/A'}
+- **Model Details:** {' | '.join(model_details) if model_details else 'N/A'}
+- **Forecast Periods:** {forecast_periods if has_arima else prophet_periods if has_prophet else 0}
+- **Trend Analysis:** Completed with automatic seasonality detection
 """)
                         if 'ts_ai_insights' in st.session_state:
                             module_insights.append(f"""
@@ -1864,11 +1905,22 @@ Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
                         topics = st.session_state.get('topics', {})
                         texts_analyzed = len(sentiment_df) if not sentiment_df.empty else 0
                         num_topics = len(topics)
+                        
+                        sentiment_breakdown = ""
+                        if not sentiment_df.empty and 'sentiment' in sentiment_df.columns:
+                            positive_count = (sentiment_df['sentiment'] == 'positive').sum()
+                            negative_count = (sentiment_df['sentiment'] == 'negative').sum()
+                            neutral_count = (sentiment_df['sentiment'] == 'neutral').sum()
+                            total_sentiment = len(sentiment_df)
+                            sentiment_breakdown = f"""
+- **Positive:** {positive_count} ({positive_count/total_sentiment*100:.1f}%)
+- **Negative:** {negative_count} ({negative_count/total_sentiment*100:.1f}%)
+- **Neutral:** {neutral_count} ({neutral_count/total_sentiment*100:.1f}%)"""
+                        
                         module_insights.append(f"""
 ### 📝 Text Mining & NLP
-- **Status:** Completed
-- **Texts Analyzed:** {texts_analyzed}
-- **Sentiment Analysis:** {'Completed' if not sentiment_df.empty else 'N/A'}
+- **Texts Analyzed:** {texts_analyzed:,}
+- **Sentiment Analysis:** {'Completed' if not sentiment_df.empty else 'N/A'}{sentiment_breakdown if sentiment_breakdown else ''}
 - **Topic Modeling:** {f'{num_topics} topics discovered' if num_topics > 0 else 'N/A'}
 """)
                         if 'text_ai_insights' in st.session_state:
@@ -2015,6 +2067,83 @@ This report contains results from completed analytics modules.
 
 {module_section}{recommendations_section}
 """
+                
+                status_text.text("Adding AI insights summary...")
+                progress_bar.progress(0.75)
+                
+                # Build comprehensive AI insights section if requested
+                if include_insights:
+                    ai_insights_section = "\n\n---\n\n## 🤖 AI-Powered Insights Summary\n\n"
+                    ai_insights_section += "This section consolidates all AI-generated insights from completed analytics modules.\n\n"
+                    
+                    has_any_insights = False
+                    
+                    # General insights from Insights page
+                    if 'ai_insights' in st.session_state:
+                        ai_insights_section += "### 📊 Overall Data Insights\n\n"
+                        ai_insights_section += st.session_state.ai_insights + "\n\n"
+                        has_any_insights = True
+                    
+                    # ML Classification insights
+                    if 'ml_ai_insights' in st.session_state and modules_status['ML Classification']:
+                        ai_insights_section += "### 🤖 Machine Learning Classification Insights\n\n"
+                        ai_insights_section += st.session_state.ml_ai_insights + "\n\n"
+                        has_any_insights = True
+                    
+                    # ML Regression insights
+                    if 'mlr_ai_insights' in st.session_state and modules_status['ML Regression']:
+                        ai_insights_section += "### 📈 Machine Learning Regression Insights\n\n"
+                        ai_insights_section += st.session_state.mlr_ai_insights + "\n\n"
+                        has_any_insights = True
+                    
+                    # Market Basket Analysis insights
+                    if 'mba_ai_insights' in st.session_state and modules_status['Market Basket Analysis']:
+                        ai_insights_section += "### 🧺 Market Basket Analysis Insights\n\n"
+                        ai_insights_section += st.session_state.mba_ai_insights + "\n\n"
+                        has_any_insights = True
+                    
+                    # RFM Analysis insights
+                    if 'rfm_ai_insights' in st.session_state and modules_status['RFM Analysis']:
+                        ai_insights_section += "### 👥 RFM Customer Segmentation Insights\n\n"
+                        ai_insights_section += st.session_state.rfm_ai_insights + "\n\n"
+                        has_any_insights = True
+                    
+                    # Anomaly Detection insights
+                    if 'anomaly_ai_insights' in st.session_state and modules_status['Anomaly Detection']:
+                        ai_insights_section += "### 🔬 Anomaly Detection Insights\n\n"
+                        ai_insights_section += st.session_state.anomaly_ai_insights + "\n\n"
+                        has_any_insights = True
+                    
+                    # Time Series insights
+                    if 'ts_ai_insights' in st.session_state and modules_status['Time Series Forecasting']:
+                        ai_insights_section += "### 📊 Time Series Forecasting Insights\n\n"
+                        ai_insights_section += st.session_state.ts_ai_insights + "\n\n"
+                        has_any_insights = True
+                    
+                    # Text Mining insights
+                    if 'text_ai_insights' in st.session_state and modules_status['Text Mining & NLP']:
+                        ai_insights_section += "### 📝 Text Mining & Sentiment Analysis Insights\n\n"
+                        ai_insights_section += st.session_state.text_ai_insights + "\n\n"
+                        has_any_insights = True
+                    
+                    # Monte Carlo insights
+                    if 'mc_ai_insights' in st.session_state and modules_status['Monte Carlo Simulation']:
+                        ai_insights_section += "### 📈 Monte Carlo Simulation Insights\n\n"
+                        ai_insights_section += st.session_state.mc_ai_insights + "\n\n"
+                        has_any_insights = True
+                    
+                    if not has_any_insights:
+                        ai_insights_section += "*No AI insights have been generated yet. Visit each analytics module and click 'Generate AI Insights' to get automated analysis.*\n\n"
+                    
+                    # Insert AI insights section before Conclusion
+                    if "## Conclusion" in base_report:
+                        base_report = base_report.replace(
+                            "---\n\n## Conclusion",
+                            f"{ai_insights_section}---\n\n## Conclusion"
+                        )
+                    else:
+                        # If no conclusion, append at the end
+                        base_report += ai_insights_section
                 
                 status_text.text("Enhancing report...")
                 progress_bar.progress(0.8)
