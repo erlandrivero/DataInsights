@@ -465,7 +465,7 @@ class DataCleaner:
     
     def parse_dates(self, date_columns: List[str] = None, auto_detect: bool = True) -> 'DataCleaner':
         """
-        Parse and standardize date columns.
+        Parse and standardize date columns with malformed date cleanup.
         
         Args:
             date_columns: List of column names to parse as dates
@@ -475,12 +475,40 @@ class DataCleaner:
             Self for method chaining
         """
         parsed = 0
+        cleaned = 0
+        
+        def clean_date_string(date_str):
+            """Clean malformed date strings before parsing."""
+            if pd.isna(date_str) or not isinstance(date_str, str):
+                return date_str
+            
+            # Remove common malformed patterns
+            # Pattern: 12/11/1960/00/00/00/00 -> 12/11/1960
+            date_str = re.sub(r'(/00)+$', '', date_str)  # Remove trailing /00/00/00
+            date_str = re.sub(r'(/0)+$', '', date_str)   # Remove trailing /0/0
+            
+            # Remove extra slashes
+            date_str = re.sub(r'/+', '/', date_str)  # Multiple slashes -> single slash
+            
+            # Remove trailing/leading slashes
+            date_str = date_str.strip('/')
+            
+            return date_str
         
         if auto_detect:
             # Auto-detect potential date columns
             for col in self.df.select_dtypes(include=['object']).columns:
-                # Try to parse as datetime
                 try:
+                    # Clean the date strings first
+                    original_values = self.df[col].copy()
+                    self.df[col] = self.df[col].apply(clean_date_string)
+                    
+                    # Count how many were cleaned
+                    cleaned_count = (original_values != self.df[col]).sum()
+                    if cleaned_count > 0:
+                        cleaned += cleaned_count
+                    
+                    # Try to parse as datetime
                     sample = self.df[col].dropna().head(100)
                     if len(sample) > 0:
                         parsed_sample = pd.to_datetime(sample, errors='coerce')
@@ -495,13 +523,25 @@ class DataCleaner:
             for col in date_columns:
                 if col in self.df.columns:
                     try:
+                        # Clean the date strings first
+                        original_values = self.df[col].copy()
+                        self.df[col] = self.df[col].apply(clean_date_string)
+                        
+                        # Count how many were cleaned
+                        cleaned_count = (original_values != self.df[col]).sum()
+                        if cleaned_count > 0:
+                            cleaned += cleaned_count
+                        
                         self.df[col] = pd.to_datetime(self.df[col], errors='coerce')
                         parsed += 1
                     except:
                         pass
         
         if parsed > 0:
-            self.cleaning_log.append(f"✅ Parsed {parsed} date columns")
+            log_msg = f"✅ Parsed {parsed} date columns"
+            if cleaned > 0:
+                log_msg += f" ({cleaned:,} malformed dates cleaned)"
+            self.cleaning_log.append(log_msg)
         
         return self
     
