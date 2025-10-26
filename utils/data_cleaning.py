@@ -103,6 +103,10 @@ class DataCleaner:
             if pd.api.types.is_numeric_dtype(self.df[col]):
                 continue
             
+            # Skip datetime columns - CRITICAL: Don't convert dates to timestamps!
+            if pd.api.types.is_datetime64_any_dtype(self.df[col]):
+                continue
+            
             # Try to convert
             try:
                 converted = pd.to_numeric(self.df[col], errors='coerce')
