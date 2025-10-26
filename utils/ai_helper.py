@@ -76,6 +76,12 @@ class AIHelper:
             return obj.tolist()
         elif isinstance(obj, pd.Series):
             return obj.tolist()
+        elif isinstance(obj, (pd.Timestamp, pd.DatetimeTZDtype)):
+            # Convert pandas Timestamp to ISO string
+            return obj.isoformat() if hasattr(obj, 'isoformat') else str(obj)
+        elif hasattr(obj, 'timestamp'):
+            # Handle datetime.datetime, datetime.date objects
+            return obj.isoformat()
         elif isinstance(obj, dict):
             return {key: AIHelper.convert_to_json_serializable(value) 
                    for key, value in obj.items()}
