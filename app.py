@@ -7741,7 +7741,7 @@ def show_time_series_forecasting():
                         st.metric("Seasonal", f"{arima_res['seasonal_order']}")
                     
                     fig = analyzer.create_forecast_plot('arima')
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, key="arima_persistent_plot")
                     
                     st.write("**Forecast Data (First 10 periods):**")
                     st.dataframe(arima_res['forecast'].head(10), use_container_width=True)
@@ -7754,7 +7754,7 @@ def show_time_series_forecasting():
                     st.write("**Prophet Model - Automatic Trend & Seasonality Detection**")
                     
                     fig = analyzer.create_forecast_plot('prophet')
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, key="prophet_persistent_plot")
                     
                     st.write("**Forecast Data (First 10 periods):**")
                     st.dataframe(prophet_res['forecast'][['ds', 'yhat', 'yhat_lower', 'yhat_upper']].head(10),
@@ -7766,7 +7766,7 @@ def show_time_series_forecasting():
                 st.subheader("⚖️ Model Comparison")
                 
                 fig = analyzer.create_comparison_plot()
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, key="comparison_plot")
             
             # AI Insights section (available if either model has been run)
             st.divider()
