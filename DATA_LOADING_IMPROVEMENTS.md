@@ -1,9 +1,9 @@
-# Data Loading Improvements - Time Series & Text Mining
+# Data Loading Improvements - Time Series, Text Mining & Anomaly Detection
 
 ## Date: October 26, 2025
 
 ## Summary
-Added comprehensive data loading sections to Time Series Forecasting and Text Mining modules, matching the pattern used in other analytics modules (Market Basket, RFM, etc.).
+Added comprehensive data loading sections to Time Series Forecasting, Text Mining, and Anomaly Detection modules, matching the pattern used in other analytics modules (Market Basket, RFM, etc.).
 
 ---
 
@@ -57,10 +57,38 @@ Added comprehensive data loading sections to Time Series Forecasting and Text Mi
 
 ---
 
+### 3. Anomaly Detection Module
+
+**Added Section 1: Load Data**
+- Three data source options:
+  - ✅ **Use Loaded Dataset** - Uses data from Data Upload page
+  - ✅ **Use Sample Data** - Credit card transaction dataset
+  - ✅ **Upload Custom Data** - Direct file upload (CSV/Excel)
+
+**Sample Dataset Details:**
+- **Name:** Credit Card Transactions with Anomalies
+- **Size:** 210 transactions (200 normal + 10 anomalies)
+- **Features:** Amount, Frequency, TimeOfDay, ActualLabel
+- **Anomaly Types:**
+  - Extremely high/low transaction amounts
+  - Unusual transaction frequencies
+  - Odd time-of-day patterns
+- **Use Case:** Perfect for testing anomaly detection algorithms
+- **Note:** ActualLabel is included for reference but not used by unsupervised algorithms
+
+**Section Numbering Updated:**
+- Section 1: Load Data (NEW)
+- Section 2: Dataset Overview (was Section 1)
+- Section 3: Select Features for Analysis (was Section 2)
+- Section 4: Configure Detection Algorithm (was Section 3)
+- Section 5: Detection Results (was Section 4)
+
+---
+
 ## Benefits
 
 ### User Experience Improvements:
-1. **Consistency:** Both modules now match the data loading pattern of other modules
+1. **Consistency:** All three modules now match the data loading pattern of other modules
 2. **Accessibility:** Users can experience modules without uploading their own data
 3. **Learning:** Sample datasets are educational and demonstrate module capabilities
 4. **Flexibility:** Three options provide maximum convenience
@@ -94,11 +122,23 @@ sample_reviews = [
 df = pd.DataFrame({'Review': sample_reviews, 'ReviewID': range(1, 51)})
 ```
 
+### Anomaly Detection Sample Data:
+```python
+# 210 credit card transactions (200 normal + 10 anomalies)
+np.random.seed(42)
+normal_amounts = np.random.normal(loc=100, scale=30, size=200)
+anomaly_amounts = [very high amounts + very low amounts]
+# Features: Amount, Frequency, TimeOfDay
+# Hidden anomalies with unusual patterns
+df = pd.DataFrame({'Amount': ..., 'Frequency': ..., 'TimeOfDay': ..., 'ActualLabel': ...})
+```
+
 ---
 
 ## Files Modified
 - `app.py` (show_time_series_forecasting function, ~lines 7067-7120)
 - `app.py` (show_text_mining function, ~lines 7662-7787)
+- `app.py` (show_anomaly_detection function, ~lines 6627-6747)
 
 ---
 

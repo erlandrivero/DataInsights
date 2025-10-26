@@ -6623,15 +6623,132 @@ def show_anomaly_detection():
     Identify outliers and unusual patterns in your data using machine learning algorithms.
     """)
     
-    # Check if data is loaded
-    if st.session_state.data is None:
-        st.info("👆 Please upload data from the **Data Upload** page first")
+    # Data source selection
+    st.subheader("📤 1. Load Data")
+    
+    # Check if data is already loaded
+    has_loaded_data = st.session_state.data is not None
+    
+    if has_loaded_data:
+        data_options = ["Use Loaded Dataset", "Use Sample Data", "Upload Custom Data"]
+        default_option = "Use Loaded Dataset"
+    else:
+        data_options = ["Use Sample Data", "Upload Custom Data"]
+        default_option = "Use Sample Data"
+    
+    data_source = st.radio(
+        "Choose data source:",
+        data_options,
+        index=0,
+        key="anomaly_data_source"
+    )
+    
+    df = None
+    
+    if data_source == "Use Loaded Dataset":
+        st.success("✅ Using dataset from Data Upload section")
+        df = st.session_state.data
+        st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
+    
+    elif data_source == "Use Sample Data":
+        st.info("📊 Using sample credit card transaction dataset with anomalies")
+        
+        # Create sample data with normal transactions and some anomalies
+        np.random.seed(42)
+        n_normal = 200
+        n_anomalies = 10
+        
+        # Normal transactions
+        normal_amounts = np.random.normal(loc=100, scale=30, size=n_normal)
+        normal_amounts = np.clip(normal_amounts, 10, 300)  # Keep in reasonable range
+        
+        normal_frequency = np.random.normal(loc=15, scale=5, size=n_normal)
+        normal_frequency = np.clip(normal_frequency, 1, 30)
+        
+        normal_time_of_day = np.random.normal(loc=14, scale=4, size=n_normal)
+        normal_time_of_day = np.clip(normal_time_of_day, 0, 23)
+        
+        # Anomalous transactions (unusual patterns)
+        anomaly_amounts = np.concatenate([
+            np.random.uniform(500, 1000, size=5),  # Unusually high amounts
+            np.random.uniform(1, 5, size=5)        # Unusually low amounts
+        ])
+        
+        anomaly_frequency = np.concatenate([
+            np.random.uniform(50, 100, size=5),    # Very frequent
+            np.random.uniform(0.1, 0.5, size=5)    # Very rare
+        ])
+        
+        anomaly_time_of_day = np.concatenate([
+            np.random.uniform(2, 4, size=5),       # Late night transactions
+            np.random.uniform(23, 24, size=5)      # Very late transactions
+        ])
+        
+        # Combine normal and anomalous data
+        amounts = np.concatenate([normal_amounts, anomaly_amounts])
+        frequencies = np.concatenate([normal_frequency, anomaly_frequency])
+        times = np.concatenate([normal_time_of_day, anomaly_time_of_day])
+        
+        # Create labels (for reference, but not used in unsupervised detection)
+        labels = ['Normal'] * n_normal + ['Anomaly'] * n_anomalies
+        
+        # Shuffle the data
+        indices = np.random.permutation(len(amounts))
+        
+        df = pd.DataFrame({
+            'TransactionID': range(1, len(amounts) + 1),
+            'Amount': amounts[indices],
+            'Frequency': frequencies[indices],
+            'TimeOfDay': times[indices],
+            'ActualLabel': [labels[i] for i in indices]  # For reference only
+        })
+        
+        st.success(f"✅ Loaded sample dataset: {len(df)} transactions")
+        st.write("**Sample Data Preview:**")
+        st.dataframe(df.head(10), use_container_width=True)
+        
+        st.info("""
+        **About this dataset:**
+        - 210 credit card transactions (200 normal + 10 anomalies)
+        - Features: Amount, Frequency, TimeOfDay
+        - Contains hidden anomalies with unusual patterns:
+          - Extremely high/low transaction amounts
+          - Unusual transaction frequencies
+          - Odd time-of-day patterns
+        - Perfect for testing anomaly detection algorithms
+        - **Note:** ActualLabel column is for reference only (not used by algorithms)
+        """)
+    
+    elif data_source == "Upload Custom Data":
+        uploaded_file = st.file_uploader(
+            "Upload your data (CSV or Excel)",
+            type=['csv', 'xlsx', 'xls'],
+            key="anomaly_file_uploader"
+        )
+        
+        if uploaded_file is not None:
+            try:
+                if uploaded_file.name.endswith('.csv'):
+                    df = pd.read_csv(uploaded_file)
+                else:
+                    df = pd.read_excel(uploaded_file)
+                
+                st.success(f"✅ Uploaded {len(df)} rows, {len(df.columns)} columns")
+                st.dataframe(df.head(), use_container_width=True)
+            except Exception as e:
+                st.error(f"Error loading file: {str(e)}")
+                return
+        else:
+            st.info("👆 Please upload a CSV or Excel file containing data")
+            return
+    
+    if df is None:
+        st.info("👆 Please select or upload data to continue")
         return
     
-    df = st.session_state.data
-    
     # Data overview
-    st.subheader("📊 1. Dataset Overview")
+    st.divider()
+    st.subheader("📊 2. Dataset Overview")
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("Total Records", len(df))
@@ -6643,7 +6760,7 @@ def show_anomaly_detection():
     
     # Feature selection
     st.divider()
-    st.subheader("🎯 2. Select Features for Analysis")
+    st.subheader("🎯 3. Select Features for Analysis")
     
     if len(numeric_cols) == 0:
         st.error("❌ No numeric columns found in the dataset. Anomaly detection requires numeric features.")
@@ -6662,7 +6779,7 @@ def show_anomaly_detection():
     
     # Algorithm selection
     st.divider()
-    st.subheader("🤖 3. Configure Detection Algorithm")
+    st.subheader("🤖 4. Configure Detection Algorithm")
     
     col1, col2 = st.columns(2)
     
@@ -6779,7 +6896,7 @@ def show_anomaly_detection():
         
         # Summary metrics
         st.divider()
-        st.subheader("📈 4. Detection Results")
+        st.subheader("📈 5. Detection Results")
         
         stats = detector.get_summary_stats()
         
