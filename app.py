@@ -2302,6 +2302,7 @@ This report contains results from completed analytics modules.
         
         # Collect all visualizations from session state
         charts = []
+        chart_errors = []
         
         # MBA charts
         if 'mba_rules' in st.session_state and not st.session_state.mba_rules.empty:
@@ -2310,16 +2311,16 @@ This report contains results from completed analytics modules.
                 analyzer = MarketBasketAnalyzer(st.session_state.mba_transactions)
                 analyzer.rules = st.session_state.mba_rules
                 charts.append(("MBA: Rules Scatter Plot", analyzer.create_rules_visualization()))
-            except:
-                pass
+            except Exception as e:
+                chart_errors.append(f"MBA chart failed: {str(e)}")
         
         # RFM charts
         if 'rfm_analyzer' in st.session_state:
             try:
                 analyzer = st.session_state.rfm_analyzer
                 charts.append(("RFM: Segment Distribution", analyzer.create_segment_distribution()))
-            except:
-                pass
+            except Exception as e:
+                chart_errors.append(f"RFM chart failed: {str(e)}")
         
         # Anomaly Detection charts
         if 'anomaly_detector' in st.session_state:
@@ -2327,8 +2328,8 @@ This report contains results from completed analytics modules.
                 detector = st.session_state.anomaly_detector
                 charts.append(("Anomaly Detection: Distribution", detector.create_distribution_chart()))
                 charts.append(("Anomaly Detection: Scatter Plot", detector.create_2d_scatter(use_pca=True, show_only_anomalies=True)))
-            except:
-                pass
+            except Exception as e:
+                chart_errors.append(f"Anomaly Detection charts failed: {str(e)}")
         
         # Time Series charts
         if 'ts_analyzer' in st.session_state:
@@ -2338,8 +2339,8 @@ This report contains results from completed analytics modules.
                     charts.append(("Time Series: ARIMA Forecast", analyzer.create_forecast_plot('arima')))
                 if 'prophet_results' in st.session_state:
                     charts.append(("Time Series: Prophet Forecast", analyzer.create_forecast_plot('prophet')))
-            except:
-                pass
+            except Exception as e:
+                chart_errors.append(f"Time Series charts failed: {str(e)}")
         
         # Monte Carlo charts
         if 'mc_simulations' in st.session_state:
@@ -2348,8 +2349,14 @@ This report contains results from completed analytics modules.
                 simulator = MonteCarloSimulator(st.session_state.mc_ticker)
                 simulator.simulations = st.session_state.mc_simulations
                 charts.append(("Monte Carlo: Return Distribution", simulator.create_distribution_plot()))
-            except:
-                pass
+            except Exception as e:
+                chart_errors.append(f"Monte Carlo chart failed: {str(e)}")
+        
+        # Show debug info
+        if chart_errors:
+            with st.expander("⚠️ Chart Collection Issues (Debug Info)"):
+                for error in chart_errors:
+                    st.warning(error)
         
         col1, col2, col3, col4 = st.columns(4)
         
@@ -2492,11 +2499,24 @@ Use HTML or Markdown+Images export instead.""")
                 except Exception as e:
                     st.error(f"PDF generation failed: {str(e)}")
         
-        # Show visualization count
+        # Show visualization count with details
         if charts:
-            st.caption(f"✨ {len(charts)} visualization(s) will be embedded in HTML/PDF exports")
+            chart_names = [name for name, _ in charts]
+            st.success(f"✅ {len(charts)} visualization(s) collected for export")
+            with st.expander("📊 Charts Included"):
+                for name in chart_names:
+                    st.write(f"• {name}")
         else:
-            st.caption("ℹ️ No visualizations available. Run analyses to generate charts for export.")
+            st.info("ℹ️ No visualizations available. Run analyses to generate charts for export.")
+            
+            # Debug: Show which modules were checked
+            with st.expander("🔍 Debug: Module Status"):
+                st.write("**Checking for charts in:**")
+                st.write(f"• MBA: {'mba_rules' in st.session_state}")
+                st.write(f"• RFM: {'rfm_analyzer' in st.session_state}")
+                st.write(f"• Anomaly Detection: {'anomaly_detector' in st.session_state}")
+                st.write(f"• Time Series: {'ts_analyzer' in st.session_state}")
+                st.write(f"• Monte Carlo: {'mc_simulations' in st.session_state}")
 
 def show_market_basket_analysis():
     """Market Basket Analysis page."""
