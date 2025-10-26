@@ -1790,9 +1790,11 @@ Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
         pm = ProcessManager("Report_Generation")
         pm.lock()
         
+        # Show warning BEFORE spinner to prevent text cutoff
+        st.warning("⚠️ **Important:** Navigation locked during report generation. Please do not navigate away.")
+        
         try:
             with st.spinner("📝 Generating comprehensive report..."):
-                st.warning("⚠️ Navigation locked during report generation...")
                 
                 progress_bar = st.progress(0)
                 status_text = st.empty()
@@ -7600,10 +7602,12 @@ def show_time_series_forecasting():
                 pm = ProcessManager("ARIMA_Forecast")
                 pm.lock()
                 
+                # Show warning BEFORE spinner to prevent text cutoff
+                st.warning("⚠️ **Important:** Navigation locked during forecasting. Please do not navigate away.")
+                st.info("💡 ARIMA training may take 30-60 seconds for large datasets. Please wait...")
+                
                 try:
                     with st.spinner("Running Auto-ARIMA..."):
-                        st.warning("⚠️ Navigation locked during forecasting...")
-                        st.info("💡 ARIMA training may take 30-60 seconds for large datasets. Please wait...")
                         
                         progress_bar = st.progress(0)
                         status_text = st.empty()
@@ -7678,9 +7682,11 @@ def show_time_series_forecasting():
                 pm = ProcessManager("Prophet_Forecast")
                 pm.lock()
                 
+                # Show warning BEFORE spinner to prevent text cutoff
+                st.warning("⚠️ **Important:** Navigation locked during forecasting. Please do not navigate away.")
+                
                 try:
                     with st.spinner("Running Prophet..."):
-                        st.warning("⚠️ Navigation locked during forecasting...")
                         
                         progress_bar = st.progress(0)
                         status_text = st.empty()
@@ -8156,14 +8162,16 @@ def show_text_mining():
                     pm = ProcessManager("Sentiment_Analysis")
                     pm.lock()
                     
+                    # Show warning BEFORE spinner to prevent text cutoff
+                    st.warning("⚠️ **Important:** Navigation locked during sentiment analysis. Please do not navigate away.")
+                    
                     try:
                         with st.spinner("Analyzing sentiment..."):
-                            st.warning("⚠️ Navigation locked during analysis...")
                             
                             progress_bar = st.progress(0)
                             status_text = st.empty()
                             
-                            status_text.text("Analyzing sentiment scores...")
+                            status_text.text("Analyzing sentiment...")
                             progress_bar.progress(0.5)
                             
                             sentiment_df = analyzer.get_sentiment_analysis()
@@ -8265,9 +8273,11 @@ def show_text_mining():
                     pm = ProcessManager("Topic_Modeling")
                     pm.lock()
                     
+                    # Show warning BEFORE spinner to prevent text cutoff
+                    st.warning("⚠️ **Important:** Navigation locked during topic modeling. Please do not navigate away.")
+                    
                     try:
                         with st.spinner("Running topic modeling..."):
-                            st.warning("⚠️ Navigation locked during topic modeling...")
                             
                             progress_bar = st.progress(0)
                             status_text = st.empty()
