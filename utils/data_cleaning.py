@@ -413,7 +413,8 @@ class DataCleaner:
             columns = self.df.select_dtypes(include=['number']).columns.tolist()
         
         rows_before = len(self.df)
-        outlier_mask = pd.Series([True] * len(self.df))
+        # CRITICAL: Use df.index to ensure mask indices match
+        outlier_mask = pd.Series([True] * len(self.df), index=self.df.index)
         
         for col in columns:
             if col not in self.df.columns:
@@ -429,13 +430,13 @@ class DataCleaner:
             elif method == 'zscore':
                 from scipy import stats
                 z_scores = np.abs(stats.zscore(self.df[col].dropna()))
-                # Create mask for non-null values
+                # Create mask for non-null values - CRITICAL: Match index
                 non_null_mask = self.df[col].notna()
-                col_mask = pd.Series([True] * len(self.df))
+                col_mask = pd.Series([True] * len(self.df), index=self.df.index)
                 col_mask[non_null_mask] = z_scores < multiplier
                 outlier_mask &= col_mask
         
-        self.df = self.df[outlier_mask]
+        self.df = self.df[outlier_mask].reset_index(drop=True)
         outliers_removed = rows_before - len(self.df)
         
         if outliers_removed > 0:
