@@ -2399,9 +2399,11 @@ This report contains results from completed analytics modules.
                         y=[x[0] for x in feat_imp_sorted],
                         orientation='h',
                         title=f'ML Regression: Top 10 Features ({best_model["model_name"]})',
-                        labels={'x': 'Importance', 'y': 'Feature'}
+                        labels={'x': 'Importance', 'y': 'Feature'},
+                        color=[x[1] for x in feat_imp_sorted],
+                        color_continuous_scale='Blues'
                     )
-                    fig_imp.update_layout(showlegend=False, height=400)
+                    fig_imp.update_layout(showlegend=False, height=400, coloraxis_showscale=False)
                     charts.append(("ML Regression: Feature Importance", fig_imp))
             except Exception as e:
                 chart_errors.append(f"ML Regression chart failed: {str(e)}")
@@ -2431,8 +2433,10 @@ This report contains results from completed analytics modules.
                         y='Feature',
                         orientation='h',
                         title=f'ML Classification: Top 10 Features ({best_model["model_name"]})',
+                        color='Importance',
+                        color_continuous_scale='Greens'
                     )
-                    fig_imp.update_layout(showlegend=False, height=400)
+                    fig_imp.update_layout(showlegend=False, height=400, coloraxis_showscale=False)
                     charts.append(("ML Classification: Feature Importance", fig_imp))
             except Exception as e:
                 chart_errors.append(f"ML Classification chart failed: {str(e)}")
