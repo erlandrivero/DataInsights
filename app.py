@@ -5954,14 +5954,15 @@ def show_ml_classification():
 
 def show_ml_regression():
     """Machine Learning Regression page with 15+ algorithms."""
+    
+    # Import ML helper functions for optimization
+    from utils.ml_helpers import get_recommended_cv_folds, create_data_hash, cached_regression_training
+    
     st.header("📈 ML Regression")
     
     # Help section
     with st.expander("ℹ️ What is Machine Learning Regression?"):
         st.markdown("""
-    # Import ML helper functions for optimization
-    from utils.ml_helpers import get_recommended_cv_folds, create_data_hash, cached_regression_training
-    
         **Machine Learning Regression** predicts continuous numerical values based on input features.
         
         ### Use Cases:
