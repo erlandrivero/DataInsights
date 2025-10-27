@@ -724,9 +724,12 @@ def show_analysis():
                 with col1:
                     st.markdown("**📊 Missing Values:**")
                     fill_missing = st.checkbox("Fill missing values", value=True)
-                    missing_strategy = st.selectbox("Fill strategy:", 
-                                                   ["median", "mean", "mode"],
-                                                   help="Strategy for filling missing values")
+                    if fill_missing:
+                        missing_strategy = st.selectbox("Fill strategy:", 
+                                                       ["median", "mean", "mode"],
+                                                       help="Strategy for filling missing values")
+                    else:
+                        missing_strategy = "median"
                     
                     st.markdown("**🔢 Outliers:**")
                     remove_outliers = st.checkbox("Remove statistical outliers", value=False,
