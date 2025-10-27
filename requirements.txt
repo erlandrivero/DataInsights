@@ -25,6 +25,7 @@ setuptools
 # Monte Carlo Simulation
 yfinance
 scipy
+beautifulsoup4  # For web scraping company names when API fails
 
 # Time Series Forecasting
 statsmodels

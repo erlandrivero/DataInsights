@@ -16,6 +16,8 @@ from typing import Dict, Any, List, Tuple, Optional
 import plotly.graph_objects as go
 import plotly.express as px
 from scipy import stats
+import requests
+from bs4 import BeautifulSoup
 
 
 class MonteCarloSimulator:
@@ -74,6 +76,48 @@ class MonteCarloSimulator:
         self.simulations: Optional[np.ndarray] = None
     
     @staticmethod
+    def _get_company_name_from_web(ticker: str) -> Optional[str]:
+        """Scrape company name from Yahoo Finance website.
+        
+        Fallback method when yfinance API doesn't provide company info.
+        
+        Args:
+            ticker: Stock ticker symbol
+        
+        Returns:
+            Company name or None if scraping fails
+        """
+        try:
+            url = f"https://finance.yahoo.com/quote/{ticker}"
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+            response = requests.get(url, headers=headers, timeout=5)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Try to find company name in h1 tag
+            h1 = soup.find('h1', {'class': 'yf-xxbei9'})
+            if h1:
+                # Extract text and clean it (format: "TICKER - Company Name")
+                full_text = h1.text.strip()
+                if ' - ' in full_text:
+                    return full_text.split(' - ', 1)[1]
+                return full_text
+            
+            # Alternative: Try meta tags
+            og_title = soup.find('meta', property='og:title')
+            if og_title and og_title.get('content'):
+                content = og_title['content']
+                if '(' in content:
+                    return content.split('(')[0].strip()
+            
+            return None
+        except Exception:
+            return None
+    
+    @staticmethod
     def fetch_stock_data(
         ticker: str, 
         start_date: datetime, 
@@ -128,21 +172,22 @@ class MonteCarloSimulator:
             # Get company name from same ticker object to avoid extra API call
             # Try multiple methods for better reliability
             company_name = None
+            
+            # Method 1: Try yfinance API first (fast when it works)
             try:
-                # Access info property directly - yfinance caches this
                 info = stock.info
-                
-                # Check if info has data (sometimes returns empty dict)
                 if info and isinstance(info, dict):
                     company_name = info.get('longName')
                     if not company_name:
                         company_name = info.get('shortName')
-                    # Some tickers use different keys
                     if not company_name:
                         company_name = info.get('name')
             except Exception:
-                # If info fails entirely, continue without company name
                 pass
+            
+            # Method 2: Fallback to web scraping if API failed
+            if not company_name:
+                company_name = MonteCarloSimulator._get_company_name_from_web(ticker)
             
             return data, company_name
         except Exception as e:
