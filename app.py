@@ -893,7 +893,8 @@ def show_analysis():
                 st.metric(
                     "Previous Quality Score", 
                     f"{quality_score_before:.1f}/100",
-                    delta=None
+                    delta="Before cleaning",
+                    delta_color="off"
                 )
             
             with col_after:
@@ -4804,6 +4805,48 @@ def show_monte_carlo_simulation():
 
 def show_ml_classification():
     """Comprehensive ML Classification with 15 models and full evaluation."""
+    
+    # Helper function for smart CV fold recommendation
+    def get_recommended_cv_folds(n_samples: int, n_classes: int = None) -> tuple:
+        """Determine optimal CV folds based on dataset characteristics."""
+        if n_samples < 100:
+            folds = 3
+            reason = "Small dataset - using minimum 3-fold CV"
+        elif n_samples < 500:
+            folds = 3
+            reason = "Small dataset - 3-fold CV is optimal"
+        elif n_samples < 2000:
+            folds = 5
+            reason = "Medium dataset - 5-fold CV for reliability"
+        elif n_samples < 5000:
+            folds = 5
+            reason = "Large dataset - 5-fold CV balances speed/accuracy"
+        else:
+            folds = 3
+            reason = "Very large dataset - 3-fold CV to reduce compute time"
+        
+        # For multi-class with many classes, use fewer folds
+        if n_classes and n_classes > 20:
+            folds = min(folds, 3)
+            reason += " (reduced for multi-class problem)"
+        
+        return folds, reason
+
+    # Helper function for caching
+    def cache_results(func):
+        """Cache results of expensive function calls."""
+        cache = {}
+        
+        def wrapper(*args):
+            if args in cache:
+                return cache[args]
+            else:
+                result = func(*args)
+                cache[args] = result
+                return result
+        
+        return wrapper
+    
     st.header("🤖 Machine Learning - Classification Models")
     
     # Help section
