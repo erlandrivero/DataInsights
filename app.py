@@ -401,11 +401,13 @@ def show_data_upload():
         
         # Load button handler
         if load_button:
-            with st.spinner(f"🔄 Loading dataset {dataset_id} from OpenML... This may take 30-60 seconds for large datasets."):
+            with st.status(f"🔄 Loading dataset {dataset_id} from OpenML...", expanded=True) as status:
                 try:
+                    st.write("⏳ This may take 30-60 seconds for large datasets...")
                     import openml
                     
                     dataset = openml.datasets.get_dataset(dataset_id)
+                    st.write("📥 Downloading dataset...")
                     X, y, categorical_indicator, attribute_names = dataset.get_data(
                         dataset_format="dataframe"
                     )
@@ -420,6 +422,7 @@ def show_data_upload():
                     st.session_state.data = df
                     
                     # Profile data
+                    st.write("📊 Profiling data...")
                     from utils.data_processor import DataProcessor
                     profile = DataProcessor.profile_data(df)
                     st.session_state.profile = profile
@@ -427,6 +430,7 @@ def show_data_upload():
                     issues = DataProcessor.detect_data_quality_issues(df)
                     st.session_state.issues = issues
                     
+                    status.update(label=f"✅ Successfully loaded {dataset.name}!", state="complete", expanded=False)
                     success_msg = f"✅ Successfully loaded {dataset.name} (ID: {dataset_id})!"
                     st.success(success_msg)
                     
@@ -486,8 +490,9 @@ def show_data_upload():
             st.caption("💡 Tip: Type the dataset name above and press **Enter** to enable the button")
         
         if st.button("📥 Load Kaggle Dataset", type="primary", disabled=not kaggle_dataset):
-            with st.spinner(f"Downloading {kaggle_dataset} from Kaggle..."):
+            with st.status(f"Downloading {kaggle_dataset} from Kaggle...", expanded=True) as status:
                 try:
+                    st.write("🔑 Authenticating with Kaggle API...")
                     import os
                     from kaggle.api.kaggle_api_extended import KaggleApi
                     
@@ -554,6 +559,7 @@ def show_data_upload():
                         st.session_state.data = df
                         
                         # Profile data
+                        st.write("📊 Profiling data...")
                         from utils.data_processor import DataProcessor
                         profile = DataProcessor.profile_data(df)
                         st.session_state.profile = profile
@@ -561,6 +567,7 @@ def show_data_upload():
                         issues = DataProcessor.detect_data_quality_issues(df)
                         st.session_state.issues = issues
                         
+                        status.update(label=f"✅ Successfully loaded from Kaggle!", state="complete", expanded=False)
                         st.success(f"✅ Successfully loaded {csv_file} from Kaggle!")
                         
                         if len(csv_files) > 1:
@@ -4333,20 +4340,6 @@ def show_monte_carlo_simulation():
             value="AAPL",
             help="Enter stock ticker (e.g., AAPL, MSFT, GOOGL, TSLA)"
         ).upper()
-        
-        # Show company name if ticker is valid
-        if ticker:
-            try:
-                import yfinance as yf
-                stock = yf.Ticker(ticker)
-                info = stock.info
-                company_name = info.get('longName', info.get('shortName', ''))
-                if company_name:
-                    st.caption(f"📌 **{ticker}** = {company_name}")
-                else:
-                    st.caption(f"ℹ️ Ticker: {ticker}")
-            except:
-                st.caption(f"ℹ️ Ticker: {ticker}")
     
     with col2:
         lookback_days = st.number_input(
@@ -4370,15 +4363,28 @@ def show_monte_carlo_simulation():
     
     # Fetch data button
     if st.button("📥 Fetch Stock Data", type="primary", use_container_width=True):
-        with st.spinner(f"Fetching {ticker} data..."):
+        with st.status(f"Fetching {ticker} data...", expanded=True) as status:
             try:
+                st.write("📡 Connecting to Yahoo Finance...")
                 start_date = datetime.now() - timedelta(days=lookback_days)
                 stock_data = simulator.fetch_stock_data(ticker, start_date)
                 
                 st.session_state.mc_stock_data = stock_data
                 st.session_state.mc_ticker = ticker
                 
+                # Fetch company name
+                st.write("🏢 Fetching company information...")
+                try:
+                    import yfinance as yf
+                    stock = yf.Ticker(ticker)
+                    info = stock.info
+                    company_name = info.get('longName', info.get('shortName', ''))
+                    st.session_state.mc_company_name = company_name if company_name else None
+                except:
+                    st.session_state.mc_company_name = None
+                
                 # Calculate returns
+                st.write("📊 Calculating statistics...")
                 returns = simulator.calculate_returns(stock_data['Close'])
                 st.session_state.mc_returns = returns
                 
@@ -4386,6 +4392,7 @@ def show_monte_carlo_simulation():
                 stats = simulator.get_statistics(returns)
                 st.session_state.mc_stats = stats
                 
+                status.update(label=f"✅ Loaded {len(stock_data)} days of data!", state="complete", expanded=False)
                 st.success(f"✅ Loaded {len(stock_data)} days of {ticker} data!")
                 
             except Exception as e:
@@ -4405,6 +4412,12 @@ def show_monte_carlo_simulation():
     # Display historical data summary
     st.divider()
     st.subheader("📊 Historical Data Analysis")
+    
+    # Display ticker and company name
+    if 'mc_company_name' in st.session_state and st.session_state.mc_company_name:
+        st.caption(f"📌 **{ticker}** = {st.session_state.mc_company_name}")
+    else:
+        st.caption(f"ℹ️ Ticker: {ticker}")
     
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -4471,16 +4484,13 @@ def show_monte_carlo_simulation():
         pm.lock()
         
         try:
-            with st.spinner(f"Running {num_simulations} simulations..."):
+            with st.status(f"Running {num_simulations} simulations...", expanded=True) as status:
                 start_price = stock_data['Close'].iloc[-1]
                 
                 # Progress tracking
-                st.divider()
-                st.subheader("⚙️ Simulation Progress")
+                st.write(f"🎲 Running {num_simulations} simulations for {forecast_days} days...")
                 progress_bar = st.progress(0)
-                status_text = st.empty()
                 
-                status_text.text(f"Running {num_simulations} simulations for {forecast_days} days...")
                 progress_bar.progress(0.3)
                 
                 # Run simulation
@@ -4493,7 +4503,7 @@ def show_monte_carlo_simulation():
                 )
                 
                 progress_bar.progress(0.6)
-                status_text.text("Calculating confidence intervals...")
+                st.write("📊 Calculating confidence intervals...")
                 
                 # Calculate confidence intervals
                 intervals_dict = simulator.calculate_confidence_intervals(
@@ -4502,14 +4512,14 @@ def show_monte_carlo_simulation():
                 )
                 
                 progress_bar.progress(0.8)
-                status_text.text("Calculating risk metrics...")
+                st.write("⚠️ Calculating risk metrics...")
                 
                 # Calculate risk metrics
                 final_prices = simulations[:, -1]
                 risk_metrics = simulator.get_risk_metrics(final_prices, start_price)
                 
                 progress_bar.progress(0.9)
-                status_text.text("Storing results...")
+                st.write("💾 Storing results...")
                 
                 # Store in session state
                 st.session_state.mc_simulations = simulations
@@ -4526,8 +4536,8 @@ def show_monte_carlo_simulation():
                 })
                 
                 progress_bar.progress(1.0)
-                status_text.text("✅ Simulation complete!")
                 
+                status.update(label="✅ Simulation complete!", state="complete", expanded=False)
                 st.success(f"✅ Completed {num_simulations} simulations for {forecast_days} days!")
                 
         except Exception as e:
@@ -7086,23 +7096,20 @@ def show_anomaly_detection():
         pm.lock()
         
         try:
-            with st.spinner(f"Running {algorithm}..."):
+            with st.status(f"Running {algorithm}...", expanded=True) as status:
                 from utils.anomaly_detection import AnomalyDetector
                 
                 # Progress tracking
-                st.divider()
-                st.subheader("⚙️ Detection Progress")
+                st.write("🔧 Initializing detector...")
                 progress_bar = st.progress(0)
-                status_text = st.empty()
                 
-                status_text.text("Initializing detector...")
                 progress_bar.progress(0.2)
                 
                 # Initialize detector
                 detector = AnomalyDetector(df)
                 detector.set_features(feature_cols)
                 
-                status_text.text(f"Running {algorithm} algorithm...")
+                st.write(f"🔍 Running {algorithm} algorithm...")
                 progress_bar.progress(0.5)
                 
                 # Run selected algorithm
@@ -7114,7 +7121,7 @@ def show_anomaly_detection():
                     results = detector.run_one_class_svm(nu=contamination)
                 
                 progress_bar.progress(0.9)
-                status_text.text("Storing results...")
+                st.write("💾 Storing results...")
                 
                 # Store results
                 st.session_state.anomaly_detector = detector
@@ -7130,8 +7137,8 @@ def show_anomaly_detection():
                 })
                 
                 progress_bar.progress(1.0)
-                status_text.text("✅ Detection complete!")
                 
+                status.update(label="✅ Detection complete!", state="complete", expanded=False)
                 st.success(f"✅ Anomaly detection completed using {algorithm}!")
                 
         except Exception as e:

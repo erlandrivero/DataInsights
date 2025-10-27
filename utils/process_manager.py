@@ -240,8 +240,9 @@ class ProcessManager:
         
         try:
             if show_progress:
-                with st.spinner(progress_message):
+                with st.status(progress_message, expanded=True) as status:
                     result = func(**kwargs)
+                    status.update(label="✅ Complete!", state="complete", expanded=False)
             else:
                 result = func(**kwargs)
             
