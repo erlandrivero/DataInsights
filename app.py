@@ -3523,6 +3523,7 @@ def show_market_basket_analysis():
                     
                     st.success("✅ AI insights generated successfully!")
                     st.markdown(st.session_state.mba_ai_insights)
+                    st.info("✅ AI insights saved! These will be included in your report downloads.")
                         
                 except Exception as e:
                     st.error(f"Error generating AI insights: {str(e)}")
@@ -4198,6 +4199,7 @@ def show_rfm_analysis():
                     st.session_state.rfm_ai_insights = response.choices[0].message.content
                     st.success("✅ AI insights generated successfully!")
                     st.markdown(st.session_state.rfm_ai_insights)
+                    st.info("✅ AI insights saved! These will be included in your report downloads.")
                     
             except Exception as e:
                 st.error(f"Error generating insights: {str(e)}")
@@ -4734,6 +4736,7 @@ def show_monte_carlo_simulation():
                     st.session_state.mc_ai_insights = response.choices[0].message.content
                     st.success("✅ AI insights generated successfully!")
                     st.markdown(st.session_state.mc_ai_insights)
+                    st.info("✅ AI insights saved! These will be included in your report downloads.")
                     
             except Exception as e:
                 st.error(f"Error generating AI analysis: {str(e)}")
@@ -5859,6 +5862,7 @@ def show_ml_classification():
                     st.session_state.ml_ai_insights = response.choices[0].message.content
                     st.success("✅ AI insights generated successfully!")
                     st.markdown(st.session_state.ml_ai_insights)
+                    st.info("✅ AI insights saved! These will be included in your report downloads.")
                     
             except Exception as e:
                 st.error(f"Error generating insights: {str(e)}")
@@ -6755,6 +6759,7 @@ def show_ml_regression():
                     st.session_state.mlr_ai_insights = response.choices[0].message.content
                     st.success("✅ AI insights generated successfully!")
                     st.markdown(st.session_state.mlr_ai_insights)
+                    st.info("✅ AI insights saved! These will be included in your report downloads.")
                     
             except Exception as e:
                 st.error(f"Error generating insights: {str(e)}")
@@ -7342,6 +7347,7 @@ def show_anomaly_detection():
             if 'anomaly_ai_insights' in st.session_state and st.session_state.anomaly_ai_insights:
                 st.success("✅ AI insights generated successfully!")
                 st.markdown(st.session_state.anomaly_ai_insights)
+                st.info("✅ AI insights saved! These will be included in your report downloads.")
         
         # Export section
         st.divider()
@@ -7960,6 +7966,7 @@ def show_time_series_forecasting():
                         st.session_state.ts_ai_insights = response.choices[0].message.content
                         st.success("✅ AI insights generated successfully!")
                         st.markdown(st.session_state.ts_ai_insights)
+                        st.info("✅ AI insights saved! These will be included in your report downloads.")
                         
                     except Exception as e:
                         st.error(f"Error generating insights: {str(e)}")
@@ -8494,6 +8501,7 @@ def show_text_mining():
                         st.session_state.text_ai_insights = response.choices[0].message.content
                         st.success("✅ AI insights generated successfully!")
                         st.markdown(st.session_state.text_ai_insights)
+                        st.info("✅ AI insights saved! These will be included in your report downloads.")
                         
                     except Exception as e:
                         st.error(f"Error generating AI summary: {str(e)}")
