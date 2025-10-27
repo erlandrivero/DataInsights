@@ -78,11 +78,11 @@ class MonteCarloSimulator:
         ticker: str, 
         start_date: datetime, 
         end_date: Optional[datetime] = None
-    ) -> pd.DataFrame:
-        """Fetch historical stock data from Yahoo Finance.
+    ) -> Tuple[pd.DataFrame, Optional[str]]:
+        """Fetch historical stock data and company name from Yahoo Finance.
         
         Downloads complete historical pricing data including open, high, low,
-        close, volume, and adjusted close prices.
+        close, volume, and adjusted close prices, plus company name.
         
         Args:
             ticker: Stock ticker symbol (e.g., 'AAPL', 'MSFT', 'GOOGL')
@@ -90,10 +90,12 @@ class MonteCarloSimulator:
             end_date: End date for data (default: today)
         
         Returns:
-            DataFrame with columns:
-                - Open, High, Low, Close: Daily prices
-                - Volume: Trading volume
-                - Dividends, Stock Splits: Corporate actions
+            Tuple containing:
+                - DataFrame with columns:
+                    - Open, High, Low, Close: Daily prices
+                    - Volume: Trading volume
+                    - Dividends, Stock Splits: Corporate actions
+                - Company name (str) or None if unavailable
         
         Raises:
             ValueError: If ticker symbol is invalid or no data found
@@ -103,14 +105,15 @@ class MonteCarloSimulator:
             >>> # Get 1 year of Apple stock data
             >>> start = datetime(2023, 1, 1)
             >>> end = datetime(2024, 1, 1)
-            >>> data = MonteCarloSimulator.fetch_stock_data('AAPL', start, end)
-            >>> print(f"Fetched {len(data)} days of data")
+            >>> data, name = MonteCarloSimulator.fetch_stock_data('AAPL', start, end)
+            >>> print(f"Fetched {len(data)} days of data for {name}")
         
         Note:
             - Uses yfinance library for data access
             - Data is adjusted for splits and dividends
             - Free API with no authentication required
             - Rate limits may apply for excessive requests
+            - Returns company name in same call to avoid rate limiting
         """
         if end_date is None:
             end_date = datetime.now()
@@ -122,7 +125,15 @@ class MonteCarloSimulator:
             if data.empty:
                 raise ValueError(f"No data found for ticker '{ticker}'")
             
-            return data
+            # Get company name from same ticker object to avoid extra API call
+            company_name = None
+            try:
+                info = stock.info
+                company_name = info.get('longName', info.get('shortName', None))
+            except:
+                pass  # If company info fails, continue without it
+            
+            return data, company_name
         except Exception as e:
             raise Exception(f"Error fetching stock data: {str(e)}")
     

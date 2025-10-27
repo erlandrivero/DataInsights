@@ -4365,23 +4365,15 @@ def show_monte_carlo_simulation():
     if st.button("📥 Fetch Stock Data", type="primary", use_container_width=True):
         with st.status(f"Fetching {ticker} data...", expanded=True) as status:
             try:
-                st.write("📡 Connecting to Yahoo Finance...")
+                st.write("📡 Fetching stock data and company information...")
                 start_date = datetime.now() - timedelta(days=lookback_days)
-                stock_data = simulator.fetch_stock_data(ticker, start_date)
+                
+                # Fetch both stock data and company name in single API call
+                stock_data, company_name = simulator.fetch_stock_data(ticker, start_date)
                 
                 st.session_state.mc_stock_data = stock_data
                 st.session_state.mc_ticker = ticker
-                
-                # Fetch company name
-                st.write("🏢 Fetching company information...")
-                try:
-                    import yfinance as yf
-                    stock = yf.Ticker(ticker)
-                    info = stock.info
-                    company_name = info.get('longName', info.get('shortName', ''))
-                    st.session_state.mc_company_name = company_name if company_name else None
-                except:
-                    st.session_state.mc_company_name = None
+                st.session_state.mc_company_name = company_name
                 
                 # Calculate returns
                 st.write("📊 Calculating statistics...")
@@ -4393,9 +4385,13 @@ def show_monte_carlo_simulation():
                 st.session_state.mc_stats = stats
                 
                 status.update(label=f"✅ Loaded {len(stock_data)} days of data!", state="complete", expanded=False)
-                st.success(f"✅ Loaded {len(stock_data)} days of {ticker} data!")
+                if company_name:
+                    st.success(f"✅ Loaded {len(stock_data)} days of {ticker} data ({company_name})!")
+                else:
+                    st.success(f"✅ Loaded {len(stock_data)} days of {ticker} data!")
                 
             except Exception as e:
+                status.update(label="❌ Error fetching data", state="error", expanded=True)
                 st.error(f"Error fetching data: {str(e)}")
                 st.info("💡 Try a different ticker symbol (e.g., AAPL, MSFT, GOOGL)")
     
