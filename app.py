@@ -48,6 +48,17 @@ st.markdown("""
         padding: 0.5rem 1rem;
         border-radius: 5px;
     }
+    /* Prevent grey spinner overlay from appearing */
+    .stSpinner > div {
+        border-color: transparent !important;
+    }
+    div[data-testid="stSpinner"] {
+        position: relative !important;
+    }
+    /* Remove the grey overlay background */
+    .stSpinner::before {
+        display: none !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -805,6 +816,7 @@ def show_analysis():
                     st.session_state.original_data = result['original_df']
                     st.session_state.cleaning_stats = result['stats']
                     st.session_state.cleaning_quality_score = result['quality_score']
+                    st.session_state.cleaning_quality_score_before = result.get('quality_score_before', 0)
                     
                     # Clear cached analysis
                     for key in ['profile', 'issues', 'viz_suggestions', 'ai_insights', 'cleaning_suggestions']:
@@ -866,10 +878,31 @@ def show_analysis():
                     st.markdown(f"- **Missing values:** {stats['cleaned_missing']:,}")
                     st.markdown(f"- **Rows removed:** {stats.get('rows_removed', 0):,}")
             
-            # Quality score
-            quality_score = st.session_state.get('cleaning_quality_score', 0)
-            st.metric("Data Quality Score", f"{quality_score:.1f}/100",
-                     delta="Improved" if quality_score > 70 else "Needs more cleaning")
+            # Quality score comparison
+            quality_score_after = st.session_state.get('cleaning_quality_score', 0)
+            quality_score_before = st.session_state.get('cleaning_quality_score_before', 0)
+            
+            # Calculate improvement
+            improvement = quality_score_after - quality_score_before
+            
+            # Display before and after scores
+            st.markdown("### Data Quality Score")
+            col_before, col_after = st.columns(2)
+            
+            with col_before:
+                st.metric(
+                    "Previous Quality Score", 
+                    f"{quality_score_before:.1f}/100",
+                    delta=None
+                )
+            
+            with col_after:
+                st.metric(
+                    "Current Quality Score", 
+                    f"{quality_score_after:.1f}/100",
+                    delta=f"+{improvement:.1f}" if improvement > 0 else f"{improvement:.1f}",
+                    delta_color="normal" if improvement >= 0 else "inverse"
+                )
     
     with tab2:
         st.subheader("Statistical Summary")
@@ -991,14 +1024,17 @@ def show_analysis():
         
         if 'ai_insights' not in st.session_state:
             if st.button("Generate AI Insights", type="primary"):
-                with st.spinner("🤖 AI is analyzing your data..."):
+                with st.status("🤖 AI is analyzing your data...", expanded=True) as status:
                     try:
                         from utils.ai_helper import AIHelper
                         ai = AIHelper()
+                        st.write("Analyzing data patterns...")
                         insights = ai.generate_data_insights(df, profile)
                         st.session_state.ai_insights = insights
+                        status.update(label="✅ Analysis complete!", state="complete", expanded=False)
                         st.rerun()
                     except Exception as e:
+                        status.update(label="❌ Analysis failed", state="error", expanded=True)
                         st.error(f"Error generating insights: {str(e)}")
         else:
             st.markdown(st.session_state.ai_insights)
@@ -3394,7 +3430,8 @@ def show_market_basket_analysis():
                     from utils.ai_helper import AIHelper
                     ai = AIHelper()
                     
-                    with st.spinner("Analyzing market basket patterns and generating insights..."):
+                    with st.status("🤖 Analyzing market basket patterns...", expanded=True) as status:
+                        st.write("Preparing analysis data...")
                         # Get data from session state
                         rules_data = st.session_state.get('mba_rules', pd.DataFrame())
                         transactions_data = st.session_state.get('mba_transactions', [])
@@ -3478,11 +3515,13 @@ def show_market_basket_analysis():
                         
                         # Save to session state
                         st.session_state.mba_ai_insights = response.choices[0].message.content
-                        st.success("✅ AI insights generated successfully!")
-                        st.markdown(st.session_state.mba_ai_insights)
+                        status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+                    
+                    st.success("✅ AI insights generated successfully!")
+                    st.markdown(st.session_state.mba_ai_insights)
                         
                 except Exception as e:
-                    st.error(f"Error generating insights: {str(e)}")
+                    st.error(f"Error generating AI insights: {str(e)}")
             
             # Export full report
             st.divider()
@@ -7213,69 +7252,6 @@ def show_anomaly_detection():
         st.divider()
         st.subheader("🤖 8. AI-Powered Anomaly Explanation")
         
-        # Display saved insights if they exist
-        if 'anomaly_ai_insights' in st.session_state:
-            st.markdown(st.session_state.anomaly_ai_insights)
-            st.info("✅ AI insights saved! These will be included in your report downloads.")
-        
-        if st.button("🤖 Generate AI Explanation", key="anomaly_ai_btn", type="primary"):
-            with st.spinner("Analyzing anomalies with AI..."):
-                try:
-                    from utils.ai_helper import AIHelper
-                    
-                    ai = AIHelper()
-                    
-                    # Prepare context
-                    top_anomalies = results[results['is_anomaly']].nsmallest(5, 'anomaly_score')
-                    
-                    context = f"""
-                    Anomaly Detection Results:
-                    - Algorithm: {algorithm}
-                    - Total Records: {stats['total_records']}
-                    - Anomalies Found: {stats['num_anomalies']} ({stats['pct_anomalies']:.1f}%)
-                    - Features Analyzed: {', '.join(feature_cols)}
-                    
-                    Top 5 Anomalies:
-                    {top_anomalies[feature_cols + ['anomaly_score']].to_string()}
-                    
-                    Normal Data Statistics:
-                    {results[~results['is_anomaly']][feature_cols].describe().to_string()}
-                    """
-                    
-                    prompt = f"""
-                    You are a data analyst. Analyze these anomaly detection results and provide:
-                    
-                    1. An explanation of what makes these points anomalous
-                    2. Potential business implications or causes
-                    3. Recommended actions for each type of anomaly found
-                    
-                    {context}
-                    
-                    Provide insights in a clear, business-friendly format with specific examples.
-                    """
-                    
-                    # Get AI response
-                    response = ai.client.chat.completions.create(
-                        model="gpt-4",
-                        messages=[
-                            {"role": "system", "content": "You are an expert data analyst specializing in anomaly detection and business insights."},
-                            {"role": "user", "content": prompt}
-                        ],
-                        temperature=0.7,
-                        max_tokens=1500
-                    )
-                    
-                    # Save to session state
-                    st.session_state.anomaly_ai_insights = response.choices[0].message.content
-                    st.success("✅ AI insights generated successfully!")
-                    st.markdown(st.session_state.anomaly_ai_insights)
-                    
-                except Exception as e:
-                    st.error(f"Error generating AI explanation: {str(e)}")
-        
-        # Export section
-        st.divider()
-        st.subheader("📥 9. Export Results")
         
         col1, col2, col3 = st.columns(3)
         

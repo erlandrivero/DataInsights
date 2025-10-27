@@ -657,28 +657,35 @@ class DataCleaner:
         
         return self
     
-    def calculate_quality_score(self) -> float:
+    def _calculate_quality_score_for_df(self, df: pd.DataFrame, duplicates_removed: int = 0) -> float:
         """
-        Calculate overall data quality score (0-100).
+        Calculate overall data quality score (0-100) for any dataframe.
         
+        Args:
+            df: DataFrame to calculate quality score for
+            duplicates_removed: Number of duplicates removed (for scoring)
+            
         Returns:
             Quality score
         """
+        if df.empty or len(df) == 0:
+            return 0.0
+            
         # Missing value score (40% weight)
-        total_cells = self.df.shape[0] * self.df.shape[1]
-        missing_cells = self.df.isnull().sum().sum()
+        total_cells = df.shape[0] * df.shape[1]
+        missing_cells = df.isnull().sum().sum()
         missing_pct = (missing_cells / total_cells) * 100 if total_cells > 0 else 0
         missing_score = max(0, 100 - missing_pct) * 0.4
         
         # Duplicate score (30% weight)
-        duplicate_pct = (self.stats.get('duplicates_removed', 0) / self.stats['original_shape'][0]) * 100
+        duplicate_pct = (duplicates_removed / df.shape[0]) * 100 if df.shape[0] > 0 else 0
         duplicate_score = max(0, 100 - duplicate_pct) * 0.3
         
         # Column consistency score (20% weight)
         # Penalize columns with very high or very low cardinality
         consistency_scores = []
-        for col in self.df.columns:
-            unique_ratio = self.df[col].nunique() / len(self.df)
+        for col in df.columns:
+            unique_ratio = df[col].nunique() / len(df)
             if 0.01 < unique_ratio < 0.95:  # Good range
                 consistency_scores.append(100)
             elif unique_ratio <= 0.01:  # Too few unique values
@@ -689,12 +696,25 @@ class DataCleaner:
         consistency_score = np.mean(consistency_scores) * 0.2 if consistency_scores else 0
         
         # Data type appropriateness (10% weight)
-        numeric_cols = self.df.select_dtypes(include=['number']).columns
-        type_score = (len(numeric_cols) / len(self.df.columns)) * 100 * 0.1
+        numeric_cols = df.select_dtypes(include=['number']).columns
+        type_score = (len(numeric_cols) / len(df.columns)) * 100 * 0.1 if len(df.columns) > 0 else 0
         
         total_score = missing_score + duplicate_score + consistency_score + type_score
         
         return round(total_score, 2)
+    
+    def calculate_quality_score(self) -> float:
+        """
+        Calculate overall data quality score (0-100) for current dataframe.
+        
+        Returns:
+            Quality score
+        """
+        duplicates_removed = self.stats.get('duplicates_removed', 0)
+        original_shape = self.stats.get('original_shape', (len(self.df), len(self.df.columns)))
+        
+        # Use original shape for duplicate percentage calculation
+        return self._calculate_quality_score_for_df(self.df, duplicates_removed)
     
     def clean_pipeline(self, 
                       normalize_cols: bool = True,
@@ -799,15 +819,17 @@ class DataCleaner:
         
         self.stats.update(final_stats)
         
-        # Calculate quality score
-        quality_score = self.calculate_quality_score()
+        # Calculate quality scores (before and after)
+        quality_score_before = self._calculate_quality_score_for_df(self.original_df, 0)
+        quality_score_after = self.calculate_quality_score()
         
         return {
             'cleaned_df': self.df,
             'original_df': self.original_df,
             'cleaning_log': self.cleaning_log,
             'stats': self.stats,
-            'quality_score': quality_score
+            'quality_score': quality_score_after,
+            'quality_score_before': quality_score_before
         }
     
     def get_cleaning_report(self) -> str:
