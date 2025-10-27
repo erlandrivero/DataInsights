@@ -261,7 +261,7 @@ def show_data_upload():
         
         if uploaded_file is not None:
             try:
-                with st.spinner("Loading and analyzing your data..."):
+                with st.status("Loading and analyzing your data...", expanded=True) as status:
                     from utils.data_processor import DataProcessor
                     
                     # Load data
@@ -765,7 +765,7 @@ def show_analysis():
             pm.lock()
             
             try:
-                with st.spinner("🧹 Cleaning data..."):
+                with st.status("🧹 Cleaning data...", expanded=True) as status:
                     from utils.data_cleaning import DataCleaner
                     
                     # Progress tracking
@@ -1045,7 +1045,7 @@ def show_analysis():
         else:
             if 'cleaning_suggestions' not in st.session_state:
                 if st.button("Get AI Cleaning Suggestions", type="primary"):
-                    with st.spinner("🤖 Generating cleaning suggestions..."):
+                    with st.status("🤖 Generating cleaning suggestions...", expanded=True) as status:
                         try:
                             from utils.ai_helper import AIHelper
                             ai = AIHelper()
@@ -1186,11 +1186,12 @@ def show_insights():
         ask_button = st.button("Ask AI", type="primary", use_container_width=True)
     
     if ask_button and question:
-        with st.spinner("🤖 AI is analyzing..."):
+        with st.status("🤖 AI is analyzing...", expanded=True) as status:
             try:
                 from utils.ai_helper import AIHelper
                 ai = AIHelper()
                 
+                st.write("Analyzing your question...")
                 # Get answer
                 result = ai.answer_data_question(question, df)
                 
@@ -1200,10 +1201,12 @@ def show_insights():
                     'result': result
                 })
                 
+                status.update(label="✅ Analysis complete!", state="complete", expanded=False)
                 # Rerun to show new result
                 st.rerun()
                 
             except Exception as e:
+                status.update(label="❌ Analysis failed", state="error", expanded=True)
                 st.error(f"Error: {str(e)}")
     
     # Display chat history
@@ -1825,7 +1828,7 @@ Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
         st.warning("⚠️ **Important:** Navigation locked during report generation. Please do not navigate away.")
         
         try:
-            with st.spinner("📝 Generating comprehensive report..."):
+            with st.status("📝 Generating comprehensive report...", expanded=True) as status:
                 
                 progress_bar = st.progress(0)
                 status_text = st.empty()
@@ -2753,7 +2756,7 @@ def show_market_basket_analysis():
         if not data_suitable:
             st.error("❌ **Cannot process - data incompatible with Market Basket Analysis**")
         elif st.button("🔄 Process Loaded Data", type="primary"):
-            with st.spinner("Processing transactions..."):
+            with st.status("Processing transactions...", expanded=True) as status:
                 try:
                     transactions = mba.parse_uploaded_transactions(df, trans_col, item_col)
                     st.session_state.mba_transactions = transactions
@@ -2772,7 +2775,7 @@ def show_market_basket_analysis():
     
     elif data_source == "Sample Groceries Dataset":
         if st.button("📥 Load Groceries Data", type="primary"):
-            with st.spinner("Loading groceries dataset..."):
+            with st.status("Loading groceries dataset...", expanded=True) as status:
                 try:
                     transactions = mba.load_groceries_data()
                     st.session_state.mba_transactions = transactions
@@ -2840,7 +2843,7 @@ def show_market_basket_analysis():
     
     # Encode transactions
     if 'mba_encoded' not in st.session_state:
-        with st.spinner("Encoding transactions..."):
+        with st.status("Encoding transactions...", expanded=True) as status:
             df_encoded = mba.encode_transactions(transactions)
             st.session_state.mba_encoded = df_encoded
     
@@ -2926,7 +2929,7 @@ def show_market_basket_analysis():
         pm.lock()
         
         try:
-            with st.spinner("Mining frequent itemsets and generating rules..."):
+            with st.status("Mining frequent itemsets and generating rules...", expanded=True) as status:
                 # Validate thresholds
                 if min_support <= 0 or min_support > 1:
                     st.error("❌ Minimum support must be between 0 and 1")
@@ -3523,7 +3526,7 @@ def show_market_basket_analysis():
             st.divider()
             
             if st.button("📄 Generate Full Report", use_container_width=True):
-                with st.spinner("Generating comprehensive report..."):
+                with st.status("Generating comprehensive report...", expanded=True) as status:
                     # Create report content
                     report = f"""
 # Market Basket Analysis Report
@@ -3753,7 +3756,7 @@ def show_rfm_analysis():
         if not data_suitable:
             st.error("❌ **Cannot process - data incompatible with RFM Analysis**")
         elif st.button("🔄 Process Loaded Data for RFM", type="primary"):
-            with st.spinner("Processing RFM data..."):
+            with st.status("Processing RFM data...", expanded=True) as status:
                 try:
                     # Validate column selections
                     if not pd.api.types.is_numeric_dtype(df[amount_col]):
@@ -3929,7 +3932,7 @@ def show_rfm_analysis():
         pm.lock()
         
         try:
-            with st.spinner("Calculating RFM metrics..."):
+            with st.status("Calculating RFM metrics...", expanded=True) as status:
                 # Progress tracking
                 st.divider()
                 st.subheader("⚙️ Analysis Progress")
@@ -4027,14 +4030,14 @@ def show_rfm_analysis():
             )
             
             if st.button("🔄 Run K-Means Clustering", use_container_width=True):
-                with st.spinner("Performing K-Means clustering..."):
+                with st.status("Performing K-Means clustering...", expanded=True) as status:
                     rfm_clustered = rfm_analyzer.perform_kmeans_clustering(rfm_data, n_clusters)
                     st.session_state.rfm_clustered = rfm_clustered
                     st.success(f"✅ Created {n_clusters} customer clusters!")
         
         with col2:
             if st.button("📉 Show Elbow Curve", use_container_width=True):
-                with st.spinner("Calculating elbow curve..."):
+                with st.status("Calculating elbow curve...", expanded=True) as status:
                     cluster_range, inertias = rfm_analyzer.calculate_elbow_curve(rfm_data, max_clusters=10)
                     fig_elbow = rfm_analyzer.create_elbow_plot(cluster_range, inertias)
                     st.plotly_chart(fig_elbow, use_container_width=True)
@@ -4103,7 +4106,7 @@ def show_rfm_analysis():
                 from utils.ai_helper import AIHelper
                 ai = AIHelper()
                 
-                with st.spinner("Analyzing customer segments and generating strategic insights..."):
+                with st.status("Analyzing customer segments and generating strategic insights...", expanded=True) as status:
                     # Get data from session state
                     rfm_segmented_data = st.session_state.get('rfm_segmented', pd.DataFrame())
                     rfm_data_state = st.session_state.get('rfm_data', pd.DataFrame())
@@ -4654,7 +4657,7 @@ def show_monte_carlo_simulation():
                 from utils.ai_helper import AIHelper
                 ai = AIHelper()
                 
-                with st.spinner("Analyzing Monte Carlo simulation results with AI..."):
+                with st.status("Analyzing Monte Carlo simulation results with AI...", expanded=True) as status:
                     # Get data from session state
                     mc_ticker_data = st.session_state.get('mc_ticker', 'Unknown')
                     mc_stock_data = st.session_state.get('mc_stock_data', pd.DataFrame())
@@ -4857,7 +4860,7 @@ def show_ml_classification():
                 
         elif data_source == "Sample Iris Dataset":
             if st.button("📥 Load Iris Dataset", type="primary"):
-                with st.spinner("Loading Iris dataset..."):
+                with st.status("Loading Iris dataset...", expanded=True) as status:
                     try:
                         from sklearn.datasets import load_iris
                         iris = load_iris()
@@ -4910,7 +4913,7 @@ def show_ml_classification():
         
         if data_source == "Sample Iris Dataset":
             if st.button("📥 Load Iris Dataset", type="primary"):
-                with st.spinner("Loading Iris dataset..."):
+                with st.status("Loading Iris dataset...", expanded=True) as status:
                     try:
                         from sklearn.datasets import load_iris
                         iris = load_iris()
@@ -5406,11 +5409,11 @@ def show_ml_classification():
                 
                 try:
                     # Initialize trainer
-                    with st.spinner("Initializing ML Trainer..."):
+                    with st.status("Initializing ML Trainer...", expanded=True) as status:
                         trainer = MLTrainer(df, target_col, max_samples=10000)
                     
                     # Prepare data
-                    with st.spinner("Preparing data for training..."):
+                    with st.status("Preparing data for training...", expanded=True) as status:
                         prep_info = trainer.prepare_data(test_size=test_size/100)
                 
                     # Show preparation info
@@ -5785,7 +5788,7 @@ def show_ml_classification():
                 from utils.ai_helper import AIHelper
                 ai = AIHelper()
                 
-                with st.spinner("Analyzing results and generating insights..."):
+                with st.status("Analyzing results and generating insights...", expanded=True) as status:
                     # Get data from session state
                     ml_results_data = st.session_state.get('ml_results', [])
                     ml_trainer_data = st.session_state.get('ml_trainer')
@@ -5997,7 +6000,7 @@ def show_ml_regression():
                 
         elif data_source == "Sample Boston Housing Dataset":
             if st.button("📥 Load Boston Housing Dataset", type="primary"):
-                with st.spinner("Loading Boston Housing dataset..."):
+                with st.status("Loading Boston Housing dataset...", expanded=True) as status:
                     try:
                         # Create synthetic Boston Housing-like dataset
                         np.random.seed(42)
@@ -6065,7 +6068,7 @@ def show_ml_regression():
         
         if data_source == "Sample Boston Housing Dataset":
             if st.button("📥 Load Boston Housing Dataset", type="primary"):
-                with st.spinner("Loading Boston Housing dataset..."):
+                with st.status("Loading Boston Housing dataset...", expanded=True) as status:
                     try:
                         # Same synthetic dataset code as above
                         np.random.seed(42)
@@ -6428,7 +6431,7 @@ def show_ml_regression():
             
             try:
                 # Initialize regressor
-                with st.spinner("Initializing ML Regressor..."):
+                with st.status("Initializing ML Regressor...", expanded=True) as status:
                     regressor = MLRegressor(df, target_col, max_samples=10000)
                     prep_info = regressor.prepare_data(test_size=test_size/100)
                 
@@ -6682,7 +6685,7 @@ def show_ml_regression():
                 from utils.ai_helper import AIHelper
                 ai = AIHelper()
                 
-                with st.spinner("Analyzing regression results and generating insights..."):
+                with st.status("Analyzing regression results and generating insights...", expanded=True) as status:
                     # Get data from session state
                     mlr_results_data = st.session_state.get('mlr_results', [])
                     mlr_regressor_data = st.session_state.get('mlr_regressor')
@@ -7721,7 +7724,7 @@ def show_time_series_forecasting():
                 st.info("💡 ARIMA training may take 30-60 seconds for large datasets. Please wait...")
                 
                 try:
-                    with st.spinner("Running Auto-ARIMA..."):
+                    with st.status("Running Auto-ARIMA...", expanded=True) as status:
                         
                         progress_bar = st.progress(0)
                         status_text = st.empty()
@@ -7800,7 +7803,7 @@ def show_time_series_forecasting():
                 st.warning("⚠️ **Important:** Navigation locked during forecasting. Please do not navigate away.")
                 
                 try:
-                    with st.spinner("Running Prophet..."):
+                    with st.status("Running Prophet...", expanded=True) as status:
                         
                         progress_bar = st.progress(0)
                         status_text = st.empty()
@@ -7906,7 +7909,7 @@ def show_time_series_forecasting():
                 st.info("✅ AI insights saved! These will be included in your report downloads.")
             
             if st.button("🤖 Generate AI Insights", key="ts_ai_insights_btn"):
-                with st.spinner("Analyzing forecasts..."):
+                with st.status("Analyzing forecasts...", expanded=True) as status:
                     try:
                         from utils.ai_helper import AIHelper
                         ai = AIHelper()
@@ -8281,7 +8284,7 @@ def show_text_mining():
                     st.warning("⚠️ **Important:** Navigation locked during sentiment analysis. Please do not navigate away.")
                     
                     try:
-                        with st.spinner("Analyzing sentiment..."):
+                        with st.status("Analyzing sentiment...", expanded=True) as status:
                             
                             progress_bar = st.progress(0)
                             status_text = st.empty()
@@ -8345,7 +8348,7 @@ def show_text_mining():
             
             if 'word_freq_results' not in st.session_state:
                 if st.button("📈 Analyze Word Frequency", key="wordfreq_btn"):
-                    with st.spinner("Analyzing word frequency..."):
+                    with st.status("Analyzing word frequency...", expanded=True) as status:
                         try:
                             word_freq_df = analyzer.get_word_frequency(n_words)
                             st.session_state.word_freq_results = word_freq_df
@@ -8392,7 +8395,7 @@ def show_text_mining():
                     st.warning("⚠️ **Important:** Navigation locked during topic modeling. Please do not navigate away.")
                     
                     try:
-                        with st.spinner("Running topic modeling..."):
+                        with st.status("Running topic modeling...", expanded=True) as status:
                             
                             progress_bar = st.progress(0)
                             status_text = st.empty()
@@ -8440,7 +8443,7 @@ def show_text_mining():
                 st.info("✅ AI insights saved! These will be included in your report downloads.")
             
             if st.button("🤖 Generate AI Summary", key="text_ai_summary_btn"):
-                with st.spinner("Generating AI summary..."):
+                with st.status("Generating AI summary...", expanded=True) as status:
                     try:
                         from utils.ai_helper import AIHelper
                         ai = AIHelper()
