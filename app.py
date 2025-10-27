@@ -7333,12 +7333,15 @@ def show_anomaly_detection():
                     # Save to session state
                     st.session_state.anomaly_ai_insights = response.choices[0].message.content
                     status.update(label="✅ AI analysis complete!", state="complete", expanded=False)
-                    st.success("✅ AI insights generated successfully!")
-                    st.markdown(st.session_state.anomaly_ai_insights)
                     
                 except Exception as e:
                     status.update(label="❌ Analysis failed", state="error", expanded=True)
                     st.error(f"Error generating AI explanation: {str(e)}")
+            
+            # Display results outside status block
+            if 'anomaly_ai_insights' in st.session_state and st.session_state.anomaly_ai_insights:
+                st.success("✅ AI insights generated successfully!")
+                st.markdown(st.session_state.anomaly_ai_insights)
         
         # Export section
         st.divider()
