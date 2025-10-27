@@ -4809,46 +4809,8 @@ def show_monte_carlo_simulation():
 def show_ml_classification():
     """Comprehensive ML Classification with 15 models and full evaluation."""
     
-    # Helper function for smart CV fold recommendation
-    def get_recommended_cv_folds(n_samples: int, n_classes: int = None) -> tuple:
-        """Determine optimal CV folds based on dataset characteristics."""
-        if n_samples < 100:
-            folds = 3
-            reason = "Small dataset - using minimum 3-fold CV"
-        elif n_samples < 500:
-            folds = 3
-            reason = "Small dataset - 3-fold CV is optimal"
-        elif n_samples < 2000:
-            folds = 5
-            reason = "Medium dataset - 5-fold CV for reliability"
-        elif n_samples < 5000:
-            folds = 5
-            reason = "Large dataset - 5-fold CV balances speed/accuracy"
-        else:
-            folds = 3
-            reason = "Very large dataset - 3-fold CV to reduce compute time"
-        
-        # For multi-class with many classes, use fewer folds
-        if n_classes and n_classes > 20:
-            folds = min(folds, 3)
-            reason += " (reduced for multi-class problem)"
-        
-        return folds, reason
-
-    # Helper function for caching
-    def cache_results(func):
-        """Cache results of expensive function calls."""
-        cache = {}
-        
-        def wrapper(*args):
-            if args in cache:
-                return cache[args]
-            else:
-                result = func(*args)
-                cache[args] = result
-                return result
-        
-        return wrapper
+    # Import ML helper functions for optimization
+    from utils.ml_helpers import get_recommended_cv_folds, create_data_hash, cached_classification_training
     
     st.header("🤖 Machine Learning - Classification Models")
     
@@ -5305,12 +5267,19 @@ def show_ml_classification():
                 help="Percentage of data reserved for testing"
             )
             
+            # Smart CV fold recommendation
+            n_samples = len(df)
+            n_classes = df[target_col].nunique()
+            recommended_folds, cv_reason = get_recommended_cv_folds(n_samples, n_classes)
+            
+            st.info(f"💡 **Recommended:** {recommended_folds}-fold CV - {cv_reason}")
+            
             cv_folds = st.slider(
                 "Cross-Validation Folds",
-                min_value=3,
+                min_value=recommended_folds,
                 max_value=10,
                 value=3,
-                help="Number of folds for cross-validation"
+                help=f"Recommended: {recommended_folds} for your dataset ({n_samples:,} samples, {n_classes} classes)"
             )
         
         # LEVEL 3: Train Button - Only enable if models available
@@ -5986,6 +5955,9 @@ def show_ml_regression():
     # Help section
     with st.expander("ℹ️ What is Machine Learning Regression?"):
         st.markdown("""
+    # Import ML helper functions for optimization
+    from utils.ml_helpers import get_recommended_cv_folds, create_data_hash, cached_regression_training
+    
         **Machine Learning Regression** predicts continuous numerical values based on input features.
         
         ### Use Cases:
@@ -6421,12 +6393,18 @@ def show_ml_regression():
                 help="Percentage of data reserved for testing"
             )
             
+            # Smart CV fold recommendation
+            n_samples = len(df)
+            recommended_folds, cv_reason = get_recommended_cv_folds(n_samples, None)
+            
+            st.info(f"💡 **Recommended:** {recommended_folds}-fold CV - {cv_reason}")
+            
             cv_folds = st.slider(
                 "Cross-Validation Folds",
-                min_value=3,
+                min_value=recommended_folds,
                 max_value=10,
                 value=3,
-                help="Number of folds for cross-validation"
+                help=f"Recommended: {recommended_folds} for your dataset ({n_samples:,} samples)"
             )
         
         # LEVEL 3: Train Button - Only enable if models available
