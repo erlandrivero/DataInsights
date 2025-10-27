@@ -126,11 +126,18 @@ class MonteCarloSimulator:
                 raise ValueError(f"No data found for ticker '{ticker}'")
             
             # Get company name from same ticker object to avoid extra API call
+            # Try multiple methods for better reliability
             company_name = None
             try:
-                info = stock.info
-                company_name = info.get('longName', info.get('shortName', None))
-            except:
+                # Method 1: Try fast_info first (faster, more reliable)
+                if hasattr(stock, 'info') and stock.info:
+                    info = stock.info
+                    company_name = info.get('longName') or info.get('shortName')
+                
+                # Method 2: If info is empty or failed, try getting from history metadata
+                if not company_name and hasattr(data, 'attrs'):
+                    company_name = data.attrs.get('longName') or data.attrs.get('shortName')
+            except Exception:
                 pass  # If company info fails, continue without it
             
             return data, company_name
