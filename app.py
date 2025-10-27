@@ -4389,6 +4389,7 @@ def show_monte_carlo_simulation():
                     st.success(f"✅ Loaded {len(stock_data)} days of {ticker} data ({company_name})!")
                 else:
                     st.success(f"✅ Loaded {len(stock_data)} days of {ticker} data!")
+                    st.info("ℹ️ Company name not available from data provider")
                 
             except Exception as e:
                 status.update(label="❌ Error fetching data", state="error", expanded=True)

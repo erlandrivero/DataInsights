@@ -129,16 +129,20 @@ class MonteCarloSimulator:
             # Try multiple methods for better reliability
             company_name = None
             try:
-                # Method 1: Try fast_info first (faster, more reliable)
-                if hasattr(stock, 'info') and stock.info:
-                    info = stock.info
-                    company_name = info.get('longName') or info.get('shortName')
+                # Access info property directly - yfinance caches this
+                info = stock.info
                 
-                # Method 2: If info is empty or failed, try getting from history metadata
-                if not company_name and hasattr(data, 'attrs'):
-                    company_name = data.attrs.get('longName') or data.attrs.get('shortName')
+                # Check if info has data (sometimes returns empty dict)
+                if info and isinstance(info, dict):
+                    company_name = info.get('longName')
+                    if not company_name:
+                        company_name = info.get('shortName')
+                    # Some tickers use different keys
+                    if not company_name:
+                        company_name = info.get('name')
             except Exception:
-                pass  # If company info fails, continue without it
+                # If info fails entirely, continue without company name
+                pass
             
             return data, company_name
         except Exception as e:
