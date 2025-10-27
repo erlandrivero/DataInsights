@@ -417,6 +417,8 @@ class RFMAnalyzer:
                 'M_Score': 'mean'
             }
         else:
+            # When no customer column, use Segment as the grouping column
+            # and count the number of rows in each segment
             group_col = 'Segment'
             agg_dict = {
                 'Recency': ['count', 'mean'],
@@ -433,6 +435,9 @@ class RFMAnalyzer:
             profiles.columns = ['Segment', 'Customer_Count', 'Avg_Recency', 'Avg_Frequency', 
                               'Avg_Monetary', 'Avg_R_Score', 'Avg_F_Score', 'Avg_M_Score']
         else:
+            # Flatten MultiIndex columns when customer_col is None
+            profiles.columns = profiles.columns.map(lambda x: x[0] if isinstance(x, tuple) else x)
+            # Rename columns to match expected format
             profiles.columns = ['Segment', 'Customer_Count', 'Avg_Recency', 'Avg_Frequency', 
                               'Avg_Monetary', 'Avg_R_Score', 'Avg_F_Score', 'Avg_M_Score']
         
