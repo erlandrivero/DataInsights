@@ -724,33 +724,24 @@ def show_analysis():
                 with col1:
                     st.markdown("**📊 Missing Values:**")
                     fill_missing = st.checkbox("Fill missing values", value=True)
-                    if fill_missing:
-                        missing_strategy = st.selectbox("Fill strategy:", 
-                                                       ["median", "mean", "mode"],
-                                                       help="Strategy for filling missing values")
-                    else:
-                        missing_strategy = "median"
+                    missing_strategy = st.selectbox("Fill strategy:", 
+                                                   ["median", "mean", "mode"],
+                                                   help="Strategy for filling missing values (only used if checkbox is checked)")
                     
                     st.markdown("**🔢 Outliers:**")
                     remove_outliers = st.checkbox("Remove statistical outliers", value=False,
                                                  help="Remove data points using IQR method")
-                    if remove_outliers:
-                        outlier_method = st.selectbox("Outlier method:", 
-                                                     ["IQR", "zscore"],
-                                                     help="IQR = 1.5*IQR rule, zscore = 3 std devs")
-                    else:
-                        outlier_method = "IQR"
+                    outlier_method = st.selectbox("Outlier method:", 
+                                                 ["IQR", "zscore"],
+                                                 help="IQR = 1.5*IQR rule, zscore = 3 std devs (only used if checkbox is checked)")
                 
                 with col2:
                     st.markdown("**⚠️ Negative Values:**")
                     fix_negatives = st.checkbox("Fix negative quantities/amounts", value=False,
                                                help="Auto-detect and fix negative values in qty/amount columns")
-                    if fix_negatives:
-                        negative_method = st.selectbox("Fix method:", 
-                                                      ["abs", "zero", "drop"],
-                                                      help="abs=absolute value, zero=replace with 0, drop=remove rows")
-                    else:
-                        negative_method = "abs"
+                    negative_method = st.selectbox("Fix method:", 
+                                                  ["abs", "zero", "drop"],
+                                                  help="abs=absolute value, zero=replace with 0, drop=remove rows (only used if checkbox is checked)")
                     
                     st.markdown("**📂 Categorical:**")
                     standardize_categorical = st.checkbox("Standardize categorical values", value=False,
