@@ -99,7 +99,12 @@ def main():
         
         page = st.radio(
             "Select a page:",
-            ["Home", "Data Upload", "Data Analysis & Cleaning", "Anomaly Detection", "Insights", "Market Basket Analysis", "RFM Analysis", "Time Series Forecasting", "Text Mining & NLP", "ML Classification", "ML Regression", "Monte Carlo Simulation", "Reports"],
+            ["Home", "Data Upload", "Data Analysis & Cleaning", "Anomaly Detection", "Insights", 
+             "Market Basket Analysis", "RFM Analysis", "Time Series Forecasting", "Text Mining & NLP", 
+             "ML Classification", "ML Regression", "Monte Carlo Simulation", 
+             "A/B Testing", "Cohort Analysis", "Recommendation Systems", 
+             "Geospatial Analysis", "Survival Analysis", "Network Analysis", 
+             "Reports"],
             key="navigation",
             disabled=is_processing
         )
@@ -204,6 +209,18 @@ def main():
         show_time_series_forecasting()
     elif page == "Text Mining & NLP":
         show_text_mining()
+    elif page == "A/B Testing":
+        show_ab_testing()
+    elif page == "Cohort Analysis":
+        show_cohort_analysis()
+    elif page == "Recommendation Systems":
+        show_recommendation_systems()
+    elif page == "Geospatial Analysis":
+        show_geospatial_analysis()
+    elif page == "Survival Analysis":
+        show_survival_analysis()
+    elif page == "Network Analysis":
+        show_network_analysis()
 
 def show_home():
     st.header("Welcome to DataInsights! 👋")
@@ -1284,7 +1301,13 @@ def show_reports():
         'mlr_results' in st.session_state,
         'anomaly_results' in st.session_state,
         'arima_results' in st.session_state or 'prophet_results' in st.session_state,
-        'sentiment_results' in st.session_state or 'topics' in st.session_state
+        'sentiment_results' in st.session_state or 'topics' in st.session_state,
+        'ab_test_results' in st.session_state,
+        'cohort_retention' in st.session_state,
+        'recommendations' in st.session_state,
+        'geo_clusters' in st.session_state,
+        'survival_curves' in st.session_state,
+        'network_graph' in st.session_state
     ])
     
     if st.session_state.data is None and not any_analysis_complete:
@@ -1307,6 +1330,12 @@ def show_reports():
         'Anomaly Detection': 'anomaly_results' in st.session_state,
         'Time Series Forecasting': ('arima_results' in st.session_state or 'prophet_results' in st.session_state),
         'Text Mining & NLP': ('sentiment_results' in st.session_state or 'topics' in st.session_state),
+        'A/B Testing': 'ab_test_results' in st.session_state,
+        'Cohort Analysis': 'cohort_retention' in st.session_state,
+        'Recommendation Systems': 'recommendations' in st.session_state,
+        'Geospatial Analysis': 'geo_clusters' in st.session_state,
+        'Survival Analysis': 'survival_curves' in st.session_state,
+        'Network Analysis': 'network_graph' in st.session_state,
     }
     
     completed = sum(modules_status.values())
@@ -8753,6 +8782,145 @@ This text mining analysis can be used for:
                     mime="text/markdown",
                     use_container_width=True
                 )
+
+def show_ab_testing():
+    """A/B Testing page."""
+    st.header("🧪 A/B Testing & Statistical Hypothesis Testing")
+    
+    st.info("⚠️ **Module Under Construction** - Full implementation coming soon!")
+    
+    st.markdown("""
+    This module will provide:
+    - **Proportion Tests** - Compare conversion rates between groups
+    - **T-Tests** - Compare means between groups
+    - **Chi-Square Tests** - Test categorical associations
+    - **Sample Size Calculator** - Determine required sample sizes
+    - **Power Analysis** - Calculate statistical power
+    - **Test Duration Calculator** - Plan your experiments
+    - **Interactive Visualizations** - View test results
+    
+    ### Use Cases:
+    - Website A/B testing
+    - Email campaign optimization
+    - Product feature testing
+    - Pricing experiments
+    - Marketing campaign comparison
+    """)
+
+def show_cohort_analysis():
+    """Cohort Analysis page."""
+    st.header("👥 Cohort Analysis & Retention Tracking")
+    
+    st.info("⚠️ **Module Under Construction** - Full implementation coming soon!")
+    
+    st.markdown("""
+    This module will provide:
+    - **Cohort Creation** - Group users by signup/first purchase date
+    - **Retention Analysis** - Track user retention over time
+    - **Cohort Heatmaps** - Visualize retention patterns
+    - **LTV Curves** - Calculate lifetime value by cohort
+    - **Cohort Comparison** - Compare performance across cohorts
+    - **Export Reports** - Professional cohort reports
+    
+    ### Use Cases:
+    - Customer retention analysis
+    - Churn prediction
+    - Product engagement tracking
+    - Marketing campaign effectiveness
+    - User lifecycle analysis
+    """)
+
+def show_recommendation_systems():
+    """Recommendation Systems page."""
+    st.header("🎯 Recommendation Systems")
+    
+    st.info("⚠️ **Module Under Construction** - Full implementation coming soon!")
+    
+    st.markdown("""
+    This module will provide:
+    - **User-Based Collaborative Filtering** - Recommend based on similar users
+    - **Item-Based Collaborative Filtering** - Recommend similar items
+    - **Content-Based Filtering** - Recommend based on item features
+    - **Hybrid Recommendations** - Combine multiple methods
+    - **Evaluation Metrics** - Precision@K, Recall@K, F1@K
+    - **Similarity Analysis** - Find similar users/items
+    
+    ### Use Cases:
+    - E-commerce product recommendations
+    - Content recommendations (movies, music, articles)
+    - Cross-selling and upselling
+    - Personalization engines
+    - Social network friend suggestions
+    """)
+
+def show_geospatial_analysis():
+    """Geospatial Analysis page."""
+    st.header("🗺️ Geospatial Analysis & Location Intelligence")
+    
+    st.info("⚠️ **Module Under Construction** - Full implementation coming soon!")
+    
+    st.markdown("""
+    This module will provide:
+    - **Interactive Maps** - Scatter plots and density heatmaps
+    - **Distance Calculations** - Haversine distance between points
+    - **Spatial Clustering** - K-Means and DBSCAN clustering
+    - **Choropleth Maps** - Country/state level visualizations
+    - **Nearest Neighbors** - Find closest locations
+    - **Density Grids** - Calculate point density
+    
+    ### Use Cases:
+    - Store location optimization
+    - Delivery route planning
+    - Market penetration analysis
+    - Demographics mapping
+    - Real estate analysis
+    """)
+
+def show_survival_analysis():
+    """Survival Analysis page."""
+    st.header("⏱️ Survival Analysis & Time-to-Event Modeling")
+    
+    st.info("⚠️ **Module Under Construction** - Full implementation coming soon!")
+    
+    st.markdown("""
+    This module will provide:
+    - **Kaplan-Meier Curves** - Non-parametric survival estimation
+    - **Cox Proportional Hazards** - Regression modeling
+    - **Log-Rank Test** - Compare survival curves
+    - **Hazard Ratios** - Effect size estimation
+    - **Survival Predictions** - Individual risk assessment
+    - **Forest Plots** - Visualize hazard ratios
+    
+    ### Use Cases:
+    - Customer churn prediction
+    - Equipment failure analysis
+    - Patient survival rates
+    - Warranty analysis
+    - Time-to-conversion modeling
+    """)
+
+def show_network_analysis():
+    """Network Analysis page."""
+    st.header("🕸️ Network Analysis & Graph Theory")
+    
+    st.info("⚠️ **Module Under Construction** - Full implementation coming soon!")
+    
+    st.markdown("""
+    This module will provide:
+    - **Centrality Measures** - Degree, betweenness, closeness, eigenvector
+    - **Community Detection** - Louvain, greedy modularity
+    - **Network Metrics** - Density, clustering coefficient, diameter
+    - **Path Finding** - Shortest paths between nodes
+    - **Influencer Identification** - Find key network nodes
+    - **Interactive Visualizations** - Explore network structure
+    
+    ### Use Cases:
+    - Social network analysis
+    - Fraud detection (transaction networks)
+    - Organizational analysis
+    - Influence mapping
+    - Supply chain optimization
+    """)
 
 if __name__ == "__main__":
     main()
