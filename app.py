@@ -8788,25 +8788,324 @@ def show_ab_testing():
     """A/B Testing page."""
     st.header("🧪 A/B Testing & Statistical Hypothesis Testing")
     
-    st.info("⚠️ **Module Under Construction** - Full implementation coming soon!")
+    # Help section
+    with st.expander("ℹ️ What is A/B Testing?"):
+        st.markdown("""
+        **A/B Testing** is a statistical method for comparing two versions to determine which performs better.
+        
+        ### Key Tests Available:
+        
+        - **Proportion Test (Z-test):** Compare conversion rates, click-through rates, success rates
+          - Example: Website variant A (5% conversion) vs. variant B (6% conversion)
+        
+        - **T-Test:** Compare means between two groups
+          - Example: Average order value for two different pricing strategies
+        
+        - **Chi-Square Test:** Test independence between categorical variables
+          - Example: Relationship between email template and click behavior
+        
+        ### Business Applications:
+        - 🌐 **Website Optimization:** Landing page variants, button colors, layouts
+        - 📧 **Email Marketing:** Subject lines, content variations
+        - 💰 **Pricing:** Test different price points
+        - 🎯 **Advertising:** Ad copy variations, targeting strategies
+        """)
     
     st.markdown("""
-    This module will provide:
-    - **Proportion Tests** - Compare conversion rates between groups
-    - **T-Tests** - Compare means between groups
-    - **Chi-Square Tests** - Test categorical associations
-    - **Sample Size Calculator** - Determine required sample sizes
-    - **Power Analysis** - Calculate statistical power
-    - **Test Duration Calculator** - Plan your experiments
-    - **Interactive Visualizations** - View test results
-    
-    ### Use Cases:
-    - Website A/B testing
-    - Email campaign optimization
-    - Product feature testing
-    - Pricing experiments
-    - Marketing campaign comparison
+    Run statistical tests to validate your experiments and make data-driven decisions.
     """)
+    
+    # Import utilities
+    from utils.ab_testing import ABTestAnalyzer
+    
+    # Initialize analyzer in session state
+    if 'ab_analyzer' not in st.session_state:
+        st.session_state.ab_analyzer = ABTestAnalyzer()
+    
+    analyzer = st.session_state.ab_analyzer
+    
+    # Data source selection
+    st.subheader("📤 1. Load Test Data or Use Calculator")
+    
+    # Tabs for different test types
+    tab1, tab2, tab3 = st.tabs(["📊 Proportion Test", "📈 T-Test", "🧮 Sample Size Calculator"])
+    
+    with tab1:
+        st.markdown("### Proportion Test (Conversion Rates)")
+        st.info("💡 Compare conversion rates between control and treatment groups")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**Control Group**")
+            control_n = st.number_input("Sample Size (Control)", min_value=10, value=1000, step=10, key="prop_control_n")
+            control_conv = st.number_input("Conversions (Control)", min_value=0, max_value=control_n, value=100, step=1, key="prop_control_conv")
+            control_rate = (control_conv / control_n * 100) if control_n > 0 else 0
+            st.metric("Conversion Rate", f"{control_rate:.2f}%")
+        
+        with col2:
+            st.markdown("**Treatment Group**")
+            treatment_n = st.number_input("Sample Size (Treatment)", min_value=10, value=1000, step=10, key="prop_treatment_n")
+            treatment_conv = st.number_input("Conversions (Treatment)", min_value=0, max_value=treatment_n, value=120, step=1, key="prop_treatment_conv")
+            treatment_rate = (treatment_conv / treatment_n * 100) if treatment_n > 0 else 0
+            st.metric("Conversion Rate", f"{treatment_rate:.2f}%")
+        
+        # Test settings
+        alternative = st.radio("Test Type", ["two-sided", "greater", "less"], horizontal=True, key="prop_alt")
+        
+        if st.button("🧪 Run Proportion Test", type="primary"):
+            with st.status("Running statistical test...", expanded=True) as status:
+                result = analyzer.run_proportion_test(
+                    control_n, control_conv,
+                    treatment_n, treatment_conv,
+                    alternative=alternative
+                )
+                status.update(label="✅ Test complete!", state="complete", expanded=False)
+            
+            # Store results
+            st.session_state.ab_test_results = result
+            
+            # Display results
+            st.divider()
+            st.subheader("📊 Test Results")
+            
+            # Key metrics
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("P-value", f"{result['p_value']:.4f}")
+            with col2:
+                st.metric("Absolute Lift", f"{result['absolute_lift']*100:.2f}%")
+            with col3:
+                st.metric("Relative Lift", f"{result['relative_lift']:.1f}%")
+            with col4:
+                sig_label = "✅ Significant" if result['is_significant'] else "❌ Not Significant"
+                st.metric("Result", sig_label)
+            
+            # Interpretation
+            if result['is_significant']:
+                st.success(f"""
+                ✅ **Statistically Significant Result!**
+                
+                The treatment group shows a statistically significant difference (p={result['p_value']:.4f} < 0.05).
+                You can confidently roll out this variant.
+                """)
+            else:
+                st.warning(f"""
+                ⚠️ **No Statistical Significance**
+                
+                The difference is not statistically significant (p={result['p_value']:.4f} ≥ 0.05).
+                Consider running the test longer or with more traffic.
+                """)
+            
+            # Visualization
+            fig = ABTestAnalyzer.create_ab_test_visualization(result)
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Effect size
+            effect_interp = ABTestAnalyzer.interpret_effect_size(result['effect_size'], 'cohens_h')
+            st.info(f"**Effect Size (Cohen's h):** {result['effect_size']:.3f} ({effect_interp})")
+            
+            # Confidence interval
+            ci_lower, ci_upper = result['confidence_interval']
+            st.write(f"**95% Confidence Interval for difference:** [{ci_lower*100:.2f}%, {ci_upper*100:.2f}%]")
+    
+    with tab2:
+        st.markdown("### T-Test (Compare Means)")
+        st.info("💡 Upload CSV with a numeric column and a group column, or enter summary statistics")
+        
+        test_mode = st.radio("Input Method", ["Summary Statistics", "Upload Data"], horizontal=True, key="ttest_mode")
+        
+        if test_mode == "Summary Statistics":
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("**Control Group**")
+                control_mean = st.number_input("Mean (Control)", value=100.0, key="ttest_control_mean")
+                control_std = st.number_input("Std Dev (Control)", value=15.0, min_value=0.1, key="ttest_control_std")
+                control_n_ttest = st.number_input("Sample Size (Control)", min_value=2, value=100, key="ttest_control_n")
+            
+            with col2:
+                st.markdown("**Treatment Group**")
+                treatment_mean = st.number_input("Mean (Treatment)", value=105.0, key="ttest_treatment_mean")
+                treatment_std = st.number_input("Std Dev (Treatment)", value=15.0, min_value=0.1, key="ttest_treatment_std")
+                treatment_n_ttest = st.number_input("Sample Size (Treatment)", min_value=2, value=100, key="ttest_treatment_n")
+            
+            if st.button("🧪 Run T-Test", type="primary", key="run_ttest"):
+                # Generate synthetic data from summary stats
+                np.random.seed(42)
+                control_data = np.random.normal(control_mean, control_std, control_n_ttest)
+                treatment_data = np.random.normal(treatment_mean, treatment_std, treatment_n_ttest)
+                
+                with st.status("Running t-test...", expanded=True) as status:
+                    result = analyzer.run_ttest(control_data, treatment_data, equal_var=False)
+                    status.update(label="✅ Test complete!", state="complete", expanded=False)
+                
+                # Store results
+                st.session_state.ab_test_results = result
+                
+                # Display results (similar to proportion test)
+                st.divider()
+                st.subheader("📊 Test Results")
+                
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("P-value", f"{result['p_value']:.4f}")
+                with col2:
+                    st.metric("Mean Difference", f"{result['absolute_diff']:.2f}")
+                with col3:
+                    st.metric("% Difference", f"{result['relative_diff']:.1f}%")
+                with col4:
+                    sig_label = "✅ Significant" if result['is_significant'] else "❌ Not Significant"
+                    st.metric("Result", sig_label)
+                
+                # Visualization
+                fig = ABTestAnalyzer.create_ab_test_visualization(result)
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Effect size
+                effect_interp = ABTestAnalyzer.interpret_effect_size(result['effect_size'], 'cohens_d')
+                st.info(f"**Effect Size (Cohen's d):** {result['effect_size']:.3f} ({effect_interp})")
+        
+        else:
+            st.info("Upload a CSV with at least two columns: a numeric metric column and a group column (e.g., 'A' and 'B')")
+            uploaded_file = st.file_uploader("Upload test results CSV", type=['csv'], key="ttest_upload")
+            
+            if uploaded_file:
+                df = pd.read_csv(uploaded_file)
+                st.dataframe(df.head(), use_container_width=True)
+                
+                metric_col = st.selectbox("Metric Column (numeric)", df.select_dtypes(include=[np.number]).columns, key="ttest_metric")
+                group_col = st.selectbox("Group Column", df.columns, key="ttest_group")
+                
+                groups = df[group_col].unique()
+                if len(groups) == 2:
+                    group_a, group_b = groups[0], groups[1]
+                    data_a = df[df[group_col] == group_a][metric_col].values
+                    data_b = df[df[group_col] == group_b][metric_col].values
+                    
+                    if st.button("🧪 Run T-Test", type="primary", key="run_ttest_upload"):
+                        result = analyzer.run_ttest(data_a, data_b, equal_var=False)
+                        st.session_state.ab_test_results = result
+                        
+                        st.subheader("📊 Test Results")
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("P-value", f"{result['p_value']:.4f}")
+                        with col2:
+                            st.metric("Mean Difference", f"{result['absolute_diff']:.2f}")
+                        with col3:
+                            sig_label = "✅ Significant" if result['is_significant'] else "❌ Not Significant"
+                            st.metric("Result", sig_label)
+                        
+                        fig = ABTestAnalyzer.create_ab_test_visualization(result)
+                        st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning(f"Group column must have exactly 2 unique values. Found: {len(groups)}")
+    
+    with tab3:
+        st.markdown("### Sample Size Calculator")
+        st.info("💡 Determine how many samples you need to detect a meaningful difference")
+        
+        calc_type = st.radio("Test Type", ["Proportion Test", "T-Test"], horizontal=True, key="calc_type")
+        
+        if calc_type == "Proportion Test":
+            baseline = st.slider("Baseline Conversion Rate (%)", 1.0, 50.0, 10.0, 0.5, key="calc_baseline") / 100
+            mde = st.slider("Minimum Detectable Effect (%)", 5.0, 100.0, 20.0, 5.0, key="calc_mde") / 100
+            
+            if st.button("📊 Calculate Sample Size", type="primary", key="calc_prop"):
+                result = analyzer.calculate_sample_size_proportion(baseline, mde)
+                
+                st.subheader("📊 Required Sample Size")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Per Group", f"{result['sample_size_per_group']:,}")
+                with col2:
+                    st.metric("Total Needed", f"{result['total_sample_size']:,}")
+                with col3:
+                    st.metric("Expected Lift", f"{result['relative_lift']:.1f}%")
+                
+                # Test duration calculator
+                st.divider()
+                st.markdown("### ⏱️ Test Duration")
+                daily_traffic = st.number_input("Daily visitors/users", min_value=10, value=1000, step=10, key="daily_traffic")
+                
+                duration = analyzer.calculate_test_duration(result['total_sample_size'], daily_traffic)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Days to Run", duration['days'])
+                with col2:
+                    st.metric("Weeks to Run", duration['weeks'])
+                
+                if duration['days'] > 30:
+                    st.warning("⚠️ Test will take over a month. Consider increasing traffic or accepting a larger minimum detectable effect.")
+        
+        else:  # T-Test sample size
+            mean_diff = st.number_input("Expected Mean Difference", min_value=0.1, value=5.0, key="calc_mean_diff")
+            std_dev = st.number_input("Standard Deviation", min_value=0.1, value=15.0, key="calc_std")
+            
+            if st.button("📊 Calculate Sample Size", type="primary", key="calc_ttest"):
+                result = analyzer.calculate_sample_size_means(mean_diff, std_dev)
+                
+                st.subheader("📊 Required Sample Size")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Per Group", f"{result['sample_size_per_group']:,}")
+                with col2:
+                    st.metric("Total Needed", f"{result['total_sample_size']:,}")
+                with col3:
+                    st.metric("Effect Size", f"{result['effect_size']:.3f}")
+    
+    # Export section
+    if 'ab_test_results' in st.session_state:
+        st.divider()
+        st.subheader("📥 Export Results")
+        
+        result = st.session_state.ab_test_results
+        
+        # Create markdown report
+        report = f"""# A/B Test Results Report
+
+## Test Summary
+- **Test Type:** {result['test_type']}
+- **Significance Level:** {result['alpha']}
+- **P-value:** {result['p_value']:.4f}
+- **Result:** {'✅ Significant' if result['is_significant'] else '❌ Not Significant'}
+
+## Metrics
+"""
+        
+        if 'control_rate' in result:
+            report += f"""
+- **Control Conversion Rate:** {result['control_rate']*100:.2f}%
+- **Treatment Conversion Rate:** {result['treatment_rate']*100:.2f}%
+- **Absolute Lift:** {result['absolute_lift']*100:.2f}%
+- **Relative Lift:** {result['relative_lift']:.1f}%
+"""
+        else:
+            report += f"""
+- **Control Mean:** {result['control_mean']:.2f}
+- **Treatment Mean:** {result['treatment_mean']:.2f}
+- **Mean Difference:** {result['absolute_diff']:.2f}
+- **% Difference:** {result['relative_diff']:.1f}%
+"""
+        
+        report += f"""
+## Statistical Details
+- **Effect Size:** {result['effect_size']:.3f}
+- **95% Confidence Interval:** [{result['confidence_interval'][0]:.4f}, {result['confidence_interval'][1]:.4f}]
+
+---
+*Report generated by DataInsights - A/B Testing Module*
+"""
+        
+        st.download_button(
+            label="📥 Download Test Report (Markdown)",
+            data=report,
+            file_name=f"ab_test_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.md",
+            mime="text/markdown",
+            use_container_width=True
+        )
 
 def show_cohort_analysis():
     """Cohort Analysis page."""
