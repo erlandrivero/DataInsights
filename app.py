@@ -4099,8 +4099,8 @@ def show_rfm_analysis():
                         st.stop()
                     
                     st.write("📊 Calculating CLV for each customer...")
-                    # Calculate CLV
-                    clv_data = rfm_analyzer.calculate_clv(
+                    # Calculate CLV (call on class, not instance - it's a static method)
+                    clv_data = RFMAnalyzer.calculate_clv(
                         transactions_df, 
                         cols['customer'], 
                         cols['date'], 
@@ -4109,8 +4109,8 @@ def show_rfm_analysis():
                     )
                     
                     st.write("🔗 Merging CLV with RFM segments...")
-                    # Merge with RFM segmented data
-                    rfm_with_clv = rfm_analyzer.merge_rfm_with_clv(
+                    # Merge with RFM segmented data (call on class, not instance)
+                    rfm_with_clv = RFMAnalyzer.merge_rfm_with_clv(
                         rfm_segmented, 
                         clv_data, 
                         cols['customer']
@@ -4156,7 +4156,7 @@ def show_rfm_analysis():
             # CLV by Segment
             st.write("**📊 CLV by Customer Segment:**")
             cols = st.session_state.get('rfm_columns', {})
-            profiles_with_clv = rfm_analyzer.get_segment_profiles_with_clv(
+            profiles_with_clv = RFMAnalyzer.get_segment_profiles_with_clv(
                 rfm_with_clv, 
                 cols['customer']
             )
