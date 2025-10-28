@@ -80,9 +80,10 @@ def load_custom_css():
 def main():
     # Load custom CSS
     load_custom_css()
-    # Header
-    st.markdown('<div class="main-header">🎯 DataInsights</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Your AI-Powered Business Intelligence Assistant</div>', unsafe_allow_html=True)
+    
+    # Header with fallback
+    st.title("🎯 DataInsights")
+    st.caption("Your AI-Powered Business Intelligence Assistant")
     
     # Sidebar
     with st.sidebar:
