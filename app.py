@@ -8990,93 +8990,93 @@ def show_ab_testing():
         
         # Tabs for different test types
         tab1, tab2, tab3 = st.tabs(["📊 Proportion Test", "📈 T-Test", "🧮 Sample Size Calculator"])
-    
-    with tab1:
-        st.markdown("### Proportion Test (Conversion Rates)")
-        st.info("💡 Compare conversion rates between control and treatment groups")
         
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("**Control Group**")
-            control_n = st.number_input("Sample Size (Control)", min_value=10, value=1000, step=10, key="prop_control_n")
-            control_conv = st.number_input("Conversions (Control)", min_value=0, max_value=control_n, value=100, step=1, key="prop_control_conv")
-            control_rate = (control_conv / control_n * 100) if control_n > 0 else 0
-            st.metric("Conversion Rate", f"{control_rate:.2f}%")
-        
-        with col2:
-            st.markdown("**Treatment Group**")
-            treatment_n = st.number_input("Sample Size (Treatment)", min_value=10, value=1000, step=10, key="prop_treatment_n")
-            treatment_conv = st.number_input("Conversions (Treatment)", min_value=0, max_value=treatment_n, value=120, step=1, key="prop_treatment_conv")
-            treatment_rate = (treatment_conv / treatment_n * 100) if treatment_n > 0 else 0
-            st.metric("Conversion Rate", f"{treatment_rate:.2f}%")
-        
-        # Test settings
-        alternative = st.radio("Test Type", ["two-sided", "greater", "less"], horizontal=True, key="prop_alt")
-        
-        if st.button("🧪 Run Proportion Test", type="primary"):
-            with st.status("Running statistical test...", expanded=True) as status:
-                result = analyzer.run_proportion_test(
-                    control_n, control_conv,
-                    treatment_n, treatment_conv,
-                    alternative=alternative
-                )
-                status.update(label="✅ Test complete!", state="complete", expanded=False)
+        with tab1:
+            st.markdown("### Proportion Test (Conversion Rates)")
+            st.info("💡 Compare conversion rates between control and treatment groups")
             
-            # Store results
-            st.session_state.ab_test_results = result
+            col1, col2 = st.columns(2)
             
-            # Display results
-            st.divider()
-            st.subheader("📊 Test Results")
-            
-            # Key metrics
-            col1, col2, col3, col4 = st.columns(4)
             with col1:
-                st.metric("P-value", f"{result['p_value']:.4f}")
+                st.markdown("**Control Group**")
+                control_n = st.number_input("Sample Size (Control)", min_value=10, value=1000, step=10, key="prop_control_n")
+                control_conv = st.number_input("Conversions (Control)", min_value=0, max_value=control_n, value=100, step=1, key="prop_control_conv")
+                control_rate = (control_conv / control_n * 100) if control_n > 0 else 0
+                st.metric("Conversion Rate", f"{control_rate:.2f}%")
+            
             with col2:
-                st.metric("Absolute Lift", f"{result['absolute_lift']*100:.2f}%")
-            with col3:
-                st.metric("Relative Lift", f"{result['relative_lift']:.1f}%")
-            with col4:
-                sig_label = "✅ Significant" if result['is_significant'] else "❌ Not Significant"
-                st.metric("Result", sig_label)
+                st.markdown("**Treatment Group**")
+                treatment_n = st.number_input("Sample Size (Treatment)", min_value=10, value=1000, step=10, key="prop_treatment_n")
+                treatment_conv = st.number_input("Conversions (Treatment)", min_value=0, max_value=treatment_n, value=120, step=1, key="prop_treatment_conv")
+                treatment_rate = (treatment_conv / treatment_n * 100) if treatment_n > 0 else 0
+                st.metric("Conversion Rate", f"{treatment_rate:.2f}%")
             
-            # Interpretation
-            if result['is_significant']:
-                st.success(f"""
-                ✅ **Statistically Significant Result!**
+            # Test settings
+            alternative = st.radio("Test Type", ["two-sided", "greater", "less"], horizontal=True, key="prop_alt")
+            
+            if st.button("🧪 Run Proportion Test", type="primary"):
+                with st.status("Running statistical test...", expanded=True) as status:
+                    result = analyzer.run_proportion_test(
+                        control_n, control_conv,
+                        treatment_n, treatment_conv,
+                        alternative=alternative
+                    )
+                    status.update(label="✅ Test complete!", state="complete", expanded=False)
                 
-                The treatment group shows a statistically significant difference (p={result['p_value']:.4f} < 0.05).
-                You can confidently roll out this variant.
-                """)
-            else:
-                st.warning(f"""
-                ⚠️ **No Statistical Significance**
+                # Store results
+                st.session_state.ab_test_results = result
                 
-                The difference is not statistically significant (p={result['p_value']:.4f} ≥ 0.05).
-                Consider running the test longer or with more traffic.
-                """)
-            
-            # Visualization
-            fig = ABTestAnalyzer.create_ab_test_visualization(result)
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Effect size
-            effect_interp = ABTestAnalyzer.interpret_effect_size(result['effect_size'], 'cohens_h')
-            st.info(f"**Effect Size (Cohen's h):** {result['effect_size']:.3f} ({effect_interp})")
-            
-            # Confidence interval
-            ci_lower, ci_upper = result['confidence_interval']
-            st.write(f"**95% Confidence Interval for difference:** [{ci_lower*100:.2f}%, {ci_upper*100:.2f}%]")
-    
-    with tab2:
-        st.markdown("### T-Test (Compare Means)")
-        st.info("💡 Upload CSV with a numeric column and a group column, or enter summary statistics")
+                # Display results
+                st.divider()
+                st.subheader("📊 Test Results")
+                
+                # Key metrics
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("P-value", f"{result['p_value']:.4f}")
+                with col2:
+                    st.metric("Absolute Lift", f"{result['absolute_lift']*100:.2f}%")
+                with col3:
+                    st.metric("Relative Lift", f"{result['relative_lift']:.1f}%")
+                with col4:
+                    sig_label = "✅ Significant" if result['is_significant'] else "❌ Not Significant"
+                    st.metric("Result", sig_label)
+                
+                # Interpretation
+                if result['is_significant']:
+                    st.success(f"""
+                    ✅ **Statistically Significant Result!**
+                    
+                    The treatment group shows a statistically significant difference (p={result['p_value']:.4f} < 0.05).
+                    You can confidently roll out this variant.
+                    """)
+                else:
+                    st.warning(f"""
+                    ⚠️ **No Statistical Significance**
+                    
+                    The difference is not statistically significant (p={result['p_value']:.4f} ≥ 0.05).
+                    Consider running the test longer or with more traffic.
+                    """)
+                
+                # Visualization
+                fig = ABTestAnalyzer.create_ab_test_visualization(result)
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Effect size
+                effect_interp = ABTestAnalyzer.interpret_effect_size(result['effect_size'], 'cohens_h')
+                st.info(f"**Effect Size (Cohen's h):** {result['effect_size']:.3f} ({effect_interp})")
+                
+                # Confidence interval
+                ci_lower, ci_upper = result['confidence_interval']
+                st.write(f"**95% Confidence Interval for difference:** [{ci_lower*100:.2f}%, {ci_upper*100:.2f}%]")
         
-        test_mode = st.radio("Input Method", ["Summary Statistics", "Upload Data"], horizontal=True, key="ttest_mode")
-        
-        if test_mode == "Summary Statistics":
+        with tab2:
+            st.markdown("### T-Test (Compare Means)")
+            st.info("💡 Upload CSV with a numeric column and a group column, or enter summary statistics")
+            
+            test_mode = st.radio("Input Method", ["Summary Statistics", "Upload Data"], horizontal=True, key="ttest_mode")
+            
+            if test_mode == "Summary Statistics":
             col1, col2 = st.columns(2)
             
             with col1:
@@ -9162,12 +9162,12 @@ def show_ab_testing():
                         st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.warning(f"Group column must have exactly 2 unique values. Found: {len(groups)}")
-    
-    with tab3:
-        st.markdown("### Sample Size Calculator")
-        st.info("💡 Determine how many samples you need to detect a meaningful difference")
         
-        calc_type = st.radio("Test Type", ["Proportion Test", "T-Test"], horizontal=True, key="calc_type")
+        with tab3:
+            st.markdown("### Sample Size Calculator")
+            st.info("💡 Determine how many samples you need to detect a meaningful difference")
+            
+            calc_type = st.radio("Test Type", ["Proportion Test", "T-Test"], horizontal=True, key="calc_type")
         
         if calc_type == "Proportion Test":
             baseline = st.slider("Baseline Conversion Rate (%)", 1.0, 50.0, 10.0, 0.5, key="calc_baseline") / 100
