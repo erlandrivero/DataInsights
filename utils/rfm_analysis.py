@@ -625,3 +625,207 @@ class RFMAnalyzer:
         }
         
         return insights
+    
+    @staticmethod
+    @st.cache_data(ttl=1800)
+    def calculate_clv(transactions_df: pd.DataFrame, customer_col: str, date_col: str, 
+                      amount_col: str, time_period_months: int = 12) -> pd.DataFrame:
+        """Calculate Customer Lifetime Value (CLV) metrics per customer.
+        
+        This method calculates both historic and predictive CLV metrics using
+        transaction history. Historic CLV represents total actual value, while
+        predictive CLV estimates future value based on purchasing patterns.
+        
+        Args:
+            transactions_df (pd.DataFrame): Transaction data with customer IDs, dates, and amounts.
+            customer_col (str): Name of the column containing customer identifiers.
+            date_col (str): Name of the column containing transaction dates.
+            amount_col (str): Name of the column containing transaction amounts.
+            time_period_months (int): Time period in months for calculating average metrics.
+                Default is 12 months (annual basis).
+        
+        Returns:
+            pd.DataFrame: DataFrame with one row per customer containing:
+                - customer_col: Customer identifier
+                - Historic_CLV: Total lifetime spending (sum of all transactions)
+                - Avg_Order_Value: Average transaction amount
+                - Purchase_Frequency: Average purchases per month
+                - Customer_Lifespan_Months: Months between first and last purchase
+                - Predicted_CLV: Estimated future value (12-month projection)
+        
+        Examples:
+            >>> clv_data = RFMAnalyzer.calculate_clv(
+            ...     transactions_df, 'CustomerID', 'InvoiceDate', 'Amount', time_period_months=12
+            ... )
+            >>> print(clv_data[['CustomerID', 'Historic_CLV', 'Predicted_CLV']].head())
+        
+        Notes:
+            - Historic CLV = Total spending to date
+            - Predicted CLV = (Avg Order Value × Monthly Frequency × 12 months)
+            - Customers with single purchase get conservative estimates
+            - Assumes continuation of current purchasing patterns
+        """
+        df = transactions_df.copy()
+        
+        # Ensure date column is datetime
+        if not pd.api.types.is_datetime64_any_dtype(df[date_col]):
+            df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+        
+        # Group by customer and calculate CLV metrics
+        clv_metrics = df.groupby(customer_col).agg({
+            amount_col: ['sum', 'mean', 'count'],
+            date_col: ['min', 'max']
+        }).reset_index()
+        
+        # Flatten column names
+        clv_metrics.columns = [customer_col, 'Historic_CLV', 'Avg_Order_Value', 
+                               'Transaction_Count', 'First_Purchase', 'Last_Purchase']
+        
+        # Calculate customer lifespan in months
+        clv_metrics['Customer_Lifespan_Days'] = (
+            clv_metrics['Last_Purchase'] - clv_metrics['First_Purchase']
+        ).dt.days
+        clv_metrics['Customer_Lifespan_Months'] = clv_metrics['Customer_Lifespan_Days'] / 30.44
+        
+        # For single-purchase customers, set lifespan to 1 month minimum
+        clv_metrics['Customer_Lifespan_Months'] = clv_metrics['Customer_Lifespan_Months'].apply(
+            lambda x: max(x, 1)
+        )
+        
+        # Calculate purchase frequency (purchases per month)
+        clv_metrics['Purchase_Frequency'] = (
+            clv_metrics['Transaction_Count'] / clv_metrics['Customer_Lifespan_Months']
+        )
+        
+        # Predicted CLV = Average Order Value × Monthly Frequency × Projection Period (12 months)
+        clv_metrics['Predicted_CLV'] = (
+            clv_metrics['Avg_Order_Value'] * 
+            clv_metrics['Purchase_Frequency'] * 
+            time_period_months
+        )
+        
+        # Select and order final columns
+        clv_final = clv_metrics[[
+            customer_col, 'Historic_CLV', 'Avg_Order_Value', 'Purchase_Frequency',
+            'Customer_Lifespan_Months', 'Transaction_Count', 'Predicted_CLV'
+        ]].copy()
+        
+        return clv_final
+    
+    @staticmethod
+    @st.cache_data(ttl=1800)
+    def merge_rfm_with_clv(rfm_segmented: pd.DataFrame, clv_data: pd.DataFrame, 
+                           customer_col: str) -> pd.DataFrame:
+        """Merge RFM segmentation data with CLV metrics.
+        
+        This method combines RFM analysis results with Customer Lifetime Value metrics,
+        providing a comprehensive view of customer value and behavior.
+        
+        Args:
+            rfm_segmented (pd.DataFrame): RFM data with segments and scores.
+            clv_data (pd.DataFrame): CLV metrics calculated from transaction history.
+            customer_col (str): Name of the column containing customer identifiers.
+        
+        Returns:
+            pd.DataFrame: Combined DataFrame with both RFM and CLV metrics per customer.
+        
+        Examples:
+            >>> rfm_clv = RFMAnalyzer.merge_rfm_with_clv(
+            ...     rfm_segmented, clv_data, 'CustomerID'
+            ... )
+            >>> print(rfm_clv[['CustomerID', 'Segment', 'Historic_CLV']].head())
+        
+        Notes:
+            - Uses left join to preserve all RFM customers
+            - Missing CLV values filled with 0 (new/no-purchase customers)
+            - Enables segment-level CLV analysis
+        """
+        rfm_with_clv = rfm_segmented.merge(clv_data, on=customer_col, how='left')
+        
+        # Fill NaN values with 0 for customers without CLV data
+        clv_columns = ['Historic_CLV', 'Avg_Order_Value', 'Purchase_Frequency', 
+                       'Customer_Lifespan_Months', 'Transaction_Count', 'Predicted_CLV']
+        
+        for col in clv_columns:
+            if col in rfm_with_clv.columns:
+                rfm_with_clv[col] = rfm_with_clv[col].fillna(0)
+        
+        return rfm_with_clv
+    
+    @staticmethod
+    @st.cache_data(ttl=1800)
+    def get_segment_profiles_with_clv(rfm_clv: pd.DataFrame, 
+                                      customer_col: Optional[str] = None) -> pd.DataFrame:
+        """Calculate segment profiles including CLV metrics.
+        
+        This method extends standard segment profiling to include Customer Lifetime Value
+        metrics, providing insights into the financial value of each customer segment.
+        
+        Args:
+            rfm_clv (pd.DataFrame): Combined RFM and CLV data from merge_rfm_with_clv().
+            customer_col (Optional[str]): Name of the column containing customer identifiers.
+                If None, uses row count for customer count. Default is None.
+        
+        Returns:
+            pd.DataFrame: Segment profiles with RFM averages and CLV metrics:
+                - Segment: Segment name
+                - Customer_Count: Number of customers
+                - Avg_Recency, Avg_Frequency, Avg_Monetary: RFM averages
+                - Avg_R_Score, Avg_F_Score, Avg_M_Score: Score averages
+                - Avg_Historic_CLV: Average lifetime value to date
+                - Avg_Predicted_CLV: Average predicted future value
+                - Total_Historic_CLV: Total segment historic value
+                - Total_Predicted_CLV: Total segment predicted value
+        
+        Examples:
+            >>> profiles = RFMAnalyzer.get_segment_profiles_with_clv(rfm_clv, 'CustomerID')
+            >>> print(profiles[['Segment', 'Avg_Historic_CLV', 'Total_Historic_CLV']].head())
+        
+        Notes:
+            - Sorted by total historic CLV (most valuable segments first)
+            - Helps prioritize marketing spend by segment value
+            - Champions typically show highest CLV metrics
+        """
+        if customer_col:
+            agg_dict = {
+                customer_col: 'count',
+                'Recency': 'mean',
+                'Frequency': 'mean',
+                'Monetary': 'mean',
+                'R_Score': 'mean',
+                'F_Score': 'mean',
+                'M_Score': 'mean',
+                'Historic_CLV': ['mean', 'sum'],
+                'Predicted_CLV': ['mean', 'sum']
+            }
+        else:
+            agg_dict = {
+                'Recency': ['count', 'mean'],
+                'Frequency': 'mean',
+                'Monetary': 'mean',
+                'R_Score': 'mean',
+                'F_Score': 'mean',
+                'M_Score': 'mean',
+                'Historic_CLV': ['mean', 'sum'],
+                'Predicted_CLV': ['mean', 'sum']
+            }
+        
+        profiles = rfm_clv.groupby('Segment').agg(agg_dict).reset_index()
+        
+        # Flatten MultiIndex columns
+        if customer_col:
+            profiles.columns = ['Segment', 'Customer_Count', 'Avg_Recency', 'Avg_Frequency',
+                              'Avg_Monetary', 'Avg_R_Score', 'Avg_F_Score', 'Avg_M_Score',
+                              'Avg_Historic_CLV', 'Total_Historic_CLV',
+                              'Avg_Predicted_CLV', 'Total_Predicted_CLV']
+        else:
+            profiles.columns = profiles.columns.map(lambda x: x[0] if isinstance(x, tuple) else x)
+            profiles.columns = ['Segment', 'Customer_Count', 'Avg_Recency', 'Avg_Frequency',
+                              'Avg_Monetary', 'Avg_R_Score', 'Avg_F_Score', 'Avg_M_Score',
+                              'Avg_Historic_CLV', 'Total_Historic_CLV',
+                              'Avg_Predicted_CLV', 'Total_Predicted_CLV']
+        
+        # Sort by total historic CLV (most valuable segments first)
+        profiles = profiles.sort_values('Total_Historic_CLV', ascending=False)
+        
+        return profiles

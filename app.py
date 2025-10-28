@@ -4062,6 +4062,143 @@ def show_rfm_analysis():
         profiles = rfm_analyzer.get_segment_profiles(rfm_segmented, cols['customer'])
         st.dataframe(profiles, use_container_width=True)
         
+        # Customer Lifetime Value (CLV) Analysis
+        st.divider()
+        st.subheader("💰 4b. Customer Lifetime Value (CLV)")
+        
+        with st.expander("ℹ️ About CLV Metrics", expanded=False):
+            st.markdown("""
+            **Customer Lifetime Value (CLV)** predicts the total value a customer will bring over their relationship with your business.
+            
+            ### CLV Metrics:
+            
+            - **Historic CLV:** Total actual spending to date
+            - **Predicted CLV:** Estimated future value (12-month projection)
+            - **Average Order Value:** Mean transaction amount per customer
+            - **Purchase Frequency:** Average purchases per month
+            - **Customer Lifespan:** Months between first and last purchase
+            
+            ### Why CLV Matters:
+            
+            - 📊 Prioritize high-value customer segments
+            - 💵 Optimize marketing spend and ROI
+            - 🎯 Tailor retention strategies by segment value
+            - 📈 Forecast future revenue by segment
+            """)
+        
+        # Calculate CLV
+        if st.button("💰 Calculate Customer Lifetime Value", key="calculate_clv", use_container_width=True):
+            with st.status("Calculating CLV metrics...", expanded=True) as status:
+                try:
+                    # Get transaction data from session state
+                    transactions_df = st.session_state.get('rfm_transactions', pd.DataFrame())
+                    cols = st.session_state.get('rfm_columns', {})
+                    
+                    if transactions_df.empty:
+                        st.error("❌ No transaction data available. Please process RFM analysis first.")
+                        st.stop()
+                    
+                    st.write("📊 Calculating CLV for each customer...")
+                    # Calculate CLV
+                    clv_data = rfm_analyzer.calculate_clv(
+                        transactions_df, 
+                        cols['customer'], 
+                        cols['date'], 
+                        cols['amount'],
+                        time_period_months=12
+                    )
+                    
+                    st.write("🔗 Merging CLV with RFM segments...")
+                    # Merge with RFM segmented data
+                    rfm_with_clv = rfm_analyzer.merge_rfm_with_clv(
+                        rfm_segmented, 
+                        clv_data, 
+                        cols['customer']
+                    )
+                    
+                    # Save to session state
+                    st.session_state.rfm_with_clv = rfm_with_clv
+                    st.session_state.clv_data = clv_data
+                    
+                    status.update(label="✅ CLV calculated successfully!", state="complete", expanded=False)
+                    st.success(f"✅ CLV calculated for {len(clv_data)} customers!")
+                    
+                except Exception as e:
+                    st.error(f"❌ Error calculating CLV: {str(e)}")
+                    import traceback
+                    st.code(traceback.format_exc())
+        
+        # Display CLV results if available
+        if 'rfm_with_clv' in st.session_state and 'clv_data' in st.session_state:
+            rfm_with_clv = st.session_state.rfm_with_clv
+            clv_data = st.session_state.clv_data
+            
+            # CLV Summary Metrics
+            st.write("**💰 CLV Summary:**")
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                total_historic_clv = clv_data['Historic_CLV'].sum()
+                st.metric("Total Historic CLV", f"${total_historic_clv:,.2f}")
+            
+            with col2:
+                total_predicted_clv = clv_data['Predicted_CLV'].sum()
+                st.metric("Total Predicted CLV", f"${total_predicted_clv:,.2f}")
+            
+            with col3:
+                avg_historic_clv = clv_data['Historic_CLV'].mean()
+                st.metric("Avg Historic CLV", f"${avg_historic_clv:,.2f}")
+            
+            with col4:
+                avg_predicted_clv = clv_data['Predicted_CLV'].mean()
+                st.metric("Avg Predicted CLV", f"${avg_predicted_clv:,.2f}")
+            
+            # CLV by Segment
+            st.write("**📊 CLV by Customer Segment:**")
+            cols = st.session_state.get('rfm_columns', {})
+            profiles_with_clv = rfm_analyzer.get_segment_profiles_with_clv(
+                rfm_with_clv, 
+                cols['customer']
+            )
+            
+            # Format currency columns for better display
+            currency_cols = ['Avg_Monetary', 'Avg_Historic_CLV', 'Total_Historic_CLV', 
+                           'Avg_Predicted_CLV', 'Total_Predicted_CLV']
+            
+            profiles_display = profiles_with_clv.copy()
+            for col in currency_cols:
+                if col in profiles_display.columns:
+                    profiles_display[col] = profiles_display[col].apply(lambda x: f"${x:,.2f}")
+            
+            # Round numeric columns
+            numeric_cols = ['Avg_Recency', 'Avg_Frequency', 'Avg_R_Score', 'Avg_F_Score', 'Avg_M_Score']
+            for col in numeric_cols:
+                if col in profiles_display.columns:
+                    profiles_display[col] = profiles_with_clv[col].apply(lambda x: f"{x:.2f}")
+            
+            st.dataframe(profiles_display, use_container_width=True)
+            
+            # Top CLV Customers
+            with st.expander("🏆 Top 20 Customers by CLV"):
+                top_clv_customers = rfm_with_clv.nlargest(20, 'Historic_CLV')
+                
+                # Select relevant columns
+                display_cols = [cols['customer'], 'Segment', 'Historic_CLV', 'Predicted_CLV', 
+                               'Avg_Order_Value', 'Purchase_Frequency', 'Customer_Lifespan_Months']
+                
+                top_clv_display = top_clv_customers[display_cols].copy()
+                
+                # Format for display
+                top_clv_display['Historic_CLV'] = top_clv_display['Historic_CLV'].apply(lambda x: f"${x:,.2f}")
+                top_clv_display['Predicted_CLV'] = top_clv_display['Predicted_CLV'].apply(lambda x: f"${x:,.2f}")
+                top_clv_display['Avg_Order_Value'] = top_clv_display['Avg_Order_Value'].apply(lambda x: f"${x:,.2f}")
+                top_clv_display['Purchase_Frequency'] = top_clv_display['Purchase_Frequency'].apply(lambda x: f"{x:.2f}")
+                top_clv_display['Customer_Lifespan_Months'] = top_clv_display['Customer_Lifespan_Months'].apply(lambda x: f"{x:.1f}")
+                
+                st.dataframe(top_clv_display, use_container_width=True)
+                
+                st.info("💡 **Insight:** These high-CLV customers should receive premium treatment and personalized retention efforts.")
+        
         # 3D Visualization
         st.divider()
         st.subheader("📊 5. 3D Visualization")
