@@ -10291,24 +10291,309 @@ def show_survival_analysis():
     """Survival Analysis page."""
     st.header("⏱️ Survival Analysis & Time-to-Event Modeling")
     
-    st.info("⚠️ **Module Under Construction** - Full implementation coming soon!")
+    # Help section
+    with st.expander("ℹ️ What is Survival Analysis?"):
+        st.markdown("""
+        **Survival Analysis** models time-to-event data and predicts the probability of an event occurring over time.
+        
+        ### Methods Available:
+        
+        - **Kaplan-Meier Estimator:** Non-parametric survival curve estimation
+        - **Log-Rank Test:** Compare survival between groups
+        - **Median Survival Time:** Half-life of population
+        
+        ### Business Applications:
+        - 📉 **Customer Retention:** Churn prediction
+        - ⚙️ **Maintenance:** Equipment failure forecasting
+        - 💳 **Subscriptions:** Cancellation modeling
+        - 🎯 **Marketing:** Time-to-conversion analysis
+        """)
     
-    st.markdown("""
-    This module will provide:
-    - **Kaplan-Meier Curves** - Non-parametric survival estimation
-    - **Cox Proportional Hazards** - Regression modeling
-    - **Log-Rank Test** - Compare survival curves
-    - **Hazard Ratios** - Effect size estimation
-    - **Survival Predictions** - Individual risk assessment
-    - **Forest Plots** - Visualize hazard ratios
+    st.markdown("Analyze time-to-event data and predict survival probabilities.")
     
-    ### Use Cases:
-    - Customer churn prediction
-    - Equipment failure analysis
-    - Patient survival rates
-    - Warranty analysis
-    - Time-to-conversion modeling
-    """)
+    # Import utilities
+    from utils.survival_analyzer import SurvivalAnalyzer
+    
+    # Initialize analyzer
+    if 'survival_analyzer' not in st.session_state:
+        st.session_state.survival_analyzer = SurvivalAnalyzer()
+    
+    analyzer = st.session_state.survival_analyzer
+    
+    # Data loading
+    st.subheader("📤 1. Load Survival Data")
+    
+    # Check if data is already loaded
+    has_loaded_data = st.session_state.data is not None
+    
+    if has_loaded_data:
+        data_options = ["Use Loaded Dataset", "Sample Customer Churn Data", "Upload Custom Data"]
+    else:
+        data_options = ["Sample Customer Churn Data", "Upload Custom Data"]
+    
+    data_source = st.radio(
+        "Choose data source:",
+        data_options,
+        index=0,
+        key="surv_data_source"
+    )
+    
+    # Use Loaded Dataset
+    if data_source == "Use Loaded Dataset" and has_loaded_data:
+        df = st.session_state.data
+        st.success("✅ Using dataset from Data Upload section")
+        st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
+        
+        # Smart column detection
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        all_cols = df.columns.tolist()
+        
+        st.info("💡 **Smart Detection:** Select time (duration), event, and optional group columns")
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            # Detect time/duration column
+            time_suggestions = [col for col in numeric_cols if any(keyword in col.lower() for keyword in ['time', 'duration', 'days', 'months', 'tenure'])]
+            time_default = time_suggestions[0] if time_suggestions else (numeric_cols[0] if numeric_cols else all_cols[0])
+            time_idx = list(df.columns).index(time_default)
+            
+            time_col = st.selectbox("Time/Duration Column", df.columns, index=time_idx, key="surv_time")
+        with col2:
+            # Detect event column
+            event_suggestions = [col for col in all_cols if any(keyword in col.lower() for keyword in ['event', 'churn', 'status', 'outcome', 'censored'])]
+            event_default = event_suggestions[0] if event_suggestions else all_cols[0]
+            event_idx = list(df.columns).index(event_default)
+            
+            event_col = st.selectbox("Event Column (1=event occurred, 0=censored)", df.columns, index=event_idx, key="surv_event")
+        with col3:
+            # Optional group column
+            group_col = st.selectbox("Group Column (optional)", ["None"] + all_cols, key="surv_group")
+        
+        if st.button("📊 Validate & Process Data", type="primary"):
+            # Validate time is numeric
+            if not pd.api.types.is_numeric_dtype(df[time_col]):
+                st.error("❌ Time column must be numeric!")
+                st.stop()
+            
+            # Validate event is binary
+            unique_events = df[event_col].dropna().unique()
+            if len(unique_events) > 2 or not all(val in [0, 1, True, False] for val in unique_events):
+                st.error("❌ Event column must be binary (0/1 or True/False)")
+                st.stop()
+            
+            surv_data = df[[time_col, event_col]].copy()
+            surv_data.columns = ['duration', 'event']
+            
+            if group_col != "None":
+                surv_data['group'] = df[group_col]
+            
+            st.session_state.surv_data = surv_data
+            
+            st.success("✅ Data validated!")
+            st.info(f"📊 {len(surv_data)} observations, {surv_data['event'].sum()} events")
+            st.rerun()
+    
+    elif data_source == "Sample Customer Churn Data":
+        if st.button("📥 Load Sample Churn Data", type="primary"):
+            # Generate sample survival/churn data
+            np.random.seed(42)
+            
+            n_customers = 500
+            
+            # Simulate customer tenure and churn
+            data = []
+            for i in range(n_customers):
+                segment = np.random.choice(['Basic', 'Premium'], p=[0.6, 0.4])
+                
+                # Premium customers have lower churn hazard
+                if segment == 'Premium':
+                    duration = np.random.exponential(24)  # Average 24 months
+                    churn_prob = 0.3
+                else:
+                    duration = np.random.exponential(12)  # Average 12 months
+                    churn_prob = 0.5
+                
+                churned = np.random.binomial(1, churn_prob)
+                
+                data.append({
+                    'customer_id': f'C{i+1:04d}',
+                    'duration': max(1, int(duration)),
+                    'event': churned,
+                    'segment': segment
+                })
+            
+            surv_data = pd.DataFrame(data)
+            surv_data['group'] = surv_data['segment']
+            st.session_state.surv_data = surv_data
+            
+            st.success(f"✅ Loaded {len(surv_data)} customer records!")
+            st.dataframe(surv_data.head(10), use_container_width=True)
+    
+    else:  # Upload
+        uploaded_file = st.file_uploader("Upload survival data CSV", type=['csv'], key="surv_upload")
+        
+        if uploaded_file:
+            df = pd.read_csv(uploaded_file)
+            st.dataframe(df.head(), use_container_width=True)
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                time_col = st.selectbox("Time/Duration Column", df.select_dtypes(include=[np.number]).columns, key="surv_time_upload")
+            with col2:
+                event_col = st.selectbox("Event Column", df.columns, key="surv_event_upload")
+            with col3:
+                group_col = st.selectbox("Group Column (optional)", ["None"] + list(df.columns), key="surv_group_upload")
+            
+            if st.button("Process Data", type="primary", key="surv_process_upload"):
+                surv_data = df[[time_col, event_col]].copy()
+                surv_data.columns = ['duration', 'event']
+                if group_col != "None":
+                    surv_data['group'] = df[group_col]
+                st.session_state.surv_data = surv_data
+                st.success("✅ Data processed!")
+    
+    # Analysis section
+    if 'surv_data' not in st.session_state:
+        st.info("👆 Load survival data to begin analysis")
+        return
+    
+    surv_data = st.session_state.surv_data
+    
+    # Dataset overview
+    st.divider()
+    st.subheader("📊 2. Survival Analysis")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Observations", f"{len(surv_data):,}")
+    with col2:
+        st.metric("Events", f"{surv_data['event'].sum():,}")
+    with col3:
+        st.metric("Censored", f"{(~surv_data['event'].astype(bool)).sum():,}")
+    with col4:
+        event_rate = surv_data['event'].mean() * 100
+        st.metric("Event Rate", f"{event_rate:.1f}%")
+    
+    # Run analysis
+    if st.button("⏱️ Run Survival Analysis", type="primary"):
+        with st.status("Fitting survival models...", expanded=True) as status:
+            if 'group' in surv_data.columns:
+                result = analyzer.kaplan_meier_by_group(surv_data)
+            else:
+                result = analyzer.kaplan_meier_overall(surv_data)
+            
+            st.session_state.surv_results = result
+            status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+        
+        st.success("✅ Survival analysis completed!")
+        
+        # Display results
+        st.subheader("📈 Survival Curve")
+        fig = analyzer.plot_survival_curve(result)
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Median survival time
+        st.subheader("📊 Key Metrics")
+        if 'group' in surv_data.columns:
+            col1, col2 = st.columns(2)
+            groups = surv_data['group'].unique()
+            with col1:
+                st.metric(f"Median Survival ({groups[0]})", f"{result['median_survival'][groups[0]]:.1f} time units")
+            with col2:
+                if len(groups) > 1:
+                    st.metric(f"Median Survival ({groups[1]})", f"{result['median_survival'][groups[1]]:.1f} time units")
+            
+            # Log-rank test
+            if 'log_rank_p' in result:
+                if result['log_rank_p'] < 0.05:
+                    st.success(f"✅ **Significant difference** between groups (p={result['log_rank_p']:.4f})")
+                else:
+                    st.info(f"ℹ️ No significant difference between groups (p={result['log_rank_p']:.4f})")
+        else:
+            st.metric("Median Survival Time", f"{result['median_survival']:.1f} time units")
+    
+    # AI Insights
+    if 'surv_results' in st.session_state:
+        st.divider()
+        st.subheader("🤖 AI-Powered Insights")
+        
+        if 'surv_ai_insights' not in st.session_state:
+            if st.button("✨ Generate AI Insights", type="primary", key="surv_ai"):
+                with st.status("🤖 AI is analyzing survival patterns...", expanded=True) as status:
+                    try:
+                        from utils.ai_helper import AIHelper
+                        ai = AIHelper()
+                        
+                        result = st.session_state.surv_results
+                        
+                        summary = f"""Survival Analysis Results:
+- Total Observations: {len(surv_data)}
+- Events Occurred: {surv_data['event'].sum()}
+- Censored: {(~surv_data['event'].astype(bool)).sum()}
+- Event Rate: {event_rate:.1f}%
+"""
+                        if 'group' in surv_data.columns:
+                            summary += f"- Analysis Type: Grouped comparison\n"
+                            for group, median in result['median_survival'].items():
+                                summary += f"  - {group}: {median:.1f} time units\n"
+                            if 'log_rank_p' in result:
+                                summary += f"- Log-Rank Test p-value: {result['log_rank_p']:.4f}\n"
+                        else:
+                            summary += f"- Median Survival: {result['median_survival']:.1f} time units\n"
+                        
+                        insights = ai.generate_insights(
+                            summary,
+                            "Analyze these survival analysis results and provide recommendations for improving retention or reducing event risk."
+                        )
+                        
+                        st.session_state.surv_ai_insights = insights
+                        status.update(label="✅ Insights generated!", state="complete", expanded=False)
+                        
+                    except Exception as e:
+                        st.error(f"Error generating insights: {str(e)}")
+        
+        if 'surv_ai_insights' in st.session_state:
+            st.markdown(st.session_state.surv_ai_insights)
+            st.success("✅ AI insights generated successfully!")
+    
+    # Export
+    if 'surv_results' in st.session_state:
+        st.divider()
+        st.subheader("📥 Export Results")
+        
+        result = st.session_state.surv_results
+        
+        report = f"""# Survival Analysis Report
+
+## Overview
+- **Total Observations:** {len(surv_data):,}
+- **Events:** {surv_data['event'].sum():,}
+- **Censored:** {(~surv_data['event'].astype(bool)).sum():,}
+- **Event Rate:** {event_rate:.1f}%
+
+## Results
+"""
+        if 'group' in surv_data.columns:
+            report += "### Group Comparison\n"
+            for group, median in result['median_survival'].items():
+                report += f"- **{group}:** Median survival = {median:.1f} time units\n"
+            if 'log_rank_p' in result:
+                report += f"\n**Log-Rank Test:** p-value = {result['log_rank_p']:.4f}\n"
+        else:
+            report += f"**Median Survival Time:** {result['median_survival']:.1f} time units\n"
+        
+        if 'surv_ai_insights' in st.session_state:
+            report += f"\n## AI Insights\n\n{st.session_state.surv_ai_insights}\n"
+        
+        report += "\n---\n*Report generated by DataInsights - Survival Analysis Module*\n"
+        
+        st.download_button(
+            label="📥 Download Survival Report",
+            data=report,
+            file_name=f"survival_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.md",
+            mime="text/markdown",
+            use_container_width=True
+        )
 
 def show_network_analysis():
     """Network Analysis page."""
