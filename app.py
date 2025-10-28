@@ -8825,10 +8825,171 @@ def show_ab_testing():
     analyzer = st.session_state.ab_analyzer
     
     # Data source selection
-    st.subheader("📤 1. Load Test Data or Use Calculator")
+    st.subheader("📤 1. Load Test Data")
     
-    # Tabs for different test types
-    tab1, tab2, tab3 = st.tabs(["📊 Proportion Test", "📈 T-Test", "🧮 Sample Size Calculator"])
+    # Check if data is already loaded
+    has_loaded_data = st.session_state.data is not None
+    
+    if has_loaded_data:
+        data_options = ["Use Loaded Dataset", "Sample A/B Test Data", "Upload Custom Data", "Manual Calculator"]
+        default_option = "Use Loaded Dataset"
+    else:
+        data_options = ["Sample A/B Test Data", "Upload Custom Data", "Manual Calculator"]
+        default_option = "Sample A/B Test Data"
+    
+    data_source = st.radio(
+        "Choose data source:",
+        data_options,
+        index=0,
+        key="ab_data_source"
+    )
+    
+    # Use Loaded Dataset
+    if data_source == "Use Loaded Dataset" and has_loaded_data:
+        df = st.session_state.data
+        st.success("✅ Using dataset from Data Upload section")
+        st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
+        
+        # Smart column detection
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        categorical_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
+        
+        st.info("💡 **Smart Detection:** Select columns for your A/B test (group column and metric column)")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            # Try to auto-detect group column (columns with 2-3 unique values)
+            group_suggestions = [col for col in categorical_cols if df[col].nunique() <= 3]
+            group_default = group_suggestions[0] if group_suggestions else (categorical_cols[0] if categorical_cols else df.columns[0])
+            group_idx = list(df.columns).index(group_default) if group_default in df.columns else 0
+            
+            group_col = st.selectbox(
+                "Group Column (A/B variant):",
+                df.columns,
+                index=group_idx,
+                key="ab_group_col",
+                help="Column that identifies control vs treatment (e.g., 'variant', 'group', 'version')"
+            )
+        
+        with col2:
+            # Auto-select first numeric column
+            metric_default = numeric_cols[0] if numeric_cols else df.columns[0]
+            metric_idx = list(df.columns).index(metric_default)
+            
+            metric_col = st.selectbox(
+                "Metric Column:",
+                df.columns,
+                index=metric_idx,
+                key="ab_metric_col",
+                help="Numeric column to compare (e.g., 'conversion', 'revenue', 'clicks')"
+            )
+        
+        # Validate group column has exactly 2 groups
+        if st.button("📊 Validate & Process Data", type="primary"):
+            groups = df[group_col].unique()
+            
+            if len(groups) != 2:
+                st.error(f"""
+                ❌ **Invalid Group Column**
+                
+                Group column must have exactly 2 unique values for A/B testing.
+                Found: {len(groups)} unique values: {list(groups)}
+                
+                **Please select a column with 2 groups** (e.g., 'A' and 'B', 'control' and 'treatment')
+                """)
+                st.stop()
+            
+            # Check if metric is numeric
+            if not pd.api.types.is_numeric_dtype(df[metric_col]):
+                st.error(f"""
+                ❌ **Invalid Metric Column**
+                
+                Metric column '{metric_col}' must be numeric!
+                
+                **Please select a numeric column**
+                """)
+                st.stop()
+            
+            # Store processed data
+            st.session_state.ab_test_data = df[[group_col, metric_col]].copy()
+            st.session_state.ab_test_groups = {
+                'control': groups[0],
+                'treatment': groups[1],
+                'group_col': group_col,
+                'metric_col': metric_col
+            }
+            
+            st.success("✅ Data validated and ready for A/B testing!")
+            st.info(f"**Groups:** {groups[0]} vs {groups[1]} | **Metric:** {metric_col}")
+            st.rerun()
+    
+    elif data_source == "Sample A/B Test Data":
+        if st.button("📥 Load Sample A/B Test Data", type="primary"):
+            # Generate realistic A/B test data
+            np.random.seed(42)
+            
+            n_control = 1000
+            n_treatment = 1000
+            
+            # Control: 10% conversion
+            control_data = pd.DataFrame({
+                'group': ['Control'] * n_control,
+                'converted': np.random.binomial(1, 0.10, n_control),
+                'revenue': np.random.gamma(shape=2, scale=50, size=n_control)
+            })
+            
+            # Treatment: 12% conversion (20% lift)
+            treatment_data = pd.DataFrame({
+                'group': ['Treatment'] * n_treatment,
+                'converted': np.random.binomial(1, 0.12, n_treatment),
+                'revenue': np.random.gamma(shape=2, scale=55, size=n_treatment)
+            })
+            
+            sample_data = pd.concat([control_data, treatment_data], ignore_index=True)
+            
+            st.session_state.ab_test_data = sample_data
+            st.session_state.ab_test_groups = {
+                'control': 'Control',
+                'treatment': 'Treatment',
+                'group_col': 'group',
+                'metric_col': 'converted'
+            }
+            
+            st.success(f"✅ Loaded sample A/B test data: {len(sample_data)} observations")
+            st.dataframe(sample_data.head(10), use_container_width=True)
+    
+    elif data_source == "Upload Custom Data":
+        uploaded_file = st.file_uploader("Upload A/B test CSV", type=['csv'], key="ab_upload")
+        
+        if uploaded_file:
+            df = pd.read_csv(uploaded_file)
+            st.dataframe(df.head(), use_container_width=True)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                group_col = st.selectbox("Group Column", df.columns, key="ab_group_upload")
+            with col2:
+                metric_col = st.selectbox("Metric Column", df.columns, key="ab_metric_upload")
+            
+            if st.button("Process Data", type="primary", key="ab_process_upload"):
+                groups = df[group_col].unique()
+                if len(groups) == 2:
+                    st.session_state.ab_test_data = df[[group_col, metric_col]].copy()
+                    st.session_state.ab_test_groups = {
+                        'control': groups[0],
+                        'treatment': groups[1],
+                        'group_col': group_col,
+                        'metric_col': metric_col
+                    }
+                    st.success("✅ Data processed!")
+                else:
+                    st.error(f"Group column must have exactly 2 groups. Found: {len(groups)}")
+    
+    else:  # Manual Calculator
+        st.info("💡 **Manual Mode:** Enter summary statistics for your A/B test")
+        
+        # Tabs for different test types
+        tab1, tab2, tab3 = st.tabs(["📊 Proportion Test", "📈 T-Test", "🧮 Sample Size Calculator"])
     
     with tab1:
         st.markdown("### Proportion Test (Conversion Rates)")
@@ -9056,6 +9217,126 @@ def show_ab_testing():
                 with col3:
                     st.metric("Effect Size", f"{result['effect_size']:.3f}")
     
+    # Analysis section (for loaded/sample/upload data)
+    if 'ab_test_data' in st.session_state and data_source != "Manual Calculator":
+        st.divider()
+        st.subheader("📊 2. Run A/B Test Analysis")
+        
+        test_data = st.session_state.ab_test_data
+        groups_info = st.session_state.ab_test_groups
+        
+        # Display dataset overview
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Observations", f"{len(test_data):,}")
+        with col2:
+            control_count = (test_data[groups_info['group_col']] == groups_info['control']).sum()
+            st.metric(f"{groups_info['control']}", f"{control_count:,}")
+        with col3:
+            treatment_count = (test_data[groups_info['group_col']] == groups_info['treatment']).sum()
+            st.metric(f"{groups_info['treatment']}", f"{treatment_count:,}")
+        
+        if st.button("🧪 Run Statistical Test", type="primary", key="run_loaded_test"):
+            with st.status("Running statistical test...", expanded=True) as status:
+                # Extract data for both groups
+                control_data = test_data[test_data[groups_info['group_col']] == groups_info['control']][groups_info['metric_col']].values
+                treatment_data = test_data[test_data[groups_info['group_col']] == groups_info['treatment']][groups_info['metric_col']].values
+                
+                # Run t-test
+                result = analyzer.run_ttest(control_data, treatment_data, equal_var=False)
+                st.session_state.ab_test_results = result
+                
+                status.update(label="✅ Test complete!", state="complete", expanded=False)
+            
+            # Display results
+            st.success("✅ Statistical test completed!")
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("P-value", f"{result['p_value']:.4f}")
+            with col2:
+                st.metric("Mean Difference", f"{result['absolute_diff']:.2f}")
+            with col3:
+                st.metric("% Difference", f"{result['relative_diff']:.1f}%")
+            with col4:
+                sig_label = "✅ Significant" if result['is_significant'] else "❌ Not Significant"
+                st.metric("Result", sig_label)
+            
+            # Interpretation
+            if result['is_significant']:
+                st.success(f"""
+                ✅ **Statistically Significant Result!**
+                
+                The treatment group shows a statistically significant difference (p={result['p_value']:.4f} < 0.05).
+                The difference is unlikely due to chance.
+                """)
+            else:
+                st.warning(f"""
+                ⚠️ **No Statistical Significance**
+                
+                The difference is not statistically significant (p={result['p_value']:.4f} ≥ 0.05).
+                Consider collecting more data or accepting the current variation.
+                """)
+            
+            # Visualization
+            fig = ABTestAnalyzer.create_ab_test_visualization(result)
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Effect size
+            effect_interp = ABTestAnalyzer.interpret_effect_size(result['effect_size'], 'cohens_d')
+            st.info(f"**Effect Size (Cohen's d):** {result['effect_size']:.3f} ({effect_interp})")
+    
+    # AI Insights
+    if 'ab_test_results' in st.session_state:
+        st.divider()
+        st.subheader("🤖 AI-Powered Insights")
+        
+        if 'ab_ai_insights' not in st.session_state:
+            if st.button("✨ Generate AI Insights", type="primary", key="ab_ai"):
+                with st.status("🤖 AI is analyzing test results...", expanded=True) as status:
+                    try:
+                        from utils.ai_helper import AIHelper
+                        ai = AIHelper()
+                        
+                        result = st.session_state.ab_test_results
+                        
+                        # Prepare summary
+                        if 'control_rate' in result:
+                            summary = f"""A/B Test Results (Proportion Test):
+- Control Conversion: {result['control_rate']*100:.2f}%
+- Treatment Conversion: {result['treatment_rate']*100:.2f}%
+- Absolute Lift: {result['absolute_lift']*100:.2f}%
+- Relative Lift: {result['relative_lift']:.1f}%
+- P-value: {result['p_value']:.4f}
+- Statistically Significant: {'Yes' if result['is_significant'] else 'No'}
+- Effect Size: {result['effect_size']:.3f}
+"""
+                        else:
+                            summary = f"""A/B Test Results (T-Test):
+- Control Mean: {result['control_mean']:.2f}
+- Treatment Mean: {result['treatment_mean']:.2f}
+- Mean Difference: {result['absolute_diff']:.2f}
+- % Difference: {result['relative_diff']:.1f}%
+- P-value: {result['p_value']:.4f}
+- Statistically Significant: {'Yes' if result['is_significant'] else 'No'}
+- Effect Size: {result['effect_size']:.3f}
+"""
+                        
+                        insights = ai.generate_insights(
+                            summary,
+                            "Analyze these A/B test results and provide actionable recommendations on whether to implement the change and next steps."
+                        )
+                        
+                        st.session_state.ab_ai_insights = insights
+                        status.update(label="✅ Insights generated!", state="complete", expanded=False)
+                        
+                    except Exception as e:
+                        st.error(f"Error generating insights: {str(e)}")
+        
+        if 'ab_ai_insights' in st.session_state:
+            st.markdown(st.session_state.ab_ai_insights)
+            st.success("✅ AI insights generated successfully!")
+    
     # Export section
     if 'ab_test_results' in st.session_state:
         st.divider()
@@ -9094,10 +9375,12 @@ def show_ab_testing():
 ## Statistical Details
 - **Effect Size:** {result['effect_size']:.3f}
 - **95% Confidence Interval:** [{result['confidence_interval'][0]:.4f}, {result['confidence_interval'][1]:.4f}]
-
----
-*Report generated by DataInsights - A/B Testing Module*
 """
+        
+        if 'ab_ai_insights' in st.session_state:
+            report += f"\n## 🤖 AI Insights\n\n{st.session_state.ab_ai_insights}\n"
+        
+        report += "\n---\n*Report generated by DataInsights - A/B Testing Module*\n"
         
         st.download_button(
             label="📥 Download Test Report (Markdown)",
@@ -9144,15 +9427,64 @@ def show_cohort_analysis():
     # Data loading
     st.subheader("📤 1. Load User Activity Data")
     
+    # Check if data is already loaded
+    has_loaded_data = st.session_state.data is not None
+    
+    if has_loaded_data:
+        data_options = ["Use Loaded Dataset", "Sample E-commerce Data", "Upload Custom Data"]
+    else:
+        data_options = ["Sample E-commerce Data", "Upload Custom Data"]
+    
     data_source = st.radio(
         "Choose data source:",
-        ["Sample E-commerce Data", "Use Loaded Dataset", "Upload Custom Data"],
+        data_options,
+        index=0,
         key="cohort_data_source"
     )
     
     user_data = None
     
-    if data_source == "Sample E-commerce Data":
+    if data_source == "Use Loaded Dataset" and has_loaded_data:
+        df = st.session_state.data
+        st.success("✅ Using dataset from Data Upload section")
+        st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
+        
+        # Smart column detection
+        date_cols = df.select_dtypes(include=['datetime64', 'object']).columns.tolist()
+        id_cols = df.columns.tolist()
+        
+        st.info("💡 **Smart Detection:** Select user ID and date columns for cohort analysis")
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            # Try to detect ID column
+            id_suggestions = [col for col in id_cols if any(keyword in col.lower() for keyword in ['id', 'user', 'customer', 'client'])]
+            user_default = id_suggestions[0] if id_suggestions else id_cols[0]
+            user_idx = list(df.columns).index(user_default)
+            
+            user_col = st.selectbox("User ID Column", id_cols, index=user_idx, key="cohort_user")
+        with col2:
+            cohort_col = st.selectbox("Cohort Date (signup/first purchase)", date_cols, key="cohort_date")
+        with col3:
+            activity_col = st.selectbox("Activity Date", date_cols, key="cohort_activity")
+        
+        if st.button("📊 Validate & Process Data", type="primary"):
+            # Validate dates
+            try:
+                pd.to_datetime(df[cohort_col])
+                pd.to_datetime(df[activity_col])
+            except:
+                st.error("❌ Date columns must contain valid date values")
+                st.stop()
+            
+            user_data = df[[user_col, cohort_col, activity_col]].copy()
+            user_data.columns = ['user_id', 'signup_date', 'activity_date']
+            st.session_state.cohort_data = user_data
+            st.success("✅ Data processed!")
+            st.info(f"📊 {user_data['user_id'].nunique()} unique users")
+            st.rerun()
+    
+    elif data_source == "Sample E-commerce Data":
         if st.button("📥 Load Sample User Activity", type="primary"):
             # Generate sample cohort data
             np.random.seed(42)
@@ -9193,33 +9525,6 @@ def show_cohort_analysis():
             
             st.success(f"✅ Loaded {len(user_data)} activities from {n_users} users!")
             st.dataframe(user_data.head(10), use_container_width=True)
-    
-    elif data_source == "Use Loaded Dataset":
-        if st.session_state.data is not None:
-            df = st.session_state.data
-            st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
-            
-            # Smart column detection
-            date_cols = df.select_dtypes(include=['datetime64', 'object']).columns.tolist()
-            id_cols = df.columns.tolist()
-            
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                user_col = st.selectbox("User ID Column", id_cols, key="cohort_user")
-            with col2:
-                cohort_col = st.selectbox("Cohort Date (signup/first purchase)", date_cols, key="cohort_date")
-            with col3:
-                activity_col = st.selectbox("Activity Date", date_cols, key="cohort_activity")
-            
-            if st.button("Process Data", type="primary"):
-                user_data = df[[user_col, cohort_col, activity_col]].copy()
-                user_data.columns = ['user_id', 'signup_date', 'activity_date']
-                st.session_state.cohort_data = user_data
-                st.success("✅ Data processed!")
-                st.dataframe(user_data.head(10), use_container_width=True)
-        else:
-            st.warning("⚠️ No dataset loaded. Please upload data first.")
-            return
     
     else:  # Upload
         uploaded_file = st.file_uploader("Upload user activity CSV", type=['csv'], key="cohort_upload")
