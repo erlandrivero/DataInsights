@@ -9698,26 +9698,298 @@ def show_cohort_analysis():
 
 def show_recommendation_systems():
     """Recommendation Systems page."""
-    st.header("🎯 Recommendation Systems")
+    st.header("🎯 Recommendation Systems & Collaborative Filtering")
     
-    st.info("⚠️ **Module Under Construction** - Full implementation coming soon!")
+    # Help section
+    with st.expander("ℹ️ What are Recommendation Systems?"):
+        st.markdown("""
+        **Recommendation Systems** predict user preferences based on historical data and similarities.
+        
+        ### Methods Available:
+        
+        - **User-Based Collaborative Filtering:** Find similar users and recommend what they liked
+        - **Item-Based Collaborative Filtering:** Find similar items and recommend them
+        - **Cosine Similarity:** Measure similarity between users/items
+        
+        ### Business Applications:
+        - 🛍️ **E-commerce:** Product recommendations
+        - 🎬 **Media:** Movie/music suggestions
+        - 📰 **Content:** Article recommendations
+        - 🎯 **Marketing:** Cross-sell and up-sell
+        """)
     
-    st.markdown("""
-    This module will provide:
-    - **User-Based Collaborative Filtering** - Recommend based on similar users
-    - **Item-Based Collaborative Filtering** - Recommend similar items
-    - **Content-Based Filtering** - Recommend based on item features
-    - **Hybrid Recommendations** - Combine multiple methods
-    - **Evaluation Metrics** - Precision@K, Recall@K, F1@K
-    - **Similarity Analysis** - Find similar users/items
+    st.markdown("Build personalized recommendation engines using collaborative filtering.")
     
-    ### Use Cases:
-    - E-commerce product recommendations
-    - Content recommendations (movies, music, articles)
-    - Cross-selling and upselling
-    - Personalization engines
-    - Social network friend suggestions
-    """)
+    # Import utilities
+    from utils.recommendation_engine import RecommendationEngine
+    
+    # Initialize engine
+    if 'rec_engine' not in st.session_state:
+        st.session_state.rec_engine = RecommendationEngine()
+    
+    engine = st.session_state.rec_engine
+    
+    # Data loading
+    st.subheader("📤 1. Load Ratings Data")
+    
+    # Check if data is already loaded
+    has_loaded_data = st.session_state.data is not None
+    
+    if has_loaded_data:
+        data_options = ["Use Loaded Dataset", "Sample Movie Ratings", "Upload Custom Data"]
+    else:
+        data_options = ["Sample Movie Ratings", "Upload Custom Data"]
+    
+    data_source = st.radio(
+        "Choose data source:",
+        data_options,
+        index=0,
+        key="rec_data_source"
+    )
+    
+    # Use Loaded Dataset
+    if data_source == "Use Loaded Dataset" and has_loaded_data:
+        df = st.session_state.data
+        st.success("✅ Using dataset from Data Upload section")
+        st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
+        
+        # Smart column detection
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        all_cols = df.columns.tolist()
+        
+        st.info("💡 **Smart Detection:** Select user, item, and rating columns")
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            # Detect user column
+            user_suggestions = [col for col in all_cols if any(keyword in col.lower() for keyword in ['user', 'customer', 'id'])]
+            user_default = user_suggestions[0] if user_suggestions else all_cols[0]
+            user_idx = list(df.columns).index(user_default)
+            
+            user_col = st.selectbox("User Column", all_cols, index=user_idx, key="rec_user")
+        with col2:
+            # Detect item column
+            item_suggestions = [col for col in all_cols if any(keyword in col.lower() for keyword in ['item', 'product', 'movie', 'title'])]
+            item_default = item_suggestions[0] if item_suggestions else (all_cols[1] if len(all_cols) > 1 else all_cols[0])
+            item_idx = list(df.columns).index(item_default)
+            
+            item_col = st.selectbox("Item Column", all_cols, index=item_idx, key="rec_item")
+        with col3:
+            # Detect rating column
+            rating_default = numeric_cols[0] if numeric_cols else all_cols[0]
+            rating_idx = list(df.columns).index(rating_default)
+            
+            rating_col = st.selectbox("Rating Column", all_cols, index=rating_idx, key="rec_rating")
+        
+        if st.button("📊 Validate & Process Data", type="primary"):
+            # Validate rating column is numeric
+            if not pd.api.types.is_numeric_dtype(df[rating_col]):
+                st.error("❌ Rating column must be numeric!")
+                st.stop()
+            
+            ratings_data = df[[user_col, item_col, rating_col]].copy()
+            ratings_data.columns = ['user_id', 'item_id', 'rating']
+            st.session_state.rec_ratings = ratings_data
+            
+            st.success("✅ Data validated!")
+            st.info(f"📊 {ratings_data['user_id'].nunique()} users, {ratings_data['item_id'].nunique()} items, {len(ratings_data)} ratings")
+            st.rerun()
+    
+    elif data_source == "Sample Movie Ratings":
+        if st.button("📥 Load Sample Movie Ratings", type="primary"):
+            # Generate sample movie ratings
+            np.random.seed(42)
+            
+            movies = [f"Movie_{i}" for i in range(1, 51)]  # 50 movies
+            users = [f"User_{i}" for i in range(1, 101)]  # 100 users
+            
+            ratings = []
+            for user in users:
+                # Each user rates 5-15 random movies
+                n_ratings = np.random.randint(5, 16)
+                rated_movies = np.random.choice(movies, n_ratings, replace=False)
+                
+                for movie in rated_movies:
+                    rating = np.random.choice([1, 2, 3, 4, 5], p=[0.1, 0.1, 0.2, 0.3, 0.3])
+                    ratings.append({
+                        'user_id': user,
+                        'item_id': movie,
+                        'rating': rating
+                    })
+            
+            ratings_data = pd.DataFrame(ratings)
+            st.session_state.rec_ratings = ratings_data
+            
+            st.success(f"✅ Loaded {len(ratings_data)} ratings from {len(users)} users on {len(movies)} movies!")
+            st.dataframe(ratings_data.head(10), use_container_width=True)
+    
+    else:  # Upload
+        uploaded_file = st.file_uploader("Upload ratings CSV", type=['csv'], key="rec_upload")
+        
+        if uploaded_file:
+            df = pd.read_csv(uploaded_file)
+            st.dataframe(df.head(), use_container_width=True)
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                user_col = st.selectbox("User Column", df.columns, key="rec_user_upload")
+            with col2:
+                item_col = st.selectbox("Item Column", df.columns, key="rec_item_upload")
+            with col3:
+                rating_col = st.selectbox("Rating Column", df.columns, key="rec_rating_upload")
+            
+            if st.button("Process Data", type="primary", key="rec_process_upload"):
+                ratings_data = df[[user_col, item_col, rating_col]].copy()
+                ratings_data.columns = ['user_id', 'item_id', 'rating']
+                st.session_state.rec_ratings = ratings_data
+                st.success("✅ Data processed!")
+    
+    # Analysis section
+    if 'rec_ratings' not in st.session_state:
+        st.info("👆 Load ratings data to begin building recommendations")
+        return
+    
+    ratings_data = st.session_state.rec_ratings
+    
+    # Dataset overview
+    st.divider()
+    st.subheader("📊 Dataset Overview")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Ratings", f"{len(ratings_data):,}")
+    with col2:
+        st.metric("Unique Users", f"{ratings_data['user_id'].nunique():,}")
+    with col3:
+        st.metric("Unique Items", f"{ratings_data['item_id'].nunique():,}")
+    with col4:
+        sparsity = 1 - (len(ratings_data) / (ratings_data['user_id'].nunique() * ratings_data['item_id'].nunique()))
+        st.metric("Sparsity", f"{sparsity*100:.1f}%")
+    
+    # Build recommendation system
+    st.divider()
+    st.subheader("📊 2. Build Recommendation System")
+    
+    method = st.radio(
+        "Recommendation Method:",
+        ["User-Based Collaborative Filtering", "Item-Based Collaborative Filtering"],
+        horizontal=True,
+        key="rec_method"
+    )
+    
+    min_support = st.slider("Minimum Support (min ratings required)", 1, 10, 3, key="rec_support")
+    
+    if st.button("🎯 Build Recommendations", type="primary"):
+        with st.status("Building recommendation model...", expanded=True) as status:
+            # Build user-item matrix
+            engine.fit(ratings_data, user_col='user_id', item_col='item_id', rating_col='rating')
+            
+            # Calculate similarity
+            if method == "User-Based Collaborative Filtering":
+                similarity_matrix = engine.calculate_user_similarity(min_support=min_support)
+                st.session_state.rec_similarity = similarity_matrix
+                st.session_state.rec_type = 'user'
+            else:
+                similarity_matrix = engine.calculate_item_similarity(min_support=min_support)
+                st.session_state.rec_similarity = similarity_matrix
+                st.session_state.rec_type = 'item'
+            
+            status.update(label="✅ Model built!", state="complete", expanded=False)
+        
+        st.success(f"✅ Built {method} model!")
+        
+        # Show sample recommendations
+        if method == "User-Based Collaborative Filtering":
+            sample_user = ratings_data['user_id'].iloc[0]
+            recommendations = engine.get_user_recommendations(sample_user, top_n=5)
+            
+            st.subheader(f"🎯 Sample Recommendations for {sample_user}")
+            if recommendations:
+                rec_df = pd.DataFrame(recommendations, columns=['Item', 'Predicted Rating'])
+                st.dataframe(rec_df, use_container_width=True)
+            else:
+                st.info("No recommendations available for this user")
+        
+        else:
+            sample_item = ratings_data['item_id'].iloc[0]
+            similar_items = engine.get_similar_items(sample_item, top_n=5)
+            
+            st.subheader(f"🔍 Items Similar to {sample_item}")
+            if similar_items:
+                sim_df = pd.DataFrame(similar_items, columns=['Item', 'Similarity Score'])
+                st.dataframe(sim_df, use_container_width=True)
+            else:
+                st.info("No similar items found")
+    
+    # AI Insights
+    if 'rec_similarity' in st.session_state:
+        st.divider()
+        st.subheader("🤖 AI-Powered Insights")
+        
+        if 'rec_ai_insights' not in st.session_state:
+            if st.button("✨ Generate AI Insights", type="primary", key="rec_ai"):
+                with st.status("🤖 AI is analyzing recommendations...", expanded=True) as status:
+                    try:
+                        from utils.ai_helper import AIHelper
+                        ai = AIHelper()
+                        
+                        rec_type = st.session_state.rec_type
+                        
+                        summary = f"""Recommendation System Results:
+- Method: {method}
+- Total Ratings: {len(ratings_data)}
+- Unique Users: {ratings_data['user_id'].nunique()}
+- Unique Items: {ratings_data['item_id'].nunique()}
+- Data Sparsity: {sparsity*100:.1f}%
+- Recommendation Type: {'User-based collaborative filtering' if rec_type == 'user' else 'Item-based collaborative filtering'}
+"""
+                        
+                        insights = ai.generate_insights(
+                            summary,
+                            "Analyze this recommendation system and provide suggestions for improving recommendation quality and handling data sparsity."
+                        )
+                        
+                        st.session_state.rec_ai_insights = insights
+                        status.update(label="✅ Insights generated!", state="complete", expanded=False)
+                        
+                    except Exception as e:
+                        st.error(f"Error generating insights: {str(e)}")
+        
+        if 'rec_ai_insights' in st.session_state:
+            st.markdown(st.session_state.rec_ai_insights)
+            st.success("✅ AI insights generated successfully!")
+    
+    # Export
+    if 'rec_similarity' in st.session_state:
+        st.divider()
+        st.subheader("📥 Export Results")
+        
+        report = f"""# Recommendation System Report
+
+## Overview
+- **Method:** {method}
+- **Total Ratings:** {len(ratings_data):,}
+- **Unique Users:** {ratings_data['user_id'].nunique():,}
+- **Unique Items:** {ratings_data['item_id'].nunique():,}
+- **Sparsity:** {sparsity*100:.1f}%
+
+## Metrics
+- **Average Rating:** {ratings_data['rating'].mean():.2f}
+- **Rating Distribution:** {ratings_data['rating'].value_counts().to_dict()}
+"""
+        
+        if 'rec_ai_insights' in st.session_state:
+            report += f"\n## AI Insights\n\n{st.session_state.rec_ai_insights}\n"
+        
+        report += "\n---\n*Report generated by DataInsights - Recommendation Systems Module*\n"
+        
+        st.download_button(
+            label="📥 Download Recommendations Report",
+            data=report,
+            file_name=f"recommendations_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.md",
+            mime="text/markdown",
+            use_container_width=True
+        )
 
 def show_geospatial_analysis():
     """Geospatial Analysis page."""
