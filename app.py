@@ -9077,19 +9077,19 @@ def show_ab_testing():
             test_mode = st.radio("Input Method", ["Summary Statistics", "Upload Data"], horizontal=True, key="ttest_mode")
             
             if test_mode == "Summary Statistics":
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.markdown("**Control Group**")
-                control_mean = st.number_input("Mean (Control)", value=100.0, key="ttest_control_mean")
-                control_std = st.number_input("Std Dev (Control)", value=15.0, min_value=0.1, key="ttest_control_std")
-                control_n_ttest = st.number_input("Sample Size (Control)", min_value=2, value=100, key="ttest_control_n")
-            
-            with col2:
-                st.markdown("**Treatment Group**")
-                treatment_mean = st.number_input("Mean (Treatment)", value=105.0, key="ttest_treatment_mean")
-                treatment_std = st.number_input("Std Dev (Treatment)", value=15.0, min_value=0.1, key="ttest_treatment_std")
-                treatment_n_ttest = st.number_input("Sample Size (Treatment)", min_value=2, value=100, key="ttest_treatment_n")
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("**Control Group**")
+                    control_mean = st.number_input("Mean (Control)", value=100.0, key="ttest_control_mean")
+                    control_std = st.number_input("Std Dev (Control)", value=15.0, min_value=0.1, key="ttest_control_std")
+                    control_n_ttest = st.number_input("Sample Size (Control)", min_value=2, value=100, key="ttest_control_n")
+                
+                with col2:
+                    st.markdown("**Treatment Group**")
+                    treatment_mean = st.number_input("Mean (Treatment)", value=105.0, key="ttest_treatment_mean")
+                    treatment_std = st.number_input("Std Dev (Treatment)", value=15.0, min_value=0.1, key="ttest_treatment_std")
+                    treatment_n_ttest = st.number_input("Sample Size (Treatment)", min_value=2, value=100, key="ttest_treatment_n")
             
             if st.button("🧪 Run T-Test", type="primary", key="run_ttest"):
                 # Generate synthetic data from summary stats
@@ -9126,96 +9126,96 @@ def show_ab_testing():
                 # Effect size
                 effect_interp = ABTestAnalyzer.interpret_effect_size(result['effect_size'], 'cohens_d')
                 st.info(f"**Effect Size (Cohen's d):** {result['effect_size']:.3f} ({effect_interp})")
-        
-        else:
-            st.info("Upload a CSV with at least two columns: a numeric metric column and a group column (e.g., 'A' and 'B')")
-            uploaded_file = st.file_uploader("Upload test results CSV", type=['csv'], key="ttest_upload")
             
-            if uploaded_file:
-                df = pd.read_csv(uploaded_file)
-                st.dataframe(df.head(), use_container_width=True)
+            else:
+                st.info("Upload a CSV with at least two columns: a numeric metric column and a group column (e.g., 'A' and 'B')")
+                uploaded_file = st.file_uploader("Upload test results CSV", type=['csv'], key="ttest_upload")
                 
-                metric_col = st.selectbox("Metric Column (numeric)", df.select_dtypes(include=[np.number]).columns, key="ttest_metric")
-                group_col = st.selectbox("Group Column", df.columns, key="ttest_group")
-                
-                groups = df[group_col].unique()
-                if len(groups) == 2:
-                    group_a, group_b = groups[0], groups[1]
-                    data_a = df[df[group_col] == group_a][metric_col].values
-                    data_b = df[df[group_col] == group_b][metric_col].values
+                if uploaded_file:
+                    df = pd.read_csv(uploaded_file)
+                    st.dataframe(df.head(), use_container_width=True)
                     
-                    if st.button("🧪 Run T-Test", type="primary", key="run_ttest_upload"):
-                        result = analyzer.run_ttest(data_a, data_b, equal_var=False)
-                        st.session_state.ab_test_results = result
+                    metric_col = st.selectbox("Metric Column (numeric)", df.select_dtypes(include=[np.number]).columns, key="ttest_metric")
+                    group_col = st.selectbox("Group Column", df.columns, key="ttest_group")
+                    
+                    groups = df[group_col].unique()
+                    if len(groups) == 2:
+                        group_a, group_b = groups[0], groups[1]
+                        data_a = df[df[group_col] == group_a][metric_col].values
+                        data_b = df[df[group_col] == group_b][metric_col].values
                         
-                        st.subheader("📊 Test Results")
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            st.metric("P-value", f"{result['p_value']:.4f}")
-                        with col2:
-                            st.metric("Mean Difference", f"{result['absolute_diff']:.2f}")
-                        with col3:
-                            sig_label = "✅ Significant" if result['is_significant'] else "❌ Not Significant"
-                            st.metric("Result", sig_label)
-                        
-                        fig = ABTestAnalyzer.create_ab_test_visualization(result)
-                        st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.warning(f"Group column must have exactly 2 unique values. Found: {len(groups)}")
+                        if st.button("🧪 Run T-Test", type="primary", key="run_ttest_upload"):
+                            result = analyzer.run_ttest(data_a, data_b, equal_var=False)
+                            st.session_state.ab_test_results = result
+                            
+                            st.subheader("📊 Test Results")
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.metric("P-value", f"{result['p_value']:.4f}")
+                            with col2:
+                                st.metric("Mean Difference", f"{result['absolute_diff']:.2f}")
+                            with col3:
+                                sig_label = "✅ Significant" if result['is_significant'] else "❌ Not Significant"
+                                st.metric("Result", sig_label)
+                            
+                            fig = ABTestAnalyzer.create_ab_test_visualization(result)
+                            st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.warning(f"Group column must have exactly 2 unique values. Found: {len(groups)}")
         
         with tab3:
             st.markdown("### Sample Size Calculator")
             st.info("💡 Determine how many samples you need to detect a meaningful difference")
             
             calc_type = st.radio("Test Type", ["Proportion Test", "T-Test"], horizontal=True, key="calc_type")
-        
-        if calc_type == "Proportion Test":
-            baseline = st.slider("Baseline Conversion Rate (%)", 1.0, 50.0, 10.0, 0.5, key="calc_baseline") / 100
-            mde = st.slider("Minimum Detectable Effect (%)", 5.0, 100.0, 20.0, 5.0, key="calc_mde") / 100
             
-            if st.button("📊 Calculate Sample Size", type="primary", key="calc_prop"):
-                result = analyzer.calculate_sample_size_proportion(baseline, mde)
+            if calc_type == "Proportion Test":
+                baseline = st.slider("Baseline Conversion Rate (%)", 1.0, 50.0, 10.0, 0.5, key="calc_baseline") / 100
+                mde = st.slider("Minimum Detectable Effect (%)", 5.0, 100.0, 20.0, 5.0, key="calc_mde") / 100
                 
-                st.subheader("📊 Required Sample Size")
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Per Group", f"{result['sample_size_per_group']:,}")
-                with col2:
-                    st.metric("Total Needed", f"{result['total_sample_size']:,}")
-                with col3:
-                    st.metric("Expected Lift", f"{result['relative_lift']:.1f}%")
-                
-                # Test duration calculator
-                st.divider()
-                st.markdown("### ⏱️ Test Duration")
-                daily_traffic = st.number_input("Daily visitors/users", min_value=10, value=1000, step=10, key="daily_traffic")
-                
-                duration = analyzer.calculate_test_duration(result['total_sample_size'], daily_traffic)
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.metric("Days to Run", duration['days'])
-                with col2:
-                    st.metric("Weeks to Run", duration['weeks'])
-                
-                if duration['days'] > 30:
-                    st.warning("⚠️ Test will take over a month. Consider increasing traffic or accepting a larger minimum detectable effect.")
-        
-        else:  # T-Test sample size
-            mean_diff = st.number_input("Expected Mean Difference", min_value=0.1, value=5.0, key="calc_mean_diff")
-            std_dev = st.number_input("Standard Deviation", min_value=0.1, value=15.0, key="calc_std")
+                if st.button("📊 Calculate Sample Size", type="primary", key="calc_prop"):
+                    result = analyzer.calculate_sample_size_proportion(baseline, mde)
+                    
+                    st.subheader("📊 Required Sample Size")
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Per Group", f"{result['sample_size_per_group']:,}")
+                    with col2:
+                        st.metric("Total Needed", f"{result['total_sample_size']:,}")
+                    with col3:
+                        st.metric("Expected Lift", f"{result['relative_lift']:.1f}%")
+                    
+                    # Test duration calculator
+                    st.divider()
+                    st.markdown("### ⏱️ Test Duration")
+                    daily_traffic = st.number_input("Daily visitors/users", min_value=10, value=1000, step=10, key="daily_traffic")
+                    
+                    duration = analyzer.calculate_test_duration(result['total_sample_size'], daily_traffic)
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("Days to Run", duration['days'])
+                    with col2:
+                        st.metric("Weeks to Run", duration['weeks'])
+                    
+                    if duration['days'] > 30:
+                        st.warning("⚠️ Test will take over a month. Consider increasing traffic or accepting a larger minimum detectable effect.")
             
-            if st.button("📊 Calculate Sample Size", type="primary", key="calc_ttest"):
-                result = analyzer.calculate_sample_size_means(mean_diff, std_dev)
+            else:  # T-Test sample size
+                mean_diff = st.number_input("Expected Mean Difference", min_value=0.1, value=5.0, key="calc_mean_diff")
+                std_dev = st.number_input("Standard Deviation", min_value=0.1, value=15.0, key="calc_std")
                 
-                st.subheader("📊 Required Sample Size")
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Per Group", f"{result['sample_size_per_group']:,}")
-                with col2:
-                    st.metric("Total Needed", f"{result['total_sample_size']:,}")
-                with col3:
-                    st.metric("Effect Size", f"{result['effect_size']:.3f}")
+                if st.button("📊 Calculate Sample Size", type="primary", key="calc_ttest"):
+                    result = analyzer.calculate_sample_size_means(mean_diff, std_dev)
+                    
+                    st.subheader("📊 Required Sample Size")
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Per Group", f"{result['sample_size_per_group']:,}")
+                    with col2:
+                        st.metric("Total Needed", f"{result['total_sample_size']:,}")
+                    with col3:
+                        st.metric("Effect Size", f"{result['effect_size']:.3f}")
     
     # Analysis section (for loaded/sample/upload data)
     if 'ab_test_data' in st.session_state and data_source != "Manual Calculator":
@@ -9464,9 +9464,19 @@ def show_cohort_analysis():
             
             user_col = st.selectbox("User ID Column", id_cols, index=user_idx, key="cohort_user")
         with col2:
-            cohort_col = st.selectbox("Cohort Date (signup/first purchase)", date_cols, key="cohort_date")
+            # Smart detection for cohort date (signup, registration, created, first)
+            cohort_suggestions = [col for col in date_cols if any(keyword in col.lower() for keyword in ['signup', 'register', 'created', 'first', 'join'])]
+            cohort_default = cohort_suggestions[0] if cohort_suggestions else (date_cols[0] if date_cols else df.columns[0])
+            cohort_idx = list(df.columns).index(cohort_default) if cohort_default in df.columns else 0
+            
+            cohort_col = st.selectbox("Cohort Date (signup/first purchase)", df.columns, index=cohort_idx, key="cohort_date")
         with col3:
-            activity_col = st.selectbox("Activity Date", date_cols, key="cohort_activity")
+            # Smart detection for activity date (activity, purchase, order, transaction)
+            activity_suggestions = [col for col in date_cols if any(keyword in col.lower() for keyword in ['activity', 'purchase', 'order', 'transaction', 'date', 'time'])]
+            activity_default = activity_suggestions[0] if activity_suggestions else (date_cols[1] if len(date_cols) > 1 else (date_cols[0] if date_cols else df.columns[0]))
+            activity_idx = list(df.columns).index(activity_default) if activity_default in df.columns else 0
+            
+            activity_col = st.selectbox("Activity Date", df.columns, index=activity_idx, key="cohort_activity")
         
         if st.button("📊 Validate & Process Data", type="primary"):
             # Validate dates
@@ -9995,24 +10005,287 @@ def show_geospatial_analysis():
     """Geospatial Analysis page."""
     st.header("🗺️ Geospatial Analysis & Location Intelligence")
     
-    st.info("⚠️ **Module Under Construction** - Full implementation coming soon!")
+    # Help section
+    with st.expander("ℹ️ What is Geospatial Analysis?"):
+        st.markdown("""
+        **Geospatial Analysis** examines patterns and relationships based on geographic location.
+        
+        ### Features Available:
+        
+        - **Interactive Maps:** Visualize locations on scatter maps
+        - **Spatial Clustering:** DBSCAN clustering for geographic patterns
+        - **Distance Calculations:** Haversine distance between points
+        - **Density Analysis:** Identify hotspots and patterns
+        
+        ### Business Applications:
+        - 📍 **Retail:** Store location optimization
+        - 🚚 **Logistics:** Delivery route planning
+        - 🏠 **Real Estate:** Market analysis
+        - 📊 **Marketing:** Geographic targeting
+        """)
     
-    st.markdown("""
-    This module will provide:
-    - **Interactive Maps** - Scatter plots and density heatmaps
-    - **Distance Calculations** - Haversine distance between points
-    - **Spatial Clustering** - K-Means and DBSCAN clustering
-    - **Choropleth Maps** - Country/state level visualizations
-    - **Nearest Neighbors** - Find closest locations
-    - **Density Grids** - Calculate point density
+    st.markdown("Analyze geographic data to uncover location-based insights.")
     
-    ### Use Cases:
-    - Store location optimization
-    - Delivery route planning
-    - Market penetration analysis
-    - Demographics mapping
-    - Real estate analysis
-    """)
+    # Import utilities
+    from utils.geospatial_analyzer import GeospatialAnalyzer
+    
+    # Initialize analyzer
+    if 'geo_analyzer' not in st.session_state:
+        st.session_state.geo_analyzer = GeospatialAnalyzer()
+    
+    analyzer = st.session_state.geo_analyzer
+    
+    # Data loading
+    st.subheader("📤 1. Load Geographic Data")
+    
+    # Check if data is already loaded
+    has_loaded_data = st.session_state.data is not None
+    
+    if has_loaded_data:
+        data_options = ["Use Loaded Dataset", "Sample Store Locations", "Upload Custom Data"]
+    else:
+        data_options = ["Sample Store Locations", "Upload Custom Data"]
+    
+    data_source = st.radio(
+        "Choose data source:",
+        data_options,
+        index=0,
+        key="geo_data_source"
+    )
+    
+    # Use Loaded Dataset
+    if data_source == "Use Loaded Dataset" and has_loaded_data:
+        df = st.session_state.data
+        st.success("✅ Using dataset from Data Upload section")
+        st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
+        
+        # Smart column detection
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        all_cols = df.columns.tolist()
+        
+        st.info("💡 **Smart Detection:** Select latitude and longitude columns")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            # Detect latitude column
+            lat_suggestions = [col for col in numeric_cols if any(keyword in col.lower() for keyword in ['lat', 'latitude', 'y'])]
+            lat_default = lat_suggestions[0] if lat_suggestions else (numeric_cols[0] if numeric_cols else all_cols[0])
+            lat_idx = list(df.columns).index(lat_default)
+            
+            lat_col = st.selectbox("Latitude Column", df.columns, index=lat_idx, key="geo_lat")
+        with col2:
+            # Detect longitude column
+            lon_suggestions = [col for col in numeric_cols if any(keyword in col.lower() for keyword in ['lon', 'long', 'longitude', 'x'])]
+            lon_default = lon_suggestions[0] if lon_suggestions else (numeric_cols[1] if len(numeric_cols) > 1 else (numeric_cols[0] if numeric_cols else all_cols[0]))
+            lon_idx = list(df.columns).index(lon_default)
+            
+            lon_col = st.selectbox("Longitude Column", df.columns, index=lon_idx, key="geo_lon")
+        
+        if st.button("📊 Validate & Process Data", type="primary"):
+            # Validate lat/lon are numeric
+            if not pd.api.types.is_numeric_dtype(df[lat_col]) or not pd.api.types.is_numeric_dtype(df[lon_col]):
+                st.error("❌ Latitude and Longitude must be numeric columns!")
+                st.stop()
+            
+            # Validate lat/lon ranges
+            if df[lat_col].min() < -90 or df[lat_col].max() > 90:
+                st.error("❌ Latitude must be between -90 and 90")
+                st.stop()
+            if df[lon_col].min() < -180 or df[lon_col].max() > 180:
+                st.error("❌ Longitude must be between -180 and 180")
+                st.stop()
+            
+            geo_data = df[[lat_col, lon_col]].copy()
+            geo_data.columns = ['latitude', 'longitude']
+            st.session_state.geo_data = geo_data
+            
+            st.success("✅ Data validated!")
+            st.info(f"📍 {len(geo_data)} locations ready for analysis")
+            st.rerun()
+    
+    elif data_source == "Sample Store Locations":
+        if st.button("📥 Load Sample Store Locations", type="primary"):
+            # Generate sample geographic data (US cities)
+            np.random.seed(42)
+            
+            cities = [
+                (40.7128, -74.0060, "New York"),
+                (34.0522, -118.2437, "Los Angeles"),
+                (41.8781, -87.6298, "Chicago"),
+                (29.7604, -95.3698, "Houston"),
+                (33.4484, -112.0740, "Phoenix"),
+                (39.7392, -104.9903, "Denver"),
+                (47.6062, -122.3321, "Seattle"),
+                (37.7749, -122.4194, "San Francisco"),
+                (42.3601, -71.0589, "Boston"),
+                (25.7617, -80.1918, "Miami")
+            ]
+            
+            # Add some noise to create multiple stores per city
+            locations = []
+            for lat, lon, city in cities:
+                for i in range(5):  # 5 stores per city
+                    locations.append({
+                        'latitude': lat + np.random.normal(0, 0.1),
+                        'longitude': lon + np.random.normal(0, 0.1),
+                        'city': city,
+                        'store_id': f"{city[:3].upper()}-{i+1}"
+                    })
+            
+            geo_data = pd.DataFrame(locations)
+            st.session_state.geo_data = geo_data
+            
+            st.success(f"✅ Loaded {len(geo_data)} store locations across {len(cities)} cities!")
+            st.dataframe(geo_data.head(10), use_container_width=True)
+    
+    else:  # Upload
+        uploaded_file = st.file_uploader("Upload geographic data CSV", type=['csv'], key="geo_upload")
+        
+        if uploaded_file:
+            df = pd.read_csv(uploaded_file)
+            st.dataframe(df.head(), use_container_width=True)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                lat_col = st.selectbox("Latitude Column", df.select_dtypes(include=[np.number]).columns, key="geo_lat_upload")
+            with col2:
+                lon_col = st.selectbox("Longitude Column", df.select_dtypes(include=[np.number]).columns, key="geo_lon_upload")
+            
+            if st.button("Process Data", type="primary", key="geo_process_upload"):
+                geo_data = df[[lat_col, lon_col]].copy()
+                geo_data.columns = ['latitude', 'longitude']
+                st.session_state.geo_data = geo_data
+                st.success("✅ Data processed!")
+    
+    # Analysis section
+    if 'geo_data' not in st.session_state:
+        st.info("👆 Load geographic data to begin spatial analysis")
+        return
+    
+    geo_data = st.session_state.geo_data
+    
+    # Dataset overview
+    st.divider()
+    st.subheader("📊 2. Spatial Analysis")
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Locations", f"{len(geo_data):,}")
+    with col2:
+        lat_range = geo_data['latitude'].max() - geo_data['latitude'].min()
+        st.metric("Latitude Range", f"{lat_range:.2f}°")
+    with col3:
+        lon_range = geo_data['longitude'].max() - geo_data['longitude'].min()
+        st.metric("Longitude Range", f"{lon_range:.2f}°")
+    
+    # Clustering
+    cluster_method = st.radio(
+        "Clustering Method:",
+        ["DBSCAN (Density-Based)", "K-Means"],
+        horizontal=True,
+        key="geo_cluster"
+    )
+    
+    if cluster_method == "DBSCAN (Density-Based)":
+        eps = st.slider("Max Distance (km)", 1, 100, 10, key="geo_eps")
+        min_samples = st.slider("Min Points per Cluster", 2, 10, 3, key="geo_min_samples")
+    else:
+        n_clusters = st.slider("Number of Clusters", 2, 10, 3, key="geo_n_clusters")
+    
+    if st.button("🗺️ Run Spatial Analysis", type="primary"):
+        with st.status("Analyzing geographic patterns...", expanded=True) as status:
+            if cluster_method == "DBSCAN (Density-Based)":
+                result = analyzer.dbscan_clustering(geo_data, eps_km=eps, min_samples=min_samples)
+            else:
+                result = analyzer.kmeans_clustering(geo_data, n_clusters=n_clusters)
+            
+            st.session_state.geo_results = result
+            status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+        
+        st.success("✅ Spatial clustering completed!")
+        
+        # Display results
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Clusters Found", result['n_clusters'])
+        with col2:
+            if 'noise_points' in result:
+                st.metric("Noise Points", result['noise_points'])
+        
+        # Map visualization
+        st.subheader("🗺️ Interactive Map")
+        fig = analyzer.create_cluster_map(result)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # AI Insights
+    if 'geo_results' in st.session_state:
+        st.divider()
+        st.subheader("🤖 AI-Powered Insights")
+        
+        if 'geo_ai_insights' not in st.session_state:
+            if st.button("✨ Generate AI Insights", type="primary", key="geo_ai"):
+                with st.status("🤖 AI is analyzing geographic patterns...", expanded=True) as status:
+                    try:
+                        from utils.ai_helper import AIHelper
+                        ai = AIHelper()
+                        
+                        result = st.session_state.geo_results
+                        
+                        summary = f"""Geospatial Analysis Results:
+- Total Locations: {len(geo_data)}
+- Clustering Method: {cluster_method}
+- Clusters Found: {result['n_clusters']}
+- Geographic Spread: {lat_range:.2f}° latitude × {lon_range:.2f}° longitude
+"""
+                        if 'noise_points' in result:
+                            summary += f"- Noise Points: {result['noise_points']}\n"
+                        
+                        insights = ai.generate_insights(
+                            summary,
+                            "Analyze these geographic clustering results and provide recommendations for location strategy and expansion opportunities."
+                        )
+                        
+                        st.session_state.geo_ai_insights = insights
+                        status.update(label="✅ Insights generated!", state="complete", expanded=False)
+                        
+                    except Exception as e:
+                        st.error(f"Error generating insights: {str(e)}")
+        
+        if 'geo_ai_insights' in st.session_state:
+            st.markdown(st.session_state.geo_ai_insights)
+            st.success("✅ AI insights generated successfully!")
+    
+    # Export
+    if 'geo_results' in st.session_state:
+        st.divider()
+        st.subheader("📥 Export Results")
+        
+        result = st.session_state.geo_results
+        
+        report = f"""# Geospatial Analysis Report
+
+## Overview
+- **Total Locations:** {len(geo_data):,}
+- **Clustering Method:** {cluster_method}
+- **Clusters Found:** {result['n_clusters']}
+- **Geographic Spread:** {lat_range:.2f}° × {lon_range:.2f}°
+
+## Cluster Summary
+{result.get('cluster_summary', 'N/A')}
+"""
+        
+        if 'geo_ai_insights' in st.session_state:
+            report += f"\n## AI Insights\n\n{st.session_state.geo_ai_insights}\n"
+        
+        report += "\n---\n*Report generated by DataInsights - Geospatial Analysis Module*\n"
+        
+        st.download_button(
+            label="📥 Download Geospatial Report",
+            data=report,
+            file_name=f"geospatial_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.md",
+            mime="text/markdown",
+            use_container_width=True
+        )
 
 def show_survival_analysis():
     """Survival Analysis page."""
