@@ -8854,22 +8854,91 @@ def show_ab_testing():
         numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
         categorical_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
         
-        st.info("💡 **Smart Detection:** Select columns for your A/B test (group column and metric column)")
+        st.info("💡 **Smart Detection:** Select columns for your A/B test")
         
         col1, col2 = st.columns(2)
         with col1:
-            # Try to auto-detect group column (columns with 2-3 unique values)
-            group_suggestions = [col for col in categorical_cols if df[col].nunique() <= 3]
-            group_default = group_suggestions[0] if group_suggestions else (categorical_cols[0] if categorical_cols else df.columns[0])
-            group_idx = list(df.columns).index(group_default) if group_default in df.columns else 0
+            # Find columns suitable for A/B testing (2-3 unique values)
+            suitable_group_cols = [col for col in df.columns if 2 <= df[col].nunique() <= 3]
+            
+            # If no suitable columns, show all but highlight the issue
+            if suitable_group_cols:
+                group_default = suitable_group_cols[0]
+                group_options = suitable_group_cols
+                group_idx = 0
+            else:
+                group_options = df.columns.tolist()
+                group_default = group_options[0]
+                group_idx = 0
             
             group_col = st.selectbox(
                 "Group Column (A/B variant):",
-                df.columns,
+                group_options,
                 index=group_idx,
                 key="ab_group_col",
-                help="Column that identifies control vs treatment (e.g., 'variant', 'group', 'version')"
+                help="Column that identifies control vs treatment"
             )
+            
+            # Real-time validation
+            if group_col:
+                n_groups = df[group_col].nunique()
+                groups = df[group_col].unique()
+                
+                issues = []
+                warnings = []
+                recommendations = []
+                
+                # Check 1: Must have exactly 2 groups (CRITICAL)
+                if n_groups < 2:
+                    issues.append(f"❌ Only {n_groups} group found. A/B testing requires exactly 2 groups")
+                    recommendations.append("Select a column with control and treatment groups")
+                elif n_groups > 2:
+                    warnings.append(f"⚠️ {n_groups} groups found. Standard A/B testing uses 2 groups")
+                    recommendations.append("Consider: Filter to 2 groups or use multi-variant testing")
+                
+                # Check 2: Group size balance
+                if n_groups == 2:
+                    group_counts = df[group_col].value_counts()
+                    group_sizes = group_counts.values
+                    imbalance_ratio = max(group_sizes) / min(group_sizes) if min(group_sizes) > 0 else float('inf')
+                    
+                    if imbalance_ratio > 10:
+                        warnings.append(f"⚠️ Severe group imbalance: {imbalance_ratio:.1f}:1 ratio")
+                        recommendations.append("Imbalanced groups may reduce statistical power")
+                    elif imbalance_ratio > 3:
+                        warnings.append(f"⚠️ Group imbalance: {imbalance_ratio:.1f}:1 ratio")
+                
+                # Check 3: Sample size per group
+                if n_groups == 2:
+                    min_group_size = group_counts.min()
+                    if min_group_size < 30:
+                        warnings.append(f"⚠️ Smallest group has only {min_group_size} samples (recommend 100+ per group)")
+                        recommendations.append("Small samples may not detect small effect sizes")
+                
+                # Display validation results
+                data_compatible = len(issues) == 0
+                
+                if len(issues) > 0:
+                    st.error("**🚨 NOT SUITABLE FOR A/B TESTING**")
+                    for issue in issues:
+                        st.write(issue)
+                    if recommendations:
+                        st.info("**💡 Recommendations:**")
+                        for rec in recommendations:
+                            st.write(f"• {rec}")
+                elif len(warnings) > 0:
+                    st.warning("**⚠️ A/B TESTING POSSIBLE (with warnings)**")
+                    for warning in warnings:
+                        st.write(warning)
+                    if recommendations:
+                        with st.expander("💡 Recommendations"):
+                            for rec in recommendations:
+                                st.write(f"• {rec}")
+                else:
+                    st.success("**✅ EXCELLENT FOR A/B TESTING**")
+                    st.write(f"✓ {n_groups} groups: {list(groups)}")
+                
+                st.caption(f"🔍 Groups: {list(groups[:5])}")
         
         with col2:
             # Auto-select first numeric column
