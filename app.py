@@ -10599,24 +10599,275 @@ def show_network_analysis():
     """Network Analysis page."""
     st.header("🕸️ Network Analysis & Graph Theory")
     
-    st.info("⚠️ **Module Under Construction** - Full implementation coming soon!")
+    # Help section
+    with st.expander("ℹ️ What is Network Analysis?"):
+        st.markdown("""
+        **Network Analysis** examines relationships and connections between entities (nodes) in a network (graph).
+        
+        ### Metrics Available:
+        
+        - **Centrality Measures:** Identify important nodes (degree, betweenness, closeness)
+        - **Community Detection:** Find groups of highly connected nodes
+        - **Network Statistics:** Density, clustering coefficient, average path length
+        
+        ### Business Applications:
+        - 👥 **Social Networks:** Influencer identification
+        - 🔍 **Fraud Detection:** Unusual transaction patterns
+        - 📊 **Organizational:** Team structure analysis
+        - 🌐 **Supply Chain:** Network optimization
+        """)
     
-    st.markdown("""
-    This module will provide:
-    - **Centrality Measures** - Degree, betweenness, closeness, eigenvector
-    - **Community Detection** - Louvain, greedy modularity
-    - **Network Metrics** - Density, clustering coefficient, diameter
-    - **Path Finding** - Shortest paths between nodes
-    - **Influencer Identification** - Find key network nodes
-    - **Interactive Visualizations** - Explore network structure
+    st.markdown("Analyze networks to discover relationships, communities, and key influencers.")
     
-    ### Use Cases:
-    - Social network analysis
-    - Fraud detection (transaction networks)
-    - Organizational analysis
-    - Influence mapping
-    - Supply chain optimization
-    """)
+    # Import utilities
+    from utils.network_analyzer import NetworkAnalyzer
+    
+    # Initialize analyzer
+    if 'network_analyzer' not in st.session_state:
+        st.session_state.network_analyzer = NetworkAnalyzer()
+    
+    analyzer = st.session_state.network_analyzer
+    
+    # Data loading
+    st.subheader("📤 1. Load Network Data")
+    
+    # Check if data is already loaded
+    has_loaded_data = st.session_state.data is not None
+    
+    if has_loaded_data:
+        data_options = ["Use Loaded Dataset", "Sample Social Network", "Upload Custom Data"]
+    else:
+        data_options = ["Sample Social Network", "Upload Custom Data"]
+    
+    data_source = st.radio(
+        "Choose data source:",
+        data_options,
+        index=0,
+        key="net_data_source"
+    )
+    
+    # Use Loaded Dataset
+    if data_source == "Use Loaded Dataset" and has_loaded_data:
+        df = st.session_state.data
+        st.success("✅ Using dataset from Data Upload section")
+        st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
+        
+        # Smart column detection
+        all_cols = df.columns.tolist()
+        
+        st.info("💡 **Smart Detection:** Select source (from) and target (to) columns for network edges")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            # Detect source column
+            source_suggestions = [col for col in all_cols if any(keyword in col.lower() for keyword in ['from', 'source', 'sender', 'user', 'node1'])]
+            source_default = source_suggestions[0] if source_suggestions else all_cols[0]
+            source_idx = list(df.columns).index(source_default)
+            
+            source_col = st.selectbox("Source (From) Column", df.columns, index=source_idx, key="net_source")
+        with col2:
+            # Detect target column
+            target_suggestions = [col for col in all_cols if any(keyword in col.lower() for keyword in ['to', 'target', 'receiver', 'friend', 'node2'])]
+            target_default = target_suggestions[0] if target_suggestions else (all_cols[1] if len(all_cols) > 1 else all_cols[0])
+            target_idx = list(df.columns).index(target_default)
+            
+            target_col = st.selectbox("Target (To) Column", df.columns, index=target_idx, key="net_target")
+        
+        if st.button("📊 Validate & Process Data", type="primary"):
+            # Validate columns are different
+            if source_col == target_col:
+                st.error("❌ Source and Target columns must be different!")
+                st.stop()
+            
+            edge_data = df[[source_col, target_col]].copy()
+            edge_data.columns = ['source', 'target']
+            st.session_state.net_data = edge_data
+            
+            st.success("✅ Data validated!")
+            st.info(f"🕸️ {len(edge_data)} edges ready for analysis")
+            st.rerun()
+    
+    elif data_source == "Sample Social Network":
+        if st.button("📥 Load Sample Social Network", type="primary"):
+            # Generate sample social network (follower/friend relationships)
+            np.random.seed(42)
+            
+            n_users = 50
+            users = [f"User_{i}" for i in range(1, n_users + 1)]
+            
+            # Create edges (friendships/follows)
+            edges = []
+            for user in users:
+                # Each user follows 2-8 random other users
+                n_follows = np.random.randint(2, 9)
+                follows = np.random.choice([u for u in users if u != user], n_follows, replace=False)
+                
+                for follow in follows:
+                    edges.append({
+                        'source': user,
+                        'target': follow
+                    })
+            
+            edge_data = pd.DataFrame(edges)
+            st.session_state.net_data = edge_data
+            
+            st.success(f"✅ Loaded social network with {len(users)} users and {len(edges)} connections!")
+            st.dataframe(edge_data.head(10), use_container_width=True)
+    
+    else:  # Upload
+        uploaded_file = st.file_uploader("Upload network edges CSV", type=['csv'], key="net_upload")
+        
+        if uploaded_file:
+            df = pd.read_csv(uploaded_file)
+            st.dataframe(df.head(), use_container_width=True)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                source_col = st.selectbox("Source (From) Column", df.columns, key="net_source_upload")
+            with col2:
+                target_col = st.selectbox("Target (To) Column", df.columns, key="net_target_upload")
+            
+            if st.button("Process Data", type="primary", key="net_process_upload"):
+                edge_data = df[[source_col, target_col]].copy()
+                edge_data.columns = ['source', 'target']
+                st.session_state.net_data = edge_data
+                st.success("✅ Data processed!")
+    
+    # Analysis section
+    if 'net_data' not in st.session_state:
+        st.info("👆 Load network data to begin graph analysis")
+        return
+    
+    edge_data = st.session_state.net_data
+    
+    # Dataset overview
+    st.divider()
+    st.subheader("📊 2. Network Analysis")
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Edges", f"{len(edge_data):,}")
+    with col2:
+        n_nodes = len(set(edge_data['source'].tolist() + edge_data['target'].tolist()))
+        st.metric("Total Nodes", f"{n_nodes:,}")
+    with col3:
+        avg_degree = len(edge_data) / n_nodes
+        st.metric("Avg Degree", f"{avg_degree:.2f}")
+    
+    # Run analysis
+    if st.button("🕸️ Analyze Network", type="primary"):
+        with st.status("Computing network metrics...", expanded=True) as status:
+            result = analyzer.analyze_network(edge_data)
+            st.session_state.net_results = result
+            status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+        
+        st.success("✅ Network analysis completed!")
+        
+        # Display metrics
+        st.subheader("📈 Network Metrics")
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Density", f"{result['density']:.4f}")
+        with col2:
+            st.metric("Avg Clustering", f"{result['avg_clustering']:.4f}")
+        with col3:
+            st.metric("Components", result['n_components'])
+        with col4:
+            if 'diameter' in result:
+                st.metric("Diameter", result['diameter'])
+        
+        # Top nodes by centrality
+        st.subheader("🌟 Top 10 Most Central Nodes")
+        
+        tab1, tab2, tab3 = st.tabs(["Degree Centrality", "Betweenness", "Closeness"])
+        
+        with tab1:
+            st.dataframe(result['top_degree'], use_container_width=True)
+        with tab2:
+            st.dataframe(result['top_betweenness'], use_container_width=True)
+        with tab3:
+            st.dataframe(result['top_closeness'], use_container_width=True)
+        
+        # Network visualization
+        st.subheader("🕸️ Network Visualization")
+        fig = analyzer.visualize_network(result)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # AI Insights
+    if 'net_results' in st.session_state:
+        st.divider()
+        st.subheader("🤖 AI-Powered Insights")
+        
+        if 'net_ai_insights' not in st.session_state:
+            if st.button("✨ Generate AI Insights", type="primary", key="net_ai"):
+                with st.status("🤖 AI is analyzing network structure...", expanded=True) as status:
+                    try:
+                        from utils.ai_helper import AIHelper
+                        ai = AIHelper()
+                        
+                        result = st.session_state.net_results
+                        
+                        summary = f"""Network Analysis Results:
+- Total Nodes: {n_nodes}
+- Total Edges: {len(edge_data)}
+- Network Density: {result['density']:.4f}
+- Average Clustering Coefficient: {result['avg_clustering']:.4f}
+- Connected Components: {result['n_components']}
+- Top Node (Degree): {result['top_degree'].iloc[0]['Node']} ({result['top_degree'].iloc[0]['Degree Centrality']:.4f})
+"""
+                        
+                        insights = ai.generate_insights(
+                            summary,
+                            "Analyze this network structure and provide recommendations for identifying influencers, improving connectivity, or detecting anomalies."
+                        )
+                        
+                        st.session_state.net_ai_insights = insights
+                        status.update(label="✅ Insights generated!", state="complete", expanded=False)
+                        
+                    except Exception as e:
+                        st.error(f"Error generating insights: {str(e)}")
+        
+        if 'net_ai_insights' in st.session_state:
+            st.markdown(st.session_state.net_ai_insights)
+            st.success("✅ AI insights generated successfully!")
+    
+    # Export
+    if 'net_results' in st.session_state:
+        st.divider()
+        st.subheader("📥 Export Results")
+        
+        result = st.session_state.net_results
+        
+        report = f"""# Network Analysis Report
+
+## Overview
+- **Total Nodes:** {n_nodes:,}
+- **Total Edges:** {len(edge_data):,}
+- **Network Density:** {result['density']:.4f}
+- **Average Clustering Coefficient:** {result['avg_clustering']:.4f}
+- **Connected Components:** {result['n_components']}
+
+## Top Central Nodes
+
+### By Degree Centrality
+{result['top_degree'].head(5).to_markdown(index=False)}
+
+### By Betweenness Centrality
+{result['top_betweenness'].head(5).to_markdown(index=False)}
+"""
+        
+        if 'net_ai_insights' in st.session_state:
+            report += f"\n## AI Insights\n\n{st.session_state.net_ai_insights}\n"
+        
+        report += "\n---\n*Report generated by DataInsights - Network Analysis Module*\n"
+        
+        st.download_button(
+            label="📥 Download Network Report",
+            data=report,
+            file_name=f"network_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.md",
+            mime="text/markdown",
+            use_container_width=True
+        )
 
 if __name__ == "__main__":
     main()
