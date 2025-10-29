@@ -10651,31 +10651,116 @@ def show_recommendation_systems():
     # Display results if they exist
     if 'rec_similarity' in st.session_state:
         st.divider()
-        st.subheader("🎯 Sample Recommendations")
         
         engine = st.session_state.rec_engine
         method = st.session_state.rec_type
         ratings_data = st.session_state.rec_ratings
         
-        if method == 'user':
-            sample_user = ratings_data['user_id'].iloc[0]
-            recommendations = engine.recommend_items_user_based(sample_user, n_recommendations=5)
+        # Cold Start Analysis
+        st.subheader("🆕 Cold Start Analysis")
+        st.markdown("Detecting and handling new users/items with no rating history.")
+        
+        # Calculate cold start metrics
+        total_users = ratings_data['user_id'].nunique()
+        total_items = ratings_data['item_id'].nunique()
+        
+        # Count users/items with minimal ratings (≤2 ratings = cold start)
+        user_counts = ratings_data.groupby('user_id').size()
+        item_counts = ratings_data.groupby('item_id').size()
+        
+        cold_start_users = (user_counts <= 2).sum()
+        cold_start_items = (item_counts <= 2).sum()
+        
+        cold_start_user_pct = (cold_start_users / total_users) * 100
+        cold_start_item_pct = (cold_start_items / total_items) * 100
+        
+        # Display metrics
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Cold Start Users", f"{cold_start_users}", 
+                     delta=f"{cold_start_user_pct:.1f}%", 
+                     delta_color="inverse")
+        with col2:
+            st.metric("Total Users", f"{total_users}")
+        with col3:
+            st.metric("Cold Start Items", f"{cold_start_items}", 
+                     delta=f"{cold_start_item_pct:.1f}%", 
+                     delta_color="inverse")
+        with col4:
+            st.metric("Total Items", f"{total_items}")
+        
+        # Cold start strategy explanation
+        if cold_start_users > 0 or cold_start_items > 0:
+            st.info(f"""
+            🆕 **Cold Start Strategy Active**
             
-            st.write(f"**User-Based: Top 5 for {sample_user}**")
+            - **New users (≤2 ratings):** Recommend **popular items** based on global ratings
+            - **New items (≤2 ratings):** Use global average rating as baseline
+            - **Strategy:** Popularity-based fallback ensures all users get recommendations
+            """)
+        else:
+            st.success("✅ No significant cold start issues - all users and items have sufficient rating history")
+        
+        # Popular Items for Cold Start
+        st.subheader("⭐ Popular Items (Cold Start Fallback)")
+        st.caption("These items are recommended to new users with no rating history")
+        
+        popular_items = engine.get_popular_items(n_items=10)
+        if not popular_items.empty:
+            st.dataframe(popular_items, use_container_width=True)
+        else:
+            st.info("No popular items available")
+        
+        # Sample Recommendations with Cold Start Handling
+        st.divider()
+        st.subheader("🎯 Sample Recommendations (Cold Start Aware)")
+        
+        if method == 'user':
+            # Test with existing user
+            sample_user = ratings_data['user_id'].iloc[0]
+            recommendations, strategy = engine.recommend_with_cold_start(
+                sample_user, n_recommendations=5, method='user_based'
+            )
+            
+            # Show strategy used
+            if strategy == 'popularity_fallback':
+                st.warning(f"🆕 **User {sample_user}** - Cold start detected! Using **popular items** fallback.")
+            else:
+                st.success(f"✅ **User {sample_user}** - Using **collaborative filtering** (sufficient history)")
+            
             if len(recommendations) > 0:
                 st.dataframe(recommendations, use_container_width=True)
             else:
                 st.info("No recommendations available for this user")
+            
+            # Simulate new user cold start
+            st.markdown("---")
+            st.markdown("**🆕 Simulating New User (Cold Start):**")
+            fake_new_user = "NEW_USER_12345"
+            new_user_recs, new_user_strategy = engine.recommend_with_cold_start(
+                fake_new_user, n_recommendations=5, method='user_based'
+            )
+            
+            if new_user_strategy == 'popularity_fallback':
+                st.info(f"🎯 New user detected! Recommending **popular items** as fallback.")
+                st.dataframe(new_user_recs, use_container_width=True)
         
         else:
-            sample_item = ratings_data['item_id'].iloc[0]
-            similar_items = engine.get_similar_items(sample_item, n_items=5)
+            sample_user = ratings_data['user_id'].iloc[0]
+            recommendations, strategy = engine.recommend_with_cold_start(
+                sample_user, n_recommendations=5, method='item_based'
+            )
             
-            st.write(f"**Item-Based: Items Similar to {sample_item}**")
-            if len(similar_items) > 0:
-                st.dataframe(similar_items, use_container_width=True)
+            # Show strategy used
+            if strategy == 'popularity_fallback':
+                st.warning(f"🆕 **User {sample_user}** - Cold start detected! Using **popular items** fallback.")
             else:
-                st.info("No similar items found")
+                st.success(f"✅ **User {sample_user}** - Using **collaborative filtering** (sufficient history)")
+            
+            if len(recommendations) > 0:
+                st.dataframe(recommendations, use_container_width=True)
+            else:
+                st.info("No recommendations available")
     
     # AI Insights
     if 'rec_similarity' in st.session_state:

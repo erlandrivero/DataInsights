@@ -246,6 +246,99 @@ class RecommendationEngine:
             'similarity_score': similar_scores
         })
     
+    def get_popular_items(self, n_items: int = 10) -> pd.DataFrame:
+        """Get most popular items based on rating count and average rating.
+        
+        Used for cold start - recommending to new users with no history.
+        
+        Args:
+            n_items: Number of popular items to return.
+        
+        Returns:
+            DataFrame with popular items, their avg ratings, and rating counts.
+        """
+        if self.user_item_matrix is None:
+            return pd.DataFrame()
+        
+        # Calculate popularity score: count * avg_rating
+        item_ratings = self.user_item_matrix.replace(0, np.nan)
+        rating_counts = item_ratings.count(axis=0)
+        avg_ratings = item_ratings.mean(axis=0)
+        
+        # Popularity score: weighted by both count and rating
+        popularity_scores = rating_counts * avg_ratings
+        
+        # Sort and get top N
+        top_items = popularity_scores.nlargest(n_items)
+        
+        return pd.DataFrame({
+            'item_id': top_items.index,
+            'avg_rating': [avg_ratings[item] for item in top_items.index],
+            'rating_count': [rating_counts[item] for item in top_items.index],
+            'popularity_score': top_items.values
+        })
+    
+    def get_global_average(self) -> float:
+        """Get global average rating across all users and items.
+        
+        Returns:
+            Global average rating.
+        """
+        if self.user_item_matrix is None:
+            return 0.0
+        
+        # Replace 0s with NaN to get true average
+        ratings = self.user_item_matrix.replace(0, np.nan)
+        return ratings.mean().mean()
+    
+    def recommend_with_cold_start(self, user_id: Any, n_recommendations: int = 10,
+                                   method: str = 'user_based') -> Tuple[pd.DataFrame, str]:
+        """Recommend items with cold start handling.
+        
+        Detects cold start scenarios and uses appropriate fallback strategy:
+        - New user (no ratings): Return popular items
+        - Existing user: Use collaborative filtering
+        
+        Args:
+            user_id: User identifier.
+            n_recommendations: Number of recommendations.
+            method: 'user_based' or 'item_based'.
+        
+        Returns:
+            Tuple of (recommendations DataFrame, strategy used).
+        """
+        # Check if user exists
+        if user_id not in self.users:
+            # Cold start: New user with no history
+            popular_items = self.get_popular_items(n_recommendations)
+            return popular_items[['item_id', 'avg_rating']].rename(
+                columns={'avg_rating': 'predicted_rating'}
+            ), 'popularity_fallback'
+        
+        # Check if user has any ratings
+        user_ratings = self.user_item_matrix.loc[user_id]
+        if user_ratings.sum() == 0:
+            # Cold start: User exists but has no ratings
+            popular_items = self.get_popular_items(n_recommendations)
+            return popular_items[['item_id', 'avg_rating']].rename(
+                columns={'avg_rating': 'predicted_rating'}
+            ), 'popularity_fallback'
+        
+        # Normal case: Use collaborative filtering
+        if method == 'user_based':
+            recs = self.recommend_items_user_based(user_id, n_recommendations)
+        else:
+            recs = self.recommend_items_item_based(user_id, n_recommendations)
+        
+        # If collaborative filtering returns no results, fallback to popular items
+        if recs.empty:
+            popular_items = self.get_popular_items(n_recommendations)
+            return popular_items[['item_id', 'avg_rating']].rename(
+                columns={'avg_rating': 'predicted_rating'}
+            ), 'popularity_fallback'
+        
+        return recs, 'collaborative_filtering'
+    
     def evaluate_recommendations(self, test_df: pd.DataFrame, user_col: str, 
                                  item_col: str, rating_col: str,
                                  method: str = 'user_based', k: int = 10) -> Dict[str, float]:
