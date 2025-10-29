@@ -43,6 +43,9 @@ lightgbm
 catboost
 joblib  # For model serialization
 
+# Survival Analysis
+lifelines  # Kaplan-Meier estimator, log-rank test, survival curves
+
 # Advanced Report Exports
 kaleido  # For converting Plotly charts to static PNG images in MD+Images export
 

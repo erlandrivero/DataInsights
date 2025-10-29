@@ -11874,11 +11874,11 @@ def show_network_analysis():
             
             # Package results
             result = {
-                'n_nodes': stats['n_nodes'],
-                'n_edges': stats['n_edges'],
+                'n_nodes': stats['num_nodes'],
+                'n_edges': stats['num_edges'],
                 'density': stats['density'],
                 'avg_clustering': stats.get('avg_clustering', 0),
-                'n_components': stats['n_components'],
+                'n_components': stats['num_components'],
                 'diameter': stats.get('diameter'),
                 'top_degree': degree_cent.head(10),
                 'top_betweenness': between_cent.head(10),
