@@ -8809,6 +8809,19 @@ def show_ab_testing():
         - 📧 **Email Marketing:** Subject lines, content variations
         - 💰 **Pricing:** Test different price points
         - 🎯 **Advertising:** Ad copy variations, targeting strategies
+        
+        ### Sample Ratio Mismatch (SRM) Detection:
+        
+        **What is SRM?** A data quality check that detects when your test groups are not split as expected (e.g., 50/50).
+        
+        **Why it matters:** An unexpected sample ratio often indicates:
+        - 🐛 Implementation bugs in randomization code
+        - 📊 Data collection/logging issues
+        - ⚠️ Selection bias in how users entered the test
+        
+        **How we detect it:** Chi-square test comparing observed vs. expected group sizes (p < 0.01 = problem)
+        
+        **What to do:** If SRM is detected, **investigate before trusting results**. The test may be invalid.
         """)
     
     st.markdown("""
@@ -8990,8 +9003,55 @@ def show_ab_testing():
                 'metric_col': metric_col
             }
             
+            # Check for Sample Ratio Mismatch (SRM)
+            test_data = st.session_state.ab_test_data
+            control_size = len(test_data[test_data[group_col] == groups[0]])
+            treatment_size = len(test_data[test_data[group_col] == groups[1]])
+            total = control_size + treatment_size
+            
+            # Chi-square test for 50/50 split
+            expected_size = total / 2
+            chi_square = ((control_size - expected_size)**2 / expected_size + 
+                         (treatment_size - expected_size)**2 / expected_size)
+            
+            # Calculate p-value from chi-square distribution (df=1)
+            from scipy import stats
+            p_value = 1 - stats.chi2.cdf(chi_square, df=1)
+            
+            # Store SRM results
+            st.session_state.ab_srm_check = {
+                'control_size': control_size,
+                'treatment_size': treatment_size,
+                'expected_ratio': 0.5,
+                'chi_square': chi_square,
+                'p_value': p_value,
+                'has_srm': p_value < 0.01
+            }
+            
             st.success("✅ Data validated and ready for A/B testing!")
             st.info(f"**Groups:** {groups[0]} vs {groups[1]} | **Metric:** {metric_col}")
+            
+            # Show SRM warning if detected
+            if p_value < 0.01:
+                st.warning(f"""
+                ⚠️ **Sample Ratio Mismatch (SRM) Detected!**
+                
+                - **Control Size:** {control_size:,} ({control_size/total*100:.1f}%)
+                - **Treatment Size:** {treatment_size:,} ({treatment_size/total*100:.1f}%)
+                - **Expected:** 50/50 split
+                - **Chi-square:** {chi_square:.2f}
+                - **P-value:** {p_value:.6f}
+                
+                ⚠️ This suggests a data quality issue. The traffic split is significantly different from 50/50, which may indicate:
+                - Implementation bugs in randomization
+                - Data collection issues
+                - Sample selection bias
+                
+                **Recommendation:** Investigate before running tests, as results may be unreliable.
+                """)
+            else:
+                st.info(f"✅ **No SRM Detected** - Sample sizes are balanced (p={p_value:.4f})")
+            
             st.rerun()
     
     elif data_source == "Sample A/B Test Data":
@@ -9310,6 +9370,24 @@ def show_ab_testing():
         with col3:
             treatment_count = (test_data[groups_info['group_col']] == groups_info['treatment']).sum()
             st.metric(f"{groups_info['treatment']}", f"{treatment_count:,}")
+        
+        # Display SRM Check
+        if 'ab_srm_check' in st.session_state:
+            srm = st.session_state.ab_srm_check
+            
+            if srm['has_srm']:
+                st.error(f"""
+                🚨 **Sample Ratio Mismatch (SRM) Detected!**
+                
+                - **Control:** {srm['control_size']:,} ({srm['control_size']/(srm['control_size']+srm['treatment_size'])*100:.1f}%)
+                - **Treatment:** {srm['treatment_size']:,} ({srm['treatment_size']/(srm['control_size']+srm['treatment_size'])*100:.1f}%)
+                - **Expected:** 50/50 split
+                - **Chi-square:** {srm['chi_square']:.2f}, **P-value:** {srm['p_value']:.6f}
+                
+                ⚠️ **This indicates a data quality issue.** Results may be unreliable. Investigate before proceeding.
+                """)
+            else:
+                st.success(f"✅ **No SRM Detected** - Sample ratio is balanced (Chi² = {srm['chi_square']:.2f}, p = {srm['p_value']:.4f})")
         
         if st.button("🧪 Run Statistical Test", type="primary", key="run_loaded_test"):
             with st.status("Running statistical test...", expanded=True) as status:
