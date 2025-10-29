@@ -306,3 +306,179 @@ class GeospatialAnalyzer:
         )
         
         return fig
+    
+    def analyze_market_expansion(self, value_col: Optional[str] = None,
+                                grid_resolution: int = 20) -> Dict[str, Any]:
+        """Analyze potential markets for expansion.
+        
+        Identifies high-density areas with growth potential based on
+        current location distribution and optional value metrics.
+        
+        Args:
+            value_col: Optional column with business value (e.g., revenue, customers).
+            grid_resolution: Grid size for density analysis.
+        
+        Returns:
+            Dictionary with expansion analysis results.
+        
+        Examples:
+            >>> expansion = analyzer.analyze_market_expansion(value_col='revenue')
+            >>> print(f"Top market: {expansion['top_opportunities'][0]}")
+        """
+        if self.data is None:
+            return {}
+        
+        # Calculate density grid
+        density_df = self.calculate_density_grid(grid_size=grid_resolution)
+        
+        # Calculate coverage density (current presence)
+        current_density = density_df['count'].values.reshape(grid_resolution, grid_resolution)
+        
+        # Calculate value density if value column provided
+        if value_col and value_col in self.data.columns:
+            # Group by grid cell and sum values
+            lat_bins = np.linspace(self.data[self.lat_col].min(), 
+                                  self.data[self.lat_col].max(), 
+                                  grid_resolution + 1)
+            lon_bins = np.linspace(self.data[self.lon_col].min(),
+                                  self.data[self.lon_col].max(),
+                                  grid_resolution + 1)
+            
+            self.data['lat_bin'] = pd.cut(self.data[self.lat_col], bins=lat_bins, labels=False)
+            self.data['lon_bin'] = pd.cut(self.data[self.lon_col], bins=lon_bins, labels=False)
+            
+            value_by_cell = self.data.groupby(['lat_bin', 'lon_bin'])[value_col].sum().reset_index()
+            
+            value_density = np.zeros((grid_resolution, grid_resolution))
+            for _, row in value_by_cell.iterrows():
+                if not pd.isna(row['lat_bin']) and not pd.isna(row['lon_bin']):
+                    lat_idx = int(row['lat_bin'])
+                    lon_idx = int(row['lon_bin'])
+                    if 0 <= lat_idx < grid_resolution and 0 <= lon_idx < grid_resolution:
+                        value_density[lat_idx, lon_idx] = row[value_col]
+            
+            # Clean up temporary columns
+            self.data.drop(['lat_bin', 'lon_bin'], axis=1, inplace=True)
+        else:
+            value_density = current_density.copy()
+        
+        # Calculate opportunity score
+        # Areas with moderate current presence but high potential
+        # Normalize densities
+        current_norm = (current_density - current_density.min()) / (current_density.max() - current_density.min() + 1e-10)
+        value_norm = (value_density - value_density.min()) / (value_density.max() - value_density.min() + 1e-10)
+        
+        # Opportunity = high value potential, moderate/low current presence
+        # Use inverse of current density to find underserved areas
+        opportunity_score = value_norm * (1 - current_norm * 0.7)  # Weight current presence
+        
+        # Find top opportunities
+        flat_scores = opportunity_score.flatten()
+        top_indices = np.argsort(flat_scores)[-10:][::-1]  # Top 10
+        
+        opportunities = []
+        for idx in top_indices:
+            grid_row = idx // grid_resolution
+            grid_col = idx % grid_resolution
+            
+            # Calculate center coordinates of grid cell
+            lat_min, lat_max = self.data[self.lat_col].min(), self.data[self.lat_col].max()
+            lon_min, lon_max = self.data[self.lon_col].min(), self.data[self.lon_col].max()
+            
+            lat_cell_size = (lat_max - lat_min) / grid_resolution
+            lon_cell_size = (lon_max - lon_min) / grid_resolution
+            
+            center_lat = lat_min + (grid_row + 0.5) * lat_cell_size
+            center_lon = lon_min + (grid_col + 0.5) * lon_cell_size
+            
+            opportunities.append({
+                'rank': len(opportunities) + 1,
+                'latitude': center_lat,
+                'longitude': center_lon,
+                'opportunity_score': flat_scores[idx],
+                'current_density': current_density[grid_row, grid_col],
+                'value_potential': value_density[grid_row, grid_col]
+            })
+        
+        # Calculate market saturation
+        total_area = grid_resolution * grid_resolution
+        covered_cells = np.sum(current_density > 0)
+        saturation_pct = (covered_cells / total_area) * 100
+        
+        # Identify underserved quadrants
+        quadrants = {
+            'NE': opportunity_score[:grid_resolution//2, grid_resolution//2:].mean(),
+            'NW': opportunity_score[:grid_resolution//2, :grid_resolution//2].mean(),
+            'SE': opportunity_score[grid_resolution//2:, grid_resolution//2:].mean(),
+            'SW': opportunity_score[grid_resolution//2:, :grid_resolution//2].mean()
+        }
+        
+        best_quadrant = max(quadrants, key=quadrants.get)
+        
+        return {
+            'top_opportunities': opportunities,
+            'opportunity_score_matrix': opportunity_score,
+            'current_density_matrix': current_density,
+            'value_density_matrix': value_density if value_col else None,
+            'market_saturation_pct': saturation_pct,
+            'covered_cells': int(covered_cells),
+            'total_cells': int(total_area),
+            'best_quadrant': best_quadrant,
+            'quadrant_scores': quadrants,
+            'grid_resolution': grid_resolution
+        }
+    
+    @staticmethod
+    def create_expansion_heatmap(expansion_results: Dict[str, Any],
+                                 lat_range: Tuple[float, float],
+                                 lon_range: Tuple[float, float]) -> go.Figure:
+        """Create heatmap visualization for market expansion opportunities.
+        
+        Args:
+            expansion_results: Results from analyze_market_expansion().
+            lat_range: (min_lat, max_lat) for the map.
+            lon_range: (min_lon, max_lon) for the map.
+        
+        Returns:
+            Plotly figure.
+        
+        Examples:
+            >>> fig = GeospatialAnalyzer.create_expansion_heatmap(results, (30, 50), (-120, -70))
+            >>> st.plotly_chart(fig, use_container_width=True)
+        """
+        opportunity_matrix = expansion_results['opportunity_score_matrix']
+        grid_res = expansion_results['grid_resolution']
+        
+        # Create lat/lon coordinates for heatmap
+        lats = np.linspace(lat_range[0], lat_range[1], grid_res)
+        lons = np.linspace(lon_range[0], lon_range[1], grid_res)
+        
+        fig = go.Figure(data=go.Heatmap(
+            z=opportunity_matrix,
+            x=lons,
+            y=lats,
+            colorscale='YlOrRd',
+            colorbar=dict(title='Opportunity Score')
+        ))
+        
+        # Add top opportunity markers
+        top_opps = expansion_results['top_opportunities'][:5]  # Top 5
+        if top_opps:
+            fig.add_trace(go.Scattergeo(
+                lat=[opp['latitude'] for opp in top_opps],
+                lon=[opp['longitude'] for opp in top_opps],
+                mode='markers+text',
+                marker=dict(size=15, color='blue', symbol='star'),
+                text=[f"#{opp['rank']}" for opp in top_opps],
+                textposition='top center',
+                name='Top Opportunities'
+            ))
+        
+        fig.update_layout(
+            title='Market Expansion Opportunities',
+            height=600,
+            xaxis_title='Longitude',
+            yaxis_title='Latitude'
+        )
+        
+        return fig

@@ -11683,6 +11683,200 @@ def show_geospatial_analysis():
             title='Spatial Clusters'
         )
         st.plotly_chart(fig, use_container_width=True)
+        
+        # Market Expansion Analysis
+        st.divider()
+        st.subheader("📈 Market Expansion Analysis")
+        st.markdown("Identify high-potential areas for business expansion based on current presence and value metrics.")
+        
+        with st.expander("ℹ️ What is Market Expansion Analysis?"):
+            st.markdown("""
+            **Market Expansion Analysis** identifies optimal locations for business growth by analyzing:
+            
+            **Analysis Components:**
+            - 🎯 **Opportunity Scoring**: Areas with high potential but low current coverage
+            - 📊 **Density Analysis**: Current market presence vs potential value
+            - 🗺️ **Geographic Gaps**: Underserved regions with growth potential
+            - 📍 **Quadrant Analysis**: Regional opportunities (NE, NW, SE, SW)
+            
+            **Use Cases:**
+            - New store location selection
+            - Service area expansion
+            - Market entry strategy
+            - Resource allocation planning
+            
+            **How It Works:**
+            - **High Opportunity** = High value potential + Low current presence
+            - **Low Opportunity** = Already saturated or low value
+            """)
+        
+        # Value column selection
+        numeric_cols = geo_data.select_dtypes(include=[np.number]).columns.tolist()
+        value_cols = [col for col in numeric_cols if col not in [result['lat_col'], result['lon_col']]]
+        
+        if len(value_cols) > 0:
+            value_col = st.selectbox(
+                "Select Value Metric (Optional):",
+                ["None"] + value_cols,
+                help="Choose a business metric (e.g., revenue, customers) to weight opportunities"
+            )
+            
+            if value_col == "None":
+                value_col = None
+        else:
+            value_col = None
+            st.info("💡 No numeric value columns found. Analysis will be based on location density only.")
+        
+        # Grid resolution slider
+        grid_resolution = st.slider(
+            "Analysis Grid Resolution:",
+            min_value=10,
+            max_value=30,
+            value=20,
+            help="Higher resolution = more detailed analysis (slower)"
+        )
+        
+        # Run expansion analysis
+        if st.button("🔍 Analyze Expansion Opportunities", type="primary"):
+            with st.status("Analyzing market expansion opportunities...", expanded=True) as status:
+                try:
+                    expansion_results = analyzer.analyze_market_expansion(
+                        value_col=value_col,
+                        grid_resolution=grid_resolution
+                    )
+                    
+                    st.session_state.expansion_results = expansion_results
+                    
+                    status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+                    st.success("✅ Expansion analysis complete!")
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+        
+        # Display expansion results
+        if 'expansion_results' in st.session_state:
+            exp_res = st.session_state.expansion_results
+            
+            st.markdown("### 🎯 Top Expansion Opportunities")
+            
+            # Top opportunities table
+            opp_df = pd.DataFrame(exp_res['top_opportunities'])
+            st.dataframe(opp_df, use_container_width=True)
+            
+            # Market saturation metrics
+            st.markdown("### 📊 Market Coverage Analysis")
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Market Saturation", f"{exp_res['market_saturation_pct']:.1f}%",
+                         help="Percentage of geographic area with current presence")
+            with col2:
+                st.metric("Covered Cells", f"{exp_res['covered_cells']:,}",
+                         help="Number of grid cells with existing locations")
+            with col3:
+                st.metric("Uncovered Cells", f"{exp_res['total_cells'] - exp_res['covered_cells']:,}",
+                         help="Number of grid cells without presence")
+            with col4:
+                best_q = exp_res['best_quadrant']
+                st.metric("Best Quadrant", best_q,
+                         help="Geographic quadrant with highest opportunity")
+            
+            # Saturation interpretation
+            saturation = exp_res['market_saturation_pct']
+            if saturation < 20:
+                st.success(f"""
+                ✅ **Low Saturation ({saturation:.1f}%)**
+                
+                Significant expansion opportunities available! Focus on:
+                - Entering underserved markets
+                - Building brand presence
+                - Establishing market leadership
+                """)
+            elif saturation < 50:
+                st.info(f"""
+                ℹ️ **Moderate Saturation ({saturation:.1f}%)**
+                
+                Balanced growth potential. Consider:
+                - Selective expansion in high-opportunity areas
+                - Densifying presence in existing markets
+                - Strategic gap filling
+                """)
+            else:
+                st.warning(f"""
+                ⚠️ **High Saturation ({saturation:.1f}%)**
+                
+                Market is well-covered. Options:
+                - Focus on underperforming locations
+                - Consider adjacent markets
+                - Optimize existing footprint
+                """)
+            
+            # Quadrant analysis
+            st.markdown("### 🧭 Regional Opportunity Analysis")
+            
+            quadrant_df = pd.DataFrame({
+                'Quadrant': list(exp_res['quadrant_scores'].keys()),
+                'Opportunity Score': list(exp_res['quadrant_scores'].values())
+            }).sort_values('Opportunity Score', ascending=False)
+            
+            import plotly.express as px
+            fig_quad = px.bar(
+                quadrant_df,
+                x='Quadrant',
+                y='Opportunity Score',
+                title='Opportunity by Geographic Quadrant',
+                color='Opportunity Score',
+                color_continuous_scale='YlOrRd'
+            )
+            fig_quad.update_layout(height=400)
+            st.plotly_chart(fig_quad, use_container_width=True)
+            
+            # Expansion heatmap
+            st.markdown("### 🗺️ Opportunity Heatmap")
+            
+            lat_range = (geo_data[result['lat_col']].min(), geo_data[result['lat_col']].max())
+            lon_range = (geo_data[result['lon_col']].min(), geo_data[result['lon_col']].max())
+            
+            fig_heatmap = GeospatialAnalyzer.create_expansion_heatmap(
+                exp_res,
+                lat_range,
+                lon_range
+            )
+            st.plotly_chart(fig_heatmap, use_container_width=True)
+            st.caption("🌟 Stars indicate top 5 expansion opportunities. Brighter colors = higher opportunity.")
+            
+            # Strategic recommendations
+            st.markdown("### 💡 Strategic Recommendations")
+            
+            top_3 = exp_res['top_opportunities'][:3]
+            
+            st.markdown("**Priority Expansion Targets:**")
+            for opp in top_3:
+                st.markdown(f"""
+                **#{opp['rank']} - ({opp['latitude']:.4f}, {opp['longitude']:.4f})**
+                - Opportunity Score: {opp['opportunity_score']:.3f}
+                - Current Presence: {opp['current_density']:.1f} locations
+                - Value Potential: {opp['value_potential']:.2f}
+                """)
+            
+            # Resource allocation
+            if saturation < 50:
+                st.success("""
+                🎯 **Recommended Strategy: Expansion Focus**
+                
+                - **Allocate 70%** of resources to new market entry
+                - **Allocate 30%** to optimizing existing locations
+                - **Target**: Top 5 opportunities for maximum ROI
+                - **Timeline**: Phased rollout starting with #1 ranked location
+                """)
+            else:
+                st.info("""
+                🎯 **Recommended Strategy: Optimization Focus**
+                
+                - **Allocate 40%** to selective expansion (top opportunities only)
+                - **Allocate 60%** to improving existing footprint
+                - **Target**: Fill strategic gaps between current locations
+                - **Timeline**: Focus on quick wins in partially covered areas
+                """)
     
     # AI Insights
     if 'geo_results' in st.session_state:
