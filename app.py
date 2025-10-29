@@ -9027,7 +9027,6 @@ def show_ab_testing():
             }
             
             st.success(f"✅ Loaded sample A/B test data: {len(sample_data)} observations")
-            st.dataframe(sample_data.head(10), use_container_width=True)
     
     elif data_source == "Upload Custom Data":
         uploaded_file = st.file_uploader("Upload A/B test CSV", type=['csv'], key="ab_upload")
@@ -9295,6 +9294,11 @@ def show_ab_testing():
         
         test_data = st.session_state.ab_test_data
         groups_info = st.session_state.ab_test_groups
+        
+        # Display loaded data preview
+        with st.expander("👁️ View Loaded Data", expanded=False):
+            st.dataframe(test_data.head(20), use_container_width=True)
+            st.caption(f"Showing first 20 of {len(test_data)} rows")
         
         # Display dataset overview
         col1, col2, col3 = st.columns(3)
@@ -9799,6 +9803,11 @@ def show_cohort_analysis():
         avg_activities = len(user_data) / user_data['user_id'].nunique()
         st.metric("Avg Activities/User", f"{avg_activities:.1f}")
     
+    # Display loaded data preview
+    with st.expander("👁️ View Loaded Data", expanded=False):
+        st.dataframe(user_data.head(20), use_container_width=True)
+        st.caption(f"Showing first 20 of {len(user_data)} rows")
+    
     # Run cohort analysis
     st.divider()
     st.subheader("📊 2. Cohort Analysis")
@@ -10180,6 +10189,11 @@ def show_recommendation_systems():
     with col4:
         sparsity = 1 - (len(ratings_data) / (ratings_data['user_id'].nunique() * ratings_data['item_id'].nunique()))
         st.metric("Sparsity", f"{sparsity*100:.1f}%")
+    
+    # Display loaded data preview
+    with st.expander("👁️ View Loaded Ratings Data", expanded=False):
+        st.dataframe(ratings_data.head(20), use_container_width=True)
+        st.caption(f"Showing first 20 of {len(ratings_data)} ratings")
     
     # Build recommendation system
     st.divider()
@@ -10579,6 +10593,11 @@ def show_geospatial_analysis():
         return
     
     geo_data = st.session_state.geo_data
+    
+    # Display loaded data preview
+    with st.expander("👁️ View Loaded Geographic Data", expanded=False):
+        st.dataframe(geo_data.head(20), use_container_width=True)
+        st.caption(f"Showing first 20 of {len(geo_data)} locations")
     
     # Dataset overview
     st.divider()
@@ -11011,6 +11030,11 @@ def show_survival_analysis():
     
     surv_data = st.session_state.surv_data
     
+    # Display loaded data preview
+    with st.expander("👁️ View Loaded Survival Data", expanded=False):
+        st.dataframe(surv_data.head(20), use_container_width=True)
+        st.caption(f"Showing first 20 of {len(surv_data)} observations")
+    
     # Dataset overview
     st.divider()
     st.subheader("📊 2. Survival Analysis")
@@ -11404,6 +11428,11 @@ def show_network_analysis():
         return
     
     edge_data = st.session_state.net_data
+    
+    # Display loaded data preview
+    with st.expander("👁️ View Loaded Network Data", expanded=False):
+        st.dataframe(edge_data.head(20), use_container_width=True)
+        st.caption(f"Showing first 20 of {len(edge_data)} edges")
     
     # Dataset overview
     st.divider()
