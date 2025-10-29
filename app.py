@@ -11674,17 +11674,112 @@ def show_network_analysis():
             target_idx = list(df.columns).index(target_default)
             target_col = st.selectbox("Target (To) Column", df.columns, index=target_idx, key="net_target")
         
-        if st.button("📊 Validate & Process Data", type="primary"):
-            # Validate columns are different
-            if source_col == target_col:
-                st.error("❌ Source and Target columns must be different!")
-                st.stop()
+        # Real-time validation
+        issues = []
+        warnings = []
+        recommendations = []
+        
+        # Validate columns are different
+        if source_col == target_col:
+            issues.append("Source and Target columns must be different")
+            recommendations.append("Select two distinct columns representing 'from' and 'to' nodes")
+        
+        # Check for missing values
+        source_missing = df[source_col].isnull().sum()
+        target_missing = df[target_col].isnull().sum()
+        
+        if source_missing > 0:
+            warnings.append(f"Source column has {source_missing} missing values ({source_missing/len(df)*100:.1f}%)")
+        if target_missing > 0:
+            warnings.append(f"Target column has {target_missing} missing values ({target_missing/len(df)*100:.1f}%)")
+        
+        # Data quality checks
+        if source_col != target_col:
+            # Count potential edges after removing nulls
+            valid_edges = df[[source_col, target_col]].dropna()
+            n_edges = len(valid_edges)
+            n_unique_nodes = len(set(valid_edges[source_col].unique()) | set(valid_edges[target_col].unique()))
             
+            # Check minimum requirements
+            if n_edges < 3:
+                issues.append(f"Only {n_edges} valid edges (need at least 3 for network analysis)")
+                recommendations.append("Networks require multiple connections to analyze")
+            
+            if n_unique_nodes < 3:
+                issues.append(f"Only {n_unique_nodes} unique nodes (need at least 3)")
+                recommendations.append("Network analysis requires multiple distinct nodes")
+            elif n_unique_nodes < 5:
+                warnings.append(f"Only {n_unique_nodes} nodes - network metrics may be limited")
+            
+            # Check for self-loops (source == target in same row)
+            if n_edges > 0:
+                self_loops = (valid_edges[source_col] == valid_edges[target_col]).sum()
+                if self_loops > 0:
+                    warnings.append(f"{self_loops} self-loops detected (edges where source = target)")
+                    recommendations.append("Self-loops are often removed in network analysis")
+            
+            # Check network density
+            if n_unique_nodes >= 3 and n_edges > 0:
+                max_possible_edges = n_unique_nodes * (n_unique_nodes - 1)  # Directed graph
+                density = n_edges / max_possible_edges
+                
+                if density > 0.8:
+                    warnings.append(f"Very dense network ({density*100:.1f}% of possible connections)")
+                    recommendations.append("Dense networks may have less interesting community structure")
+                elif density < 0.01:
+                    warnings.append(f"Very sparse network ({density*100:.1f}% of possible connections)")
+                    recommendations.append("Sparse networks may have disconnected components")
+                
+                # Check average degree
+                avg_degree = n_edges / n_unique_nodes
+                if avg_degree < 1.5:
+                    warnings.append(f"Low average degree ({avg_degree:.1f} connections per node)")
+                    recommendations.append("Networks with higher connectivity provide richer analysis")
+            
+            # Check for isolated patterns
+            if n_edges > 0 and n_unique_nodes > 0:
+                # Count unique sources and targets
+                n_sources = valid_edges[source_col].nunique()
+                n_targets = valid_edges[target_col].nunique()
+                
+                if n_sources < n_unique_nodes * 0.3:
+                    warnings.append(f"Only {n_sources} nodes have outgoing edges (of {n_unique_nodes} total)")
+                if n_targets < n_unique_nodes * 0.3:
+                    warnings.append(f"Only {n_targets} nodes have incoming edges (of {n_unique_nodes} total)")
+        
+        # Display validation results
+        st.divider()
+        if len(issues) > 0:
+            st.error("**🚨 NOT SUITABLE FOR NETWORK ANALYSIS**")
+            for issue in issues:
+                st.write(f"❌ {issue}")
+            if recommendations:
+                with st.expander("💡 Recommendations"):
+                    for rec in recommendations:
+                        st.write(f"• {rec}")
+        elif len(warnings) > 0:
+            st.warning("**⚠️ NETWORK ANALYSIS POSSIBLE (with warnings)**")
+            for warning in warnings:
+                st.write(f"⚠️ {warning}")
+            if recommendations:
+                with st.expander("💡 Recommendations"):
+                    for rec in recommendations:
+                        st.write(f"• {rec}")
+        else:
+            st.success("**✅ EXCELLENT FOR NETWORK ANALYSIS**")
+            st.write("✅ Distinct source and target columns")
+            st.write("✅ Sufficient nodes and edges")
+            st.write("✅ Good network connectivity")
+        
+        # Only show button if no critical issues
+        if len(issues) == 0 and st.button("📊 Process Data", type="primary"):
             edge_data = df[[source_col, target_col]].copy()
             edge_data.columns = ['source', 'target']
+            # Remove rows with missing values
+            edge_data = edge_data.dropna()
             st.session_state.net_data = edge_data
             
-            st.success("✅ Data validated!")
+            st.success("✅ Data processed!")
             st.info(f"🕸️ {len(edge_data)} edges ready for analysis")
             st.rerun()
     
