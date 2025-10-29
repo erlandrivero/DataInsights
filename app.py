@@ -10498,36 +10498,106 @@ def show_geospatial_analysis():
         
         st.info("💡 **Smart Detection:** Select latitude and longitude columns")
         
+        # Pre-filter numeric columns for lat/lon
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        
         col1, col2 = st.columns(2)
         with col1:
-            lat_default = suggestions['latitude']
-            lat_idx = list(df.columns).index(lat_default)
+            lat_default = suggestions['latitude'] if suggestions['latitude'] in numeric_cols else (numeric_cols[0] if numeric_cols else df.columns[0])
+            lat_idx = list(df.columns).index(lat_default) if lat_default in df.columns else 0
             lat_col = st.selectbox("Latitude Column", df.columns, index=lat_idx, key="geo_lat")
         with col2:
-            lon_default = suggestions['longitude']
-            lon_idx = list(df.columns).index(lon_default)
+            lon_default = suggestions['longitude'] if suggestions['longitude'] in numeric_cols else (numeric_cols[1] if len(numeric_cols) > 1 else df.columns[1] if len(df.columns) > 1 else df.columns[0])
+            lon_idx = list(df.columns).index(lon_default) if lon_default in df.columns else 0
             lon_col = st.selectbox("Longitude Column", df.columns, index=lon_idx, key="geo_lon")
         
-        if st.button("📊 Validate & Process Data", type="primary"):
-            # Validate lat/lon are numeric
-            if not pd.api.types.is_numeric_dtype(df[lat_col]) or not pd.api.types.is_numeric_dtype(df[lon_col]):
-                st.error("❌ Latitude and Longitude must be numeric columns!")
-                st.stop()
+        # Real-time validation (similar to A/B Testing)
+        issues = []
+        warnings = []
+        recommendations = []
+        
+        # Validate latitude column
+        if not pd.api.types.is_numeric_dtype(df[lat_col]):
+            issues.append(f"Latitude column '{lat_col}' is not numeric (type: {df[lat_col].dtype})")
+            recommendations.append("Select a numeric column containing latitude values between -90 and 90")
+        else:
+            lat_min, lat_max = df[lat_col].min(), df[lat_col].max()
+            if lat_min < -90 or lat_max > 90:
+                issues.append(f"Latitude values out of range: {lat_min:.2f} to {lat_max:.2f} (must be -90 to 90)")
+                recommendations.append("Check your data - latitude must be between -90 and 90 degrees")
             
-            # Validate lat/lon ranges
-            if df[lat_col].min() < -90 or df[lat_col].max() > 90:
-                st.error("❌ Latitude must be between -90 and 90")
-                st.stop()
-            if df[lon_col].min() < -180 or df[lon_col].max() > 180:
-                st.error("❌ Longitude must be between -180 and 180")
-                st.stop()
+            # Check for missing values
+            lat_missing = df[lat_col].isnull().sum()
+            if lat_missing > 0:
+                warnings.append(f"Latitude column has {lat_missing} missing values ({lat_missing/len(df)*100:.1f}%)")
+        
+        # Validate longitude column
+        if not pd.api.types.is_numeric_dtype(df[lon_col]):
+            issues.append(f"Longitude column '{lon_col}' is not numeric (type: {df[lon_col].dtype})")
+            recommendations.append("Select a numeric column containing longitude values between -180 and 180")
+        else:
+            lon_min, lon_max = df[lon_col].min(), df[lon_col].max()
+            if lon_min < -180 or lon_max > 180:
+                issues.append(f"Longitude values out of range: {lon_min:.2f} to {lon_max:.2f} (must be -180 to 180)")
+                recommendations.append("Check your data - longitude must be between -180 and 180 degrees")
             
-            geo_data = df[[lat_col, lon_col]].copy()
+            # Check for missing values
+            lon_missing = df[lon_col].isnull().sum()
+            if lon_missing > 0:
+                warnings.append(f"Longitude column has {lon_missing} missing values ({lon_missing/len(df)*100:.1f}%)")
+        
+        # Check if both columns are the same
+        if lat_col == lon_col:
+            issues.append("Latitude and Longitude cannot be the same column")
+            recommendations.append("Select different columns for latitude and longitude")
+        
+        # Check data quality
+        if pd.api.types.is_numeric_dtype(df[lat_col]) and pd.api.types.is_numeric_dtype(df[lon_col]):
+            valid_data = df[[lat_col, lon_col]].dropna()
+            if len(valid_data) < 10:
+                warnings.append(f"Only {len(valid_data)} valid locations after removing missing values")
+                recommendations.append("Consider data with at least 10 valid coordinate pairs for meaningful analysis")
+            
+            # Check geographic spread
+            if len(valid_data) > 0:
+                lat_range = valid_data[lat_col].max() - valid_data[lat_col].min()
+                lon_range = valid_data[lon_col].max() - valid_data[lon_col].min()
+                if lat_range < 0.01 and lon_range < 0.01:
+                    warnings.append("Very limited geographic spread - all points are in a small area")
+                    recommendations.append("Spatial clustering works best with geographically distributed data")
+        
+        # Display validation results
+        st.divider()
+        if len(issues) > 0:
+            st.error("**🚨 NOT SUITABLE FOR GEOSPATIAL ANALYSIS**")
+            for issue in issues:
+                st.write(f"❌ {issue}")
+            if recommendations:
+                with st.expander("💡 Recommendations"):
+                    for rec in recommendations:
+                        st.write(f"• {rec}")
+        elif len(warnings) > 0:
+            st.warning("**⚠️ GEOSPATIAL ANALYSIS POSSIBLE (with warnings)**")
+            for warning in warnings:
+                st.write(f"⚠️ {warning}")
+            if recommendations:
+                with st.expander("💡 Recommendations"):
+                    for rec in recommendations:
+                        st.write(f"• {rec}")
+        else:
+            st.success("**✅ EXCELLENT FOR GEOSPATIAL ANALYSIS**")
+            st.write("✅ Numeric latitude and longitude columns")
+            st.write("✅ Values within valid geographic ranges")
+            st.write("✅ Good data quality")
+        
+        # Only show button if no critical issues
+        if len(issues) == 0 and st.button("📊 Process Data", type="primary"):
+            geo_data = df[[lat_col, lon_col]].dropna().copy()
             geo_data.columns = ['latitude', 'longitude']
             st.session_state.geo_data = geo_data
             
-            st.success("✅ Data validated!")
-            st.info(f"📍 {len(geo_data)} locations ready for analysis")
+            st.success("✅ Data processed!")
+            st.info(f"📍 {len(geo_data)} locations ready for spatial analysis")
             st.rerun()
     
     elif data_source == "Sample Store Locations":
