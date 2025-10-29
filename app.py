@@ -14143,21 +14143,32 @@ def show_churn_prediction():
             These features capture customer behavior patterns that predict churn better than raw transactions.
             """)
         
+        # Smart column detection
+        from utils.column_detector import ColumnDetector
+        suggestions = ColumnDetector.get_churn_column_suggestions(churn_data)
+        
+        st.info("💡 **Smart Detection:** Automatically detected relevant columns based on naming patterns")
+        
         # Column selection
         col1, col2 = st.columns(2)
         
         with col1:
+            customer_default = suggestions['customer_id']
+            customer_idx = list(churn_data.columns).index(customer_default) if customer_default in churn_data.columns else 0
             customer_col = st.selectbox(
                 "Customer ID Column:",
                 churn_data.columns.tolist(),
+                index=customer_idx,
                 help="Column identifying unique customers"
             )
         
         with col2:
+            date_default = suggestions['date']
+            date_idx = list(churn_data.columns).index(date_default) if date_default in churn_data.columns else (1 if len(churn_data.columns) > 1 else 0)
             date_col = st.selectbox(
                 "Transaction Date Column:",
                 churn_data.columns.tolist(),
-                index=1 if len(churn_data.columns) > 1 else 0,
+                index=date_idx,
                 help="Column with transaction timestamps"
             )
         
@@ -14165,18 +14176,24 @@ def show_churn_prediction():
         
         with col3:
             value_col_options = ["None"] + [col for col in churn_data.columns if col not in [customer_col, date_col]]
+            value_default = suggestions['value']
+            value_idx = value_col_options.index(value_default) if value_default and value_default in value_col_options else 0
             value_col = st.selectbox(
                 "Transaction Value Column (Optional):",
                 value_col_options,
+                index=value_idx,
                 help="Column with monetary values (optional)"
             )
             value_col = None if value_col == "None" else value_col
         
         with col4:
             churn_col_options = ["None"] + [col for col in churn_data.columns if col not in [customer_col, date_col]]
+            churn_default = suggestions['churn']
+            churn_idx = churn_col_options.index(churn_default) if churn_default and churn_default in churn_col_options else 0
             churn_col = st.selectbox(
                 "Churn Label Column (Optional):",
                 churn_col_options,
+                index=churn_idx,
                 help="Column indicating if customer churned (0/1)"
             )
             churn_col = None if churn_col == "None" else churn_col
@@ -14468,9 +14485,145 @@ def show_churn_prediction():
                                 st.markdown(f"  - {tactic}")
                             st.markdown("")
         
+        # AI Insights Section
+        st.divider()
+        st.subheader("✨ AI-Powered Insights")
+        
+        # Display saved insights if they exist
+        if 'churn_ai_insights' in st.session_state:
+            st.markdown(st.session_state.churn_ai_insights)
+            st.info("✅ AI insights saved! These will be included in your report downloads.")
+        
+        if st.button("🤖 Generate AI Insights", key="churn_ai_insights_btn", use_container_width=True):
+            try:
+                from utils.ai_helper import AIHelper
+                ai = AIHelper()
+                
+                with st.status("🤖 Analyzing churn patterns and generating retention strategies...", expanded=True) as status:
+                    # Get data from session state
+                    features = st.session_state.churn_features
+                    predictions = st.session_state.churn_predictions
+                    results = st.session_state.churn_results
+                    
+                    # Calculate comprehensive metrics
+                    total_customers = len(predictions)
+                    high_risk = len(predictions[predictions['risk_category'] == 'High Risk'])
+                    medium_risk = len(predictions[predictions['risk_category'] == 'Medium Risk'])
+                    low_risk = len(predictions[predictions['risk_category'] == 'Low Risk'])
+                    
+                    high_risk_pct = (high_risk / total_customers) * 100
+                    medium_risk_pct = (medium_risk / total_customers) * 100
+                    low_risk_pct = (low_risk / total_customers) * 100
+                    
+                    avg_churn_prob = predictions['churn_probability'].mean()
+                    
+                    # Model performance
+                    accuracy = results['accuracy']
+                    precision = results['precision']
+                    recall = results['recall']
+                    f1 = results['f1_score']
+                    roc_auc = results['roc_auc']
+                    
+                    # Feature importance (top 5)
+                    top_features = results['feature_importance'].head(5)
+                    top_feature_str = "\n".join([f"  - {row['feature']}: {row['importance']:.3f}" 
+                                                for _, row in top_features.iterrows()])
+                    
+                    # Customer behavior patterns
+                    avg_recency = features['recency_days'].mean()
+                    avg_frequency = features['frequency'].mean()
+                    pct_dormant = (features['is_dormant'].sum() / len(features)) * 100
+                    pct_declining = (features['is_declining'].sum() / len(features)) * 100
+                    
+                    # Prepare rich context
+                    context = f"""
+Churn Prediction Analysis Results:
+
+Model Performance:
+- Algorithm: {results.get('model_type', 'N/A')}
+- Accuracy: {accuracy:.1%}
+- Precision: {precision:.1%} (correctness of churn predictions)
+- Recall: {recall:.1%} (coverage of actual churners)
+- F1 Score: {f1:.3f} (balance of precision and recall)
+- ROC-AUC: {roc_auc:.3f} (model discrimination power)
+
+Customer Risk Distribution:
+- Total Customers: {total_customers:,}
+- 🔴 High Risk: {high_risk:,} ({high_risk_pct:.1f}%) - Churn probability >60%
+- 🟠 Medium Risk: {medium_risk:,} ({medium_risk_pct:.1f}%) - Churn probability 30-60%
+- 🟢 Low Risk: {low_risk:,} ({low_risk_pct:.1f}%) - Churn probability <30%
+- Average Churn Probability: {avg_churn_prob:.1%}
+
+Top Churn Drivers (Feature Importance):
+{top_feature_str}
+
+Customer Behavior Patterns:
+- Average Recency: {avg_recency:.1f} days since last transaction
+- Average Frequency: {avg_frequency:.1f} transactions per customer
+- Dormant Customers: {pct_dormant:.1f}% (>90 days inactive)
+- Declining Engagement: {pct_declining:.1f}% (recent activity < historical)
+
+"""
+                    
+                    prompt = f"""As a senior customer retention strategist and churn analytics expert with 15+ years of experience in SaaS, e-commerce, and subscription businesses, analyze this churn prediction model and provide actionable insights.
+
+Generate a comprehensive churn analysis with these sections:
+
+1. **Executive Summary** (3-4 sentences): Key findings about churn risk across the customer base. What's the overall health? What percentage are at risk? What's the urgency level?
+
+2. **Model Performance Assessment** (3-4 sentences): Evaluate the predictive model's quality. Is it reliable for business decisions? What do the precision/recall metrics tell us about false positives vs. false negatives? Can we trust the high-risk predictions?
+
+3. **Churn Driver Analysis** (4-5 bullet points): Deep dive into the top features driving churn:
+   - What do these features reveal about customer behavior?
+   - Are customers churning due to disengagement (recency), low usage (frequency), or value issues?
+   - Which behaviors are early warning signs?
+   - What patterns separate churners from loyal customers?
+
+4. **Risk Segment Insights** (one paragraph per segment - High/Medium/Low):
+   - **High Risk Segment**: Profile these customers. Why are they leaving? What immediate actions can save them?
+   - **Medium Risk Segment**: What's pushing them toward churn? How do we prevent escalation?
+   - **Low Risk Segment**: What are they doing right? How do we keep them engaged?
+
+5. **Prioritized Retention Strategy** (6-8 bullet points ranked by impact):
+   - Immediate interventions for high-risk customers (win-back)
+   - Preventive measures for medium-risk (re-engagement)
+   - Loyalty programs for low-risk (advocacy)
+   - Product/service improvements based on churn drivers
+   - Communication timing and channels
+   - Incentive structures and personalization tactics
+
+6. **Business Impact & ROI** (3-4 sentences): Translate predictions into financial outcomes. If we successfully reduce high-risk churn by 20-30%, what's the revenue impact? How should we allocate retention budget across segments? What's the expected customer lifetime value improvement?
+
+{context}
+
+Be data-driven, specific, and focus on actionable strategies that directly address the identified churn drivers. Connect patterns to business outcomes and prioritize by impact potential.
+"""
+                    
+                    response = ai.client.chat.completions.create(
+                        model="gpt-4",
+                        messages=[
+                            {"role": "system", "content": "You are a world-class customer retention strategist and churn analytics expert with deep expertise in predictive modeling, customer lifecycle management, and retention economics. You specialize in translating churn predictions into high-impact retention strategies."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.7,
+                        max_tokens=1500
+                    )
+                    
+                    # Save to session state
+                    st.session_state.churn_ai_insights = response.choices[0].message.content
+                    status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+                
+                # Display outside status block so it persists when collapsed
+                st.success("✅ AI insights generated successfully!")
+                st.markdown(st.session_state.churn_ai_insights)
+                st.info("✅ AI insights saved! These will be included in your report downloads.")
+                    
+            except Exception as e:
+                st.error(f"Error generating AI insights: {str(e)}")
+        
         # Export Section
         st.divider()
-        st.subheader("📥 6. Export Results")
+        st.subheader("📥 7. Export Results")
         
         col1, col2 = st.columns(2)
         
