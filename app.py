@@ -81,9 +81,9 @@ def main():
     # Load custom CSS
     load_custom_css()
     
-    # Header with fallback
-    st.title("🎯 DataInsights")
-    st.caption("Your AI-Powered Business Intelligence Assistant")
+    # Header with fallback - Centered branding
+    st.markdown("<h1 style='text-align: center;'>🎯 DataInsights</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: gray;'>Your AI-Powered Business Intelligence Assistant</p>", unsafe_allow_html=True)
     
     # Sidebar
     with st.sidebar:
@@ -224,7 +224,7 @@ def main():
         show_network_analysis()
 
 def show_home():
-    st.header("Welcome to DataInsights! 👋")
+    st.markdown("<h2 style='text-align: center;'>Welcome to DataInsights! 👋</h2>", unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns(3)
     
@@ -263,7 +263,7 @@ def show_home():
     """)
 
 def show_data_upload():
-    st.header("📤 Data Upload")
+    st.markdown("<h2 style='text-align: center;'>📤 Data Upload</h2>", unsafe_allow_html=True)
     
     # Tabs for different data sources
     tab1, tab2, tab3 = st.tabs(["📁 Local Upload", "🌐 OpenML", "🏆 Kaggle"])
@@ -621,7 +621,7 @@ def show_data_upload():
                         """)
 
 def show_analysis():
-    st.header("📊 Data Analysis")
+    st.markdown("<h2 style='text-align: center;'>📊 Data Analysis</h2>", unsafe_allow_html=True)
     
     if st.session_state.data is None:
         st.warning("⚠️ Please upload data first!")
@@ -1174,7 +1174,7 @@ def show_analysis():
                         )
 
 def show_insights():
-    st.header("🤖 AI Insights & Natural Language Querying")
+    st.markdown("<h2 style='text-align: center;'>🤖 AI Insights & Natural Language Querying</h2>", unsafe_allow_html=True)
     
     if st.session_state.data is None:
         st.warning("⚠️ Please upload data first!")
@@ -2639,7 +2639,7 @@ This report contains results from completed analytics modules.
 
 def show_market_basket_analysis():
     """Market Basket Analysis page."""
-    st.header("🧺 Market Basket Analysis")
+    st.markdown("<h2 style='text-align: center;'>🧺 Market Basket Analysis</h2>", unsafe_allow_html=True)
     
     # Help section
     with st.expander("ℹ️ What is Market Basket Analysis?"):
@@ -3632,7 +3632,7 @@ Based on this analysis, we recommend:
 
 def show_rfm_analysis():
     """RFM Analysis and Customer Segmentation page."""
-    st.header("👥 RFM Analysis & Customer Segmentation")
+    st.markdown("<h2 style='text-align: center;'>👥 RFM Analysis & Customer Segmentation</h2>", unsafe_allow_html=True)
     
     # Help section
     with st.expander("ℹ️ What is RFM Analysis?"):
@@ -4453,7 +4453,7 @@ Based on the RFM analysis:
 
 def show_monte_carlo_simulation():
     """Monte Carlo Simulation page for financial forecasting."""
-    st.header("📈 Monte Carlo Simulation")
+    st.markdown("<h2 style='text-align: center;'>📈 Monte Carlo Simulation</h2>", unsafe_allow_html=True)
     
     # Help section
     with st.expander("ℹ️ What is Monte Carlo Simulation?"):
@@ -4983,7 +4983,7 @@ def show_ml_classification():
     # Import ML helper functions for optimization
     from utils.ml_helpers import get_recommended_cv_folds, create_data_hash, cached_classification_training
     
-    st.header("🤖 Machine Learning - Classification Models")
+    st.markdown("<h2 style='text-align: center;'>🤖 Machine Learning - Classification Models</h2>", unsafe_allow_html=True)
     
     # Help section
     with st.expander("ℹ️ What is Machine Learning Classification?"):
@@ -6126,7 +6126,7 @@ def show_ml_regression():
     # Import ML helper functions for optimization
     from utils.ml_helpers import get_recommended_cv_folds, create_data_hash, cached_regression_training
     
-    st.header("📈 ML Regression")
+    st.markdown("<h2 style='text-align: center;'>📈 ML Regression</h2>", unsafe_allow_html=True)
     
     # Help section
     with st.expander("ℹ️ What is Machine Learning Regression?"):
@@ -7011,7 +7011,7 @@ def show_ml_regression():
 
 def show_anomaly_detection():
     """Anomaly & Outlier Detection page."""
-    st.header("🔬 Anomaly & Outlier Detection")
+    st.markdown("<h2 style='text-align: center;'>🔬 Anomaly & Outlier Detection</h2>", unsafe_allow_html=True)
     
     # Help section
     with st.expander("ℹ️ What is Anomaly Detection?"):
@@ -7587,7 +7587,7 @@ def show_anomaly_detection():
 
 def show_time_series_forecasting():
     """Time Series Forecasting & Analysis page."""
-    st.header("📈 Time Series Forecasting")
+    st.markdown("<h2 style='text-align: center;'>📈 Time Series Forecasting</h2>", unsafe_allow_html=True)
     
     # Help section
     with st.expander("ℹ️ What is Time Series Forecasting?"):
@@ -8238,7 +8238,7 @@ Use these forecasts for:
 
 def show_text_mining():
     """Text Mining & Sentiment Analysis page."""
-    st.header("💬 Text Mining & Sentiment Analysis")
+    st.markdown("<h2 style='text-align: center;'>💬 Text Mining & Sentiment Analysis</h2>", unsafe_allow_html=True)
     
     # Help section
     with st.expander("ℹ️ What is Text Mining?"):
@@ -8786,7 +8786,7 @@ This text mining analysis can be used for:
 
 def show_ab_testing():
     """A/B Testing page."""
-    st.header("🧪 A/B Testing & Statistical Hypothesis Testing")
+    st.markdown("<h2 style='text-align: center;'>🧪 A/B Testing & Statistical Hypothesis Testing</h2>", unsafe_allow_html=True)
     
     # Help section
     with st.expander("ℹ️ What is A/B Testing?"):
@@ -9489,7 +9489,7 @@ Be specific and actionable. Focus on business impact, not just statistics.
 
 def show_cohort_analysis():
     """Cohort Analysis page."""
-    st.header("👥 Cohort Analysis & Retention Tracking")
+    st.markdown("<h2 style='text-align: center;'>👥 Cohort Analysis & Retention Tracking</h2>", unsafe_allow_html=True)
     
     # Help section
     with st.expander("ℹ️ What is Cohort Analysis?"):
@@ -9918,7 +9918,7 @@ Focus on actionable strategies that can be implemented quickly.
 
 def show_recommendation_systems():
     """Recommendation Systems page."""
-    st.header("🎯 Recommendation Systems & Collaborative Filtering")
+    st.markdown("<h2 style='text-align: center;'>🎯 Recommendation Systems & Collaborative Filtering</h2>", unsafe_allow_html=True)
     
     # Help section
     with st.expander("ℹ️ What are Recommendation Systems?"):
@@ -10245,7 +10245,7 @@ Focus on practical, implementable suggestions.
 
 def show_geospatial_analysis():
     """Geospatial Analysis page."""
-    st.header("🗺️ Geospatial Analysis & Location Intelligence")
+    st.markdown("<h2 style='text-align: center;'>🗺️ Geospatial Analysis & Location Intelligence</h2>", unsafe_allow_html=True)
     
     # Help section
     with st.expander("ℹ️ What is Geospatial Analysis?"):
@@ -10564,7 +10564,7 @@ Focus on actionable location strategies.
 
 def show_survival_analysis():
     """Survival Analysis page."""
-    st.header("⏱️ Survival Analysis & Time-to-Event Modeling")
+    st.markdown("<h2 style='text-align: center;'>⏱️ Survival Analysis & Time-to-Event Modeling</h2>", unsafe_allow_html=True)
     
     # Help section
     with st.expander("ℹ️ What is Survival Analysis?"):
@@ -10903,7 +10903,7 @@ Focus on actionable risk mitigation strategies.
 
 def show_network_analysis():
     """Network Analysis page."""
-    st.header("🕸️ Network Analysis & Graph Theory")
+    st.markdown("<h2 style='text-align: center;'>🕸️ Network Analysis & Graph Theory</h2>", unsafe_allow_html=True)
     
     # Help section
     with st.expander("ℹ️ What is Network Analysis?"):
