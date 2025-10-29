@@ -12859,8 +12859,8 @@ def show_network_analysis():
     # Import utilities
     from utils.network_analysis import NetworkAnalyzer
     
-    # Initialize analyzer
-    if 'network_analyzer' not in st.session_state:
+    # Initialize analyzer (refresh if missing new methods)
+    if 'network_analyzer' not in st.session_state or not hasattr(st.session_state.network_analyzer, 'predict_links'):
         st.session_state.network_analyzer = NetworkAnalyzer()
     
     analyzer = st.session_state.network_analyzer
