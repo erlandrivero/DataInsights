@@ -666,3 +666,191 @@ class ABTestAnalyzer:
         )
         
         return fig
+    
+    def segment_analysis(self, data: pd.DataFrame, 
+                        group_col: str,
+                        metric_col: str,
+                        segment_col: str,
+                        control_group: str,
+                        treatment_group: str) -> Dict[str, Any]:
+        """Analyze A/B test results by segments to identify heterogeneous treatment effects.
+        
+        Breaks down test results by different segments (e.g., age groups, regions)
+        to understand which groups respond differently to treatment.
+        
+        Args:
+            data: DataFrame with test data.
+            group_col: Column indicating control/treatment group.
+            metric_col: Column with metric to analyze.
+            segment_col: Column to segment by (e.g., age_group, region).
+            control_group: Value indicating control group.
+            treatment_group: Value indicating treatment group.
+        
+        Returns:
+            Dictionary with segmented results and analysis.
+        
+        Examples:
+            >>> results = analyzer.segment_analysis(df, 'group', 'converted', 
+            ...                                     'age_group', 'control', 'treatment')
+        """
+        segments = data[segment_col].unique()
+        
+        segment_results = []
+        
+        for segment in segments:
+            segment_data = data[data[segment_col] == segment]
+            
+            control_segment = segment_data[segment_data[group_col] == control_group]
+            treatment_segment = segment_data[segment_data[group_col] == treatment_group]
+            
+            if len(control_segment) == 0 or len(treatment_segment) == 0:
+                continue
+            
+            # Calculate metrics for this segment
+            control_n = len(control_segment)
+            treatment_n = len(treatment_segment)
+            
+            # Check if metric is binary (0/1)
+            unique_values = data[metric_col].nunique()
+            is_binary = unique_values == 2 and set(data[metric_col].unique()).issubset({0, 1})
+            
+            if is_binary:
+                # Proportion test
+                control_conv = int(control_segment[metric_col].sum())
+                treatment_conv = int(treatment_segment[metric_col].sum())
+                
+                control_rate = control_conv / control_n if control_n > 0 else 0
+                treatment_rate = treatment_conv / treatment_n if treatment_n > 0 else 0
+                
+                # Run test for this segment
+                segment_test = self.run_proportion_test(
+                    control_n, control_conv, treatment_n, treatment_conv
+                )
+                
+                lift = segment_test['absolute_lift']
+                relative_lift = segment_test['relative_lift']
+                
+            else:
+                # T-test for continuous metrics
+                control_values = control_segment[metric_col].values
+                treatment_values = treatment_segment[metric_col].values
+                
+                control_rate = control_values.mean()
+                treatment_rate = treatment_values.mean()
+                
+                segment_test = self.run_ttest(control_values, treatment_values)
+                
+                lift = segment_test['absolute_diff']
+                relative_lift = segment_test['relative_diff']
+            
+            segment_results.append({
+                'segment': segment,
+                'segment_col': segment_col,
+                'control_n': control_n,
+                'treatment_n': treatment_n,
+                'control_mean': control_rate,
+                'treatment_mean': treatment_rate,
+                'lift': lift,
+                'relative_lift': relative_lift,
+                'p_value': segment_test['p_value'],
+                'significant': segment_test['significant'],
+                'ci_lower': segment_test['confidence_interval'][0],
+                'ci_upper': segment_test['confidence_interval'][1]
+            })
+        
+        # Calculate overall (non-segmented) result for comparison
+        control_data = data[data[group_col] == control_group]
+        treatment_data = data[data[group_col] == treatment_group]
+        
+        if is_binary:
+            overall_test = self.run_proportion_test(
+                len(control_data),
+                int(control_data[metric_col].sum()),
+                len(treatment_data),
+                int(treatment_data[metric_col].sum())
+            )
+            overall_lift = overall_test['absolute_lift']
+        else:
+            overall_test = self.run_ttest(
+                control_data[metric_col].values,
+                treatment_data[metric_col].values
+            )
+            overall_lift = overall_test['absolute_diff']
+        
+        return {
+            'segments': pd.DataFrame(segment_results),
+            'overall_lift': overall_lift,
+            'overall_p_value': overall_test['p_value'],
+            'is_binary': is_binary,
+            'segment_col': segment_col
+        }
+    
+    @staticmethod
+    def create_segment_comparison_plot(segment_results: pd.DataFrame,
+                                       segment_col: str,
+                                       overall_lift: float = None) -> go.Figure:
+        """Create visualization comparing treatment effects across segments.
+        
+        Args:
+            segment_results: DataFrame with per-segment results.
+            segment_col: Name of segmentation column.
+            overall_lift: Overall treatment effect (optional reference line).
+        
+        Returns:
+            Plotly figure.
+        
+        Examples:
+            >>> fig = ABTestAnalyzer.create_segment_comparison_plot(results, 'age_group')
+            >>> st.plotly_chart(fig, use_container_width=True)
+        """
+        # Sort by lift
+        df = segment_results.sort_values('lift', ascending=False)
+        
+        fig = go.Figure()
+        
+        # Add bars
+        colors = ['green' if sig else 'gray' for sig in df['significant']]
+        
+        fig.add_trace(go.Bar(
+            x=df['segment'],
+            y=df['lift'],
+            marker_color=colors,
+            text=df['lift'].apply(lambda x: f"{x:.3f}"),
+            textposition='outside',
+            name='Treatment Lift'
+        ))
+        
+        # Add overall lift reference line if provided
+        if overall_lift is not None:
+            fig.add_hline(
+                y=overall_lift,
+                line_dash="dash",
+                line_color="red",
+                annotation_text=f"Overall: {overall_lift:.3f}",
+                annotation_position="right"
+            )
+        
+        # Add error bars (confidence intervals)
+        fig.add_trace(go.Scatter(
+            x=df['segment'],
+            y=df['lift'],
+            error_y=dict(
+                type='data',
+                symmetric=False,
+                array=df['ci_upper'] - df['lift'],
+                arrayminus=df['lift'] - df['ci_lower']
+            ),
+            mode='markers',
+            marker=dict(size=0.1),
+            showlegend=False
+        ))
+        
+        fig.update_layout(
+            title=f'Treatment Effect by {segment_col}',
+            xaxis_title=segment_col,
+            yaxis_title='Treatment Lift',
+            height=500,
+            hovermode='x unified'
+        )
+        
+        return fig

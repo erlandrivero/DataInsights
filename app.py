@@ -9648,6 +9648,216 @@ def show_ab_testing():
                 - Total Collected: {seq_res['samples_collected']:,}
                 """)
     
+    # Segmentation Analysis Section
+    if 'ab_test_data' in st.session_state and 'ab_test_groups' in st.session_state:
+        st.divider()
+        st.subheader("📊 Segmentation Analysis")
+        st.markdown("Analyze how different user segments respond to your treatment. Identify which groups benefit most.")
+        
+        with st.expander("ℹ️ What is Segmentation Analysis?"):
+            st.markdown("""
+            **Segmentation Analysis** reveals **heterogeneous treatment effects** - how different groups respond differently to your treatment.
+            
+            **Why It Matters:**
+            - 👥 **Personalization**: Target treatments to specific segments
+            - 💰 **ROI Optimization**: Focus resources where impact is highest
+            - 📈 **Better Decisions**: Avoid one-size-fits-all conclusions
+            - 🎯 **Strategic Insights**: Understand WHO benefits most
+            
+            **Example Use Cases:**
+            - **E-commerce**: Age groups responding differently to discounts
+            - **Healthcare**: Treatment effectiveness by patient demographics
+            - **Marketing**: Campaign performance by geographic region
+            - **Product**: Feature adoption by user type
+            
+            **How to Use:**
+            1. Select a segment column (e.g., age_group, region, user_type)
+            2. Click "Analyze by Segments"
+            3. Review per-segment performance
+            4. Identify high and low performers
+            5. Target future campaigns accordingly
+            """)
+        
+        test_data = st.session_state.ab_test_data
+        groups_info = st.session_state.ab_test_groups
+        
+        # Get potential segment columns (exclude group and metric columns)
+        excluded_cols = {groups_info['group_col'], groups_info['metric_col']}
+        segment_options = [col for col in test_data.columns if col not in excluded_cols]
+        
+        if len(segment_options) > 0:
+            segment_col = st.selectbox(
+                "Select Segment Column:",
+                segment_options,
+                help="Choose a column to segment by (e.g., age_group, region, user_type)"
+            )
+            
+            # Check if selected column is suitable for segmentation
+            num_segments = test_data[segment_col].nunique()
+            
+            if num_segments < 2:
+                st.warning(f"⚠️ Column '{segment_col}' has only {num_segments} unique value(s). Need at least 2 segments for meaningful analysis.")
+            elif num_segments > 20:
+                st.warning(f"⚠️ Column '{segment_col}' has {num_segments} unique values. Consider grouping into fewer categories for clearer insights.")
+            else:
+                st.info(f"💡 Will analyze {num_segments} segments in '{segment_col}'")
+            
+            # Run segmentation analysis button
+            if st.button("📊 Analyze by Segments", type="primary"):
+                with st.status("Analyzing treatment effects by segment...", expanded=True) as status:
+                    try:
+                        segment_results = analyzer.segment_analysis(
+                            data=test_data,
+                            group_col=groups_info['group_col'],
+                            metric_col=groups_info['metric_col'],
+                            segment_col=segment_col,
+                            control_group=groups_info['control'],
+                            treatment_group=groups_info['treatment']
+                        )
+                        
+                        st.session_state.segment_results = segment_results
+                        
+                        status.update(label="✅ Segmentation complete!", state="complete", expanded=False)
+                        st.success("✅ Segment analysis completed!")
+                    except Exception as e:
+                        st.error(f"❌ Error: {str(e)}")
+        else:
+            st.info("💡 No additional columns available for segmentation. Upload data with demographic or categorical columns to enable segment analysis.")
+    
+    # Display segmentation results
+    if 'segment_results' in st.session_state:
+        seg_res = st.session_state.segment_results
+        segments_df = seg_res['segments']
+        
+        st.markdown("### 📋 Segment Performance")
+        
+        # Display results table
+        display_df = segments_df[[
+            'segment', 'control_n', 'treatment_n', 
+            'control_mean', 'treatment_mean', 'lift', 
+            'relative_lift', 'p_value', 'significant'
+        ]].copy()
+        
+        # Format columns
+        display_df['control_mean'] = display_df['control_mean'].apply(lambda x: f"{x:.4f}")
+        display_df['treatment_mean'] = display_df['treatment_mean'].apply(lambda x: f"{x:.4f}")
+        display_df['lift'] = display_df['lift'].apply(lambda x: f"{x:.4f}")
+        display_df['relative_lift'] = display_df['relative_lift'].apply(lambda x: f"{x:.2f}%")
+        display_df['p_value'] = display_df['p_value'].apply(lambda x: f"{x:.4f}")
+        display_df['significant'] = display_df['significant'].apply(lambda x: '✅ Yes' if x else '❌ No')
+        
+        st.dataframe(display_df, use_container_width=True)
+        
+        # Key metrics
+        st.markdown("### 📊 Key Insights")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            best_segment = segments_df.loc[segments_df['lift'].idxmax(), 'segment']
+            best_lift = segments_df['lift'].max()
+            st.metric("Best Performing Segment", best_segment,
+                     delta=f"+{best_lift:.4f}",
+                     help="Segment with highest treatment lift")
+        
+        with col2:
+            worst_segment = segments_df.loc[segments_df['lift'].idxmin(), 'segment']
+            worst_lift = segments_df['lift'].min()
+            st.metric("Worst Performing Segment", worst_segment,
+                     delta=f"{worst_lift:.4f}",
+                     delta_color="inverse",
+                     help="Segment with lowest treatment lift")
+        
+        with col3:
+            sig_segments = segments_df['significant'].sum()
+            total_segments = len(segments_df)
+            st.metric("Significant Segments", f"{sig_segments}/{total_segments}",
+                     help="Number of segments with statistically significant effects")
+        
+        with col4:
+            lift_range = segments_df['lift'].max() - segments_df['lift'].min()
+            st.metric("Effect Heterogeneity", f"{lift_range:.4f}",
+                     help="Range of treatment effects across segments")
+        
+        # Visualization
+        st.markdown("### 📈 Treatment Effect by Segment")
+        
+        fig_segment = ABTestAnalyzer.create_segment_comparison_plot(
+            segments_df,
+            seg_res['segment_col'],
+            overall_lift=seg_res['overall_lift']
+        )
+        st.plotly_chart(fig_segment, use_container_width=True)
+        st.caption("Green bars = statistically significant | Gray bars = not significant | Red dashed line = overall effect")
+        
+        # Strategic recommendations
+        st.markdown("### 💡 Strategic Recommendations")
+        
+        # Identify high and low performers
+        sig_positive = segments_df[(segments_df['significant']) & (segments_df['lift'] > 0)]
+        sig_negative = segments_df[(segments_df['significant']) & (segments_df['lift'] < 0)]
+        
+        if len(sig_positive) > 0:
+            st.success(f"""
+            ✅ **High-Impact Segments (Focus Here)**
+            
+            The following segments show strong positive response:
+            """)
+            for _, row in sig_positive.iterrows():
+                st.markdown(f"- **{row['segment']}**: +{row['lift']:.4f} lift ({row['relative_lift']:.1f}% improvement)")
+            
+            st.markdown("""
+            **Recommendation:** Prioritize these segments in future campaigns for maximum ROI.
+            """)
+        
+        if len(sig_negative) > 0:
+            st.warning(f"""
+            ⚠️ **Negative Response Segments (Caution)**
+            
+            The following segments show adverse reactions:
+            """)
+            for _, row in sig_negative.iterrows():
+                st.markdown(f"- **{row['segment']}**: {row['lift']:.4f} lift ({row['relative_lift']:.1f}% change)")
+            
+            st.markdown("""
+            **Recommendation:** Exclude these segments or develop alternative treatments specifically for them.
+            """)
+        
+        non_sig = segments_df[~segments_df['significant']]
+        if len(non_sig) > 0:
+            st.info(f"""
+            ℹ️ **Neutral Segments ({len(non_sig)} total)**
+            
+            These segments show no clear treatment effect. Consider:
+            - **Lower priority** in targeting
+            - **Alternative treatments** may be needed
+            - **Collect more data** to increase statistical power
+            """)
+        
+        # Heterogeneity assessment
+        if lift_range > abs(seg_res['overall_lift']) * 0.5:
+            st.error("""
+            🚨 **High Heterogeneity Detected**
+            
+            Treatment effects vary significantly across segments (range > 50% of overall effect).
+            
+            **Action Required:**
+            - **DO NOT** use a one-size-fits-all approach
+            - **MUST** personalize treatment by segment
+            - **CONSIDER** segment-specific strategies
+            """)
+        else:
+            st.success("""
+            ✅ **Consistent Treatment Effect**
+            
+            Treatment effects are relatively uniform across segments.
+            
+            **You can:**
+            - Apply treatment broadly
+            - Still prioritize high-performing segments for efficiency
+            - Monitor for emerging segment differences over time
+            """)
+    
     # AI Insights
     if 'ab_test_results' in st.session_state:
         st.divider()
