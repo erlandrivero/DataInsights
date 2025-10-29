@@ -13938,11 +13938,11 @@ Be specific, data-driven, and focus on actionable network strategies that levera
                     # Save to session state
                     st.session_state.net_ai_insights = response.choices[0].message.content
                     status.update(label="✅ Analysis complete!", state="complete", expanded=False)
-                    
-                    # Display inside status block
-                    st.success("✅ AI insights generated successfully!")
-                    st.markdown(st.session_state.net_ai_insights)
-                    st.info("✅ AI insights saved! These will be included in your report downloads.")
+                
+                # Display outside status block so it persists when collapsed
+                st.success("✅ AI insights generated successfully!")
+                st.markdown(st.session_state.net_ai_insights)
+                st.info("✅ AI insights saved! These will be included in your report downloads.")
                     
             except Exception as e:
                 st.error(f"Error generating AI insights: {str(e)}")
