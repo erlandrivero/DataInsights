@@ -12062,12 +12062,12 @@ def show_network_analysis():
                     top_betweenness = result['top_betweenness']
                     top_closeness = result['top_closeness']
                     
-                    top_node_degree = top_degree.iloc[0]['Node']
-                    top_node_degree_score = top_degree.iloc[0]['Degree Centrality']
-                    top_node_betweenness = top_betweenness.iloc[0]['Node']
-                    top_node_betweenness_score = top_betweenness.iloc[0]['Betweenness Centrality']
-                    top_node_closeness = top_closeness.iloc[0]['Node']
-                    top_node_closeness_score = top_closeness.iloc[0]['Closeness Centrality']
+                    top_node_degree = top_degree.iloc[0]['node']
+                    top_node_degree_score = top_degree.iloc[0]['centrality']
+                    top_node_betweenness = top_betweenness.iloc[0]['node']
+                    top_node_betweenness_score = top_betweenness.iloc[0]['centrality']
+                    top_node_closeness = top_closeness.iloc[0]['node']
+                    top_node_closeness_score = top_closeness.iloc[0]['centrality']
                     
                     # Network characteristics
                     avg_degree = (2 * n_edges) / n_nodes if n_nodes > 0 else 0
@@ -12118,10 +12118,10 @@ Key Influencers (Centrality Analysis):
 - Top Node by Closeness (Information Speed): {top_node_closeness} (score: {top_node_closeness_score:.4f})
 
 Network Characteristics:
-- Hub Concentration: {'High' if top_degree.iloc[0]['Degree Centrality'] > 0.5 else 'Moderate' if top_degree.iloc[0]['Degree Centrality'] > 0.2 else 'Distributed'}
-- Information Flow: {'Centralized' if top_betweenness.iloc[0]['Betweenness Centrality'] > 0.3 else 'Decentralized'}
+- Hub Concentration: {'High' if top_degree.iloc[0]['centrality'] > 0.5 else 'Moderate' if top_degree.iloc[0]['centrality'] > 0.2 else 'Distributed'}
+- Information Flow: {'Centralized' if top_betweenness.iloc[0]['centrality'] > 0.3 else 'Decentralized'}
 - Network Efficiency: {'High' if avg_clustering > 0.5 and density > 0.1 else 'Moderate' if avg_clustering > 0.2 else 'Low'}
-- Vulnerability: {'High risk' if n_components > 1 or top_betweenness.iloc[0]['Betweenness Centrality'] > 0.5 else 'Moderate risk' if not is_connected else 'Resilient'}
+- Vulnerability: {'High risk' if n_components > 1 or top_betweenness.iloc[0]['centrality'] > 0.5 else 'Moderate risk' if not is_connected else 'Resilient'}
 """
                     
                     prompt = f"""
