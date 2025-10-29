@@ -443,3 +443,226 @@ class ABTestAnalyzer:
                 return "Large"
         
         return "Unknown"
+    
+    @staticmethod
+    def obrien_fleming_bounds(information_fraction: float, alpha: float = 0.05) -> Tuple[float, float]:
+        """Calculate O'Brien-Fleming spending function boundaries.
+        
+        O'Brien-Fleming is a conservative approach that spends alpha slowly initially
+        and more rapidly toward the end of the trial.
+        
+        Args:
+            information_fraction: Fraction of total information observed (0-1).
+            alpha: Overall significance level.
+        
+        Returns:
+            Tuple of (lower_bound, upper_bound) for Z-statistic.
+        
+        Examples:
+            >>> bounds = ABTestAnalyzer.obrien_fleming_bounds(0.5, 0.05)
+            >>> print(f"Bounds at 50% information: {bounds}")
+        """
+        if information_fraction <= 0 or information_fraction > 1:
+            return (0, 0)
+        
+        # O'Brien-Fleming spending function
+        z_alpha = stats.norm.ppf(1 - alpha/2)
+        boundary = z_alpha / np.sqrt(information_fraction)
+        
+        return (-boundary, boundary)
+    
+    @staticmethod
+    def pocock_bounds(num_looks: int, look_number: int, alpha: float = 0.05) -> Tuple[float, float]:
+        """Calculate Pocock spending function boundaries.
+        
+        Pocock uses constant boundaries across all interim analyses.
+        
+        Args:
+            num_looks: Total number of planned interim analyses.
+            look_number: Current look number (1-indexed).
+            alpha: Overall significance level.
+        
+        Returns:
+            Tuple of (lower_bound, upper_bound) for Z-statistic.
+        
+        Examples:
+            >>> bounds = ABTestAnalyzer.pocock_bounds(5, 3, 0.05)
+        """
+        # Pocock constant (approximate for two-sided tests)
+        if num_looks == 1:
+            c = stats.norm.ppf(1 - alpha/2)
+        elif num_looks == 2:
+            c = 1.977
+        elif num_looks == 3:
+            c = 2.289
+        elif num_looks == 4:
+            c = 2.361
+        elif num_looks == 5:
+            c = 2.413
+        else:
+            # Approximation for larger number of looks
+            c = stats.norm.ppf(1 - alpha/(2*num_looks))
+        
+        return (-c, c)
+    
+    def sequential_test_proportion(
+        self,
+        control_n: int,
+        control_conversions: int,
+        treatment_n: int,
+        treatment_conversions: int,
+        information_fraction: float,
+        spending_function: str = 'obrien_fleming',
+        num_looks: int = 5,
+        look_number: int = 1
+    ) -> Dict[str, Any]:
+        """Run sequential A/B test with alpha spending.
+        
+        Allows for early stopping based on alpha spending functions,
+        reducing required sample size and test duration.
+        
+        Args:
+            control_n: Sample size for control group.
+            control_conversions: Number of conversions in control.
+            treatment_n: Sample size for treatment group.
+            treatment_conversions: Number of conversions in treatment.
+            information_fraction: Fraction of planned sample size reached (0-1).
+            spending_function: 'obrien_fleming' or 'pocock'.
+            num_looks: Total number of planned interim analyses.
+            look_number: Current look number (1-indexed).
+        
+        Returns:
+            Dictionary with test results and stopping decision.
+        
+        Examples:
+            >>> result = analyzer.sequential_test_proportion(
+            ...     250, 25, 250, 35, information_fraction=0.5,
+            ...     spending_function='obrien_fleming'
+            ... )
+        """
+        # Calculate standard proportion test
+        base_result = self.run_proportion_test(
+            control_n, control_conversions,
+            treatment_n, treatment_conversions
+        )
+        
+        # Calculate Z-statistic
+        control_rate = control_conversions / control_n if control_n > 0 else 0
+        treatment_rate = treatment_conversions / treatment_n if treatment_n > 0 else 0
+        pooled_rate = (control_conversions + treatment_conversions) / (control_n + treatment_n)
+        
+        se = np.sqrt(pooled_rate * (1 - pooled_rate) * (1/control_n + 1/treatment_n))
+        z_stat = (treatment_rate - control_rate) / se if se > 0 else 0
+        
+        # Get boundaries based on spending function
+        if spending_function == 'obrien_fleming':
+            lower_bound, upper_bound = self.obrien_fleming_bounds(information_fraction, self.alpha)
+        else:  # pocock
+            lower_bound, upper_bound = self.pocock_bounds(num_looks, look_number, self.alpha)
+        
+        # Determine stopping decision
+        stop_for_efficacy = z_stat > upper_bound
+        stop_for_futility = z_stat < lower_bound
+        should_stop = stop_for_efficacy or stop_for_futility
+        
+        # Calculate remaining sample size needed
+        remaining_fraction = 1 - information_fraction
+        total_planned = (control_n + treatment_n) / information_fraction if information_fraction > 0 else 0
+        remaining_needed = int(total_planned * remaining_fraction)
+        
+        result = {
+            **base_result,
+            'z_statistic': z_stat,
+            'lower_bound': lower_bound,
+            'upper_bound': upper_bound,
+            'information_fraction': information_fraction,
+            'should_stop': should_stop,
+            'stop_for_efficacy': stop_for_efficacy,
+            'stop_for_futility': stop_for_futility,
+            'spending_function': spending_function,
+            'look_number': look_number,
+            'num_looks': num_looks,
+            'samples_collected': control_n + treatment_n,
+            'remaining_samples_needed': remaining_needed if not should_stop else 0,
+            'potential_savings_pct': remaining_fraction * 100 if should_stop else 0
+        }
+        
+        return result
+    
+    @staticmethod
+    def create_sequential_boundary_plot(
+        alpha: float = 0.05,
+        spending_function: str = 'obrien_fleming',
+        num_looks: int = 5
+    ) -> go.Figure:
+        """Create visualization of sequential testing boundaries.
+        
+        Shows how the decision boundaries evolve as information accrues.
+        
+        Args:
+            alpha: Significance level.
+            spending_function: 'obrien_fleming' or 'pocock'.
+            num_looks: Number of planned interim analyses.
+        
+        Returns:
+            Plotly figure.
+        
+        Examples:
+            >>> fig = ABTestAnalyzer.create_sequential_boundary_plot(0.05, 'obrien_fleming', 5)
+            >>> st.plotly_chart(fig, use_container_width=True)
+        """
+        information_fractions = np.linspace(0.2, 1.0, 50)
+        upper_bounds = []
+        lower_bounds = []
+        
+        for info_frac in information_fractions:
+            if spending_function == 'obrien_fleming':
+                lower, upper = ABTestAnalyzer.obrien_fleming_bounds(info_frac, alpha)
+            else:
+                # For Pocock, approximate the look number
+                look_num = int(info_frac * num_looks) + 1
+                lower, upper = ABTestAnalyzer.pocock_bounds(num_looks, look_num, alpha)
+            
+            upper_bounds.append(upper)
+            lower_bounds.append(lower)
+        
+        fig = go.Figure()
+        
+        # Upper boundary (efficacy)
+        fig.add_trace(go.Scatter(
+            x=information_fractions * 100,
+            y=upper_bounds,
+            mode='lines',
+            name='Stop for Efficacy',
+            line=dict(color='green', width=2)
+        ))
+        
+        # Lower boundary (futility)
+        fig.add_trace(go.Scatter(
+            x=information_fractions * 100,
+            y=lower_bounds,
+            mode='lines',
+            name='Stop for Futility',
+            line=dict(color='red', width=2)
+        ))
+        
+        # Continue region
+        fig.add_trace(go.Scatter(
+            x=information_fractions * 100,
+            y=[0] * len(information_fractions),
+            mode='lines',
+            name='Continue Testing',
+            line=dict(color='gray', width=1, dash='dash')
+        ))
+        
+        title = f'Sequential Testing Boundaries ({spending_function.replace("_", " ").title()})'
+        fig.update_layout(
+            title=title,
+            xaxis_title='Information Fraction (%)',
+            yaxis_title='Z-Statistic',
+            hovermode='x unified',
+            height=500,
+            showlegend=True
+        )
+        
+        return fig

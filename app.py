@@ -9445,6 +9445,209 @@ def show_ab_testing():
         effect_interp = ABTestAnalyzer.interpret_effect_size(result['effect_size'], 'cohens_d')
         st.info(f"**Effect Size (Cohen's d):** {result['effect_size']:.3f} ({effect_interp})")
     
+    # Sequential Testing Section
+    if 'ab_test_results' in st.session_state and 'control_rate' in st.session_state.ab_test_results:
+        st.divider()
+        st.subheader("⏱️ Sequential Testing (Early Stopping)")
+        st.markdown("**Save time and resources** by stopping your test early when significance is reached.")
+        
+        with st.expander("ℹ️ What is Sequential Testing?"):
+            st.markdown("""
+            **Sequential Testing** allows you to monitor your A/B test continuously and stop early when you reach a conclusion, 
+            rather than waiting for a predetermined sample size.
+            
+            **Benefits:**
+            - ⏱️ **Reduced Test Duration**: Stop early when significance reached
+            - 💰 **Cost Savings**: Collect fewer samples
+            - 📊 **Controlled Error Rates**: Alpha spending functions maintain statistical rigor
+            
+            **Methods:**
+            - **O'Brien-Fleming**: Conservative initially, more aggressive near end (recommended)
+            - **Pocock**: Constant boundaries throughout test
+            
+            **When to Use:**
+            - Long-running tests with continuous data collection
+            - High opportunity cost of waiting
+            - Large expected effect sizes
+            """)
+        
+        # Sequential test configuration
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            spending_function = st.selectbox(
+                "Alpha Spending Function:",
+                ["obrien_fleming", "pocock"],
+                format_func=lambda x: "O'Brien-Fleming" if x == "obrien_fleming" else "Pocock",
+                help="O'Brien-Fleming is more conservative early on (recommended)"
+            )
+        
+        with col2:
+            num_looks = st.slider(
+                "Planned Interim Analyses:",
+                min_value=2,
+                max_value=10,
+                value=5,
+                help="Total number of times you plan to check the data"
+            )
+        
+        with col3:
+            information_fraction = st.slider(
+                "Current Information Fraction:",
+                min_value=0.2,
+                max_value=1.0,
+                value=0.5,
+                step=0.1,
+                help="Fraction of planned sample size you've collected (0.5 = 50%)"
+            )
+        
+        # Show boundary plot
+        st.markdown("### 📊 Sequential Testing Boundaries")
+        fig_boundaries = ABTestAnalyzer.create_sequential_boundary_plot(
+            alpha=0.05,
+            spending_function=spending_function,
+            num_looks=num_looks
+        )
+        st.plotly_chart(fig_boundaries, use_container_width=True)
+        st.caption("Green: Stop for efficacy (treatment wins) | Red: Stop for futility (no effect)")
+        
+        # Run sequential test button
+        if st.button("🔬 Run Sequential Test Analysis", type="primary"):
+            result = st.session_state.ab_test_results
+            
+            # Get group sizes and conversions
+            test_data = st.session_state.ab_test_data
+            groups_info = st.session_state.ab_test_groups
+            
+            control_data = test_data[test_data[groups_info['group_col']] == groups_info['control']]
+            treatment_data = test_data[test_data[groups_info['group_col']] == groups_info['treatment']]
+            
+            control_n = len(control_data)
+            treatment_n = len(treatment_data)
+            
+            # Assuming binary metric (0/1)
+            metric_col = groups_info['metric_col']
+            control_conversions = int(control_data[metric_col].sum())
+            treatment_conversions = int(treatment_data[metric_col].sum())
+            
+            # Calculate current look number
+            look_number = int(information_fraction * num_looks) + 1
+            
+            # Run sequential test
+            seq_result = analyzer.sequential_test_proportion(
+                control_n=control_n,
+                control_conversions=control_conversions,
+                treatment_n=treatment_n,
+                treatment_conversions=treatment_conversions,
+                information_fraction=information_fraction,
+                spending_function=spending_function,
+                num_looks=num_looks,
+                look_number=look_number
+            )
+            
+            st.session_state.seq_test_result = seq_result
+        
+        # Display sequential test results
+        if 'seq_test_result' in st.session_state:
+            seq_res = st.session_state.seq_test_result
+            
+            st.markdown("### 📋 Sequential Test Results")
+            
+            # Stopping decision
+            if seq_res['should_stop']:
+                if seq_res['stop_for_efficacy']:
+                    st.success(f"""
+                    ✅ **STOP FOR EFFICACY** 
+                    
+                    The treatment is significantly better! You can stop the test early.
+                    
+                    - **Z-statistic**: {seq_res['z_statistic']:.3f}
+                    - **Upper Bound**: {seq_res['upper_bound']:.3f}
+                    - **Decision**: Treatment wins with statistical significance
+                    """)
+                elif seq_res['stop_for_futility']:
+                    st.error(f"""
+                    🛑 **STOP FOR FUTILITY**
+                    
+                    Unlikely to find a significant effect. Consider stopping the test.
+                    
+                    - **Z-statistic**: {seq_res['z_statistic']:.3f}
+                    - **Lower Bound**: {seq_res['lower_bound']:.3f}
+                    - **Decision**: No treatment effect detected
+                    """)
+            else:
+                st.info(f"""
+                ⏳ **CONTINUE TESTING**
+                
+                Not enough evidence yet. Keep collecting data.
+                
+                - **Z-statistic**: {seq_res['z_statistic']:.3f}
+                - **Boundaries**: [{seq_res['lower_bound']:.3f}, {seq_res['upper_bound']:.3f}]
+                - **Decision**: Continue to next interim analysis
+                """)
+            
+            # Savings metrics
+            st.markdown("### 💰 Potential Savings")
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Samples Collected", f"{seq_res['samples_collected']:,}")
+            with col2:
+                st.metric("Information Fraction", f"{seq_res['information_fraction']:.0%}")
+            with col3:
+                st.metric("Remaining Samples", f"{seq_res['remaining_samples_needed']:,}")
+            with col4:
+                st.metric("Potential Savings", f"{seq_res['potential_savings_pct']:.0f}%",
+                         help="Percentage of planned samples you can avoid collecting")
+            
+            # Interpretation
+            if seq_res['should_stop']:
+                savings_samples = seq_res['remaining_samples_needed']
+                if savings_samples > 0:
+                    st.success(f"""
+                    🎯 **Resource Optimization:**
+                    
+                    By stopping now, you save **{savings_samples:,} samples** ({seq_res['potential_savings_pct']:.0f}% of planned).
+                    
+                    **Impact:**
+                    - Faster decision-making
+                    - Reduced opportunity cost
+                    - Maintained statistical rigor with alpha spending
+                    """)
+            else:
+                next_look = seq_res['look_number'] + 1
+                next_fraction = next_look / seq_res['num_looks']
+                additional_samples = int((next_fraction - seq_res['information_fraction']) * 
+                                       seq_res['samples_collected'] / seq_res['information_fraction'])
+                
+                st.info(f"""
+                📅 **Next Steps:**
+                
+                - **Next Analysis**: Look #{next_look} of {seq_res['num_looks']}
+                - **Target Information**: {next_fraction:.0%}
+                - **Additional Samples Needed**: ~{additional_samples:,}
+                - **Then Re-evaluate**: Run this sequential test again
+                """)
+            
+            # Technical details
+            with st.expander("🔍 Technical Details"):
+                st.markdown(f"""
+                **Test Configuration:**
+                - Spending Function: {seq_res['spending_function'].replace('_', ' ').title()}
+                - Alpha Level: {analyzer.alpha}
+                - Current Look: {seq_res['look_number']} of {seq_res['num_looks']}
+                
+                **Statistical Boundaries:**
+                - Lower Bound (Futility): {seq_res['lower_bound']:.4f}
+                - Upper Bound (Efficacy): {seq_res['upper_bound']:.4f}
+                - Observed Z-statistic: {seq_res['z_statistic']:.4f}
+                
+                **Sample Information:**
+                - Control: {seq_res['samples_collected'] // 2:,} samples
+                - Treatment: {seq_res['samples_collected'] - seq_res['samples_collected'] // 2:,} samples
+                - Total Collected: {seq_res['samples_collected']:,}
+                """)
+    
     # AI Insights
     if 'ab_test_results' in st.session_state:
         st.divider()
