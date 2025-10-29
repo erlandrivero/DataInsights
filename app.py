@@ -9372,7 +9372,7 @@ def show_ab_testing():
                 from utils.ai_helper import AIHelper
                 ai = AIHelper()
                 
-                with st.status("🤖 Analyzing A/B test results and generating strategic recommendations...", expanded=True) as status:
+                with st.status("🤖 Analyzing A/B test results and generating strategic recommendations...", expanded=False) as status:
                     # Get data from session state
                     result = st.session_state.ab_test_results
                     
