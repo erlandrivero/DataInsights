@@ -10010,6 +10010,155 @@ def show_cohort_analysis():
             last_period = retention_matrix.columns[-1]
             last_period_avg = retention_matrix[last_period].mean()
             st.metric(f"Avg Period {last_period} Retention", f"{last_period_avg:.1f}%")
+        
+        # Cohort Comparison Feature
+        st.divider()
+        st.subheader("🔬 Compare Cohorts")
+        st.markdown("Select cohorts to statistically compare their retention patterns.")
+        
+        # Get list of cohorts
+        cohorts = retention_matrix.index.tolist()
+        
+        if len(cohorts) >= 2:
+            col1, col2 = st.columns(2)
+            with col1:
+                cohort_a = st.selectbox("Cohort A", cohorts, key="cohort_compare_a")
+            with col2:
+                # Filter out Cohort A from Cohort B options
+                cohort_b_options = [c for c in cohorts if c != cohort_a]
+                cohort_b = st.selectbox("Cohort B", cohort_b_options, key="cohort_compare_b")
+            
+            if st.button("📊 Compare Selected Cohorts", type="primary"):
+                # Get retention values for both cohorts
+                cohort_a_values = retention_matrix.loc[cohort_a].dropna().values
+                cohort_b_values = retention_matrix.loc[cohort_b].dropna().values
+                
+                # Run t-test
+                from scipy import stats as scipy_stats
+                t_stat, p_value = scipy_stats.ttest_ind(cohort_a_values, cohort_b_values)
+                
+                # Calculate effect size (Cohen's d)
+                mean_a = cohort_a_values.mean()
+                mean_b = cohort_b_values.mean()
+                std_a = cohort_a_values.std()
+                std_b = cohort_b_values.std()
+                pooled_std = np.sqrt((std_a**2 + std_b**2) / 2)
+                cohens_d = (mean_a - mean_b) / pooled_std if pooled_std > 0 else 0
+                
+                # Calculate confidence intervals (95%)
+                ci_a = scipy_stats.t.interval(0.95, len(cohort_a_values)-1, 
+                                              loc=mean_a, 
+                                              scale=scipy_stats.sem(cohort_a_values))
+                ci_b = scipy_stats.t.interval(0.95, len(cohort_b_values)-1, 
+                                              loc=mean_b, 
+                                              scale=scipy_stats.sem(cohort_b_values))
+                
+                # Store comparison results
+                st.session_state.cohort_comparison = {
+                    'cohort_a': cohort_a,
+                    'cohort_b': cohort_b,
+                    'mean_a': mean_a,
+                    'mean_b': mean_b,
+                    'std_a': std_a,
+                    'std_b': std_b,
+                    't_stat': t_stat,
+                    'p_value': p_value,
+                    'cohens_d': cohens_d,
+                    'ci_a': ci_a,
+                    'ci_b': ci_b,
+                    'significant': p_value < 0.05
+                }
+                
+                st.success("✅ Comparison complete!")
+        
+        # Display comparison results if they exist
+        if 'cohort_comparison' in st.session_state:
+            comp = st.session_state.cohort_comparison
+            
+            st.subheader("📊 Comparison Results")
+            
+            # Statistical significance
+            if comp['significant']:
+                st.success(f"✅ **Statistically Significant Difference** (p = {comp['p_value']:.4f})")
+            else:
+                st.info(f"ℹ️ **No Significant Difference** (p = {comp['p_value']:.4f})")
+            
+            # Metrics
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric(f"**{comp['cohort_a']}** Avg Retention", f"{comp['mean_a']:.1f}%")
+            with col2:
+                st.metric(f"**{comp['cohort_b']}** Avg Retention", f"{comp['mean_b']:.1f}%")
+            with col3:
+                diff = comp['mean_a'] - comp['mean_b']
+                st.metric("Difference", f"{diff:+.1f}%", delta=f"{diff:+.1f}%")
+            
+            # Statistical details
+            st.markdown("### Statistical Details")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown(f"""
+                **T-Statistic:** {comp['t_stat']:.3f}  
+                **P-value:** {comp['p_value']:.6f}  
+                **Effect Size (Cohen's d):** {comp['cohens_d']:.3f}
+                """)
+                
+                # Interpret effect size
+                if abs(comp['cohens_d']) < 0.2:
+                    effect_interpretation = "Small effect"
+                elif abs(comp['cohens_d']) < 0.5:
+                    effect_interpretation = "Medium effect"
+                else:
+                    effect_interpretation = "Large effect"
+                st.caption(f"*{effect_interpretation}*")
+            
+            with col2:
+                st.markdown(f"""
+                **{comp['cohort_a']} CI (95%):** [{comp['ci_a'][0]:.1f}%, {comp['ci_a'][1]:.1f}%]  
+                **{comp['cohort_b']} CI (95%):** [{comp['ci_b'][0]:.1f}%, {comp['ci_b'][1]:.1f}%]
+                """)
+                st.caption("*Confidence intervals show range of plausible values*")
+            
+            # Side-by-side visualization
+            st.markdown("### Side-by-Side Comparison")
+            
+            # Create comparison plot
+            import plotly.graph_objects as go
+            
+            cohort_a_data = retention_matrix.loc[comp['cohort_a']].dropna()
+            cohort_b_data = retention_matrix.loc[comp['cohort_b']].dropna()
+            
+            fig = go.Figure()
+            
+            fig.add_trace(go.Scatter(
+                x=cohort_a_data.index,
+                y=cohort_a_data.values,
+                mode='lines+markers',
+                name=comp['cohort_a'],
+                line=dict(color='#667eea', width=3),
+                marker=dict(size=8)
+            ))
+            
+            fig.add_trace(go.Scatter(
+                x=cohort_b_data.index,
+                y=cohort_b_data.values,
+                mode='lines+markers',
+                name=comp['cohort_b'],
+                line=dict(color='#f093fb', width=3),
+                marker=dict(size=8)
+            ))
+            
+            fig.update_layout(
+                title=f"Retention Comparison: {comp['cohort_a']} vs {comp['cohort_b']}",
+                xaxis_title="Period",
+                yaxis_title="Retention (%)",
+                hovermode='x unified',
+                height=400
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("👆 Select two cohorts above and click 'Compare' to see statistical analysis")
     
     # AI Insights
     if 'cohort_retention' in st.session_state:
