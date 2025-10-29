@@ -10681,13 +10681,19 @@ def show_recommendation_systems():
                      delta=f"{cold_start_user_pct:.1f}%", 
                      delta_color="inverse")
         with col2:
-            st.metric("Total Users", f"{total_users}")
+            active_user_pct = 100 - cold_start_user_pct
+            st.metric("Total Users", f"{total_users}",
+                     delta=f"{active_user_pct:.1f}% active",
+                     delta_color="normal")
         with col3:
             st.metric("Cold Start Items", f"{cold_start_items}", 
                      delta=f"{cold_start_item_pct:.1f}%", 
                      delta_color="inverse")
         with col4:
-            st.metric("Total Items", f"{total_items}")
+            active_item_pct = 100 - cold_start_item_pct
+            st.metric("Total Items", f"{total_items}",
+                     delta=f"{active_item_pct:.1f}% active",
+                     delta_color="normal")
         
         # Cold start strategy explanation
         if cold_start_users > 0 or cold_start_items > 0:
