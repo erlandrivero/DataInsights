@@ -11126,7 +11126,12 @@ def show_survival_analysis():
     
     # Initialize analyzer
     if 'survival_analyzer' not in st.session_state:
-        st.session_state.survival_analyzer = SurvivalAnalyzer()
+        try:
+            st.session_state.survival_analyzer = SurvivalAnalyzer()
+        except ImportError as e:
+            st.error(f"❌ {str(e)}")
+            st.info("💡 The `lifelines` package is being installed on Streamlit Cloud. Please refresh the page in a few moments.")
+            st.stop()
     
     analyzer = st.session_state.survival_analyzer
     
