@@ -689,18 +689,48 @@ class ColumnDetector:
         numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
         
         # Detect customer ID column
+        # First priority: explicit customer/user columns
+        customer_keywords = ['customer', 'user', 'client', 'account', 'member', 'subscriber', 'patron']
         customer_suggestions = [col for col in all_cols if any(keyword in col.lower() 
-                               for keyword in ['customer', 'user', 'client', 'account', 'member', 'subscriber'])]
+                               for keyword in customer_keywords)]
         customer_suggestions = [col for col in customer_suggestions if any(id_word in col.lower() 
-                               for id_word in ['id', 'no', 'num', 'code'])]
+                               for id_word in ['id', 'no', 'num', 'code', 'key'])]
+        
+        # Second priority: columns with low cardinality that could be IDs (not invoice/order/transaction)
+        if not customer_suggestions:
+            id_like_cols = [col for col in all_cols if any(word in col.lower() 
+                           for word in ['id', 'no', 'num', 'code']) 
+                           and not any(exclude in col.lower() 
+                           for exclude in ['invoice', 'order', 'transaction', 'product', 'item', 'stock'])]
+            customer_suggestions = id_like_cols
+        
         customer_col = customer_suggestions[0] if customer_suggestions else all_cols[0]
         
-        # Detect date column
+        # Detect date column - prioritize actual datetime columns first
         date_cols = df.select_dtypes(include=['datetime64']).columns.tolist()
+        
+        # Look for date-related keywords in column names
+        date_keywords = ['date', 'time', 'timestamp', 'datetime', 'day', 'created', 'updated', 
+                        'invoice', 'order', 'purchase', 'transaction', 'shipped', 'delivered']
         date_suggestions = [col for col in all_cols if any(keyword in col.lower() 
-                           for keyword in ['date', 'time', 'timestamp', 'day', 'month', 'year', 'transaction', 'order', 'purchase'])]
-        date_suggestions = date_cols + [col for col in date_suggestions if col not in date_cols]
-        date_col = date_suggestions[0] if date_suggestions else (all_cols[1] if len(all_cols) > 1 else all_cols[0])
+                           for keyword in date_keywords)]
+        
+        # Try to parse string columns that might contain dates
+        parseable_dates = []
+        for col in all_cols:
+            if col not in date_cols and col not in date_suggestions:
+                try:
+                    test_sample = df[col].dropna().head(10)
+                    if len(test_sample) > 0:
+                        parsed = pd.to_datetime(test_sample, errors='coerce')
+                        if parsed.notna().sum() >= len(test_sample) * 0.8:  # 80% parseable
+                            parseable_dates.append(col)
+                except:
+                    pass
+        
+        # Combine all date column candidates: datetime types first, then name matches, then parseable
+        all_date_candidates = date_cols + [col for col in date_suggestions if col not in date_cols] + parseable_dates
+        date_col = all_date_candidates[0] if all_date_candidates else (all_cols[1] if len(all_cols) > 1 else all_cols[0])
         
         # Detect value/amount column
         value_suggestions = [col for col in numeric_cols if any(keyword in col.lower() 
