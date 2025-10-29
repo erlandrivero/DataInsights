@@ -9816,26 +9816,46 @@ def show_cohort_analysis():
     period_map = {"Monthly": "M", "Weekly": "W", "Daily": "D"}
     
     if st.button("📊 Run Cohort Analysis", type="primary"):
-        with st.status("Analyzing cohorts...", expanded=True) as status:
-            # Create cohorts
-            cohort_data = analyzer.create_cohorts(
-                user_data,
-                user_col='user_id',
-                cohort_date_col='signup_date',
-                activity_date_col='activity_date',
-                cohort_period=period_map[cohort_period]
-            )
-            
-            # Calculate retention
-            retention_matrix = analyzer.calculate_retention(cohort_data, 'user_id')
-            
-            # Store results
-            st.session_state.cohort_retention = retention_matrix
-            st.session_state.cohort_data_processed = cohort_data
-            
-            status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+        from utils.process_manager import ProcessManager
         
-        st.success(f"✅ Analyzed {len(retention_matrix)} cohorts!")
+        # Create process manager
+        pm = ProcessManager("Cohort_Analysis")
+        
+        # Show warning about not navigating
+        st.warning("""
+        ⚠️ **Important:** Do not navigate away from this page during analysis.
+        Navigation is now locked to prevent data loss.
+        """)
+        
+        # Lock navigation
+        pm.lock()
+        
+        try:
+            with st.status("Analyzing cohorts...", expanded=True) as status:
+                # Create cohorts
+                cohort_data = analyzer.create_cohorts(
+                    user_data,
+                    user_col='user_id',
+                    cohort_date_col='signup_date',
+                    activity_date_col='activity_date',
+                    cohort_period=period_map[cohort_period]
+                )
+                
+                # Calculate retention
+                retention_matrix = analyzer.calculate_retention(cohort_data, 'user_id')
+                
+                # Store results
+                st.session_state.cohort_retention = retention_matrix
+                st.session_state.cohort_data_processed = cohort_data
+                
+                status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+            
+            st.success(f"✅ Analyzed {len(retention_matrix)} cohorts!")
+        except Exception as e:
+            st.error(f"❌ Error during cohort analysis: {str(e)}")
+        finally:
+            # Always unlock navigation
+            pm.unlock()
     
     # Display results if they exist
     if 'cohort_retention' in st.session_state:
@@ -10298,25 +10318,45 @@ def show_recommendation_systems():
     min_support = st.slider("Minimum Support (min ratings required)", 1, 10, 3, key="rec_support")
     
     if st.button("🎯 Build Recommendations", type="primary"):
-        with st.status("Building recommendation model...", expanded=True) as status:
-            # Get engine from session state
-            engine = st.session_state.rec_engine
-            
-            # Build user-item matrix and calculate similarities
-            # The fit method automatically calculates both user and item similarities
-            engine.fit(ratings_data, user_col='user_id', item_col='item_id', rating_col='rating')
-            
-            # Store the appropriate similarity matrix based on method
-            if method == "User-Based Collaborative Filtering":
-                st.session_state.rec_similarity = engine.user_similarity
-                st.session_state.rec_type = 'user'
-            else:
-                st.session_state.rec_similarity = engine.item_similarity
-                st.session_state.rec_type = 'item'
-            
-            status.update(label="✅ Model built!", state="complete", expanded=False)
+        from utils.process_manager import ProcessManager
         
-        st.success(f"✅ Built {method} model!")
+        # Create process manager
+        pm = ProcessManager("Recommendation_System")
+        
+        # Show warning about not navigating
+        st.warning("""
+        ⚠️ **Important:** Do not navigate away from this page during analysis.
+        Navigation is now locked to prevent data loss.
+        """)
+        
+        # Lock navigation
+        pm.lock()
+        
+        try:
+            with st.status("Building recommendation model...", expanded=True) as status:
+                # Get engine from session state
+                engine = st.session_state.rec_engine
+                
+                # Build user-item matrix and calculate similarities
+                # The fit method automatically calculates both user and item similarities
+                engine.fit(ratings_data, user_col='user_id', item_col='item_id', rating_col='rating')
+                
+                # Store the appropriate similarity matrix based on method
+                if method == "User-Based Collaborative Filtering":
+                    st.session_state.rec_similarity = engine.user_similarity
+                    st.session_state.rec_type = 'user'
+                else:
+                    st.session_state.rec_similarity = engine.item_similarity
+                    st.session_state.rec_type = 'item'
+                
+                status.update(label="✅ Model built!", state="complete", expanded=False)
+            
+            st.success(f"✅ Built {method} model!")
+        except Exception as e:
+            st.error(f"❌ Error building recommendation model: {str(e)}")
+        finally:
+            # Always unlock navigation
+            pm.unlock()
     
     # Display results if they exist
     if 'rec_similarity' in st.session_state:
@@ -10784,32 +10824,52 @@ def show_geospatial_analysis():
         n_clusters = st.slider("Number of Clusters", 2, 10, 3, key="geo_n_clusters")
     
     if st.button("🗺️ Run Spatial Analysis", type="primary"):
-        with st.status("Analyzing geographic patterns...", expanded=True) as status:
-            # Get analyzer from session state
-            analyzer = st.session_state.geo_analyzer
-            
-            # Fit analyzer on data
-            analyzer.fit(geo_data, lat_col='latitude', lon_col='longitude')
-            
-            # Perform clustering
-            if cluster_method == "DBSCAN (Density-Based)":
-                clusters = analyzer.perform_clustering(method='dbscan')
-            else:
-                clusters = analyzer.perform_clustering(n_clusters=n_clusters, method='kmeans')
-            
-            # Store results
-            geo_data_with_clusters = geo_data.copy()
-            geo_data_with_clusters['cluster'] = clusters
-            result = {
-                'data': geo_data_with_clusters,
-                'n_clusters': len(set(clusters)) - (1 if -1 in clusters else 0),
-                'noise_points': list(clusters).count(-1) if cluster_method == "DBSCAN (Density-Based)" else 0
-            }
-            st.session_state.geo_results = result
-            st.session_state.geo_data = geo_data_with_clusters
-            status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+        from utils.process_manager import ProcessManager
         
-        st.success("✅ Spatial clustering completed!")
+        # Create process manager
+        pm = ProcessManager("Geospatial_Analysis")
+        
+        # Show warning about not navigating
+        st.warning("""
+        ⚠️ **Important:** Do not navigate away from this page during analysis.
+        Navigation is now locked to prevent data loss.
+        """)
+        
+        # Lock navigation
+        pm.lock()
+        
+        try:
+            with st.status("Analyzing geographic patterns...", expanded=True) as status:
+                # Get analyzer from session state
+                analyzer = st.session_state.geo_analyzer
+                
+                # Fit analyzer on data
+                analyzer.fit(geo_data, lat_col='latitude', lon_col='longitude')
+                
+                # Perform clustering
+                if cluster_method == "DBSCAN (Density-Based)":
+                    clusters = analyzer.perform_clustering(method='dbscan')
+                else:
+                    clusters = analyzer.perform_clustering(n_clusters=n_clusters, method='kmeans')
+                
+                # Store results
+                geo_data_with_clusters = geo_data.copy()
+                geo_data_with_clusters['cluster'] = clusters
+                result = {
+                    'data': geo_data_with_clusters,
+                    'n_clusters': len(set(clusters)) - (1 if -1 in clusters else 0),
+                    'noise_points': list(clusters).count(-1) if cluster_method == "DBSCAN (Density-Based)" else 0
+                }
+                st.session_state.geo_results = result
+                st.session_state.geo_data = geo_data_with_clusters
+                status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+            
+            st.success("✅ Spatial clustering completed!")
+        except Exception as e:
+            st.error(f"❌ Error during spatial analysis: {str(e)}")
+        finally:
+            # Always unlock navigation
+            pm.unlock()
     
     # Display results if they exist
     if 'geo_results' in st.session_state:
@@ -11336,42 +11396,62 @@ def show_survival_analysis():
     
     # Run analysis
     if st.button("⏱️ Run Survival Analysis", type="primary"):
-        with st.status("Fitting survival models...", expanded=True) as status:
-            # Get analyzer from session state  
-            analyzer = st.session_state.survival_analyzer
-            
-            if 'group' in surv_data.columns:
-                # Perform log-rank test
-                logrank = analyzer.perform_logrank_test(
-                    surv_data, 
-                    duration_col='time', 
-                    event_col='event', 
-                    group_col='group'
-                )
-                result = {
-                    'has_groups': True,
-                    'log_rank_p': logrank['p_value'],
-                    'log_rank_stat': logrank['test_statistic'],
-                    'groups': surv_data['group'].unique().tolist(),
-                    'median_survival': {}
-                }
-                # Calculate median survival for each group
-                for group in result['groups']:
-                    group_data = surv_data[surv_data['group'] == group]
-                    analyzer.fit_kaplan_meier(group_data, 'time', 'event', label=str(group))
-                    result['median_survival'][group] = analyzer.get_median_survival_time()
-            else:
-                # Overall survival
-                analyzer.fit_kaplan_meier(surv_data, 'time', 'event')
-                result = {
-                    'has_groups': False,
-                    'median_survival': analyzer.get_median_survival_time()
-                }
-            
-            st.session_state.surv_results = result
-            status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+        from utils.process_manager import ProcessManager
         
-        st.success("✅ Survival analysis completed!")
+        # Create process manager
+        pm = ProcessManager("Survival_Analysis")
+        
+        # Show warning about not navigating
+        st.warning("""
+        ⚠️ **Important:** Do not navigate away from this page during analysis.
+        Navigation is now locked to prevent data loss.
+        """)
+        
+        # Lock navigation
+        pm.lock()
+        
+        try:
+            with st.status("Fitting survival models...", expanded=True) as status:
+                # Get analyzer from session state  
+                analyzer = st.session_state.survival_analyzer
+                
+                if 'group' in surv_data.columns:
+                    # Perform log-rank test
+                    logrank = analyzer.perform_logrank_test(
+                        surv_data, 
+                        duration_col='duration', 
+                        event_col='event', 
+                        group_col='group'
+                    )
+                    result = {
+                        'has_groups': True,
+                        'log_rank_p': logrank['p_value'],
+                        'log_rank_stat': logrank['test_statistic'],
+                        'groups': surv_data['group'].unique().tolist(),
+                        'median_survival': {}
+                    }
+                    # Calculate median survival for each group
+                    for group in result['groups']:
+                        group_data = surv_data[surv_data['group'] == group]
+                        analyzer.fit_kaplan_meier(group_data, 'duration', 'event', label=str(group))
+                        result['median_survival'][group] = analyzer.get_median_survival_time()
+                else:
+                    # Overall survival
+                    analyzer.fit_kaplan_meier(surv_data, 'duration', 'event')
+                    result = {
+                        'has_groups': False,
+                        'median_survival': analyzer.get_median_survival_time()
+                    }
+                
+                st.session_state.surv_results = result
+                status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+            
+            st.success("✅ Survival analysis completed!")
+        except Exception as e:
+            st.error(f"❌ Error during survival analysis: {str(e)}")
+        finally:
+            # Always unlock navigation
+            pm.unlock()
     
     # Display results if they exist
     if 'surv_results' in st.session_state:
@@ -11857,38 +11937,58 @@ def show_network_analysis():
     
     # Run analysis
     if st.button("🕸️ Analyze Network", type="primary"):
-        with st.status("Computing network metrics...", expanded=True) as status:
-            # Get analyzer from session state
-            analyzer = st.session_state.network_analyzer
-            
-            # Build graph
-            analyzer.build_graph(edge_data, source_col='source', target_col='target')
-            
-            # Get network statistics
-            stats = analyzer.get_network_stats()
-            
-            # Calculate centrality measures
-            degree_cent = analyzer.calculate_centrality('degree')
-            between_cent = analyzer.calculate_centrality('betweenness')
-            close_cent = analyzer.calculate_centrality('closeness')
-            
-            # Package results
-            result = {
-                'n_nodes': stats['num_nodes'],
-                'n_edges': stats['num_edges'],
-                'density': stats['density'],
-                'avg_clustering': stats.get('avg_clustering', 0),
-                'n_components': stats['num_components'],
-                'diameter': stats.get('diameter'),
-                'top_degree': degree_cent.head(10),
-                'top_betweenness': between_cent.head(10),
-                'top_closeness': close_cent.head(10)
-            }
-            
-            st.session_state.net_results = result
-            status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+        from utils.process_manager import ProcessManager
         
-        st.success("✅ Network analysis completed!")
+        # Create process manager
+        pm = ProcessManager("Network_Analysis")
+        
+        # Show warning about not navigating
+        st.warning("""
+        ⚠️ **Important:** Do not navigate away from this page during analysis.
+        Navigation is now locked to prevent data loss.
+        """)
+        
+        # Lock navigation
+        pm.lock()
+        
+        try:
+            with st.status("Computing network metrics...", expanded=True) as status:
+                # Get analyzer from session state
+                analyzer = st.session_state.network_analyzer
+                
+                # Build graph
+                analyzer.build_graph(edge_data, source_col='source', target_col='target')
+                
+                # Get network statistics
+                stats = analyzer.get_network_stats()
+                
+                # Calculate centrality measures
+                degree_cent = analyzer.calculate_centrality('degree')
+                between_cent = analyzer.calculate_centrality('betweenness')
+                close_cent = analyzer.calculate_centrality('closeness')
+                
+                # Package results
+                result = {
+                    'n_nodes': stats['num_nodes'],
+                    'n_edges': stats['num_edges'],
+                    'density': stats['density'],
+                    'avg_clustering': stats.get('avg_clustering', 0),
+                    'n_components': stats['num_components'],
+                    'diameter': stats.get('diameter'),
+                    'top_degree': degree_cent.head(10),
+                    'top_betweenness': between_cent.head(10),
+                    'top_closeness': close_cent.head(10)
+                }
+                
+                st.session_state.net_results = result
+                status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+            
+            st.success("✅ Network analysis completed!")
+        except Exception as e:
+            st.error(f"❌ Error during network analysis: {str(e)}")
+        finally:
+            # Always unlock navigation
+            pm.unlock()
     
     # Display results if they exist
     if 'net_results' in st.session_state:
