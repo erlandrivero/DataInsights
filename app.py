@@ -11946,6 +11946,136 @@ def show_survival_analysis():
                     st.info(f"ℹ️ No significant difference between groups (p={result['log_rank_p']:.4f})")
         else:
             st.metric("Median Survival Time", f"{result['median_survival']:.1f} time units")
+        
+        # Cox Proportional Hazards Model
+        st.divider()
+        st.subheader("🔬 Cox Proportional Hazards Model")
+        st.markdown("Identify which factors affect survival time using regression analysis.")
+        
+        # Get potential covariates (numeric columns except duration and event)
+        numeric_cols = surv_data.select_dtypes(include=[np.number]).columns.tolist()
+        potential_covariates = [col for col in numeric_cols if col not in ['duration', 'event']]
+        
+        # Check if group column exists (categorical covariate)
+        if 'group' in surv_data.columns:
+            st.info("💡 **Tip:** The 'group' column will be converted to a numeric indicator for Cox regression.")
+            
+            # Convert group to numeric
+            surv_data_cox = surv_data.copy()
+            group_values = surv_data['group'].unique()
+            if len(group_values) == 2:
+                # Binary encoding
+                surv_data_cox['group_indicator'] = (surv_data['group'] == group_values[1]).astype(int)
+                potential_covariates.append('group_indicator')
+        else:
+            surv_data_cox = surv_data.copy()
+        
+        if len(potential_covariates) > 0:
+            # Covariate selection
+            selected_covariates = st.multiselect(
+                "Select Covariates (independent variables):",
+                potential_covariates,
+                default=potential_covariates[:min(3, len(potential_covariates))],
+                help="Select variables that might affect survival time"
+            )
+            
+            if len(selected_covariates) > 0 and st.button("📊 Run Cox Regression", type="primary"):
+                try:
+                    with st.status("Running Cox proportional hazards regression...", expanded=True) as status:
+                        # Fit Cox model
+                        cox_results = analyzer.fit_cox_model(
+                            surv_data_cox,
+                            duration_col='duration',
+                            event_col='event',
+                            covariate_cols=selected_covariates
+                        )
+                        
+                        st.session_state.cox_results = cox_results
+                        st.session_state.cox_covariates = selected_covariates
+                        
+                        status.update(label="✅ Cox model fitted!", state="complete", expanded=False)
+                    
+                    st.success("✅ Cox regression complete!")
+                except Exception as e:
+                    st.error(f"❌ Error fitting Cox model: {str(e)}")
+                    st.info("💡 Make sure covariates have sufficient variation and no missing values.")
+            
+            # Display Cox results if they exist
+            if 'cox_results' in st.session_state:
+                cox_res = st.session_state.cox_results
+                cox_covs = st.session_state.cox_covariates
+                
+                st.markdown("### 📊 Hazard Ratios")
+                st.markdown("**Interpretation:** HR > 1 = increased risk, HR < 1 = decreased risk, HR = 1 = no effect")
+                
+                # Create hazard ratio table
+                hr_df = pd.DataFrame({
+                    'Covariate': cox_res['hazard_ratios'].index,
+                    'Hazard Ratio': cox_res['hazard_ratios'].values,
+                    'CI Lower (95%)': cox_res['confidence_intervals'].iloc[:, 0].values,
+                    'CI Upper (95%)': cox_res['confidence_intervals'].iloc[:, 1].values,
+                    'P-value': cox_res['summary']['p'].values
+                })
+                
+                # Add significance indicator
+                hr_df['Significant'] = hr_df['P-value'].apply(lambda p: '✅ Yes' if p < 0.05 else '❌ No')
+                
+                # Add interpretation
+                def interpret_hr(hr):
+                    if hr > 1.5:
+                        return "🔴 Strong increase in risk"
+                    elif hr > 1.1:
+                        return "🟡 Moderate increase in risk"
+                    elif hr > 0.9:
+                        return "⚪ Minimal effect"
+                    elif hr > 0.67:
+                        return "🟢 Moderate decrease in risk"
+                    else:
+                        return "🟢🟢 Strong decrease in risk"
+                
+                hr_df['Interpretation'] = hr_df['Hazard Ratio'].apply(interpret_hr)
+                
+                st.dataframe(hr_df, use_container_width=True)
+                
+                # Model performance
+                st.markdown("### 📈 Model Performance")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Concordance Index", f"{cox_res['concordance_index']:.3f}",
+                             help="C-index measures discrimination ability (0.5=random, 1.0=perfect)")
+                with col2:
+                    st.metric("Log Likelihood", f"{cox_res['log_likelihood']:.2f}",
+                             help="Higher values indicate better fit")
+                
+                if cox_res['concordance_index'] > 0.7:
+                    st.success("✅ **Good discrimination** - Model can distinguish between high and low risk")
+                elif cox_res['concordance_index'] > 0.6:
+                    st.info("ℹ️ **Moderate discrimination** - Model has some predictive ability")
+                else:
+                    st.warning("⚠️ **Weak discrimination** - Model may need better predictors")
+                
+                # Forest plot
+                st.markdown("### 🌲 Forest Plot - Hazard Ratios with 95% CI")
+                fig_forest = analyzer.create_hazard_ratio_plot(cox_res)
+                st.plotly_chart(fig_forest, use_container_width=True)
+                
+                st.caption("*Reference line at HR=1.0 (no effect). Error bars show 95% confidence intervals.*")
+                
+                # Key insights
+                st.markdown("### 💡 Key Insights")
+                
+                significant_vars = hr_df[hr_df['P-value'] < 0.05]
+                if len(significant_vars) > 0:
+                    st.markdown("**Significant Predictors:**")
+                    for _, row in significant_vars.iterrows():
+                        hr_val = row['Hazard Ratio']
+                        effect = "increases" if hr_val > 1 else "decreases"
+                        magnitude = abs(hr_val - 1) * 100
+                        st.markdown(f"- **{row['Covariate']}**: {effect} risk by {magnitude:.1f}% (HR={hr_val:.3f}, p={row['P-value']:.4f})")
+                else:
+                    st.info("No statistically significant predictors found at p < 0.05 level")
+        else:
+            st.info("💡 No numeric covariates available for Cox regression. Add numeric variables or use 'group' column for comparison.")
     
     # AI Insights
     if 'surv_results' in st.session_state:
