@@ -11418,71 +11418,154 @@ def show_network_analysis():
     # AI Insights
     if 'net_results' in st.session_state:
         st.divider()
-        st.subheader("🤖 AI-Powered Insights")
+        st.subheader("✨ AI-Powered Insights")
         
-        if 'net_ai_insights' not in st.session_state:
-            if st.button("✨ Generate AI Insights", type="primary", key="net_ai"):
-                try:
-                    from utils.ai_helper import AIHelper
-                    ai = AIHelper()
-                    
-                    with st.status("🤖 AI is analyzing network structure...", expanded=True) as status:
-                        result = st.session_state.net_results
-                        edge_data = st.session_state.net_data
-                        n_nodes = result['n_nodes']
-                        
-                        summary = f"""Network Analysis Results:
-- Total Nodes: {n_nodes}
-- Total Edges: {len(edge_data)}
-- Network Density: {result['density']:.4f}
-- Average Clustering Coefficient: {result['avg_clustering']:.4f}
-- Connected Components: {result['n_components']}
-- Top Node (Degree): {result['top_degree'].iloc[0]['Node']} ({result['top_degree'].iloc[0]['Degree Centrality']:.4f})
-"""
-                        
-                        prompt = f"""
-As a network analysis and social network expert, analyze this graph structure and provide:
-
-1. **Network Structure Analysis** (2-3 sentences): What does this network structure reveal?
-
-2. **Key Network Insights** (3-4 bullet points): Most important findings about connectivity and patterns
-
-3. **Strategic Recommendations** (4-5 bullet points): Specific strategies for:
-   - Identifying key influencers
-   - Improving network connectivity
-   - Community engagement
-   - Detecting anomalies or bottlenecks
-
-4. **Business Applications** (2-3 sentences): How can these network insights drive business value?
-
-{summary}
-
-Focus on actionable network strategies.
-"""
-                        
-                        response = ai.client.chat.completions.create(
-                            model="gpt-4",
-                            messages=[
-                                {"role": "system", "content": "You are a network analysis and social network expert specializing in graph theory and community detection."},
-                                {"role": "user", "content": prompt}
-                            ],
-                            temperature=0.7,
-                            max_tokens=1200
-                        )
-                        
-                        st.session_state.net_ai_insights = response.choices[0].message.content
-                        status.update(label="✅ Insights generated!", state="complete", expanded=False)
-                    
-                    st.success("✅ AI insights generated successfully!")
-                    st.markdown(st.session_state.net_ai_insights)
-                    st.info("✅ AI insights saved! These will be included in your report downloads.")
-                        
-                except Exception as e:
-                    st.error(f"Error generating insights: {str(e)}")
-        
+        # Display saved insights if they exist
         if 'net_ai_insights' in st.session_state:
             st.markdown(st.session_state.net_ai_insights)
             st.info("✅ AI insights saved! These will be included in your report downloads.")
+        
+        if st.button("🤖 Generate AI Insights", key="net_ai_insights_btn", use_container_width=True):
+            try:
+                from utils.ai_helper import AIHelper
+                ai = AIHelper()
+                
+                with st.status("🤖 Analyzing network topology and generating strategic insights...", expanded=True) as status:
+                    # Get data from session state
+                    result = st.session_state.net_results
+                    edge_data = st.session_state.net_data
+                    
+                    # Calculate comprehensive metrics
+                    n_nodes = result['n_nodes']
+                    n_edges = len(edge_data)
+                    density = result['density']
+                    avg_clustering = result['avg_clustering']
+                    n_components = result['n_components']
+                    
+                    # Centrality analysis
+                    top_degree = result['top_degree']
+                    top_betweenness = result['top_betweenness']
+                    top_closeness = result['top_closeness']
+                    
+                    top_node_degree = top_degree.iloc[0]['Node']
+                    top_node_degree_score = top_degree.iloc[0]['Degree Centrality']
+                    top_node_betweenness = top_betweenness.iloc[0]['Node']
+                    top_node_betweenness_score = top_betweenness.iloc[0]['Betweenness Centrality']
+                    top_node_closeness = top_closeness.iloc[0]['Node']
+                    top_node_closeness_score = top_closeness.iloc[0]['Closeness Centrality']
+                    
+                    # Network characteristics
+                    avg_degree = (2 * n_edges) / n_nodes if n_nodes > 0 else 0
+                    possible_edges = (n_nodes * (n_nodes - 1)) / 2
+                    sparsity = 1 - density
+                    
+                    # Community/component analysis
+                    is_connected = n_components == 1
+                    largest_component_size = n_nodes if is_connected else int(n_nodes * 0.8)  # estimate
+                    
+                    # Network type classification
+                    if density > 0.5:
+                        network_type = "Dense network (high connectivity)"
+                    elif density > 0.1:
+                        network_type = "Moderate density network"
+                    else:
+                        network_type = "Sparse network (low connectivity)"
+                    
+                    if avg_clustering > 0.5:
+                        clustering_level = "High clustering (strong communities)"
+                    elif avg_clustering > 0.2:
+                        clustering_level = "Moderate clustering"
+                    else:
+                        clustering_level = "Low clustering (weak communities)"
+                    
+                    # Prepare rich context
+                    context = f"""
+Network Analysis Results:
+
+Network Overview:
+- Total Nodes (Entities): {n_nodes:,}
+- Total Edges (Connections): {n_edges:,}
+- Network Density: {density:.4f} ({density*100:.2f}% of possible connections)
+- Sparsity: {sparsity:.4f} ({sparsity*100:.2f}% missing connections)
+- Average Degree (Connections per Node): {avg_degree:.2f}
+
+Network Topology:
+- Network Type: {network_type}
+- Clustering Coefficient: {avg_clustering:.4f}
+- Clustering Level: {clustering_level}
+- Connected Components: {n_components}
+- Network Connectivity: {'Fully connected' if is_connected else f'Fragmented ({n_components} separate groups)'}
+- Largest Component: ~{largest_component_size} nodes
+
+Key Influencers (Centrality Analysis):
+- Top Node by Degree (Most Connected): {top_node_degree} (score: {top_node_degree_score:.4f})
+- Top Node by Betweenness (Bridges/Brokers): {top_node_betweenness} (score: {top_node_betweenness_score:.4f})
+- Top Node by Closeness (Information Speed): {top_node_closeness} (score: {top_node_closeness_score:.4f})
+
+Network Characteristics:
+- Hub Concentration: {'High' if top_degree.iloc[0]['Degree Centrality'] > 0.5 else 'Moderate' if top_degree.iloc[0]['Degree Centrality'] > 0.2 else 'Distributed'}
+- Information Flow: {'Centralized' if top_betweenness.iloc[0]['Betweenness Centrality'] > 0.3 else 'Decentralized'}
+- Network Efficiency: {'High' if avg_clustering > 0.5 and density > 0.1 else 'Moderate' if avg_clustering > 0.2 else 'Low'}
+- Vulnerability: {'High risk' if n_components > 1 or top_betweenness.iloc[0]['Betweenness Centrality'] > 0.5 else 'Moderate risk' if not is_connected else 'Resilient'}
+"""
+                    
+                    prompt = f"""
+As a senior network scientist and graph analytics expert with 10+ years of experience in social network analysis, organizational network mapping, and complex systems, analyze these network results and provide:
+
+1. **Network Topology Assessment** (3-4 sentences): Evaluate the overall network structure and connectivity. What does the density, clustering, and component structure tell us about how information flows? Is this a centralized hub-and-spoke network or a distributed mesh? What are the strengths and vulnerabilities?
+
+2. **Key Node Analysis** (4-5 bullet points): Identify and interpret critical nodes:
+   - High-degree nodes (super-connectors and their role)
+   - High-betweenness nodes (gatekeepers and bridge positions)
+   - High-closeness nodes (information broadcasters)
+   - Structural holes and broker positions
+   - Single points of failure or bottlenecks
+
+3. **Community & Clustering Insights** (3-4 sentences): Analyze the community structure and clustering patterns. Are there distinct subgroups? How strong are community boundaries? What does the clustering coefficient reveal about local connectivity vs. global reach?
+
+4. **Influencer Strategy** (5-6 bullet points): Leverage network structure for maximum impact:
+   - Primary influencer targets (who to engage first)
+   - Cascade amplification strategies (viral spread tactics)
+   - Bridge nodes for cross-community reach
+   - Peripheral engagement (reaching isolated nodes)
+   - Network seeding and diffusion optimization
+   - Trust and credibility pathways
+
+5. **Network Optimization** (4-5 bullet points): Improve network health and efficiency:
+   - Strengthen weak ties and bridge gaps
+   - Reduce over-dependence on central nodes
+   - Increase redundancy and resilience
+   - Foster community growth and cohesion
+   - Remove bottlenecks and improve flow
+
+6. **Business Applications & ROI** (3-4 sentences): Translate network insights into business outcomes. How can understanding this network structure drive better marketing, collaboration, fraud detection, or organizational design? Estimate the impact of network-based interventions on engagement, spread, and efficiency.
+
+{context}
+
+Be specific, data-driven, and focus on actionable network strategies that leverage graph structure for competitive advantage. Balance theoretical network science with practical business applications.
+"""
+                    
+                    response = ai.client.chat.completions.create(
+                        model="gpt-4",
+                        messages=[
+                            {"role": "system", "content": "You are a senior network scientist and graph analytics expert with 10+ years of experience in social network analysis, organizational network mapping, and complex systems. You specialize in translating network topology into actionable business strategies for influence, optimization, and resilience."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.7,
+                        max_tokens=1500
+                    )
+                    
+                    # Save to session state
+                    st.session_state.net_ai_insights = response.choices[0].message.content
+                    status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+                    
+                    # Display inside status block
+                    st.success("✅ AI insights generated successfully!")
+                    st.markdown(st.session_state.net_ai_insights)
+                    st.info("✅ AI insights saved! These will be included in your report downloads.")
+                    
+            except Exception as e:
+                st.error(f"Error generating AI insights: {str(e)}")
     
     # Export
     if 'net_results' in st.session_state:
