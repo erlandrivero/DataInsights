@@ -9815,11 +9815,11 @@ def show_cohort_analysis():
         
         if 'cohort_ai_insights' not in st.session_state:
             if st.button("✨ Generate AI Insights", type="primary", key="cohort_ai"):
-                with st.status("🤖 AI is analyzing cohort patterns...", expanded=True) as status:
-                    try:
-                        from utils.ai_helper import AIHelper
-                        ai = AIHelper()
-                        
+                try:
+                    from utils.ai_helper import AIHelper
+                    ai = AIHelper()
+                    
+                    with st.status("🤖 AI is analyzing cohort patterns...", expanded=True) as status:
                         retention_matrix = st.session_state.cohort_retention
                         
                         # Prepare data summary
@@ -9832,20 +9832,52 @@ def show_cohort_analysis():
 - Retention Rate Trend: {'Declining' if retention_matrix.iloc[:, -1].mean() < retention_matrix.iloc[:, 1].mean() else 'Stable/Growing'}
 """
                         
-                        insights = ai.generate_insights(
-                            summary,
-                            "Analyze the cohort retention patterns and provide actionable recommendations to improve user retention."
+                        # Create detailed prompt
+                        prompt = f"""
+As a retention and user engagement expert, analyze these cohort retention results and provide:
+
+1. **Retention Pattern Analysis** (2-3 sentences): What do these retention trends reveal?
+
+2. **Key Findings** (3-4 bullet points): Most important insights from the cohort data
+
+3. **Retention Issues** (2-3 sentences): What problems or drop-off patterns are evident?
+
+4. **Actionable Recommendations** (4-5 bullet points): Specific strategies to improve retention:
+   - Product improvements
+   - Engagement tactics
+   - Re-activation campaigns
+   - Onboarding optimization
+
+5. **Expected Impact** (2-3 sentences): How could these changes affect retention rates?
+
+{summary}
+
+Focus on actionable strategies that can be implemented quickly.
+"""
+                        
+                        response = ai.client.chat.completions.create(
+                            model="gpt-4",
+                            messages=[
+                                {"role": "system", "content": "You are a retention and user engagement expert specializing in cohort analysis and customer lifecycle management."},
+                                {"role": "user", "content": prompt}
+                            ],
+                            temperature=0.7,
+                            max_tokens=1200
                         )
                         
-                        st.session_state.cohort_ai_insights = insights
+                        st.session_state.cohort_ai_insights = response.choices[0].message.content
                         status.update(label="✅ Insights generated!", state="complete", expanded=False)
+                    
+                    st.success("✅ AI insights generated successfully!")
+                    st.markdown(st.session_state.cohort_ai_insights)
+                    st.info("✅ AI insights saved! These will be included in your report downloads.")
                         
-                    except Exception as e:
-                        st.error(f"Error generating insights: {str(e)}")
+                except Exception as e:
+                    st.error(f"Error generating insights: {str(e)}")
         
         if 'cohort_ai_insights' in st.session_state:
             st.markdown(st.session_state.cohort_ai_insights)
-            st.success("✅ AI insights generated successfully!")
+            st.info("✅ AI insights saved! These will be included in your report downloads.")
     
     # Export
     if 'cohort_retention' in st.session_state:
@@ -10116,36 +10148,68 @@ def show_recommendation_systems():
         
         if 'rec_ai_insights' not in st.session_state:
             if st.button("✨ Generate AI Insights", type="primary", key="rec_ai"):
-                with st.status("🤖 AI is analyzing recommendations...", expanded=True) as status:
-                    try:
-                        from utils.ai_helper import AIHelper
-                        ai = AIHelper()
-                        
+                try:
+                    from utils.ai_helper import AIHelper
+                    ai = AIHelper()
+                    
+                    with st.status("🤖 AI is analyzing recommendations...", expanded=True) as status:
                         rec_type = st.session_state.rec_type
+                        ratings_data = st.session_state.rec_ratings
+                        n_users = ratings_data['user_id'].nunique()
+                        n_items = ratings_data['item_id'].nunique()
+                        sparsity = 1 - (len(ratings_data) / (n_users * n_items))
                         
                         summary = f"""Recommendation System Results:
-- Method: {method}
+- Method: {'User-based collaborative filtering' if rec_type == 'user' else 'Item-based collaborative filtering'}
 - Total Ratings: {len(ratings_data)}
-- Unique Users: {ratings_data['user_id'].nunique()}
-- Unique Items: {ratings_data['item_id'].nunique()}
+- Unique Users: {n_users}
+- Unique Items: {n_items}
 - Data Sparsity: {sparsity*100:.1f}%
-- Recommendation Type: {'User-based collaborative filtering' if rec_type == 'user' else 'Item-based collaborative filtering'}
 """
                         
-                        insights = ai.generate_insights(
-                            summary,
-                            "Analyze this recommendation system and provide suggestions for improving recommendation quality and handling data sparsity."
+                        prompt = f"""
+As a recommendation systems expert, analyze these results and provide:
+
+1. **System Quality Assessment** (2-3 sentences): How good is this recommendation setup?
+
+2. **Data Sparsity Analysis** (2-3 sentences): How does sparsity affect recommendations?
+
+3. **Improvement Strategies** (4-5 bullet points): Specific ways to enhance recommendation quality:
+   - Data collection strategies
+   - Algorithm improvements
+   - Cold-start solutions
+   - Hybrid approaches
+
+4. **Business Impact** (2-3 sentences): How can better recommendations drive business value?
+
+{summary}
+
+Focus on practical, implementable suggestions.
+"""
+                        
+                        response = ai.client.chat.completions.create(
+                            model="gpt-4",
+                            messages=[
+                                {"role": "system", "content": "You are a recommendation systems expert specializing in collaborative filtering and personalization."},
+                                {"role": "user", "content": prompt}
+                            ],
+                            temperature=0.7,
+                            max_tokens=1200
                         )
                         
-                        st.session_state.rec_ai_insights = insights
+                        st.session_state.rec_ai_insights = response.choices[0].message.content
                         status.update(label="✅ Insights generated!", state="complete", expanded=False)
+                    
+                    st.success("✅ AI insights generated successfully!")
+                    st.markdown(st.session_state.rec_ai_insights)
+                    st.info("✅ AI insights saved! These will be included in your report downloads.")
                         
-                    except Exception as e:
-                        st.error(f"Error generating insights: {str(e)}")
+                except Exception as e:
+                    st.error(f"Error generating insights: {str(e)}")
         
         if 'rec_ai_insights' in st.session_state:
             st.markdown(st.session_state.rec_ai_insights)
-            st.success("✅ AI insights generated successfully!")
+            st.info("✅ AI insights saved! These will be included in your report downloads.")
     
     # Export
     if 'rec_similarity' in st.session_state:
@@ -10402,36 +10466,69 @@ def show_geospatial_analysis():
         
         if 'geo_ai_insights' not in st.session_state:
             if st.button("✨ Generate AI Insights", type="primary", key="geo_ai"):
-                with st.status("🤖 AI is analyzing geographic patterns...", expanded=True) as status:
-                    try:
-                        from utils.ai_helper import AIHelper
-                        ai = AIHelper()
-                        
+                try:
+                    from utils.ai_helper import AIHelper
+                    ai = AIHelper()
+                    
+                    with st.status("🤖 AI is analyzing geographic patterns...", expanded=True) as status:
                         result = st.session_state.geo_results
+                        geo_data = st.session_state.geo_data
+                        
+                        lat_range = geo_data['latitude'].max() - geo_data['latitude'].min()
+                        lon_range = geo_data['longitude'].max() - geo_data['longitude'].min()
                         
                         summary = f"""Geospatial Analysis Results:
 - Total Locations: {len(geo_data)}
-- Clustering Method: {cluster_method}
+- Clustering Method: {result.get('method', 'Unknown')}
 - Clusters Found: {result['n_clusters']}
 - Geographic Spread: {lat_range:.2f}° latitude × {lon_range:.2f}° longitude
 """
                         if 'noise_points' in result:
                             summary += f"- Noise Points: {result['noise_points']}\n"
                         
-                        insights = ai.generate_insights(
-                            summary,
-                            "Analyze these geographic clustering results and provide recommendations for location strategy and expansion opportunities."
+                        prompt = f"""
+As a location strategy expert, analyze these geospatial clustering results and provide:
+
+1. **Geographic Pattern Analysis** (2-3 sentences): What do these location clusters reveal?
+
+2. **Key Cluster Insights** (3-4 bullet points): Most important findings about location distribution
+
+3. **Location Strategy** (4-5 bullet points): Specific recommendations for:
+   - Service area optimization
+   - New location opportunities
+   - Resource allocation
+   - Territory management
+
+4. **Business Impact** (2-3 sentences): How can these insights drive location decisions?
+
+{summary}
+
+Focus on actionable location strategies.
+"""
+                        
+                        response = ai.client.chat.completions.create(
+                            model="gpt-4",
+                            messages=[
+                                {"role": "system", "content": "You are a geospatial analysis and location strategy expert."},
+                                {"role": "user", "content": prompt}
+                            ],
+                            temperature=0.7,
+                            max_tokens=1200
                         )
                         
-                        st.session_state.geo_ai_insights = insights
+                        st.session_state.geo_ai_insights = response.choices[0].message.content
                         status.update(label="✅ Insights generated!", state="complete", expanded=False)
+                    
+                    st.success("✅ AI insights generated successfully!")
+                    st.markdown(st.session_state.geo_ai_insights)
+                    st.info("✅ AI insights saved! These will be included in your report downloads.")
                         
-                    except Exception as e:
-                        st.error(f"Error generating insights: {str(e)}")
+                except Exception as e:
+                    st.error(f"Error generating insights: {str(e)}")
         
         if 'geo_ai_insights' in st.session_state:
             st.markdown(st.session_state.geo_ai_insights)
-            st.success("✅ AI insights generated successfully!")
+            st.info("✅ AI insights saved! These will be included in your report downloads.")
     
     # Export
     if 'geo_results' in st.session_state:
@@ -10697,12 +10794,14 @@ def show_survival_analysis():
         
         if 'surv_ai_insights' not in st.session_state:
             if st.button("✨ Generate AI Insights", type="primary", key="surv_ai"):
-                with st.status("🤖 AI is analyzing survival patterns...", expanded=True) as status:
-                    try:
-                        from utils.ai_helper import AIHelper
-                        ai = AIHelper()
-                        
+                try:
+                    from utils.ai_helper import AIHelper
+                    ai = AIHelper()
+                    
+                    with st.status("🤖 AI is analyzing survival patterns...", expanded=True) as status:
                         result = st.session_state.surv_results
+                        surv_data = st.session_state.surv_data
+                        event_rate = surv_data['event'].mean() * 100
                         
                         summary = f"""Survival Analysis Results:
 - Total Observations: {len(surv_data)}
@@ -10719,20 +10818,49 @@ def show_survival_analysis():
                         else:
                             summary += f"- Median Survival: {result['median_survival']:.1f} time units\n"
                         
-                        insights = ai.generate_insights(
-                            summary,
-                            "Analyze these survival analysis results and provide recommendations for improving retention or reducing event risk."
+                        prompt = f"""
+As a survival analysis and risk management expert, analyze these results and provide:
+
+1. **Survival Pattern Analysis** (2-3 sentences): What do these survival curves reveal?
+
+2. **Key Risk Factors** (3-4 bullet points): Most important insights from the survival data
+
+3. **Intervention Strategies** (4-5 bullet points): Specific recommendations to:
+   - Reduce event occurrence
+   - Improve survival/retention
+   - Target high-risk groups
+   - Optimize timing of interventions
+
+4. **Expected Outcomes** (2-3 sentences): How could these strategies impact survival rates?
+
+{summary}
+
+Focus on actionable risk mitigation strategies.
+"""
+                        
+                        response = ai.client.chat.completions.create(
+                            model="gpt-4",
+                            messages=[
+                                {"role": "system", "content": "You are a survival analysis and risk management expert specializing in time-to-event analysis."},
+                                {"role": "user", "content": prompt}
+                            ],
+                            temperature=0.7,
+                            max_tokens=1200
                         )
                         
-                        st.session_state.surv_ai_insights = insights
+                        st.session_state.surv_ai_insights = response.choices[0].message.content
                         status.update(label="✅ Insights generated!", state="complete", expanded=False)
+                    
+                    st.success("✅ AI insights generated successfully!")
+                    st.markdown(st.session_state.surv_ai_insights)
+                    st.info("✅ AI insights saved! These will be included in your report downloads.")
                         
-                    except Exception as e:
-                        st.error(f"Error generating insights: {str(e)}")
+                except Exception as e:
+                    st.error(f"Error generating insights: {str(e)}")
         
         if 'surv_ai_insights' in st.session_state:
             st.markdown(st.session_state.surv_ai_insights)
-            st.success("✅ AI insights generated successfully!")
+            st.info("✅ AI insights saved! These will be included in your report downloads.")
     
     # Export
     if 'surv_results' in st.session_state:
@@ -10978,12 +11106,14 @@ def show_network_analysis():
         
         if 'net_ai_insights' not in st.session_state:
             if st.button("✨ Generate AI Insights", type="primary", key="net_ai"):
-                with st.status("🤖 AI is analyzing network structure...", expanded=True) as status:
-                    try:
-                        from utils.ai_helper import AIHelper
-                        ai = AIHelper()
-                        
+                try:
+                    from utils.ai_helper import AIHelper
+                    ai = AIHelper()
+                    
+                    with st.status("🤖 AI is analyzing network structure...", expanded=True) as status:
                         result = st.session_state.net_results
+                        edge_data = st.session_state.net_data
+                        n_nodes = result['n_nodes']
                         
                         summary = f"""Network Analysis Results:
 - Total Nodes: {n_nodes}
@@ -10994,20 +11124,49 @@ def show_network_analysis():
 - Top Node (Degree): {result['top_degree'].iloc[0]['Node']} ({result['top_degree'].iloc[0]['Degree Centrality']:.4f})
 """
                         
-                        insights = ai.generate_insights(
-                            summary,
-                            "Analyze this network structure and provide recommendations for identifying influencers, improving connectivity, or detecting anomalies."
+                        prompt = f"""
+As a network analysis and social network expert, analyze this graph structure and provide:
+
+1. **Network Structure Analysis** (2-3 sentences): What does this network structure reveal?
+
+2. **Key Network Insights** (3-4 bullet points): Most important findings about connectivity and patterns
+
+3. **Strategic Recommendations** (4-5 bullet points): Specific strategies for:
+   - Identifying key influencers
+   - Improving network connectivity
+   - Community engagement
+   - Detecting anomalies or bottlenecks
+
+4. **Business Applications** (2-3 sentences): How can these network insights drive business value?
+
+{summary}
+
+Focus on actionable network strategies.
+"""
+                        
+                        response = ai.client.chat.completions.create(
+                            model="gpt-4",
+                            messages=[
+                                {"role": "system", "content": "You are a network analysis and social network expert specializing in graph theory and community detection."},
+                                {"role": "user", "content": prompt}
+                            ],
+                            temperature=0.7,
+                            max_tokens=1200
                         )
                         
-                        st.session_state.net_ai_insights = insights
+                        st.session_state.net_ai_insights = response.choices[0].message.content
                         status.update(label="✅ Insights generated!", state="complete", expanded=False)
+                    
+                    st.success("✅ AI insights generated successfully!")
+                    st.markdown(st.session_state.net_ai_insights)
+                    st.info("✅ AI insights saved! These will be included in your report downloads.")
                         
-                    except Exception as e:
-                        st.error(f"Error generating insights: {str(e)}")
+                except Exception as e:
+                    st.error(f"Error generating insights: {str(e)}")
         
         if 'net_ai_insights' in st.session_state:
             st.markdown(st.session_state.net_ai_insights)
-            st.success("✅ AI insights generated successfully!")
+            st.info("✅ AI insights saved! These will be included in your report downloads.")
     
     # Export
     if 'net_results' in st.session_state:
