@@ -11115,27 +11115,136 @@ def show_survival_analysis():
             group_idx = group_options.index(group_default) if group_default and group_default in group_options else 0
             group_col = st.selectbox("Group Column (optional)", group_options, index=group_idx, key="surv_group")
         
-        if st.button("📊 Validate & Process Data", type="primary"):
-            # Validate time is numeric
-            if not pd.api.types.is_numeric_dtype(df[time_col]):
-                st.error("❌ Time column must be numeric!")
-                st.stop()
+        # Real-time validation
+        issues = []
+        warnings = []
+        recommendations = []
+        
+        # Validate time/duration column is numeric
+        if not pd.api.types.is_numeric_dtype(df[time_col]):
+            issues.append(f"Time column '{time_col}' is not numeric (type: {df[time_col].dtype})")
+            recommendations.append("Select a numeric column containing time durations (days, months, etc.)")
+        else:
+            time_min, time_max = df[time_col].min(), df[time_col].max()
+            time_missing = df[time_col].isnull().sum()
             
-            # Validate event is binary
-            unique_events = df[event_col].dropna().unique()
-            if len(unique_events) > 2 or not all(val in [0, 1, True, False] for val in unique_events):
-                st.error("❌ Event column must be binary (0/1 or True/False)")
-                st.stop()
+            # Check for negative or zero durations
+            if time_min <= 0:
+                issues.append(f"Time column has non-positive values (min: {time_min})")
+                recommendations.append("Time durations must be positive (> 0)")
             
+            # Check for missing values
+            if time_missing > 0:
+                warnings.append(f"Time column has {time_missing} missing values ({time_missing/len(df)*100:.1f}%)")
+            
+            # Check if all durations are the same
+            if df[time_col].nunique() == 1:
+                warnings.append(f"All durations are the same value ({time_min})")
+                recommendations.append("Survival analysis works better with variation in time durations")
+        
+        # Validate event column is binary
+        try:
+            event_values = df[event_col].dropna()
+            unique_events = event_values.unique()
+            
+            # Check if binary
+            if len(unique_events) > 2:
+                issues.append(f"Event column has {len(unique_events)} unique values (need 2: event/censored)")
+                recommendations.append("Event column must be binary: 1/0, True/False, or Yes/No")
+            elif len(unique_events) == 1:
+                warnings.append(f"Event column only has one value ({unique_events[0]}) - all events or all censored")
+                recommendations.append("Survival analysis works better with both events and censored observations")
+            else:
+                # Check if values are valid binary
+                valid_binary = all(val in [0, 1, True, False, 'Yes', 'No', 'yes', 'no'] for val in unique_events)
+                if not valid_binary:
+                    issues.append(f"Event column values are not binary: {unique_events.tolist()}")
+                    recommendations.append("Use 1/0, True/False, or Yes/No for event indicator")
+            
+            # Check event missing values
+            event_missing = df[event_col].isnull().sum()
+            if event_missing > 0:
+                warnings.append(f"Event column has {event_missing} missing values ({event_missing/len(df)*100:.1f}%)")
+        except Exception as e:
+            issues.append(f"Cannot validate event column: {str(e)}")
+        
+        # Check for sufficient observations
+        n_obs = len(df)
+        if n_obs < 10:
+            issues.append(f"Only {n_obs} observations (need at least 10 for survival analysis)")
+            recommendations.append("Survival curves require sufficient observations for reliability")
+        elif n_obs < 30:
+            warnings.append(f"Only {n_obs} observations - survival estimates may be unstable")
+        
+        # Check event rate if valid
+        if pd.api.types.is_numeric_dtype(df[time_col]):
+            try:
+                event_rate = event_values.astype(int).mean()
+                if event_rate < 0.05:
+                    warnings.append(f"Very low event rate ({event_rate*100:.1f}%) - mostly censored data")
+                    recommendations.append("Survival analysis works better with some observed events")
+                elif event_rate > 0.95:
+                    warnings.append(f"Very high event rate ({event_rate*100:.1f}%) - few censored observations")
+            except:
+                pass
+        
+        # Validate group column if selected
+        if group_col != "None":
+            n_groups = df[group_col].nunique()
+            if n_groups < 2:
+                warnings.append(f"Group column '{group_col}' only has {n_groups} unique value(s)")
+                recommendations.append("Group comparison requires at least 2 groups")
+            elif n_groups > 10:
+                warnings.append(f"Group column has {n_groups} groups - survival curves may be cluttered")
+        
+        # Check if columns are the same
+        if time_col == event_col:
+            issues.append("Time and Event columns must be different")
+            recommendations.append("Select distinct columns for duration and event indicator")
+        
+        # Display validation results
+        st.divider()
+        if len(issues) > 0:
+            st.error("**🚨 NOT SUITABLE FOR SURVIVAL ANALYSIS**")
+            for issue in issues:
+                st.write(f"❌ {issue}")
+            if recommendations:
+                with st.expander("💡 Recommendations"):
+                    for rec in recommendations:
+                        st.write(f"• {rec}")
+        elif len(warnings) > 0:
+            st.warning("**⚠️ SURVIVAL ANALYSIS POSSIBLE (with warnings)**")
+            for warning in warnings:
+                st.write(f"⚠️ {warning}")
+            if recommendations:
+                with st.expander("💡 Recommendations"):
+                    for rec in recommendations:
+                        st.write(f"• {rec}")
+        else:
+            st.success("**✅ EXCELLENT FOR SURVIVAL ANALYSIS**")
+            st.write("✅ Numeric time/duration column")
+            st.write("✅ Binary event column")
+            st.write("✅ Sufficient observations")
+        
+        # Only show button if no critical issues
+        if len(issues) == 0 and st.button("📊 Process Data", type="primary"):
             surv_data = df[[time_col, event_col]].copy()
             surv_data.columns = ['duration', 'event']
+            
+            # Convert event to binary if needed
+            if surv_data['event'].dtype == 'object':
+                surv_data['event'] = surv_data['event'].map({'Yes': 1, 'yes': 1, 'No': 0, 'no': 0, True: 1, False: 0})
+            surv_data['event'] = surv_data['event'].astype(int)
             
             if group_col != "None":
                 surv_data['group'] = df[group_col]
             
+            # Remove rows with missing values
+            surv_data = surv_data.dropna()
+            
             st.session_state.surv_data = surv_data
             
-            st.success("✅ Data validated!")
+            st.success("✅ Data processed!")
             st.info(f"📊 {len(surv_data)} observations, {surv_data['event'].sum()} events")
             st.rerun()
     
