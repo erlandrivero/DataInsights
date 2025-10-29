@@ -10185,6 +10185,9 @@ def show_recommendation_systems():
     
     if st.button("🎯 Build Recommendations", type="primary"):
         with st.status("Building recommendation model...", expanded=True) as status:
+            # Get engine from session state
+            engine = st.session_state.rec_engine
+            
             # Build user-item matrix
             engine.fit(ratings_data, user_col='user_id', item_col='item_id', rating_col='rating')
             
@@ -10588,6 +10591,9 @@ def show_geospatial_analysis():
     
     if st.button("🗺️ Run Spatial Analysis", type="primary"):
         with st.status("Analyzing geographic patterns...", expanded=True) as status:
+            # Get analyzer from session state
+            analyzer = st.session_state.geo_analyzer
+            
             if cluster_method == "DBSCAN (Density-Based)":
                 result = analyzer.dbscan_clustering(geo_data, eps_km=eps, min_samples=min_samples)
             else:
@@ -10996,6 +11002,9 @@ def show_survival_analysis():
     # Run analysis
     if st.button("⏱️ Run Survival Analysis", type="primary"):
         with st.status("Fitting survival models...", expanded=True) as status:
+            # Get analyzer from session state
+            analyzer = st.session_state.survival_analyzer
+            
             if 'group' in surv_data.columns:
                 result = analyzer.kaplan_meier_by_group(surv_data)
             else:
@@ -11379,6 +11388,9 @@ def show_network_analysis():
     # Run analysis
     if st.button("🕸️ Analyze Network", type="primary"):
         with st.status("Computing network metrics...", expanded=True) as status:
+            # Get analyzer from session state
+            analyzer = st.session_state.network_analyzer
+            
             result = analyzer.analyze_network(edge_data)
             st.session_state.net_results = result
             status.update(label="✅ Analysis complete!", state="complete", expanded=False)
