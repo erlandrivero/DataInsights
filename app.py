@@ -9372,7 +9372,7 @@ def show_ab_testing():
                 from utils.ai_helper import AIHelper
                 ai = AIHelper()
                 
-                with st.status("🤖 Analyzing A/B test results and generating strategic recommendations...", expanded=False) as status:
+                with st.status("🤖 Analyzing A/B test results and generating strategic recommendations...", expanded=True) as status:
                     # Get data from session state
                     result = st.session_state.ab_test_results
                     
@@ -9472,10 +9472,11 @@ Be specific, actionable, and balance statistical rigor with business pragmatism.
                     # Save to session state
                     st.session_state.ab_ai_insights = response.choices[0].message.content
                     status.update(label="✅ Analysis complete!", state="complete", expanded=False)
-                
-                st.success("✅ AI insights generated successfully!")
-                st.markdown(st.session_state.ab_ai_insights)
-                st.info("✅ AI insights saved! These will be included in your report downloads.")
+                    
+                    # Display results inside status block to avoid duplicates
+                    st.success("✅ AI insights generated successfully!")
+                    st.markdown(st.session_state.ab_ai_insights)
+                    st.info("✅ AI insights saved! These will be included in your report downloads.")
                     
             except Exception as e:
                 st.error(f"Error generating AI insights: {str(e)}")
