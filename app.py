@@ -11643,6 +11643,8 @@ def show_geospatial_analysis():
                 geo_data_with_clusters['cluster'] = clusters
                 result = {
                     'data': geo_data_with_clusters,
+                    'lat_col': 'latitude',
+                    'lon_col': 'longitude',
                     'n_clusters': len(set(clusters)) - (1 if -1 in clusters else 0),
                     'noise_points': list(clusters).count(-1) if cluster_method == "DBSCAN (Density-Based)" else 0
                 }
