@@ -13207,23 +13207,26 @@ def show_network_analysis():
         
         # Find optimal seed nodes button
         if st.button("🎯 Find Optimal Influencers", type="primary"):
-            with st.status("Finding optimal seed nodes for influence maximization...", expanded=True) as status:
-                try:
-                    # Find top 5 seed nodes
-                    num_seeds = min(5, analyzer.graph.number_of_nodes())
-                    seed_results = analyzer.find_optimal_seed_nodes(
-                        num_seeds=num_seeds,
-                        propagation_prob=propagation_prob,
-                        model=propagation_model,
-                        simulations=5  # Reduced for speed
-                    )
-                    
-                    st.session_state.influence_seeds = seed_results
-                    
-                    status.update(label="✅ Analysis complete!", state="complete", expanded=False)
-                    st.success("✅ Optimal influencers identified!")
-                except Exception as e:
-                    st.error(f"❌ Error: {str(e)}")
+            if analyzer.graph is None or analyzer.graph.number_of_nodes() == 0:
+                st.error("❌ Network graph not available. Please run the network analysis first.")
+            else:
+                with st.status("Finding optimal seed nodes for influence maximization...", expanded=True) as status:
+                    try:
+                        # Find top 5 seed nodes
+                        num_seeds = min(5, analyzer.graph.number_of_nodes())
+                        seed_results = analyzer.find_optimal_seed_nodes(
+                            num_seeds=num_seeds,
+                            propagation_prob=propagation_prob,
+                            model=propagation_model,
+                            simulations=5  # Reduced for speed
+                        )
+                        
+                        st.session_state.influence_seeds = seed_results
+                        
+                        status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+                        st.success("✅ Optimal influencers identified!")
+                    except Exception as e:
+                        st.error(f"❌ Error: {str(e)}")
         
         # Display seed nodes if calculated
         if 'influence_seeds' in st.session_state:
@@ -13282,15 +13285,19 @@ def show_network_analysis():
         # Simulate spread with custom seeds
         st.markdown("### 🧪 Custom Spread Simulation")
         
-        # Get list of nodes for selection
-        node_list = list(analyzer.graph.nodes())[:100]  # Limit to first 100 for dropdown
-        
-        selected_seeds = st.multiselect(
-            "Select Seed Nodes:",
-            node_list,
-            default=node_list[:min(3, len(node_list))],
-            help="Choose initial nodes to start the influence cascade"
-        )
+        # Check if graph exists and get list of nodes for selection
+        if analyzer.graph is not None and analyzer.graph.number_of_nodes() > 0:
+            node_list = list(analyzer.graph.nodes())[:100]  # Limit to first 100 for dropdown
+            
+            selected_seeds = st.multiselect(
+                "Select Seed Nodes:",
+                node_list,
+                default=node_list[:min(3, len(node_list))],
+                help="Choose initial nodes to start the influence cascade"
+            )
+        else:
+            st.warning("⚠️ Network graph not available. Please run the network analysis first.")
+            selected_seeds = []
         
         if len(selected_seeds) > 0 and st.button("▶️ Run Simulation"):
             with st.spinner("Simulating influence propagation..."):
@@ -13396,24 +13403,27 @@ def show_network_analysis():
         
         # Predict links button
         if st.button("🔮 Predict Future Links", type="primary"):
-            with st.status("Analyzing network structure and predicting links...", expanded=True) as status:
-                try:
-                    # Run link prediction
-                    predictions = analyzer.predict_links(
-                        method=prediction_method,
-                        top_k=top_k_predictions
-                    )
-                    
-                    # Analyze link formation patterns
-                    patterns = analyzer.analyze_link_formation_patterns()
-                    
-                    st.session_state.link_predictions = predictions
-                    st.session_state.link_patterns = patterns
-                    
-                    status.update(label="✅ Predictions complete!", state="complete", expanded=False)
-                    st.success("✅ Link predictions generated!")
-                except Exception as e:
-                    st.error(f"❌ Error: {str(e)}")
+            if analyzer.graph is None or analyzer.graph.number_of_nodes() == 0:
+                st.error("❌ Network graph not available. Please run the network analysis first.")
+            else:
+                with st.status("Analyzing network structure and predicting links...", expanded=True) as status:
+                    try:
+                        # Run link prediction
+                        predictions = analyzer.predict_links(
+                            method=prediction_method,
+                            top_k=top_k_predictions
+                        )
+                        
+                        # Analyze link formation patterns
+                        patterns = analyzer.analyze_link_formation_patterns()
+                        
+                        st.session_state.link_predictions = predictions
+                        st.session_state.link_patterns = patterns
+                        
+                        status.update(label="✅ Predictions complete!", state="complete", expanded=False)
+                        st.success("✅ Link predictions generated!")
+                    except Exception as e:
+                        st.error(f"❌ Error: {str(e)}")
         
         # Display predictions
         if 'link_predictions' in st.session_state:
