@@ -9362,11 +9362,11 @@ def show_ab_testing():
         
         if 'ab_ai_insights' not in st.session_state:
             if st.button("✨ Generate AI Insights", type="primary", key="ab_ai"):
-                with st.status("🤖 AI is analyzing test results...", expanded=True) as status:
-                    try:
-                        from utils.ai_helper import AIHelper
-                        ai = AIHelper()
-                        
+                try:
+                    from utils.ai_helper import AIHelper
+                    ai = AIHelper()
+                    
+                    with st.status("🤖 AI is analyzing test results...", expanded=True) as status:
                         result = st.session_state.ab_test_results
                         
                         # Prepare summary
@@ -9391,20 +9391,48 @@ def show_ab_testing():
 - Effect Size: {result['effect_size']:.3f}
 """
                         
-                        insights = ai.generate_insights(
-                            summary,
-                            "Analyze these A/B test results and provide actionable recommendations on whether to implement the change and next steps."
+                        # Create detailed prompt
+                        prompt = f"""
+As an A/B testing expert, analyze these test results and provide:
+
+1. **Test Outcome Summary** (2-3 sentences): What does this result mean in plain language?
+
+2. **Statistical Significance** (2-3 sentences): Explain the p-value and effect size in business terms.
+
+3. **Recommendation** (Clear decision): Should we implement the change? Why or why not?
+
+4. **Next Steps** (3-4 bullet points): Specific actions to take based on these results.
+
+5. **Risk Assessment** (2-3 sentences): What are the potential risks or considerations?
+
+{summary}
+
+Be specific and actionable. Focus on business impact, not just statistics.
+"""
+                        
+                        response = ai.client.chat.completions.create(
+                            model="gpt-4",
+                            messages=[
+                                {"role": "system", "content": "You are an A/B testing and experimentation expert specializing in conversion optimization and statistical analysis."},
+                                {"role": "user", "content": prompt}
+                            ],
+                            temperature=0.7,
+                            max_tokens=1000
                         )
                         
-                        st.session_state.ab_ai_insights = insights
+                        st.session_state.ab_ai_insights = response.choices[0].message.content
                         status.update(label="✅ Insights generated!", state="complete", expanded=False)
+                    
+                    st.success("✅ AI insights generated successfully!")
+                    st.markdown(st.session_state.ab_ai_insights)
+                    st.info("✅ AI insights saved! These will be included in your report downloads.")
                         
-                    except Exception as e:
-                        st.error(f"Error generating insights: {str(e)}")
+                except Exception as e:
+                    st.error(f"Error generating insights: {str(e)}")
         
         if 'ab_ai_insights' in st.session_state:
             st.markdown(st.session_state.ab_ai_insights)
-            st.success("✅ AI insights generated successfully!")
+            st.info("✅ AI insights saved! These will be included in your report downloads.")
     
     # Export section
     if 'ab_test_results' in st.session_state:
