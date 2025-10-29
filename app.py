@@ -9349,81 +9349,125 @@ def show_ab_testing():
     # AI Insights
     if 'ab_test_results' in st.session_state:
         st.divider()
-        st.subheader("🤖 AI-Powered Insights")
+        st.subheader("✨ AI-Powered Insights")
         
-        if 'ab_ai_insights' not in st.session_state:
-            if st.button("✨ Generate AI Insights", type="primary", key="ab_ai"):
-                try:
-                    from utils.ai_helper import AIHelper
-                    ai = AIHelper()
-                    
-                    with st.status("🤖 AI is analyzing test results...", expanded=True) as status:
-                        result = st.session_state.ab_test_results
-                        
-                        # Prepare summary
-                        if 'control_rate' in result:
-                            summary = f"""A/B Test Results (Proportion Test):
-- Control Conversion: {result['control_rate']*100:.2f}%
-- Treatment Conversion: {result['treatment_rate']*100:.2f}%
-- Absolute Lift: {result['absolute_lift']*100:.2f}%
-- Relative Lift: {result['relative_lift']:.1f}%
-- P-value: {result['p_value']:.4f}
-- Statistically Significant: {'Yes' if result['is_significant'] else 'No'}
-- Effect Size: {result['effect_size']:.3f}
-"""
-                        else:
-                            summary = f"""A/B Test Results (T-Test):
-- Control Mean: {result['control_mean']:.2f}
-- Treatment Mean: {result['treatment_mean']:.2f}
-- Mean Difference: {result['absolute_diff']:.2f}
-- % Difference: {result['relative_diff']:.1f}%
-- P-value: {result['p_value']:.4f}
-- Statistically Significant: {'Yes' if result['is_significant'] else 'No'}
-- Effect Size: {result['effect_size']:.3f}
-"""
-                        
-                        # Create detailed prompt
-                        prompt = f"""
-As an A/B testing expert, analyze these test results and provide:
-
-1. **Test Outcome Summary** (2-3 sentences): What does this result mean in plain language?
-
-2. **Statistical Significance** (2-3 sentences): Explain the p-value and effect size in business terms.
-
-3. **Recommendation** (Clear decision): Should we implement the change? Why or why not?
-
-4. **Next Steps** (3-4 bullet points): Specific actions to take based on these results.
-
-5. **Risk Assessment** (2-3 sentences): What are the potential risks or considerations?
-
-{summary}
-
-Be specific and actionable. Focus on business impact, not just statistics.
-"""
-                        
-                        response = ai.client.chat.completions.create(
-                            model="gpt-4",
-                            messages=[
-                                {"role": "system", "content": "You are an A/B testing and experimentation expert specializing in conversion optimization and statistical analysis."},
-                                {"role": "user", "content": prompt}
-                            ],
-                            temperature=0.7,
-                            max_tokens=1000
-                        )
-                        
-                        st.session_state.ab_ai_insights = response.choices[0].message.content
-                        status.update(label="✅ Insights generated!", state="complete", expanded=False)
-                    
-                    st.success("✅ AI insights generated successfully!")
-                    st.markdown(st.session_state.ab_ai_insights)
-                    st.info("✅ AI insights saved! These will be included in your report downloads.")
-                        
-                except Exception as e:
-                    st.error(f"Error generating insights: {str(e)}")
-        
+        # Display saved insights if they exist
         if 'ab_ai_insights' in st.session_state:
             st.markdown(st.session_state.ab_ai_insights)
             st.info("✅ AI insights saved! These will be included in your report downloads.")
+        
+        if st.button("🤖 Generate AI Insights", key="ab_ai_insights_btn", use_container_width=True):
+            try:
+                from utils.ai_helper import AIHelper
+                ai = AIHelper()
+                
+                with st.status("🤖 Analyzing A/B test results and generating strategic recommendations...", expanded=True) as status:
+                    # Get data from session state
+                    result = st.session_state.ab_test_results
+                    
+                    # Prepare detailed context based on test type
+                    if 'control_rate' in result:
+                        # Proportion test
+                        control_size = result.get('control_size', 0)
+                        treatment_size = result.get('treatment_size', 0)
+                        total_size = control_size + treatment_size
+                        control_conversions = int(result['control_rate'] * control_size)
+                        treatment_conversions = int(result['treatment_rate'] * treatment_size)
+                        
+                        context = f"""
+A/B Test Analysis (Conversion/Proportion Test):
+
+Test Configuration:
+- Total Sample Size: {total_size:,} observations
+- Control Group: {control_size:,} observations ({control_size/total_size*100:.1f}%)
+- Treatment Group: {treatment_size:,} observations ({treatment_size/total_size*100:.1f}%)
+
+Performance Metrics:
+- Control Conversion Rate: {result['control_rate']*100:.2f}% ({control_conversions} conversions)
+- Treatment Conversion Rate: {result['treatment_rate']*100:.2f}% ({treatment_conversions} conversions)
+- Absolute Lift: {result['absolute_lift']*100:.2f} percentage points
+- Relative Lift: {result['relative_lift']:.1f}% improvement
+
+Statistical Analysis:
+- P-value: {result['p_value']:.4f}
+- Statistically Significant: {'YES' if result['is_significant'] else 'NO'} (α=0.05)
+- Effect Size (Cohen's h): {result['effect_size']:.3f}
+- Confidence Level: 95%
+"""
+                    else:
+                        # T-test
+                        control_size = result.get('control_size', 0)
+                        treatment_size = result.get('treatment_size', 0)
+                        total_size = control_size + treatment_size
+                        
+                        context = f"""
+A/B Test Analysis (Mean Comparison / T-Test):
+
+Test Configuration:
+- Total Sample Size: {total_size:,} observations
+- Control Group: {control_size:,} observations
+- Treatment Group: {treatment_size:,} observations
+
+Performance Metrics:
+- Control Mean: {result['control_mean']:.2f}
+- Treatment Mean: {result['treatment_mean']:.2f}
+- Mean Difference: {result['absolute_diff']:.2f}
+- Relative Difference: {result['relative_diff']:.1f}%
+
+Statistical Analysis:
+- P-value: {result['p_value']:.4f}
+- Statistically Significant: {'YES' if result['is_significant'] else 'NO'} (α=0.05)
+- Effect Size (Cohen's d): {result['effect_size']:.3f}
+- Confidence Level: 95%
+"""
+                    
+                    prompt = f"""
+As a senior experimentation and conversion optimization expert, analyze these A/B test results and provide:
+
+1. **Test Outcome Summary** (3-4 sentences): Interpret the results in clear business language. What happened and why does it matter?
+
+2. **Statistical Confidence** (3-4 sentences): Explain the p-value and effect size. How confident should we be in this result? Is the sample size adequate?
+
+3. **Business Recommendation** (Clear GO/NO-GO decision with 2-3 sentences): Should we implement the change? Consider both statistical significance and practical significance.
+
+4. **Implementation Strategy** (4-5 bullet points): If we proceed, how should we roll this out?
+   - Rollout timeline and approach (gradual vs. immediate)
+   - Monitoring metrics during implementation
+   - Contingency plans if metrics decline
+   - Documentation and team communication
+
+5. **Risk Assessment** (3-4 bullet points): What could go wrong?
+   - Statistical risks (false positives, sample size issues)
+   - Business risks (user experience, technical debt)
+   - Market timing considerations
+
+6. **ROI Projection** (2-3 sentences): Based on the lift, estimate the business impact. If applicable, project revenue/conversion gains at scale.
+
+{context}
+
+Be specific, actionable, and balance statistical rigor with business pragmatism. Consider both short-term and long-term implications.
+"""
+                    
+                    response = ai.client.chat.completions.create(
+                        model="gpt-4",
+                        messages=[
+                            {"role": "system", "content": "You are a senior experimentation and conversion optimization expert with 10+ years of experience running A/B tests at scale. You specialize in balancing statistical rigor with business pragmatism."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.7,
+                        max_tokens=1500
+                    )
+                    
+                    # Save to session state
+                    st.session_state.ab_ai_insights = response.choices[0].message.content
+                    status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+                
+                st.success("✅ AI insights generated successfully!")
+                st.markdown(st.session_state.ab_ai_insights)
+                st.info("✅ AI insights saved! These will be included in your report downloads.")
+                    
+            except Exception as e:
+                st.error(f"Error generating AI insights: {str(e)}")
     
     # Export section
     if 'ab_test_results' in st.session_state:
