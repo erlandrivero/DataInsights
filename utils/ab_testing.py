@@ -695,6 +695,10 @@ class ABTestAnalyzer:
         """
         segments = data[segment_col].unique()
         
+        # Check if metric is binary (0/1) - do this once for all segments
+        unique_values = data[metric_col].nunique()
+        is_binary = unique_values == 2 and set(data[metric_col].unique()).issubset({0, 1})
+        
         segment_results = []
         
         for segment in segments:
@@ -709,10 +713,6 @@ class ABTestAnalyzer:
             # Calculate metrics for this segment
             control_n = len(control_segment)
             treatment_n = len(treatment_segment)
-            
-            # Check if metric is binary (0/1)
-            unique_values = data[metric_col].nunique()
-            is_binary = unique_values == 2 and set(data[metric_col].unique()).issubset({0, 1})
             
             if is_binary:
                 # Proportion test
