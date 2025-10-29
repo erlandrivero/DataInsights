@@ -1305,10 +1305,10 @@ def show_reports():
         'sentiment_results' in st.session_state or 'topics' in st.session_state,
         'ab_test_results' in st.session_state,
         'cohort_retention' in st.session_state,
-        'recommendations' in st.session_state,
-        'geo_clusters' in st.session_state,
-        'survival_curves' in st.session_state,
-        'network_graph' in st.session_state
+        'rec_similarity' in st.session_state,
+        'geo_results' in st.session_state,
+        'surv_results' in st.session_state,
+        'net_results' in st.session_state
     ])
     
     if st.session_state.data is None and not any_analysis_complete:
@@ -1333,10 +1333,10 @@ def show_reports():
         'Text Mining & NLP': ('sentiment_results' in st.session_state or 'topics' in st.session_state),
         'A/B Testing': 'ab_test_results' in st.session_state,
         'Cohort Analysis': 'cohort_retention' in st.session_state,
-        'Recommendation Systems': 'recommendations' in st.session_state,
-        'Geospatial Analysis': 'geo_clusters' in st.session_state,
-        'Survival Analysis': 'survival_curves' in st.session_state,
-        'Network Analysis': 'network_graph' in st.session_state,
+        'Recommendation Systems': 'rec_similarity' in st.session_state,
+        'Geospatial Analysis': 'geo_results' in st.session_state,
+        'Survival Analysis': 'surv_results' in st.session_state,
+        'Network Analysis': 'net_results' in st.session_state,
     }
     
     completed = sum(modules_status.values())
