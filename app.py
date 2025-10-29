@@ -10731,10 +10731,12 @@ def show_recommendation_systems():
             # Show strategy used
             if strategy == 'popularity_fallback':
                 st.warning(f"🆕 **User {sample_user}** - Cold start detected! Using **popular items** fallback.")
-            else:
+            elif strategy == 'collaborative_filtering':
                 st.success(f"✅ **User {sample_user}** - Using **collaborative filtering** (sufficient history)")
+            else:
+                st.error(f"⚠️ Error: {strategy}")
             
-            if len(recommendations) > 0:
+            if not recommendations.empty:
                 st.dataframe(recommendations, use_container_width=True)
             else:
                 st.info("No recommendations available for this user")
@@ -10749,7 +10751,12 @@ def show_recommendation_systems():
             
             if new_user_strategy == 'popularity_fallback':
                 st.info(f"🎯 New user detected! Recommending **popular items** as fallback.")
-                st.dataframe(new_user_recs, use_container_width=True)
+                if not new_user_recs.empty:
+                    st.dataframe(new_user_recs, use_container_width=True)
+                else:
+                    st.warning("No popular items available for fallback")
+            else:
+                st.info(f"Strategy: {new_user_strategy}")
         
         else:
             sample_user = ratings_data['user_id'].iloc[0]
@@ -10760,10 +10767,12 @@ def show_recommendation_systems():
             # Show strategy used
             if strategy == 'popularity_fallback':
                 st.warning(f"🆕 **User {sample_user}** - Cold start detected! Using **popular items** fallback.")
-            else:
+            elif strategy == 'collaborative_filtering':
                 st.success(f"✅ **User {sample_user}** - Using **collaborative filtering** (sufficient history)")
+            else:
+                st.error(f"⚠️ Error: {strategy}")
             
-            if len(recommendations) > 0:
+            if not recommendations.empty:
                 st.dataframe(recommendations, use_container_width=True)
             else:
                 st.info("No recommendations available")

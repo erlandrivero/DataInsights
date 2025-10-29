@@ -307,37 +307,60 @@ class RecommendationEngine:
         Returns:
             Tuple of (recommendations DataFrame, strategy used).
         """
+        # Check if model is fitted
+        if self.users is None or self.user_item_matrix is None:
+            return pd.DataFrame(), 'not_fitted'
+        
         # Check if user exists
         if user_id not in self.users:
             # Cold start: New user with no history
             popular_items = self.get_popular_items(n_recommendations)
-            return popular_items[['item_id', 'avg_rating']].rename(
-                columns={'avg_rating': 'predicted_rating'}
-            ), 'popularity_fallback'
+            if not popular_items.empty:
+                return popular_items[['item_id', 'avg_rating']].rename(
+                    columns={'avg_rating': 'predicted_rating'}
+                ), 'popularity_fallback'
+            else:
+                return pd.DataFrame(), 'no_data'
         
         # Check if user has any ratings
         user_ratings = self.user_item_matrix.loc[user_id]
         if user_ratings.sum() == 0:
             # Cold start: User exists but has no ratings
             popular_items = self.get_popular_items(n_recommendations)
-            return popular_items[['item_id', 'avg_rating']].rename(
-                columns={'avg_rating': 'predicted_rating'}
-            ), 'popularity_fallback'
+            if not popular_items.empty:
+                return popular_items[['item_id', 'avg_rating']].rename(
+                    columns={'avg_rating': 'predicted_rating'}
+                ), 'popularity_fallback'
+            else:
+                return pd.DataFrame(), 'no_data'
         
         # Normal case: Use collaborative filtering
-        if method == 'user_based':
-            recs = self.recommend_items_user_based(user_id, n_recommendations)
-        else:
-            recs = self.recommend_items_item_based(user_id, n_recommendations)
-        
-        # If collaborative filtering returns no results, fallback to popular items
-        if recs.empty:
+        try:
+            if method == 'user_based':
+                recs = self.recommend_items_user_based(user_id, n_recommendations)
+            else:
+                recs = self.recommend_items_item_based(user_id, n_recommendations)
+            
+            # If collaborative filtering returns no results, fallback to popular items
+            if recs.empty:
+                popular_items = self.get_popular_items(n_recommendations)
+                if not popular_items.empty:
+                    return popular_items[['item_id', 'avg_rating']].rename(
+                        columns={'avg_rating': 'predicted_rating'}
+                    ), 'popularity_fallback'
+                else:
+                    return pd.DataFrame(), 'no_data'
+            
+            return recs, 'collaborative_filtering'
+        except Exception as e:
+            # Fallback on any error
             popular_items = self.get_popular_items(n_recommendations)
-            return popular_items[['item_id', 'avg_rating']].rename(
-                columns={'avg_rating': 'predicted_rating'}
-            ), 'popularity_fallback'
-        
-        return recs, 'collaborative_filtering'
+            if not popular_items.empty:
+                return popular_items[['item_id', 'avg_rating']].rename(
+                    columns={'avg_rating': 'predicted_rating'}
+                ), 'popularity_fallback'
+            else:
+                return pd.DataFrame(), 'error'
     
     def evaluate_recommendations(self, test_df: pd.DataFrame, user_col: str, 
                                  item_col: str, rating_col: str,
