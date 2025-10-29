@@ -11469,7 +11469,7 @@ def show_survival_analysis():
         st.subheader("📈 Survival Curve")
         fig = analyzer.create_kaplan_meier_plot(
             surv_data,
-            duration_col='time',
+            duration_col='duration',
             event_col='event',
             group_col='group' if 'group' in surv_data.columns else None
         )
