@@ -14,6 +14,7 @@ import numpy as np
 from typing import Dict, Any, List, Tuple, Optional
 import streamlit as st
 import plotly.graph_objects as go
+import plotly.express as px
 
 try:
     from lifelines import KaplanMeierFitter, CoxPHFitter
