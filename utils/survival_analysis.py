@@ -48,8 +48,7 @@ class SurvivalAnalyzer:
         self.cox_model = None
         self.survival_data = None
     
-    @st.cache_data(ttl=1800)
-    def fit_kaplan_meier(_self, df: pd.DataFrame, duration_col: str, 
+    def fit_kaplan_meier(self, df: pd.DataFrame, duration_col: str, 
                          event_col: str, label: str = 'Overall') -> None:
         """Fit Kaplan-Meier survival curve.
         
@@ -61,14 +60,17 @@ class SurvivalAnalyzer:
         
         Examples:
             >>> analyzer.fit_kaplan_meier(df, 'months', 'churned', label='All Customers')
+        
+        Note:
+            This method has side effects (updates instance state) so it's not cached.
         """
-        _self.kmf = KaplanMeierFitter()
-        _self.kmf.fit(
+        self.kmf = KaplanMeierFitter()
+        self.kmf.fit(
             durations=df[duration_col],
             event_observed=df[event_col],
             label=label
         )
-        _self.survival_data = df[[duration_col, event_col]].copy()
+        self.survival_data = df[[duration_col, event_col]].copy()
     
     def get_survival_probability(self, time: float) -> float:
         """Get survival probability at specific time point.
