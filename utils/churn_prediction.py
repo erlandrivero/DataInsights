@@ -54,8 +54,20 @@ class ChurnPredictor:
         Examples:
             >>> features = predictor.engineer_features(df, 'customer_id', 'date', 'amount')
         """
-        # Ensure date column is datetime
-        data[date_col] = pd.to_datetime(data[date_col])
+        # Ensure date column is datetime with error handling
+        try:
+            data[date_col] = pd.to_datetime(data[date_col], errors='coerce')
+        except Exception as e:
+            raise ValueError(f"Unable to parse '{date_col}' as datetime. Please select a valid date column. Error: {str(e)}")
+        
+        # Check for successful parsing
+        if data[date_col].isna().all():
+            raise ValueError(f"Column '{date_col}' could not be parsed as dates. Please ensure you've selected a column containing date/datetime values.")
+        
+        # Drop rows with invalid dates
+        valid_rows = data[date_col].notna()
+        if valid_rows.sum() < len(data):
+            data = data[valid_rows].copy()
         
         # Reference date (most recent transaction)
         max_date = data[date_col].max()

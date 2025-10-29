@@ -14181,6 +14181,19 @@ def show_churn_prediction():
             )
             churn_col = None if churn_col == "None" else churn_col
         
+        # Validate date column selection
+        validation_msg = []
+        try:
+            test_parse = pd.to_datetime(churn_data[date_col].head(5), errors='coerce')
+            if test_parse.isna().all():
+                validation_msg.append(f"⚠️ Column '{date_col}' doesn't appear to contain valid dates. Please select a different column.")
+        except:
+            validation_msg.append(f"⚠️ Unable to parse '{date_col}' as dates. Please select a date/datetime column.")
+        
+        if validation_msg:
+            for msg in validation_msg:
+                st.warning(msg)
+        
         # Engineer features button
         if st.button("🔧 Engineer Features", type="primary"):
             with st.status("Creating predictive features...", expanded=True) as status:

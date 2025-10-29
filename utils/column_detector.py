@@ -673,3 +673,50 @@ class ColumnDetector:
             'source': source_col,
             'target': target_col
         }
+    
+    @staticmethod
+    def get_churn_column_suggestions(df: pd.DataFrame) -> dict:
+        """
+        Get suggested columns for Churn Prediction.
+        
+        Args:
+            df: DataFrame to analyze
+            
+        Returns:
+            Dictionary with 'customer_id', 'date', 'value', and 'churn' suggestions
+        """
+        all_cols = df.columns.tolist()
+        numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+        
+        # Detect customer ID column
+        customer_suggestions = [col for col in all_cols if any(keyword in col.lower() 
+                               for keyword in ['customer', 'user', 'client', 'account', 'member', 'subscriber'])]
+        customer_suggestions = [col for col in customer_suggestions if any(id_word in col.lower() 
+                               for id_word in ['id', 'no', 'num', 'code'])]
+        customer_col = customer_suggestions[0] if customer_suggestions else all_cols[0]
+        
+        # Detect date column
+        date_cols = df.select_dtypes(include=['datetime64']).columns.tolist()
+        date_suggestions = [col for col in all_cols if any(keyword in col.lower() 
+                           for keyword in ['date', 'time', 'timestamp', 'day', 'month', 'year', 'transaction', 'order', 'purchase'])]
+        date_suggestions = date_cols + [col for col in date_suggestions if col not in date_cols]
+        date_col = date_suggestions[0] if date_suggestions else (all_cols[1] if len(all_cols) > 1 else all_cols[0])
+        
+        # Detect value/amount column
+        value_suggestions = [col for col in numeric_cols if any(keyword in col.lower() 
+                            for keyword in ['amount', 'value', 'price', 'total', 'revenue', 'spend', 'payment', 'cost'])]
+        value_suggestions = [col for col in value_suggestions if not any(exclude in col.lower() 
+                            for exclude in ['id', 'code', 'count', 'quantity', 'qty', 'index'])]
+        value_col = value_suggestions[0] if value_suggestions else None
+        
+        # Detect churn label column
+        churn_suggestions = [col for col in all_cols if any(keyword in col.lower() 
+                            for keyword in ['churn', 'status', 'active', 'label', 'target', 'outcome', 'left', 'cancelled'])]
+        churn_col = churn_suggestions[0] if churn_suggestions else None
+        
+        return {
+            'customer_id': customer_col,
+            'date': date_col,
+            'value': value_col,
+            'churn': churn_col
+        }
