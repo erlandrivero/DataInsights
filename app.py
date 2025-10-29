@@ -10776,6 +10776,139 @@ def show_recommendation_systems():
                 st.dataframe(recommendations, use_container_width=True)
             else:
                 st.info("No recommendations available")
+        
+        # Diversity Metrics Section
+        st.divider()
+        st.subheader("📊 Diversity & Quality Metrics")
+        st.markdown("Measure recommendation quality beyond accuracy: diversity, coverage, novelty, and personalization.")
+        
+        if st.button("🔬 Calculate Diversity Metrics", type="primary"):
+            with st.status("Calculating diversity metrics for sample users...", expanded=True) as status:
+                try:
+                    # Generate recommendations for sample users
+                    sample_size = min(50, ratings_data['user_id'].nunique())
+                    sample_users = ratings_data['user_id'].unique()[:sample_size]
+                    
+                    recommendations_dict = {}
+                    for user in sample_users:
+                        if method == 'user':
+                            recs = engine.recommend_items_user_based(user, n_recommendations=10)
+                        else:
+                            recs = engine.recommend_items_item_based(user, n_recommendations=10)
+                        recommendations_dict[user] = recs
+                    
+                    # Calculate metrics
+                    diversity_metrics = engine.calculate_diversity_metrics(recommendations_dict)
+                    
+                    # Calculate serendipity for first user as example
+                    first_user = sample_users[0]
+                    first_user_recs = recommendations_dict[first_user]
+                    serendipity = engine.calculate_serendipity(first_user, first_user_recs)
+                    diversity_metrics['serendipity_sample'] = serendipity
+                    
+                    st.session_state.diversity_metrics = diversity_metrics
+                    
+                    status.update(label="✅ Metrics calculated!", state="complete", expanded=False)
+                    st.success("✅ Diversity metrics computed!")
+                except Exception as e:
+                    st.error(f"❌ Error calculating metrics: {str(e)}")
+        
+        # Display diversity metrics if calculated
+        if 'diversity_metrics' in st.session_state:
+            metrics = st.session_state.diversity_metrics
+            
+            st.markdown("### 📈 Quality Metrics Dashboard")
+            
+            # Create 4-column metrics display
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                diversity_val = metrics.get('diversity', 0)
+                st.metric("Diversity", f"{diversity_val:.3f}",
+                         help="Average pairwise dissimilarity (0-1). Higher = more diverse recommendations")
+                if diversity_val > 0.5:
+                    st.caption("🟢 High diversity")
+                elif diversity_val > 0.3:
+                    st.caption("🟡 Moderate diversity")
+                else:
+                    st.caption("🔴 Low diversity")
+            
+            with col2:
+                coverage_val = metrics.get('coverage', 0)
+                st.metric("Coverage", f"{coverage_val:.1%}",
+                         help="% of catalog recommended. Higher = better catalog exploration")
+                if coverage_val > 0.3:
+                    st.caption("🟢 Good coverage")
+                elif coverage_val > 0.1:
+                    st.caption("🟡 Moderate coverage")
+                else:
+                    st.caption("🔴 Low coverage")
+            
+            with col3:
+                novelty_val = metrics.get('novelty', 0)
+                st.metric("Novelty", f"{novelty_val:.3f}",
+                         help="Inverse popularity (0-1). Higher = recommends less popular items")
+                if novelty_val > 0.6:
+                    st.caption("🟢 High novelty")
+                elif novelty_val > 0.4:
+                    st.caption("🟡 Moderate novelty")
+                else:
+                    st.caption("🔴 Low novelty")
+            
+            with col4:
+                personalization_val = metrics.get('personalization', 0)
+                st.metric("Personalization", f"{personalization_val:.3f}",
+                         help="How different recommendations are between users (0-1). Higher = more personalized")
+                if personalization_val > 0.5:
+                    st.caption("🟢 Highly personalized")
+                elif personalization_val > 0.3:
+                    st.caption("🟡 Moderately personalized")
+                else:
+                    st.caption("🔴 Low personalization")
+            
+            # Additional metrics
+            st.markdown("### 📊 Additional Metrics")
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Users Analyzed", f"{metrics.get('num_users', 0):,}")
+            with col2:
+                st.metric("Unique Items Recommended", f"{metrics.get('num_unique_items', 0):,}")
+            with col3:
+                serendipity_val = metrics.get('serendipity_sample', 0)
+                st.metric("Serendipity (Sample)", f"{serendipity_val:.3f}",
+                         help="Unexpectedness score for sample user (0-1)")
+            
+            # Interpretation guide
+            st.markdown("### 💡 Interpretation Guide")
+            st.markdown("""
+            - **Diversity**: Measures variety within recommendation lists. High diversity means recommendations are different from each other.
+            - **Coverage**: % of item catalog being recommended. Low coverage means only popular items are recommended (filter bubble).
+            - **Novelty**: Recommends less popular items. High novelty helps users discover hidden gems.
+            - **Personalization**: How different recommendations are between users. Low = everyone gets similar items.
+            - **Serendipity**: Unexpected recommendations that might delight users (different from what they usually consume).
+            
+            **Goal**: Balance accuracy with diversity. Perfect accuracy but low diversity = boring, predictable recommendations.
+            """)
+            
+            # Recommendations for improvement
+            st.markdown("### 🎯 Improvement Recommendations")
+            
+            improvements = []
+            if diversity_val < 0.3:
+                improvements.append("- **Low Diversity**: Consider using diversity re-ranking or MMR (Maximal Marginal Relevance)")
+            if coverage_val < 0.1:
+                improvements.append("- **Low Coverage**: Implement exploration strategies to recommend long-tail items")
+            if novelty_val < 0.4:
+                improvements.append("- **Low Novelty**: Boost weights for less popular items in recommendations")
+            if personalization_val < 0.3:
+                improvements.append("- **Low Personalization**: Ensure sufficient user history and fine-tune similarity calculations")
+            
+            if improvements:
+                for improvement in improvements:
+                    st.markdown(improvement)
+            else:
+                st.success("✅ **Excellent!** Your recommendation system has good diversity metrics across all dimensions!")
     
     # AI Insights
     if 'rec_similarity' in st.session_state:

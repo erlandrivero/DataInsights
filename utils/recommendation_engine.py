@@ -437,6 +437,173 @@ class RecommendationEngine:
             'users_evaluated': users_evaluated
         }
     
+    def calculate_diversity_metrics(self, recommendations_dict: Dict[Any, pd.DataFrame]) -> Dict[str, float]:
+        """Calculate diversity metrics for recommendations.
+        
+        Measures recommendation quality beyond accuracy:
+        - Diversity: Average pairwise dissimilarity within recommendation lists
+        - Coverage: Percentage of items recommended across all users
+        - Novelty: Average inverse popularity of recommended items
+        - Personalization: How different recommendations are between users
+        
+        Args:
+            recommendations_dict: Dictionary mapping user_id to recommendation DataFrame.
+        
+        Returns:
+            Dictionary with diversity metrics.
+        
+        Examples:
+            >>> recs = {user: engine.recommend_items_user_based(user, 10) for user in users[:100]}
+            >>> metrics = engine.calculate_diversity_metrics(recs)
+        """
+        if not recommendations_dict or self.item_similarity is None:
+            return {}
+        
+        # Calculate item popularity (for novelty)
+        item_ratings = self.user_item_matrix.replace(0, np.nan)
+        item_popularity = item_ratings.count(axis=0)
+        total_ratings = item_popularity.sum()
+        item_pop_normalized = item_popularity / total_ratings if total_ratings > 0 else item_popularity
+        
+        # Collect all recommendations
+        all_recommended_items = set()
+        diversity_scores = []
+        novelty_scores = []
+        
+        for user_id, recs in recommendations_dict.items():
+            if recs.empty:
+                continue
+            
+            rec_items = recs['item_id'].tolist()
+            all_recommended_items.update(rec_items)
+            
+            # Calculate diversity: average pairwise dissimilarity
+            if len(rec_items) > 1:
+                item_indices = [self.items.index(item) for item in rec_items if item in self.items]
+                if len(item_indices) > 1:
+                    similarities = []
+                    for i in range(len(item_indices)):
+                        for j in range(i + 1, len(item_indices)):
+                            sim = self.item_similarity[item_indices[i], item_indices[j]]
+                            similarities.append(sim)
+                    
+                    if similarities:
+                        avg_similarity = np.mean(similarities)
+                        diversity = 1 - avg_similarity  # Diversity = 1 - similarity
+                        diversity_scores.append(diversity)
+            
+            # Calculate novelty: inverse popularity
+            item_novelties = []
+            for item in rec_items:
+                if item in item_pop_normalized.index:
+                    popularity = item_pop_normalized[item]
+                    novelty = 1 - popularity if popularity > 0 else 1.0
+                    item_novelties.append(novelty)
+            
+            if item_novelties:
+                novelty_scores.append(np.mean(item_novelties))
+        
+        # Coverage: percentage of catalog recommended
+        total_items = len(self.items)
+        coverage = len(all_recommended_items) / total_items if total_items > 0 else 0
+        
+        # Personalization: how different are recommendations between users
+        personalization = self._calculate_personalization(recommendations_dict)
+        
+        return {
+            'diversity': np.mean(diversity_scores) if diversity_scores else 0.0,
+            'coverage': coverage,
+            'novelty': np.mean(novelty_scores) if novelty_scores else 0.0,
+            'personalization': personalization,
+            'num_users': len(recommendations_dict),
+            'num_unique_items': len(all_recommended_items)
+        }
+    
+    def _calculate_personalization(self, recommendations_dict: Dict[Any, pd.DataFrame]) -> float:
+        """Calculate personalization: how different recommendations are between users.
+        
+        Args:
+            recommendations_dict: Dictionary mapping user_id to recommendations.
+        
+        Returns:
+            Personalization score (0-1, higher = more personalized).
+        """
+        user_ids = list(recommendations_dict.keys())
+        if len(user_ids) < 2:
+            return 1.0
+        
+        # Calculate Jaccard distance between recommendation lists
+        distances = []
+        for i in range(min(len(user_ids), 50)):  # Sample max 50 users for efficiency
+            for j in range(i + 1, min(len(user_ids), 50)):
+                recs_i = set(recommendations_dict[user_ids[i]]['item_id'].tolist())
+                recs_j = set(recommendations_dict[user_ids[j]]['item_id'].tolist())
+                
+                if len(recs_i) == 0 and len(recs_j) == 0:
+                    continue
+                
+                intersection = len(recs_i & recs_j)
+                union = len(recs_i | recs_j)
+                
+                jaccard = intersection / union if union > 0 else 0
+                distance = 1 - jaccard
+                distances.append(distance)
+        
+        return np.mean(distances) if distances else 0.0
+    
+    def calculate_serendipity(self, user_id: Any, recommendations: pd.DataFrame, 
+                             unexpectedness_threshold: float = 0.5) -> float:
+        """Calculate serendipity: unexpected yet relevant recommendations.
+        
+        Serendipity = recommendations that are both unexpected and valuable.
+        
+        Args:
+            user_id: User identifier.
+            recommendations: Recommended items DataFrame.
+            unexpectedness_threshold: Similarity threshold for "unexpected".
+        
+        Returns:
+            Serendipity score (0-1).
+        
+        Examples:
+            >>> recs = engine.recommend_items_user_based(user_id, 10)
+            >>> serendipity = engine.calculate_serendipity(user_id, recs)
+        """
+        if recommendations.empty or user_id not in self.users:
+            return 0.0
+        
+        # Get items user has rated
+        user_ratings = self.user_item_matrix.loc[user_id]
+        rated_items = [item for item, rating in user_ratings.items() if rating > 0]
+        
+        if not rated_items:
+            return 0.0
+        
+        # Check unexpectedness of recommendations
+        unexpected_count = 0
+        rec_items = recommendations['item_id'].tolist()
+        
+        for rec_item in rec_items:
+            if rec_item not in self.items:
+                continue
+            
+            rec_item_idx = self.items.index(rec_item)
+            
+            # Check similarity to rated items
+            similarities = []
+            for rated_item in rated_items:
+                if rated_item in self.items:
+                    rated_item_idx = self.items.index(rated_item)
+                    sim = self.item_similarity[rec_item_idx, rated_item_idx]
+                    similarities.append(sim)
+            
+            # If recommendation is dissimilar to all rated items, it's unexpected
+            if similarities and max(similarities) < unexpectedness_threshold:
+                unexpected_count += 1
+        
+        serendipity = unexpected_count / len(rec_items) if rec_items else 0.0
+        return serendipity
+    
     @staticmethod
     def create_similarity_heatmap(similarity_matrix: np.ndarray, 
                                   labels: List[str], 
