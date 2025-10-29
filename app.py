@@ -9319,43 +9319,49 @@ def show_ab_testing():
                 
                 status.update(label="✅ Test complete!", state="complete", expanded=False)
             
-            # Display results
             st.success("✅ Statistical test completed!")
+    
+    # Display results if they exist
+    if 'ab_test_results' in st.session_state:
+        result = st.session_state.ab_test_results
+        
+        st.divider()
+        st.subheader("📊 Test Results")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("P-value", f"{result['p_value']:.4f}")
+        with col2:
+            st.metric("Mean Difference", f"{result['absolute_diff']:.2f}")
+        with col3:
+            st.metric("% Difference", f"{result['relative_diff']:.1f}%")
+        with col4:
+            sig_label = "✅ Significant" if result['is_significant'] else "❌ Not Significant"
+            st.metric("Result", sig_label)
+        
+        # Interpretation
+        if result['is_significant']:
+            st.success(f"""
+            ✅ **Statistically Significant Result!**
             
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("P-value", f"{result['p_value']:.4f}")
-            with col2:
-                st.metric("Mean Difference", f"{result['absolute_diff']:.2f}")
-            with col3:
-                st.metric("% Difference", f"{result['relative_diff']:.1f}%")
-            with col4:
-                sig_label = "✅ Significant" if result['is_significant'] else "❌ Not Significant"
-                st.metric("Result", sig_label)
+            The treatment group shows a statistically significant difference (p={result['p_value']:.4f} < 0.05).
+            The difference is unlikely due to chance.
+            """)
+        else:
+            st.warning(f"""
+            ⚠️ **No Statistical Significance**
             
-            # Interpretation
-            if result['is_significant']:
-                st.success(f"""
-                ✅ **Statistically Significant Result!**
-                
-                The treatment group shows a statistically significant difference (p={result['p_value']:.4f} < 0.05).
-                The difference is unlikely due to chance.
-                """)
-            else:
-                st.warning(f"""
-                ⚠️ **No Statistical Significance**
-                
-                The difference is not statistically significant (p={result['p_value']:.4f} ≥ 0.05).
-                Consider collecting more data or accepting the current variation.
-                """)
-            
-            # Visualization
-            fig = ABTestAnalyzer.create_ab_test_visualization(result)
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Effect size
-            effect_interp = ABTestAnalyzer.interpret_effect_size(result['effect_size'], 'cohens_d')
-            st.info(f"**Effect Size (Cohen's d):** {result['effect_size']:.3f} ({effect_interp})")
+            The difference is not statistically significant (p={result['p_value']:.4f} ≥ 0.05).
+            Consider collecting more data or accepting the current variation.
+            """)
+        
+        # Visualization
+        fig = ABTestAnalyzer.create_ab_test_visualization(result)
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Effect size
+        effect_interp = ABTestAnalyzer.interpret_effect_size(result['effect_size'], 'cohens_d')
+        st.info(f"**Effect Size (Cohen's d):** {result['effect_size']:.3f} ({effect_interp})")
     
     # AI Insights
     if 'ab_test_results' in st.session_state:
@@ -9821,7 +9827,12 @@ def show_cohort_analysis():
             status.update(label="✅ Analysis complete!", state="complete", expanded=False)
         
         st.success(f"✅ Analyzed {len(retention_matrix)} cohorts!")
+    
+    # Display results if they exist
+    if 'cohort_retention' in st.session_state:
+        retention_matrix = st.session_state.cohort_retention
         
+        st.divider()
         # Display retention heatmap
         st.subheader("🔥 Retention Heatmap")
         fig = CohortAnalyzer.create_retention_heatmap(retention_matrix)
@@ -10204,13 +10215,21 @@ def show_recommendation_systems():
             status.update(label="✅ Model built!", state="complete", expanded=False)
         
         st.success(f"✅ Built {method} model!")
+    
+    # Display results if they exist
+    if 'rec_similarity' in st.session_state:
+        st.divider()
+        st.subheader("🎯 Sample Recommendations")
         
-        # Show sample recommendations
-        if method == "User-Based Collaborative Filtering":
+        engine = st.session_state.rec_engine
+        method = st.session_state.rec_type
+        ratings_data = st.session_state.rec_ratings
+        
+        if method == 'user':
             sample_user = ratings_data['user_id'].iloc[0]
             recommendations = engine.get_user_recommendations(sample_user, top_n=5)
             
-            st.subheader(f"🎯 Sample Recommendations for {sample_user}")
+            st.write(f"**User-Based: Top 5 for {sample_user}**")
             if recommendations:
                 rec_df = pd.DataFrame(recommendations, columns=['Item', 'Predicted Rating'])
                 st.dataframe(rec_df, use_container_width=True)
@@ -10221,7 +10240,7 @@ def show_recommendation_systems():
             sample_item = ratings_data['item_id'].iloc[0]
             similar_items = engine.get_similar_items(sample_item, top_n=5)
             
-            st.subheader(f"🔍 Items Similar to {sample_item}")
+            st.write(f"**Item-Based: Items Similar to {sample_item}**")
             if similar_items:
                 sim_df = pd.DataFrame(similar_items, columns=['Item', 'Similarity Score'])
                 st.dataframe(sim_df, use_container_width=True)
@@ -10603,8 +10622,16 @@ def show_geospatial_analysis():
             status.update(label="✅ Analysis complete!", state="complete", expanded=False)
         
         st.success("✅ Spatial clustering completed!")
+    
+    # Display results if they exist
+    if 'geo_results' in st.session_state:
+        result = st.session_state.geo_results
+        analyzer = st.session_state.geo_analyzer
+        geo_data = st.session_state.geo_data
         
-        # Display results
+        st.divider()
+        st.subheader("📊 Clustering Results")
+        
         col1, col2 = st.columns(2)
         with col1:
             st.metric("Clusters Found", result['n_clusters'])
@@ -11014,7 +11041,14 @@ def show_survival_analysis():
             status.update(label="✅ Analysis complete!", state="complete", expanded=False)
         
         st.success("✅ Survival analysis completed!")
+    
+    # Display results if they exist
+    if 'surv_results' in st.session_state:
+        result = st.session_state.surv_results
+        analyzer = st.session_state.survival_analyzer
+        surv_data = st.session_state.surv_data
         
+        st.divider()
         # Display results
         st.subheader("📈 Survival Curve")
         fig = analyzer.plot_survival_curve(result)
@@ -11396,7 +11430,13 @@ def show_network_analysis():
             status.update(label="✅ Analysis complete!", state="complete", expanded=False)
         
         st.success("✅ Network analysis completed!")
+    
+    # Display results if they exist
+    if 'net_results' in st.session_state:
+        result = st.session_state.net_results
+        analyzer = st.session_state.network_analyzer
         
+        st.divider()
         # Display metrics
         st.subheader("📈 Network Metrics")
         col1, col2, col3, col4 = st.columns(4)
