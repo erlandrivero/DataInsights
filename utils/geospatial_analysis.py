@@ -331,22 +331,32 @@ class GeospatialAnalyzer:
         # Calculate density grid
         density_df = self.calculate_density_grid(grid_size=grid_resolution)
         
-        # Calculate coverage density (current presence)
-        current_density = density_df['count'].values.reshape(grid_resolution, grid_resolution)
+        # Create grid bins
+        lat_bins = np.linspace(self.data[self.lat_col].min(), 
+                              self.data[self.lat_col].max(), 
+                              grid_resolution + 1)
+        lon_bins = np.linspace(self.data[self.lon_col].min(),
+                              self.data[self.lon_col].max(),
+                              grid_resolution + 1)
+        
+        # Assign each point to a grid cell and count
+        self.data['lat_bin'] = pd.cut(self.data[self.lat_col], bins=lat_bins, labels=False)
+        self.data['lon_bin'] = pd.cut(self.data[self.lon_col], bins=lon_bins, labels=False)
+        
+        # Create full density matrix
+        current_density = np.zeros((grid_resolution, grid_resolution))
+        density_by_cell = self.data.groupby(['lat_bin', 'lon_bin']).size().reset_index(name='count')
+        
+        for _, row in density_by_cell.iterrows():
+            if not pd.isna(row['lat_bin']) and not pd.isna(row['lon_bin']):
+                lat_idx = int(row['lat_bin'])
+                lon_idx = int(row['lon_bin'])
+                if 0 <= lat_idx < grid_resolution and 0 <= lon_idx < grid_resolution:
+                    current_density[lat_idx, lon_idx] = row['count']
         
         # Calculate value density if value column provided
         if value_col and value_col in self.data.columns:
-            # Group by grid cell and sum values
-            lat_bins = np.linspace(self.data[self.lat_col].min(), 
-                                  self.data[self.lat_col].max(), 
-                                  grid_resolution + 1)
-            lon_bins = np.linspace(self.data[self.lon_col].min(),
-                                  self.data[self.lon_col].max(),
-                                  grid_resolution + 1)
-            
-            self.data['lat_bin'] = pd.cut(self.data[self.lat_col], bins=lat_bins, labels=False)
-            self.data['lon_bin'] = pd.cut(self.data[self.lon_col], bins=lon_bins, labels=False)
-            
+            # Use the same bins we created above (lat_bin, lon_bin already exist)
             value_by_cell = self.data.groupby(['lat_bin', 'lon_bin'])[value_col].sum().reset_index()
             
             value_density = np.zeros((grid_resolution, grid_resolution))
@@ -356,11 +366,11 @@ class GeospatialAnalyzer:
                     lon_idx = int(row['lon_bin'])
                     if 0 <= lat_idx < grid_resolution and 0 <= lon_idx < grid_resolution:
                         value_density[lat_idx, lon_idx] = row[value_col]
-            
-            # Clean up temporary columns
-            self.data.drop(['lat_bin', 'lon_bin'], axis=1, inplace=True)
         else:
             value_density = current_density.copy()
+        
+        # Clean up temporary columns
+        self.data.drop(['lat_bin', 'lon_bin'], axis=1, inplace=True)
         
         # Calculate opportunity score
         # Areas with moderate current presence but high potential
