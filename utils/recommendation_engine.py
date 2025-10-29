@@ -272,9 +272,9 @@ class RecommendationEngine:
         top_items = popularity_scores.nlargest(n_items)
         
         return pd.DataFrame({
-            'item_id': top_items.index,
-            'avg_rating': [avg_ratings[item] for item in top_items.index],
-            'rating_count': [rating_counts[item] for item in top_items.index],
+            'item_id': top_items.index.tolist(),
+            'avg_rating': avg_ratings.loc[top_items.index].values,
+            'rating_count': rating_counts.loc[top_items.index].values,
             'popularity_score': top_items.values
         })
     
