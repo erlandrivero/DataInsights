@@ -9546,6 +9546,10 @@ def show_cohort_analysis():
         st.success("✅ Using dataset from Data Upload section")
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
         
+        # Show data preview
+        with st.expander("👁️ Preview Dataset", expanded=False):
+            st.dataframe(df.head(20), use_container_width=True)
+        
         # Smart column detection
         date_cols = df.select_dtypes(include=['datetime64', 'object']).columns.tolist()
         id_cols = df.columns.tolist()
@@ -9575,7 +9579,84 @@ def show_cohort_analysis():
             
             activity_col = st.selectbox("Activity Date", df.columns, index=activity_idx, key="cohort_activity")
         
-        if st.button("📊 Validate & Process Data", type="primary"):
+        # Real-time validation (3-level system)
+        st.divider()
+        st.subheader("📋 Data Validation")
+        
+        issues = []
+        warnings = []
+        
+        # Validate Cohort Date column
+        try:
+            cohort_dates = pd.to_datetime(df[cohort_col], errors='coerce')
+            null_pct = (cohort_dates.isna().sum() / len(df)) * 100
+            
+            if null_pct == 100:
+                issues.append(f"❌ **Cohort Date '{cohort_col}'**: Cannot be parsed as dates (0% valid dates)")
+            elif null_pct > 50:
+                issues.append(f"❌ **Cohort Date '{cohort_col}'**: Only {100-null_pct:.1f}% are valid dates")
+            elif null_pct > 10:
+                warnings.append(f"⚠️ **Cohort Date '{cohort_col}'**: {null_pct:.1f}% invalid dates will be removed")
+        except:
+            issues.append(f"❌ **Cohort Date '{cohort_col}'**: Not a date column")
+        
+        # Validate Activity Date column
+        try:
+            activity_dates = pd.to_datetime(df[activity_col], errors='coerce')
+            null_pct = (activity_dates.isna().sum() / len(df)) * 100
+            
+            if null_pct == 100:
+                issues.append(f"❌ **Activity Date '{activity_col}'**: Cannot be parsed as dates (0% valid dates)")
+            elif null_pct > 50:
+                issues.append(f"❌ **Activity Date '{activity_col}'**: Only {100-null_pct:.1f}% are valid dates")
+            elif null_pct > 10:
+                warnings.append(f"⚠️ **Activity Date '{activity_col}'**: {null_pct:.1f}% invalid dates will be removed")
+        except:
+            issues.append(f"❌ **Activity Date '{activity_col}'**: Not a date column")
+        
+        # Validate User ID column
+        n_unique = df[user_col].nunique()
+        if n_unique < 10:
+            warnings.append(f"⚠️ **User ID '{user_col}'**: Only {n_unique} unique users (cohort analysis works best with 50+ users)")
+        elif n_unique > len(df) * 0.9:
+            warnings.append(f"⚠️ **User ID '{user_col}'**: Too many unique values ({n_unique:,}), might not be a user ID column")
+        
+        # Display validation results
+        if len(issues) > 0:
+            st.error("**🚨 CRITICAL ISSUES - CANNOT RUN COHORT ANALYSIS**")
+            for issue in issues:
+                st.markdown(f"- {issue}")
+            with st.expander("💡 Recommendations"):
+                st.markdown("""
+                **Fix these issues:**
+                1. Select columns that contain actual date values (e.g., InvoiceDate, OrderDate, CreatedAt)
+                2. Avoid text columns like 'Description', 'Name', 'Category'
+                3. Check if your date columns need to be parsed during data upload
+                """)
+            st.session_state.cohort_data_suitable = False
+        elif len(warnings) > 0:
+            st.warning("**⚠️ COHORT ANALYSIS POSSIBLE (with warnings)**")
+            for warning in warnings:
+                st.markdown(f"- {warning}")
+            with st.expander("💡 Recommendations"):
+                st.markdown("""
+                **Consider:**
+                - Invalid dates will be removed automatically
+                - Best results require 50+ users and clean date data
+                - Check your data quality in the Data Upload section
+                """)
+            st.session_state.cohort_data_suitable = True
+        else:
+            st.success("**✅ EXCELLENT FOR COHORT ANALYSIS**")
+            st.markdown(f"- ✅ Cohort Date: Valid date column with clean data")
+            st.markdown(f"- ✅ Activity Date: Valid date column with clean data")
+            st.markdown(f"- ✅ User IDs: {n_unique:,} unique users detected")
+            st.session_state.cohort_data_suitable = True
+        
+        # Only enable button if data is suitable
+        button_disabled = len(issues) > 0
+        
+        if st.button("📊 Validate & Process Data", type="primary", disabled=button_disabled):
             # Validate dates
             try:
                 pd.to_datetime(df[cohort_col])
