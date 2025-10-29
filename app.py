@@ -105,6 +105,7 @@ def main():
              "ML Classification", "ML Regression", "Monte Carlo Simulation", 
              "A/B Testing", "Cohort Analysis", "Recommendation Systems", 
              "Geospatial Analysis", "Survival Analysis", "Network Analysis", 
+             "Churn Prediction",
              "Reports"],
             key="navigation",
             disabled=is_processing
@@ -222,6 +223,8 @@ def main():
         show_survival_analysis()
     elif page == "Network Analysis":
         show_network_analysis()
+    elif page == "Churn Prediction":
+        show_churn_prediction()
 
 def show_home():
     st.markdown("<h2 style='text-align: center;'>Welcome to DataInsights! 👋</h2>", unsafe_allow_html=True)
@@ -14009,6 +14012,471 @@ Be specific, data-driven, and focus on actionable network strategies that levera
                 data=report,
                 file_name=f"network_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.md",
                 mime="text/markdown",
+                use_container_width=True
+            )
+
+def show_churn_prediction():
+    """Churn Prediction page."""
+    st.markdown("<h2 style='text-align: center;'>🔄 Predictive Churn Modeling & Retention</h2>", unsafe_allow_html=True)
+    
+    st.markdown("""
+    Predict which customers are likely to churn and develop targeted retention strategies.
+    
+    **Key Capabilities:**
+    - 🎯 **Automated Feature Engineering** - Create predictive features from raw transaction data
+    - 🤖 **ML-Powered Predictions** - Train Random Forest, Gradient Boosting, or Logistic Regression models
+    - 📊 **Risk Segmentation** - Classify customers into High/Medium/Low risk categories
+    - 💡 **Retention Strategies** - Get personalized action plans for each risk segment
+    - 📈 **Business Impact** - Reduce churn, increase CLV, improve retention ROI
+    
+    **Common Use Cases:**
+    - **SaaS**: Subscription cancellation prediction
+    - **E-commerce**: Purchase recency and frequency analysis
+    - **Telecom**: Service discontinuation forecasting
+    - **Banking**: Account closure and product churn
+    - **Streaming**: Content engagement and cancellation risk
+    """)
+    
+    # Import utilities
+    from utils.churn_prediction import ChurnPredictor
+    
+    # Initialize predictor
+    if 'churn_predictor' not in st.session_state:
+        st.session_state.churn_predictor = ChurnPredictor()
+    
+    predictor = st.session_state.churn_predictor
+    
+    # Data loading
+    st.divider()
+    st.subheader("📤 1. Load Customer Data")
+    
+    # Check if data is already loaded
+    has_loaded_data = st.session_state.data is not None
+    
+    data_source = st.radio(
+        "Choose data source:",
+        ["Use Loaded Dataset", "Use Sample Data", "Upload Custom Data"],
+        disabled=not has_loaded_data and False,  # Always enable for sample
+        help="Sample data includes synthetic customer transaction history"
+    )
+    
+    churn_data = None
+    
+    if data_source == "Use Loaded Dataset":
+        if has_loaded_data:
+            churn_data = st.session_state.data.copy()
+            st.success(f"✅ Using loaded dataset ({len(churn_data):,} rows)")
+        else:
+            st.warning("⚠️ No data loaded. Please upload data first or use sample data.")
+        
+    elif data_source == "Use Sample Data":
+        # Create sample churn data
+        np.random.seed(42)
+        n_customers = 200
+        n_transactions = 1500
+        
+        # Generate customer IDs
+        customer_ids = [f"CUST_{i:04d}" for i in range(1, n_customers + 1)]
+        
+        # Generate transactions
+        transactions = []
+        base_date = pd.Timestamp('2024-01-01')
+        
+        for _ in range(n_transactions):
+            customer = np.random.choice(customer_ids)
+            days_offset = np.random.randint(0, 365)
+            amount = np.random.gamma(2, 50)
+            
+            transactions.append({
+                'customer_id': customer,
+                'transaction_date': base_date + pd.Timedelta(days=days_offset),
+                'amount': round(amount, 2)
+            })
+        
+        churn_data = pd.DataFrame(transactions)
+        
+        # Add churn labels (customers with no activity in last 90 days)
+        max_date = churn_data['transaction_date'].max()
+        last_trans = churn_data.groupby('customer_id')['transaction_date'].max()
+        churn_labels = (max_date - last_trans).dt.days > 90
+        
+        churn_map = churn_labels.astype(int).to_dict()
+        churn_data['churned'] = churn_data['customer_id'].map(churn_map)
+        
+        st.success(f"✅ Sample data loaded ({len(churn_data):,} transactions, {n_customers} customers)")
+        st.info("💡 This dataset contains synthetic customer transactions with churn labels for demonstration")
+        
+    else:  # Upload Custom Data
+        uploaded = st.file_uploader("Upload CSV file", type=['csv'])
+        if uploaded:
+            churn_data = pd.read_csv(uploaded)
+            st.success(f"✅ File uploaded ({len(churn_data):,} rows)")
+    
+    # Display dataset preview
+    if churn_data is not None:
+        with st.expander("👀 Preview Data"):
+            st.dataframe(churn_data.head(20), use_container_width=True)
+            st.caption(f"Showing first 20 rows of {len(churn_data):,} total")
+    
+    # Feature Engineering Section
+    if churn_data is not None:
+        st.divider()
+        st.subheader("🔧 2. Configure Feature Engineering")
+        
+        with st.expander("ℹ️ What is Feature Engineering?"):
+            st.markdown("""
+            **Feature Engineering** creates predictive variables from raw transaction data.
+            
+            **Automated Features Created:**
+            - **Recency**: Days since last transaction (recent = engaged)
+            - **Frequency**: Total number of transactions (high = loyal)
+            - **Monetary**: Total/average/std of transaction values
+            - **Lifetime**: Customer tenure in days
+            - **Engagement Trend**: Recent vs. historical activity ratio
+            - **Time-Based**: Activity in last 30/60/90 days
+            - **Risk Indicators**: Dormancy, declining activity flags
+            
+            **Why It Matters:**
+            These features capture customer behavior patterns that predict churn better than raw transactions.
+            """)
+        
+        # Column selection
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            customer_col = st.selectbox(
+                "Customer ID Column:",
+                churn_data.columns.tolist(),
+                help="Column identifying unique customers"
+            )
+        
+        with col2:
+            date_col = st.selectbox(
+                "Transaction Date Column:",
+                churn_data.columns.tolist(),
+                index=1 if len(churn_data.columns) > 1 else 0,
+                help="Column with transaction timestamps"
+            )
+        
+        col3, col4 = st.columns(2)
+        
+        with col3:
+            value_col_options = ["None"] + [col for col in churn_data.columns if col not in [customer_col, date_col]]
+            value_col = st.selectbox(
+                "Transaction Value Column (Optional):",
+                value_col_options,
+                help="Column with monetary values (optional)"
+            )
+            value_col = None if value_col == "None" else value_col
+        
+        with col4:
+            churn_col_options = ["None"] + [col for col in churn_data.columns if col not in [customer_col, date_col]]
+            churn_col = st.selectbox(
+                "Churn Label Column (Optional):",
+                churn_col_options,
+                help="Column indicating if customer churned (0/1)"
+            )
+            churn_col = None if churn_col == "None" else churn_col
+        
+        # Engineer features button
+        if st.button("🔧 Engineer Features", type="primary"):
+            with st.status("Creating predictive features...", expanded=True) as status:
+                try:
+                    features = predictor.engineer_features(
+                        churn_data,
+                        customer_id_col=customer_col,
+                        date_col=date_col,
+                        value_col=value_col,
+                        churn_col=churn_col
+                    )
+                    
+                    st.session_state.churn_features = features
+                    st.session_state.churn_has_labels = churn_col is not None
+                    
+                    status.update(label="✅ Features created!", state="complete", expanded=False)
+                    st.success(f"✅ Engineered {len(features.columns)-1} features for {len(features):,} customers!")
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+    
+    # Display engineered features
+    if 'churn_features' in st.session_state:
+        features = st.session_state.churn_features
+        
+        st.markdown("### 📊 Engineered Features")
+        st.dataframe(features.head(10), use_container_width=True)
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Customers", f"{len(features):,}")
+        with col2:
+            avg_recency = features['recency_days'].mean()
+            st.metric("Avg Recency (days)", f"{avg_recency:.1f}")
+        with col3:
+            avg_frequency = features['frequency'].mean()
+            st.metric("Avg Frequency", f"{avg_frequency:.1f}")
+    
+    # Model Training Section
+    if 'churn_features' in st.session_state and st.session_state.churn_has_labels:
+        st.divider()
+        st.subheader("🤖 3. Train Churn Prediction Model")
+        
+        with st.expander("ℹ️ About the Models"):
+            st.markdown("""
+            **Random Forest** (Recommended):
+            - Ensemble of decision trees
+            - Handles non-linear relationships
+            - Provides feature importance
+            - Robust to outliers
+            
+            **Gradient Boosting**:
+            - Sequential tree building
+            - Often highest accuracy
+            - Can overfit on small datasets
+            
+            **Logistic Regression**:
+            - Fast and interpretable
+            - Linear decision boundaries
+            - Good for large datasets
+            """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            model_type = st.selectbox(
+                "Select Model:",
+                ['random_forest', 'gradient_boosting', 'logistic'],
+                format_func=lambda x: x.replace('_', ' ').title(),
+                help="Random Forest recommended for most cases"
+            )
+        
+        with col2:
+            test_size = st.slider(
+                "Test Set Size:",
+                min_value=0.1,
+                max_value=0.5,
+                value=0.3,
+                step=0.05,
+                help="Proportion of data reserved for testing"
+            )
+        
+        if st.button("🚀 Train Model", type="primary"):
+            with st.status("Training churn prediction model...", expanded=True) as status:
+                try:
+                    results = predictor.train_model(
+                        features=st.session_state.churn_features,
+                        target_col='churned',
+                        model_type=model_type,
+                        test_size=test_size
+                    )
+                    
+                    st.session_state.churn_results = results
+                    
+                    status.update(label="✅ Model trained!", state="complete", expanded=False)
+                    st.success("✅ Model training complete!")
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+    
+    # Display model results
+    if 'churn_results' in st.session_state:
+        results = st.session_state.churn_results
+        
+        st.markdown("### 📈 Model Performance")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Accuracy", f"{results['accuracy']:.3f}",
+                     help="Overall correctness")
+        with col2:
+            st.metric("Precision", f"{results['precision']:.3f}",
+                     help="Of predicted churners, how many actually churned")
+        with col3:
+            st.metric("Recall", f"{results['recall']:.3f}",
+                     help="Of actual churners, how many we caught")
+        with col4:
+            st.metric("ROC-AUC", f"{results['roc_auc']:.3f}",
+                     help="Overall discriminative power")
+        
+        # Confusion Matrix
+        st.markdown("### 🎯 Confusion Matrix")
+        
+        cm = results['confusion_matrix']
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            fig_cm = go.Figure(data=go.Heatmap(
+                z=cm,
+                x=['Predicted No Churn', 'Predicted Churn'],
+                y=['Actual No Churn', 'Actual Churn'],
+                text=cm,
+                texttemplate='%{text}',
+                colorscale='RdYlGn_r',
+                showscale=False
+            ))
+            fig_cm.update_layout(
+                title='Prediction Results',
+                height=350
+            )
+            st.plotly_chart(fig_cm, use_container_width=True)
+        
+        with col2:
+            st.markdown("**Interpretation:**")
+            st.markdown(f"- ✅ **True Negatives**: {cm[0,0]} (correctly predicted no churn)")
+            st.markdown(f"- ❌ **False Positives**: {cm[0,1]} (false alarms)")
+            st.markdown(f"- ❌ **False Negatives**: {cm[1,0]} (missed churners - costly!)")
+            st.markdown(f"- ✅ **True Positives**: {cm[1,1]} (correctly predicted churn)")
+            
+            st.markdown("**Business Impact:**")
+            saved_customers = cm[1,1]
+            missed_customers = cm[1,0]
+            st.markdown(f"- 🎯 Can save up to **{saved_customers}** at-risk customers")
+            st.markdown(f"- ⚠️ Missing **{missed_customers}** churners - room for improvement")
+        
+        # Feature Importance
+        if predictor.feature_importance is not None:
+            st.markdown("### 🔍 Top Churn Drivers")
+            
+            fig_imp = ChurnPredictor.create_feature_importance_plot(
+                predictor.feature_importance,
+                top_n=10
+            )
+            st.plotly_chart(fig_imp, use_container_width=True)
+            
+            st.markdown("**Insights:**")
+            top_feature = predictor.feature_importance.iloc[0]
+            st.info(f"💡 **{top_feature['feature']}** is the strongest churn predictor (importance: {top_feature['importance']:.3f})")
+    
+    # Prediction Section
+    if 'churn_results' in st.session_state:
+        st.divider()
+        st.subheader("🎯 4. Predict Churn Risk")
+        
+        if st.button("🔮 Generate Churn Predictions", type="primary"):
+            with st.status("Scoring customers...", expanded=True) as status:
+                try:
+                    predictions = predictor.predict_churn_risk(
+                        st.session_state.churn_features
+                    )
+                    
+                    st.session_state.churn_predictions = predictions
+                    
+                    status.update(label="✅ Predictions complete!", state="complete", expanded=False)
+                    st.success("✅ Churn risk scores generated!")
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+    
+    # Display predictions
+    if 'churn_predictions' in st.session_state:
+        predictions = st.session_state.churn_predictions
+        
+        st.markdown("### 📊 Customer Risk Scores")
+        
+        # Risk distribution
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            fig_dist = ChurnPredictor.create_risk_distribution_plot(predictions)
+            st.plotly_chart(fig_dist, use_container_width=True)
+        
+        with col2:
+            risk_counts = predictions['risk_category'].value_counts()
+            
+            for risk, count in risk_counts.items():
+                pct = (count / len(predictions)) * 100
+                color = '🔴' if risk == 'High Risk' else '🟠' if risk == 'Medium Risk' else '🟢'
+                st.metric(f"{color} {risk}", f"{count}", delta=f"{pct:.1f}%")
+        
+        # Top at-risk customers
+        st.markdown("### 🚨 Top 20 At-Risk Customers")
+        
+        top_risk = predictions.head(20)[[
+            'customer_id', 'churn_probability', 'risk_category'
+        ]].copy()
+        
+        top_risk['churn_probability'] = top_risk['churn_probability'].apply(lambda x: f"{x:.1%}")
+        
+        st.dataframe(top_risk, use_container_width=True)
+        
+        # Retention Strategies
+        st.divider()
+        st.subheader("💡 5. Retention Strategies")
+        
+        if st.button("🎯 Generate Retention Strategies", type="primary"):
+            with st.status("Developing retention strategies...", expanded=True) as status:
+                try:
+                    strategies = predictor.get_retention_strategies(
+                        predictions,
+                        st.session_state.churn_features
+                    )
+                    
+                    st.session_state.churn_strategies = strategies
+                    
+                    status.update(label="✅ Strategies ready!", state="complete", expanded=False)
+                    st.success("✅ Retention strategies generated!")
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+        
+        # Display strategies
+        if 'churn_strategies' in st.session_state:
+            strategies = st.session_state.churn_strategies
+            
+            for risk_level in ['High Risk', 'Medium Risk', 'Low Risk']:
+                if risk_level in strategies and len(strategies[risk_level]) > 0:
+                    strategy = strategies[risk_level][0]
+                    
+                    color = '🔴' if risk_level == 'High Risk' else '🟠' if risk_level == 'Medium Risk' else '🟢'
+                    
+                    with st.expander(f"{color} {risk_level} Segment ({strategy['customer_count']} customers)", expanded=risk_level=='High Risk'):
+                        st.markdown(f"**Average Churn Probability:** {strategy['avg_churn_probability']:.1%}")
+                        
+                        st.markdown("**Segment Characteristics:**")
+                        chars = strategy['characteristics']
+                        col1, col2, col3, col4 = st.columns(4)
+                        with col1:
+                            st.metric("Avg Recency", f"{chars['avg_recency_days']:.0f} days")
+                        with col2:
+                            st.metric("Avg Frequency", f"{chars['avg_frequency']:.1f}")
+                        with col3:
+                            st.metric("% Dormant", f"{chars['pct_dormant']:.0f}%")
+                        with col4:
+                            st.metric("% Declining", f"{chars['pct_declining']:.0f}%")
+                        
+                        st.markdown("**Recommended Actions:**")
+                        
+                        for action in strategy['recommended_actions']:
+                            st.markdown(f"**{action['action']}**")
+                            st.markdown(f"*Why:* {action['reason']}")
+                            st.markdown("*Tactics:*")
+                            for tactic in action['tactics']:
+                                st.markdown(f"  - {tactic}")
+                            st.markdown("")
+        
+        # Export Section
+        st.divider()
+        st.subheader("📥 6. Export Results")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Export predictions
+            predictions_csv = predictions.to_csv(index=False)
+            st.download_button(
+                label="📥 Download Predictions (CSV)",
+                data=predictions_csv,
+                file_name=f"churn_predictions_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        
+        with col2:
+            # Export features
+            features_csv = st.session_state.churn_features.to_csv(index=False)
+            st.download_button(
+                label="📥 Download Features (CSV)",
+                data=features_csv,
+                file_name=f"churn_features_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
                 use_container_width=True
             )
 
