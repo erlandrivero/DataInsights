@@ -9849,73 +9849,127 @@ def show_cohort_analysis():
     # AI Insights
     if 'cohort_retention' in st.session_state:
         st.divider()
-        st.subheader("🤖 AI-Powered Insights")
+        st.subheader("✨ AI-Powered Insights")
         
-        if 'cohort_ai_insights' not in st.session_state:
-            if st.button("✨ Generate AI Insights", type="primary", key="cohort_ai"):
-                try:
-                    from utils.ai_helper import AIHelper
-                    ai = AIHelper()
-                    
-                    with st.status("🤖 AI is analyzing cohort patterns...", expanded=True) as status:
-                        retention_matrix = st.session_state.cohort_retention
-                        
-                        # Prepare data summary
-                        summary = f"""Cohort Analysis Results:
-- Number of Cohorts: {len(retention_matrix)}
-- Periods Tracked: {len(retention_matrix.columns)}
-- Period 1 Retention: {retention_matrix[1].mean():.1f}% average
-- Latest Period Retention: {retention_matrix[retention_matrix.columns[-1]].mean():.1f}% average
-- Best Performing Cohort: {retention_matrix[0].max():.1f}% initial retention
-- Retention Rate Trend: {'Declining' if retention_matrix.iloc[:, -1].mean() < retention_matrix.iloc[:, 1].mean() else 'Stable/Growing'}
-"""
-                        
-                        # Create detailed prompt
-                        prompt = f"""
-As a retention and user engagement expert, analyze these cohort retention results and provide:
-
-1. **Retention Pattern Analysis** (2-3 sentences): What do these retention trends reveal?
-
-2. **Key Findings** (3-4 bullet points): Most important insights from the cohort data
-
-3. **Retention Issues** (2-3 sentences): What problems or drop-off patterns are evident?
-
-4. **Actionable Recommendations** (4-5 bullet points): Specific strategies to improve retention:
-   - Product improvements
-   - Engagement tactics
-   - Re-activation campaigns
-   - Onboarding optimization
-
-5. **Expected Impact** (2-3 sentences): How could these changes affect retention rates?
-
-{summary}
-
-Focus on actionable strategies that can be implemented quickly.
-"""
-                        
-                        response = ai.client.chat.completions.create(
-                            model="gpt-4",
-                            messages=[
-                                {"role": "system", "content": "You are a retention and user engagement expert specializing in cohort analysis and customer lifecycle management."},
-                                {"role": "user", "content": prompt}
-                            ],
-                            temperature=0.7,
-                            max_tokens=1200
-                        )
-                        
-                        st.session_state.cohort_ai_insights = response.choices[0].message.content
-                        status.update(label="✅ Insights generated!", state="complete", expanded=False)
-                    
-                    st.success("✅ AI insights generated successfully!")
-                    st.markdown(st.session_state.cohort_ai_insights)
-                    st.info("✅ AI insights saved! These will be included in your report downloads.")
-                        
-                except Exception as e:
-                    st.error(f"Error generating insights: {str(e)}")
-        
+        # Display saved insights if they exist
         if 'cohort_ai_insights' in st.session_state:
             st.markdown(st.session_state.cohort_ai_insights)
             st.info("✅ AI insights saved! These will be included in your report downloads.")
+        
+        if st.button("🤖 Generate AI Insights", key="cohort_ai_insights_btn", use_container_width=True):
+            try:
+                from utils.ai_helper import AIHelper
+                ai = AIHelper()
+                
+                with st.status("🤖 Analyzing cohort retention patterns and generating strategic recommendations...", expanded=True) as status:
+                    # Get data from session state
+                    retention_matrix = st.session_state.cohort_retention
+                    
+                    # Calculate comprehensive metrics
+                    num_cohorts = len(retention_matrix)
+                    num_periods = len(retention_matrix.columns)
+                    
+                    # Period-specific retention
+                    period_1_retention = retention_matrix[1].mean() if 1 in retention_matrix.columns else 0
+                    period_3_retention = retention_matrix[3].mean() if 3 in retention_matrix.columns else 0
+                    latest_period = retention_matrix.columns[-1]
+                    latest_retention = retention_matrix[latest_period].mean()
+                    
+                    # Cohort performance analysis
+                    best_cohort_initial = retention_matrix[0].max()
+                    worst_cohort_initial = retention_matrix[0].min()
+                    avg_cohort_size = retention_matrix[0].mean()
+                    
+                    # Calculate churn rates
+                    period_1_churn = 100 - period_1_retention
+                    latest_churn = 100 - latest_retention
+                    
+                    # Retention trend
+                    retention_trend = "Declining" if latest_retention < period_1_retention else "Stable" if latest_retention == period_1_retention else "Improving"
+                    trend_magnitude = abs(latest_retention - period_1_retention)
+                    
+                    # Prepare rich context
+                    context = f"""
+Cohort Retention Analysis Results:
+
+Cohort Overview:
+- Total Cohorts Analyzed: {num_cohorts}
+- Tracking Periods: {num_periods} periods
+- Average Initial Cohort Size: {avg_cohort_size:.1f}%
+- Best Performing Cohort: {best_cohort_initial:.1f}% initial retention
+- Worst Performing Cohort: {worst_cohort_initial:.1f}% initial retention
+
+Retention Performance:
+- Period 1 Retention Rate: {period_1_retention:.1f}%
+- Period 3 Retention Rate: {period_3_retention:.1f}%
+- Period {latest_period} Retention Rate: {latest_retention:.1f}%
+- Overall Retention Trend: {retention_trend} ({trend_magnitude:.1f}% change)
+
+Churn Analysis:
+- Period 1 Churn Rate: {period_1_churn:.1f}%
+- Latest Period Churn Rate: {latest_churn:.1f}%
+- Average Drop-off per Period: {(period_1_retention - latest_retention) / max(num_periods - 1, 1):.1f}%
+
+Key Patterns:
+- Retention Curve Shape: {'Steep early drop-off' if period_1_churn > 30 else 'Gradual decline' if period_1_churn > 15 else 'Strong retention'}
+- Long-term Stability: {'Stabilizing' if latest_retention > 30 else 'High churn risk' if latest_retention < 20 else 'Moderate retention'}
+"""
+                    
+                    prompt = f"""
+As a senior retention strategist and customer lifecycle expert with 10+ years of experience optimizing subscription and SaaS retention metrics, analyze these cohort results and provide:
+
+1. **Retention Health Assessment** (3-4 sentences): Evaluate the overall retention performance. Is this healthy for the business type? What does the retention curve shape tell us about user engagement?
+
+2. **Churn Analysis** (4-5 bullet points): When and why are users dropping off?
+   - Critical drop-off periods
+   - Churn rate progression
+   - At-risk cohort segments
+   - Early warning indicators
+
+3. **Cohort Segmentation Strategy** (3-4 sentences): Which cohorts should receive priority attention? How should resources be allocated across different cohort segments for maximum impact?
+
+4. **Re-engagement Tactics** (5-6 bullet points): Specific strategies to win back and retain users:
+   - Onboarding optimization (first 30 days)
+   - Engagement loops and habit formation
+   - Win-back campaigns for churned users
+   - Retention incentives and timing
+   - Communication frequency and channels
+   - Feature adoption drives
+
+5. **Product & Experience Improvements** (4-5 bullet points): What product changes would meaningfully improve retention?
+   - Core feature enhancements
+   - User experience friction points
+   - Value delivery optimization
+   - Competitive positioning
+
+6. **ROI Impact Projection** (3-4 sentences): If retention improves by 5%, 10%, and 20%, what would be the impact on customer lifetime value and revenue? Provide realistic estimates and prioritize quick wins vs. long-term investments.
+
+{context}
+
+Be specific, data-driven, and focus on actionable strategies that directly impact retention metrics and customer lifetime value. Consider both immediate tactics and sustainable long-term improvements.
+"""
+                    
+                    response = ai.client.chat.completions.create(
+                        model="gpt-4",
+                        messages=[
+                            {"role": "system", "content": "You are a senior retention strategist and customer lifecycle expert with 10+ years of experience optimizing subscription and SaaS retention metrics. You specialize in cohort analysis, churn prediction, and customer lifetime value maximization."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.7,
+                        max_tokens=1500
+                    )
+                    
+                    # Save to session state
+                    st.session_state.cohort_ai_insights = response.choices[0].message.content
+                    status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+                    
+                    # Display inside status block
+                    st.success("✅ AI insights generated successfully!")
+                    st.markdown(st.session_state.cohort_ai_insights)
+                    st.info("✅ AI insights saved! These will be included in your report downloads.")
+                    
+            except Exception as e:
+                st.error(f"Error generating AI insights: {str(e)}")
     
     # Export
     if 'cohort_retention' in st.session_state:
