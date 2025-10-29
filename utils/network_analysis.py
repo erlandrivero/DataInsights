@@ -581,3 +581,229 @@ class NetworkAnalyzer:
                 })
         
         return pd.DataFrame(seed_results)
+    
+    def predict_links(self, method: str = 'common_neighbors', 
+                     top_k: int = 20) -> pd.DataFrame:
+        """Predict potential future links in the network.
+        
+        Uses various link prediction algorithms to identify node pairs
+        likely to form connections in the future.
+        
+        Args:
+            method: Link prediction method to use.
+                   Options: 'common_neighbors', 'adamic_adar', 'jaccard',
+                           'preferential_attachment', 'resource_allocation'
+            top_k: Number of top predictions to return.
+        
+        Returns:
+            DataFrame with predicted links and scores.
+        
+        Examples:
+            >>> predictions = analyzer.predict_links('adamic_adar', top_k=10)
+            >>> print(f"Top prediction: {predictions.iloc[0]}")
+        """
+        if self.graph is None:
+            return pd.DataFrame()
+        
+        # Get non-edges (node pairs without connections)
+        non_edges = list(nx.non_edges(self.graph))
+        
+        # Sample if too many (for performance)
+        if len(non_edges) > 10000:
+            import random
+            non_edges = random.sample(non_edges, 10000)
+        
+        predictions = []
+        
+        # Apply selected method
+        if method == 'common_neighbors':
+            scores = nx.common_neighbor_centrality(self.graph, ebunch=non_edges)
+        elif method == 'adamic_adar':
+            scores = nx.adamic_adar_index(self.graph, ebunch=non_edges)
+        elif method == 'jaccard':
+            scores = nx.jaccard_coefficient(self.graph, ebunch=non_edges)
+        elif method == 'preferential_attachment':
+            scores = nx.preferential_attachment(self.graph, ebunch=non_edges)
+        elif method == 'resource_allocation':
+            scores = nx.resource_allocation_index(self.graph, ebunch=non_edges)
+        else:
+            raise ValueError(f"Unknown method: {method}")
+        
+        # Collect predictions
+        for u, v, score in scores:
+            predictions.append({
+                'node_1': u,
+                'node_2': v,
+                'score': score,
+                'method': method
+            })
+        
+        # Convert to DataFrame and sort by score
+        df = pd.DataFrame(predictions)
+        if not df.empty:
+            df = df.sort_values('score', ascending=False).head(top_k).reset_index(drop=True)
+            df['rank'] = range(1, len(df) + 1)
+        
+        return df
+    
+    def evaluate_link_prediction(self, test_edges: List[Tuple[Any, Any]],
+                                 method: str = 'common_neighbors',
+                                 top_k: int = 100) -> Dict[str, float]:
+        """Evaluate link prediction accuracy.
+        
+        Measures how well the prediction method can identify actual future links
+        from a test set.
+        
+        Args:
+            test_edges: List of actual edges to predict (held-out test set).
+            method: Link prediction method to use.
+            top_k: Number of top predictions to consider.
+        
+        Returns:
+            Dictionary with evaluation metrics (precision, recall, F1).
+        
+        Examples:
+            >>> test_edges = [(1, 5), (2, 7), (3, 9)]
+            >>> metrics = analyzer.evaluate_link_prediction(test_edges, 'adamic_adar')
+        """
+        if self.graph is None:
+            return {}
+        
+        # Get predictions
+        predictions = self.predict_links(method=method, top_k=top_k)
+        
+        if predictions.empty:
+            return {'precision': 0.0, 'recall': 0.0, 'f1': 0.0}
+        
+        # Convert predictions to set of tuples
+        predicted_edges = set(zip(predictions['node_1'], predictions['node_2']))
+        
+        # Also add reverse (for undirected graphs)
+        predicted_edges_symmetric = predicted_edges | {(v, u) for u, v in predicted_edges}
+        
+        # Convert test edges to set
+        test_edges_set = set(test_edges)
+        test_edges_symmetric = test_edges_set | {(v, u) for u, v in test_edges_set}
+        
+        # Calculate metrics
+        true_positives = len(predicted_edges_symmetric & test_edges_symmetric)
+        
+        precision = true_positives / len(predicted_edges) if len(predicted_edges) > 0 else 0
+        recall = true_positives / len(test_edges_set) if len(test_edges_set) > 0 else 0
+        f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+        
+        return {
+            'precision': precision,
+            'recall': recall,
+            'f1': f1,
+            'true_positives': true_positives,
+            'predicted_count': len(predicted_edges),
+            'test_count': len(test_edges_set)
+        }
+    
+    def analyze_link_formation_patterns(self) -> Dict[str, Any]:
+        """Analyze patterns in existing link formation.
+        
+        Examines structural properties of existing edges to understand
+        link formation patterns in the network.
+        
+        Returns:
+            Dictionary with pattern analysis results.
+        
+        Examples:
+            >>> patterns = analyzer.analyze_link_formation_patterns()
+            >>> print(f"Clustering effect: {patterns['clustering_coefficient']:.3f}")
+        """
+        if self.graph is None:
+            return {}
+        
+        # Calculate various network properties
+        clustering_coef = nx.average_clustering(self.graph)
+        
+        # Degree assortativity (homophily)
+        try:
+            assortativity = nx.degree_assortativity_coefficient(self.graph)
+        except:
+            assortativity = 0.0
+        
+        # Transitivity (global clustering)
+        transitivity = nx.transitivity(self.graph)
+        
+        # Average path length (if connected)
+        try:
+            if nx.is_connected(self.graph):
+                avg_path_length = nx.average_shortest_path_length(self.graph)
+            else:
+                # Use largest component
+                largest_cc = max(nx.connected_components(self.graph), key=len)
+                subgraph = self.graph.subgraph(largest_cc)
+                avg_path_length = nx.average_shortest_path_length(subgraph)
+        except:
+            avg_path_length = None
+        
+        # Degree distribution stats
+        degrees = [self.graph.degree(n) for n in self.graph.nodes()]
+        avg_degree = np.mean(degrees)
+        degree_variance = np.var(degrees)
+        
+        return {
+            'clustering_coefficient': clustering_coef,
+            'degree_assortativity': assortativity,
+            'transitivity': transitivity,
+            'avg_path_length': avg_path_length,
+            'avg_degree': avg_degree,
+            'degree_variance': degree_variance,
+            'num_nodes': self.graph.number_of_nodes(),
+            'num_edges': self.graph.number_of_edges(),
+            'density': nx.density(self.graph)
+        }
+    
+    @staticmethod
+    def compare_prediction_methods(graph: nx.Graph, 
+                                   test_edges: List[Tuple[Any, Any]],
+                                   methods: List[str] = None,
+                                   top_k: int = 100) -> pd.DataFrame:
+        """Compare performance of different link prediction methods.
+        
+        Args:
+            graph: NetworkX graph.
+            test_edges: Test set of edges to predict.
+            methods: List of methods to compare (None = all).
+            top_k: Number of top predictions per method.
+        
+        Returns:
+            DataFrame with comparison results.
+        
+        Examples:
+            >>> comparison = NetworkAnalyzer.compare_prediction_methods(G, test_edges)
+            >>> print(comparison.sort_values('f1', ascending=False))
+        """
+        if methods is None:
+            methods = ['common_neighbors', 'adamic_adar', 'jaccard', 
+                      'preferential_attachment', 'resource_allocation']
+        
+        analyzer = NetworkAnalyzer()
+        analyzer.graph = graph
+        
+        results = []
+        for method in methods:
+            try:
+                metrics = analyzer.evaluate_link_prediction(test_edges, method=method, top_k=top_k)
+                results.append({
+                    'method': method,
+                    'precision': metrics['precision'],
+                    'recall': metrics['recall'],
+                    'f1': metrics['f1'],
+                    'true_positives': metrics['true_positives']
+                })
+            except Exception as e:
+                results.append({
+                    'method': method,
+                    'precision': 0.0,
+                    'recall': 0.0,
+                    'f1': 0.0,
+                    'true_positives': 0,
+                    'error': str(e)
+                })
+        
+        return pd.DataFrame(results).sort_values('f1', ascending=False)

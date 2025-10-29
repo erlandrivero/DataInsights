@@ -13344,6 +13344,228 @@ def show_network_analysis():
                 st.info("📢 **Moderate Viral Potential**: Good spread but not reaching full network")
             else:
                 st.warning("⚠️ **Limited Spread**: Consider increasing propagation probability or choosing better seed nodes")
+        
+        # Link Prediction Section
+        st.divider()
+        st.subheader("🔗 Link Prediction & Future Connections")
+        st.markdown("Predict which connections are likely to form next in your network using machine learning algorithms.")
+        
+        with st.expander("ℹ️ What is Link Prediction?"):
+            st.markdown("""
+            **Link Prediction** identifies node pairs likely to form connections in the future based on current network structure.
+            
+            **Algorithms:**
+            - **Common Neighbors**: Count of shared connections
+            - **Adamic-Adar**: Weighted common neighbors (rare connections weighted higher)
+            - **Jaccard Coefficient**: Similarity of neighbor sets
+            - **Preferential Attachment**: "Rich get richer" - product of degrees
+            - **Resource Allocation**: Information flow between nodes
+            
+            **Applications:**
+            - **Social Networks**: Friend recommendations
+            - **Business**: Partnership opportunities
+            - **Research**: Collaboration predictions
+            - **E-commerce**: Product co-purchase patterns
+            
+            **How It Works:**
+            Analyzes patterns in existing connections to predict future ones without requiring temporal data.
+            """)
+        
+        # Method selection
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            prediction_method = st.selectbox(
+                "Prediction Algorithm:",
+                ['common_neighbors', 'adamic_adar', 'jaccard', 
+                 'preferential_attachment', 'resource_allocation'],
+                format_func=lambda x: x.replace('_', ' ').title(),
+                help="Algorithm for scoring potential connections"
+            )
+        
+        with col2:
+            top_k_predictions = st.slider(
+                "Number of Predictions:",
+                min_value=10,
+                max_value=50,
+                value=20,
+                help="Top K most likely future connections"
+            )
+        
+        # Predict links button
+        if st.button("🔮 Predict Future Links", type="primary"):
+            with st.status("Analyzing network structure and predicting links...", expanded=True) as status:
+                try:
+                    # Run link prediction
+                    predictions = analyzer.predict_links(
+                        method=prediction_method,
+                        top_k=top_k_predictions
+                    )
+                    
+                    # Analyze link formation patterns
+                    patterns = analyzer.analyze_link_formation_patterns()
+                    
+                    st.session_state.link_predictions = predictions
+                    st.session_state.link_patterns = patterns
+                    
+                    status.update(label="✅ Predictions complete!", state="complete", expanded=False)
+                    st.success("✅ Link predictions generated!")
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+        
+        # Display predictions
+        if 'link_predictions' in st.session_state:
+            preds = st.session_state.link_predictions
+            
+            st.markdown("### 🎯 Top Predicted Connections")
+            
+            if not preds.empty:
+                st.dataframe(preds, use_container_width=True)
+                
+                # Prediction metrics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Predictions Generated", len(preds))
+                with col2:
+                    avg_score = preds['score'].mean()
+                    st.metric("Average Score", f"{avg_score:.4f}")
+                with col3:
+                    max_score = preds['score'].max()
+                    st.metric("Highest Score", f"{max_score:.4f}")
+                
+                # Top 3 predictions
+                st.markdown("### 🌟 Top 3 Connection Recommendations")
+                
+                for idx, row in preds.head(3).iterrows():
+                    st.markdown(f"""
+                    **#{row['rank']}: {row['node_1']} ↔ {row['node_2']}**
+                    - Prediction Score: {row['score']:.4f}
+                    - Algorithm: {row['method'].replace('_', ' ').title()}
+                    - Confidence: {"High" if row['score'] > avg_score else "Moderate"}
+                    """)
+                
+                # Algorithm explanation
+                st.markdown("### 💡 Algorithm Interpretation")
+                
+                if prediction_method == 'common_neighbors':
+                    st.info("""
+                    **Common Neighbors**: Measures shared connections.
+                    
+                    Higher scores = More mutual friends/connections. Based on the principle that people with 
+                    many friends in common are likely to know each other.
+                    """)
+                elif prediction_method == 'adamic_adar':
+                    st.info("""
+                    **Adamic-Adar Index**: Weighted common neighbors.
+                    
+                    Rare shared connections are weighted higher. A shared connection to a low-degree node 
+                    (specialist) is more significant than one to a high-degree node (hub).
+                    """)
+                elif prediction_method == 'jaccard':
+                    st.info("""
+                    **Jaccard Coefficient**: Similarity measure.
+                    
+                    Ratio of shared neighbors to total neighbors. Measures how similar the two nodes' 
+                    neighborhoods are, independent of network size.
+                    """)
+                elif prediction_method == 'preferential_attachment':
+                    st.info("""
+                    **Preferential Attachment**: "Rich get richer".
+                    
+                    Product of node degrees. High-degree nodes (hubs) are more likely to form new connections. 
+                    Models real-world network growth patterns.
+                    """)
+                elif prediction_method == 'resource_allocation':
+                    st.info("""
+                    **Resource Allocation**: Information flow.
+                    
+                    Simulates resources flowing through common neighbors. More efficient resource transfer 
+                    indicates higher connection likelihood.
+                    """)
+            else:
+                st.warning("No predictions generated. Network may be fully connected or too sparse.")
+        
+        # Network formation patterns
+        if 'link_patterns' in st.session_state:
+            patterns = st.session_state.link_patterns
+            
+            st.markdown("### 📊 Network Formation Patterns")
+            
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Clustering Coefficient", f"{patterns['clustering_coefficient']:.3f}",
+                         help="Tendency to form triangles")
+            with col2:
+                st.metric("Transitivity", f"{patterns['transitivity']:.3f}",
+                         help="Global clustering measure")
+            with col3:
+                st.metric("Degree Assortativity", f"{patterns['degree_assortativity']:.3f}",
+                         help="Homophily - similar-degree nodes connect")
+            with col4:
+                density = patterns['density']
+                st.metric("Network Density", f"{density:.3f}",
+                         help="Fraction of possible connections")
+            
+            # Pattern interpretation
+            st.markdown("### 🔍 Pattern Analysis")
+            
+            clustering = patterns['clustering_coefficient']
+            assortativity = patterns['degree_assortativity']
+            
+            insights = []
+            
+            if clustering > 0.3:
+                insights.append("✅ **High Clustering**: Network shows strong community structure. Connections tend to form closed triangles.")
+            elif clustering > 0.1:
+                insights.append("ℹ️ **Moderate Clustering**: Some community structure present. Mixed local and global connections.")
+            else:
+                insights.append("⚠️ **Low Clustering**: Sparse local structure. Connections are more random or tree-like.")
+            
+            if assortativity > 0.1:
+                insights.append("✅ **Positive Assortativity**: Similar nodes connect (homophily). Hubs connect to hubs, periphery to periphery.")
+            elif assortativity < -0.1:
+                insights.append("⚠️ **Negative Assortativity**: Dissimilar nodes connect. Hubs connect to low-degree nodes (hub-and-spoke).")
+            else:
+                insights.append("ℹ️ **Neutral Assortativity**: Random mixing. Node degree doesn't predict connection patterns.")
+            
+            if density < 0.1:
+                insights.append("📌 **Sparse Network**: Many potential connections remain. High prediction opportunity.")
+            elif density < 0.5:
+                insights.append("📌 **Moderate Density**: Balanced between existing and potential connections.")
+            else:
+                insights.append("📌 **Dense Network**: Highly connected. Limited room for new connections.")
+            
+            for insight in insights:
+                st.markdown(insight)
+            
+            # Business recommendations
+            st.markdown("### 🎯 Business Recommendations")
+            
+            if clustering > 0.3 and density < 0.3:
+                st.success("""
+                **Strategy: Community-Based Growth**
+                
+                - Focus on connecting communities (bridge building)
+                - Introduce cross-cluster collaborations
+                - Leverage existing strong communities
+                """)
+            elif assortativity > 0.1:
+                st.info("""
+                **Strategy: Tier-Based Networking**
+                
+                - Facilitate connections within experience levels
+                - Create peer networking opportunities
+                - Support natural clustering patterns
+                """)
+            else:
+                st.info("""
+                **Strategy: Hub Development**
+                
+                - Identify and empower connector nodes
+                - Create central resources/people
+                - Facilitate hub-to-periphery connections
+                """)
     
     # AI Insights
     if 'net_results' in st.session_state:
