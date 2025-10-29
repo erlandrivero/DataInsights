@@ -8879,10 +8879,13 @@ def show_ab_testing():
                 warnings = []
                 recommendations = []
                 
-                # Check 1: Must have exactly 2 groups (CRITICAL)
+                # Check 1: Must have exactly 2 groups (CRITICAL for > 10, WARNING for 3-10)
                 if n_groups < 2:
                     issues.append(f"❌ Only {n_groups} group found. A/B testing requires exactly 2 groups")
                     recommendations.append("Select a column with control and treatment groups")
+                elif n_groups > 10:
+                    issues.append(f"❌ {n_groups:,} groups found. This will cause errors - A/B testing requires 2 groups")
+                    recommendations.append("This column is not suitable for A/B testing. Select a different column with 2-3 groups")
                 elif n_groups > 2:
                     warnings.append(f"⚠️ {n_groups} groups found. Standard A/B testing uses 2 groups")
                     recommendations.append("Consider: Filter to 2 groups or use multi-variant testing")
@@ -8908,6 +8911,11 @@ def show_ab_testing():
                 
                 # Display validation results
                 data_compatible = len(issues) == 0
+                
+                # Store validation state in session state
+                st.session_state.ab_data_compatible = data_compatible
+                st.session_state.ab_issues = issues
+                st.session_state.ab_warnings = warnings
                 
                 if len(issues) > 0:
                     st.error("**🚨 NOT SUITABLE FOR A/B TESTING**")
@@ -8945,7 +8953,10 @@ def show_ab_testing():
             )
         
         # Validate group column has exactly 2 groups
-        if st.button("📊 Validate & Process Data", type="primary"):
+        # Check if data is compatible (no critical issues)
+        button_disabled = not st.session_state.get('ab_data_compatible', True)
+        
+        if st.button("📊 Validate & Process Data", type="primary", disabled=button_disabled):
             groups = df[group_col].unique()
             
             if len(groups) != 2:
