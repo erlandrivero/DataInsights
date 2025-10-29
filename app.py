@@ -10938,77 +10938,154 @@ def show_survival_analysis():
     # AI Insights
     if 'surv_results' in st.session_state:
         st.divider()
-        st.subheader("🤖 AI-Powered Insights")
+        st.subheader("✨ AI-Powered Insights")
         
-        if 'surv_ai_insights' not in st.session_state:
-            if st.button("✨ Generate AI Insights", type="primary", key="surv_ai"):
-                try:
-                    from utils.ai_helper import AIHelper
-                    ai = AIHelper()
-                    
-                    with st.status("🤖 AI is analyzing survival patterns...", expanded=True) as status:
-                        result = st.session_state.surv_results
-                        surv_data = st.session_state.surv_data
-                        event_rate = surv_data['event'].mean() * 100
-                        
-                        summary = f"""Survival Analysis Results:
-- Total Observations: {len(surv_data)}
-- Events Occurred: {surv_data['event'].sum()}
-- Censored: {(~surv_data['event'].astype(bool)).sum()}
-- Event Rate: {event_rate:.1f}%
-"""
-                        if 'group' in surv_data.columns:
-                            summary += f"- Analysis Type: Grouped comparison\n"
-                            for group, median in result['median_survival'].items():
-                                summary += f"  - {group}: {median:.1f} time units\n"
-                            if 'log_rank_p' in result:
-                                summary += f"- Log-Rank Test p-value: {result['log_rank_p']:.4f}\n"
-                        else:
-                            summary += f"- Median Survival: {result['median_survival']:.1f} time units\n"
-                        
-                        prompt = f"""
-As a survival analysis and risk management expert, analyze these results and provide:
-
-1. **Survival Pattern Analysis** (2-3 sentences): What do these survival curves reveal?
-
-2. **Key Risk Factors** (3-4 bullet points): Most important insights from the survival data
-
-3. **Intervention Strategies** (4-5 bullet points): Specific recommendations to:
-   - Reduce event occurrence
-   - Improve survival/retention
-   - Target high-risk groups
-   - Optimize timing of interventions
-
-4. **Expected Outcomes** (2-3 sentences): How could these strategies impact survival rates?
-
-{summary}
-
-Focus on actionable risk mitigation strategies.
-"""
-                        
-                        response = ai.client.chat.completions.create(
-                            model="gpt-4",
-                            messages=[
-                                {"role": "system", "content": "You are a survival analysis and risk management expert specializing in time-to-event analysis."},
-                                {"role": "user", "content": prompt}
-                            ],
-                            temperature=0.7,
-                            max_tokens=1200
-                        )
-                        
-                        st.session_state.surv_ai_insights = response.choices[0].message.content
-                        status.update(label="✅ Insights generated!", state="complete", expanded=False)
-                    
-                    st.success("✅ AI insights generated successfully!")
-                    st.markdown(st.session_state.surv_ai_insights)
-                    st.info("✅ AI insights saved! These will be included in your report downloads.")
-                        
-                except Exception as e:
-                    st.error(f"Error generating insights: {str(e)}")
-        
+        # Display saved insights if they exist
         if 'surv_ai_insights' in st.session_state:
             st.markdown(st.session_state.surv_ai_insights)
             st.info("✅ AI insights saved! These will be included in your report downloads.")
+        
+        if st.button("🤖 Generate AI Insights", key="surv_ai_insights_btn", use_container_width=True):
+            try:
+                from utils.ai_helper import AIHelper
+                ai = AIHelper()
+                
+                with st.status("🤖 Analyzing survival patterns and generating risk mitigation strategies...", expanded=True) as status:
+                    # Get data from session state
+                    result = st.session_state.surv_results
+                    surv_data = st.session_state.surv_data
+                    
+                    # Calculate comprehensive metrics
+                    total_obs = len(surv_data)
+                    events = surv_data['event'].sum()
+                    censored = (~surv_data['event'].astype(bool)).sum()
+                    event_rate = (events / total_obs) * 100
+                    censoring_rate = (censored / total_obs) * 100
+                    
+                    # Duration statistics
+                    mean_duration = surv_data['duration'].mean()
+                    median_duration = surv_data['duration'].median()
+                    min_duration = surv_data['duration'].min()
+                    max_duration = surv_data['duration'].max()
+                    duration_range = max_duration - min_duration
+                    
+                    # Event timing analysis
+                    event_data = surv_data[surv_data['event'] == 1]
+                    if len(event_data) > 0:
+                        mean_time_to_event = event_data['duration'].mean()
+                        median_time_to_event = event_data['duration'].median()
+                        early_events = (event_data['duration'] < event_data['duration'].quantile(0.25)).sum()
+                        late_events = (event_data['duration'] > event_data['duration'].quantile(0.75)).sum()
+                    else:
+                        mean_time_to_event = median_time_to_event = early_events = late_events = 0
+                    
+                    # Prepare rich context
+                    context = f"""
+Survival Analysis Results:
+
+Study Overview:
+- Total Observations: {total_obs:,}
+- Events Occurred: {events:,} ({event_rate:.1f}%)
+- Censored (Did Not Experience Event): {censored:,} ({censoring_rate:.1f}%)
+- Follow-up Duration Range: {min_duration:.1f} - {max_duration:.1f} time units ({duration_range:.1f} span)
+
+Duration Statistics:
+- Mean Duration: {mean_duration:.1f} time units
+- Median Duration: {median_duration:.1f} time units
+
+Event Timing Analysis:
+- Mean Time to Event: {mean_time_to_event:.1f} time units
+- Median Time to Event: {median_time_to_event:.1f} time units
+- Early Events (1st quartile): {early_events} ({early_events/max(events, 1)*100:.1f}%)
+- Late Events (4th quartile): {late_events} ({late_events/max(events, 1)*100:.1f}%)
+"""
+                    
+                    # Add group-specific analysis if present
+                    if 'group' in surv_data.columns:
+                        groups = surv_data['group'].unique()
+                        context += f"\nGroup Comparison Analysis:\n"
+                        context += f"- Number of Groups: {len(groups)}\n"
+                        
+                        for group in groups:
+                            group_data = surv_data[surv_data['group'] == group]
+                            group_events = group_data['event'].sum()
+                            group_event_rate = (group_events / len(group_data)) * 100
+                            group_median = result['median_survival'].get(group, 0)
+                            context += f"- {group}: {len(group_data)} obs, {group_events} events ({group_event_rate:.1f}%), median survival = {group_median:.1f}\n"
+                        
+                        if 'log_rank_p' in result:
+                            significance = "SIGNIFICANT" if result['log_rank_p'] < 0.05 else "NOT significant"
+                            context += f"\nLog-Rank Test:\n"
+                            context += f"- P-value: {result['log_rank_p']:.4f}\n"
+                            context += f"- Result: {significance} difference between groups (α=0.05)\n"
+                    else:
+                        overall_median = result.get('median_survival', 0)
+                        context += f"\nOverall Survival:\n"
+                        context += f"- Median Survival Time: {overall_median:.1f} time units\n"
+                    
+                    context += f"""
+Risk Profile:
+- Event Occurrence: {'High risk' if event_rate > 50 else 'Moderate risk' if event_rate > 25 else 'Low risk'} ({event_rate:.1f}% event rate)
+- Censoring Level: {'High censoring' if censoring_rate > 40 else 'Moderate censoring' if censoring_rate > 20 else 'Low censoring'} ({censoring_rate:.1f}%)
+- Event Timing: {'Early events dominate' if early_events > late_events else 'Late events dominate' if late_events > early_events else 'Evenly distributed'}
+"""
+                    
+                    prompt = f"""
+As a senior biostatistician and survival analysis expert with 10+ years of experience in clinical research and predictive risk modeling, analyze these survival results and provide:
+
+1. **Survival Curve Interpretation** (3-4 sentences): Evaluate the overall survival pattern. What does the curve shape tell us about risk over time? Are there critical periods where events cluster? How does the censoring rate affect our confidence in the results?
+
+2. **Risk Stratification** (4-5 bullet points): Identify high-risk patterns and segments:
+   - Time periods with highest event rates
+   - Population segments at greatest risk
+   - Early vs. late event patterns
+   - Protective factors (if groups show differences)
+   - Hazard ratio implications (if group comparison)
+
+3. **Predictive Insights** (3-4 sentences): Based on these survival patterns, when should we expect future events? What is the likelihood of survival at key time points (25%, 50%, 75% of max duration)? Are there inflection points in the survival curve?
+
+4. **Intervention Strategies** (5-6 bullet points): Evidence-based recommendations to improve survival:
+   - Primary prevention tactics (reduce event occurrence)
+   - Early detection and monitoring (identify at-risk individuals)
+   - Timing of interventions (when to act for maximum impact)
+   - Risk-based segmentation (targeted vs. population-wide approaches)
+   - Follow-up and surveillance protocols
+   - Resource allocation priorities
+
+5. **Statistical Considerations** (3-4 bullet points): Important methodological insights:
+   - Censoring impact on interpretation
+   - Sample size adequacy for conclusions
+   - Proportional hazards assumption
+   - Confidence in median survival estimates
+
+6. **Expected Impact** (3-4 sentences): If interventions are implemented, what realistic improvements in survival can we expect? Quantify potential reductions in event rates and increases in median survival time. Consider both short-term wins and long-term strategic goals.
+
+{context}
+
+Be specific, evidence-based, and focus on actionable risk mitigation strategies that can be realistically implemented. Balance statistical rigor with practical clinical or business applicability.
+"""
+                    
+                    response = ai.client.chat.completions.create(
+                        model="gpt-4",
+                        messages=[
+                            {"role": "system", "content": "You are a senior biostatistician and survival analysis expert with 10+ years of experience in clinical research, epidemiology, and predictive risk modeling. You specialize in Kaplan-Meier analysis, Cox proportional hazards models, and translating survival curves into actionable risk mitigation strategies."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.7,
+                        max_tokens=1500
+                    )
+                    
+                    # Save to session state
+                    st.session_state.surv_ai_insights = response.choices[0].message.content
+                    status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+                    
+                    # Display inside status block
+                    st.success("✅ AI insights generated successfully!")
+                    st.markdown(st.session_state.surv_ai_insights)
+                    st.info("✅ AI insights saved! These will be included in your report downloads.")
+                    
+            except Exception as e:
+                st.error(f"Error generating AI insights: {str(e)}")
     
     # Export
     if 'surv_results' in st.session_state:
