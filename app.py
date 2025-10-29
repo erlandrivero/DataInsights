@@ -10131,19 +10131,19 @@ def show_cohort_analysis():
             fig = go.Figure()
             
             fig.add_trace(go.Scatter(
-                x=cohort_a_data.index,
-                y=cohort_a_data.values,
+                x=cohort_a_data.index.tolist(),
+                y=cohort_a_data.values.tolist(),
                 mode='lines+markers',
-                name=comp['cohort_a'],
+                name=str(comp['cohort_a']),
                 line=dict(color='#667eea', width=3),
                 marker=dict(size=8)
             ))
             
             fig.add_trace(go.Scatter(
-                x=cohort_b_data.index,
-                y=cohort_b_data.values,
+                x=cohort_b_data.index.tolist(),
+                y=cohort_b_data.values.tolist(),
                 mode='lines+markers',
-                name=comp['cohort_b'],
+                name=str(comp['cohort_b']),
                 line=dict(color='#f093fb', width=3),
                 marker=dict(size=8)
             ))
