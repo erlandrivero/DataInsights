@@ -12781,6 +12781,172 @@ def show_network_analysis():
         except Exception as e:
             st.error(f"❌ Error creating network visualization: {str(e)}")
             st.info("💡 The network metrics are still available above. Visualization may fail for very large or disconnected networks.")
+        
+        # Influence Propagation Section
+        st.divider()
+        st.subheader("📢 Influence Propagation & Viral Spread")
+        st.markdown("Simulate how information spreads through your network. Identify key influencers for viral marketing campaigns.")
+        
+        # Model selection
+        col1, col2 = st.columns(2)
+        with col1:
+            propagation_model = st.selectbox(
+                "Propagation Model:",
+                ["independent_cascade", "linear_threshold"],
+                format_func=lambda x: "Independent Cascade" if x == "independent_cascade" else "Linear Threshold",
+                help="Independent Cascade: Each active node tries to activate neighbors once. Linear Threshold: Node activates when enough neighbors are active."
+            )
+        with col2:
+            propagation_prob = st.slider(
+                "Propagation Probability:", 
+                min_value=0.01, 
+                max_value=0.5, 
+                value=0.1, 
+                step=0.01,
+                help="Probability that influence spreads along an edge (IC model) or activation threshold (LT model)"
+            )
+        
+        # Find optimal seed nodes button
+        if st.button("🎯 Find Optimal Influencers", type="primary"):
+            with st.status("Finding optimal seed nodes for influence maximization...", expanded=True) as status:
+                try:
+                    # Find top 5 seed nodes
+                    num_seeds = min(5, analyzer.graph.number_of_nodes())
+                    seed_results = analyzer.find_optimal_seed_nodes(
+                        num_seeds=num_seeds,
+                        propagation_prob=propagation_prob,
+                        model=propagation_model,
+                        simulations=5  # Reduced for speed
+                    )
+                    
+                    st.session_state.influence_seeds = seed_results
+                    
+                    status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+                    st.success("✅ Optimal influencers identified!")
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+        
+        # Display seed nodes if calculated
+        if 'influence_seeds' in st.session_state:
+            seeds_df = st.session_state.influence_seeds
+            
+            st.markdown("### 🎯 Top Influencers for Viral Campaigns")
+            st.dataframe(seeds_df, use_container_width=True)
+            
+            # Metrics
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                top_reach = seeds_df.iloc[0]['reach_pct'] if len(seeds_df) > 0 else 0
+                st.metric("Top Influencer Reach", f"{top_reach:.1f}%",
+                         help="Expected reach of top influencer")
+            with col2:
+                avg_reach = seeds_df['reach_pct'].mean() if len(seeds_df) > 0 else 0
+                st.metric("Average Seed Reach", f"{avg_reach:.1f}%",
+                         help="Average reach across all seed nodes")
+            with col3:
+                total_nodes = result['n_nodes']
+                st.metric("Total Network Nodes", f"{total_nodes:,}")
+            
+            st.markdown("### 💡 Campaign Strategy Recommendations")
+            
+            if top_reach > 50:
+                st.success(f"""
+                ✅ **Excellent Reach Potential!**
+                
+                The top influencer can reach over 50% of your network. This is ideal for:
+                - Viral marketing campaigns
+                - Product launches
+                - Information dissemination
+                
+                **Strategy**: Focus resources on top 2-3 influencers for maximum ROI.
+                """)
+            elif top_reach > 30:
+                st.info(f"""
+                ℹ️ **Good Reach Potential**
+                
+                Your top influencers can reach 30-50% of the network.
+                
+                **Strategy**: Use all 5 seed nodes in combination. Consider incentivizing them to share your message.
+                """)
+            else:
+                st.warning(f"""
+                ⚠️ **Moderate Reach Potential**
+                
+                Network structure limits single-influencer reach (<30%).
+                
+                **Strategy**: 
+                - Use multiple seed nodes from different communities
+                - Consider increasing propagation probability (more compelling content)
+                - Target nodes with high betweenness centrality
+                """)
+        
+        # Simulate spread with custom seeds
+        st.markdown("### 🧪 Custom Spread Simulation")
+        
+        # Get list of nodes for selection
+        node_list = list(analyzer.graph.nodes())[:100]  # Limit to first 100 for dropdown
+        
+        selected_seeds = st.multiselect(
+            "Select Seed Nodes:",
+            node_list,
+            default=node_list[:min(3, len(node_list))],
+            help="Choose initial nodes to start the influence cascade"
+        )
+        
+        if len(selected_seeds) > 0 and st.button("▶️ Run Simulation"):
+            with st.spinner("Simulating influence propagation..."):
+                try:
+                    spread_result = analyzer.simulate_influence_spread(
+                        seed_nodes=selected_seeds,
+                        propagation_prob=propagation_prob,
+                        model=propagation_model
+                    )
+                    
+                    st.session_state.spread_simulation = spread_result
+                    st.success("✅ Simulation complete!")
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+        
+        # Display simulation results
+        if 'spread_simulation' in st.session_state:
+            sim = st.session_state.spread_simulation
+            
+            st.markdown("### 📊 Spread Simulation Results")
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Nodes Activated", f"{sim['num_activated']:,}")
+            with col2:
+                st.metric("Final Reach", f"{sim['final_reach_pct']:.1f}%")
+            with col3:
+                st.metric("Iterations", f"{sim['iterations']}")
+            with col4:
+                amplification = sim['num_activated'] / len(selected_seeds) if selected_seeds else 0
+                st.metric("Amplification Factor", f"{amplification:.1f}x",
+                         help="How many nodes activated per seed node")
+            
+            # Spread over time chart
+            st.markdown("### 📈 Spread Over Time")
+            
+            spread_df = pd.DataFrame({
+                'Iteration': range(len(sim['spread_over_time'])),
+                'Activated Nodes': sim['spread_over_time']
+            })
+            
+            import plotly.express as px
+            fig = px.line(spread_df, x='Iteration', y='Activated Nodes',
+                         title='Influence Propagation Over Time')
+            fig.update_traces(line_color='#667eea', line_width=3)
+            fig.update_layout(height=400)
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Interpretation
+            if sim['final_reach_pct'] > 50:
+                st.success("🎯 **High Viral Potential**: Information spreads to majority of network!")
+            elif sim['final_reach_pct'] > 25:
+                st.info("📢 **Moderate Viral Potential**: Good spread but not reaching full network")
+            else:
+                st.warning("⚠️ **Limited Spread**: Consider increasing propagation probability or choosing better seed nodes")
     
     # AI Insights
     if 'net_results' in st.session_state:

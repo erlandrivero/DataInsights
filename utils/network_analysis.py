@@ -375,3 +375,209 @@ class NetworkAnalyzer:
         )
         
         return fig
+    
+    def simulate_influence_spread(self, seed_nodes: List[Any], 
+                                  propagation_prob: float = 0.1,
+                                  model: str = 'independent_cascade',
+                                  max_iterations: int = 100) -> Dict[str, Any]:
+        """Simulate influence propagation through network.
+        
+        Simulates how information/influence spreads from seed nodes through the network.
+        
+        Args:
+            seed_nodes: Initial set of influenced nodes.
+            propagation_prob: Probability of influence spreading along an edge.
+            model: Propagation model ('independent_cascade' or 'linear_threshold').
+            max_iterations: Maximum simulation iterations.
+        
+        Returns:
+            Dictionary with spread results.
+        
+        Examples:
+            >>> top_nodes = ['user_1', 'user_5', 'user_10']
+            >>> spread = analyzer.simulate_influence_spread(top_nodes, propagation_prob=0.15)
+        """
+        if self.graph is None:
+            return {}
+        
+        if model == 'independent_cascade':
+            return self._independent_cascade(seed_nodes, propagation_prob, max_iterations)
+        elif model == 'linear_threshold':
+            return self._linear_threshold(seed_nodes, propagation_prob, max_iterations)
+        else:
+            raise ValueError(f"Unknown model: {model}")
+    
+    def _independent_cascade(self, seed_nodes: List[Any], prob: float, 
+                           max_iter: int) -> Dict[str, Any]:
+        """Independent Cascade propagation model.
+        
+        Each activated node gets one chance to activate each inactive neighbor
+        with probability prob.
+        """
+        # Track activated nodes and when they were activated
+        activated = set(seed_nodes)
+        newly_activated = set(seed_nodes)
+        activation_time = {node: 0 for node in seed_nodes}
+        
+        iteration = 0
+        spread_over_time = [len(activated)]
+        
+        while newly_activated and iteration < max_iter:
+            iteration += 1
+            next_activated = set()
+            
+            for node in newly_activated:
+                # Try to activate neighbors
+                neighbors = list(self.graph.neighbors(node))
+                for neighbor in neighbors:
+                    if neighbor not in activated:
+                        # Activation probability
+                        if np.random.random() < prob:
+                            next_activated.add(neighbor)
+                            activation_time[neighbor] = iteration
+            
+            newly_activated = next_activated
+            activated.update(newly_activated)
+            spread_over_time.append(len(activated))
+        
+        return {
+            'activated_nodes': list(activated),
+            'num_activated': len(activated),
+            'activation_time': activation_time,
+            'spread_over_time': spread_over_time,
+            'final_reach_pct': len(activated) / self.graph.number_of_nodes() * 100,
+            'iterations': iteration
+        }
+    
+    def _linear_threshold(self, seed_nodes: List[Any], threshold: float,
+                         max_iter: int) -> Dict[str, Any]:
+        """Linear Threshold propagation model.
+        
+        A node becomes active when the sum of influences from active neighbors
+        exceeds its threshold.
+        """
+        # Assign random thresholds to nodes
+        thresholds = {node: np.random.random() for node in self.graph.nodes()}
+        
+        # Calculate influence weights (1/degree)
+        influence_weights = {}
+        for node in self.graph.nodes():
+            degree = self.graph.degree(node)
+            influence_weights[node] = 1.0 / degree if degree > 0 else 0
+        
+        activated = set(seed_nodes)
+        activation_time = {node: 0 for node in seed_nodes}
+        spread_over_time = [len(activated)]
+        
+        iteration = 0
+        changed = True
+        
+        while changed and iteration < max_iter:
+            iteration += 1
+            changed = False
+            newly_activated = set()
+            
+            for node in self.graph.nodes():
+                if node not in activated:
+                    # Calculate influence from active neighbors
+                    active_neighbors = [n for n in self.graph.neighbors(node) if n in activated]
+                    total_influence = sum(influence_weights[n] for n in active_neighbors)
+                    
+                    # Activate if threshold exceeded
+                    if total_influence >= thresholds[node]:
+                        newly_activated.add(node)
+                        activation_time[node] = iteration
+                        changed = True
+            
+            activated.update(newly_activated)
+            spread_over_time.append(len(activated))
+        
+        return {
+            'activated_nodes': list(activated),
+            'num_activated': len(activated),
+            'activation_time': activation_time,
+            'spread_over_time': spread_over_time,
+            'final_reach_pct': len(activated) / self.graph.number_of_nodes() * 100,
+            'iterations': iteration
+        }
+    
+    def find_optimal_seed_nodes(self, num_seeds: int = 5, 
+                               propagation_prob: float = 0.1,
+                               model: str = 'independent_cascade',
+                               simulations: int = 10) -> pd.DataFrame:
+        """Find optimal seed nodes for maximizing influence spread.
+        
+        Uses greedy algorithm: iteratively selects node that maximizes
+        marginal gain in influence spread.
+        
+        Args:
+            num_seeds: Number of seed nodes to find.
+            propagation_prob: Propagation probability.
+            model: Propagation model to use.
+            simulations: Number of simulations per candidate.
+        
+        Returns:
+            DataFrame with seed nodes and their expected influence.
+        
+        Examples:
+            >>> seeds = analyzer.find_optimal_seed_nodes(num_seeds=5, propagation_prob=0.15)
+        """
+        if self.graph is None:
+            return pd.DataFrame()
+        
+        seed_set = []
+        candidates = list(self.graph.nodes())
+        seed_results = []
+        
+        for i in range(num_seeds):
+            best_node = None
+            best_marginal_gain = -1
+            
+            # Try each candidate
+            for candidate in candidates:
+                if candidate in seed_set:
+                    continue
+                
+                # Test this candidate with current seed set
+                test_seeds = seed_set + [candidate]
+                
+                # Run multiple simulations and average
+                total_spread = 0
+                for _ in range(simulations):
+                    result = self.simulate_influence_spread(
+                        test_seeds, 
+                        propagation_prob=propagation_prob,
+                        model=model
+                    )
+                    total_spread += result['num_activated']
+                
+                avg_spread = total_spread / simulations
+                marginal_gain = avg_spread - sum([r['avg_spread'] for r in seed_results])
+                
+                if marginal_gain > best_marginal_gain:
+                    best_marginal_gain = marginal_gain
+                    best_node = candidate
+            
+            if best_node:
+                # Run final simulations for selected seed
+                total_spread = 0
+                for _ in range(simulations * 2):  # More simulations for final
+                    result = self.simulate_influence_spread(
+                        seed_set + [best_node],
+                        propagation_prob=propagation_prob,
+                        model=model
+                    )
+                    total_spread += result['num_activated']
+                
+                avg_spread = total_spread / (simulations * 2)
+                
+                seed_set.append(best_node)
+                seed_results.append({
+                    'rank': i + 1,
+                    'node': best_node,
+                    'avg_spread': avg_spread,
+                    'marginal_gain': best_marginal_gain,
+                    'reach_pct': avg_spread / self.graph.number_of_nodes() * 100
+                })
+        
+        return pd.DataFrame(seed_results)
