@@ -10430,7 +10430,7 @@ def show_geospatial_analysis():
     st.markdown("Analyze geographic data to uncover location-based insights.")
     
     # Import utilities
-    from utils.geospatial_analyzer import GeospatialAnalyzer
+    from utils.geospatial_analysis import GeospatialAnalyzer
     
     # Initialize analyzer
     if 'geo_analyzer' not in st.session_state:
@@ -10841,7 +10841,7 @@ def show_survival_analysis():
     st.markdown("Analyze time-to-event data and predict survival probabilities.")
     
     # Import utilities
-    from utils.survival_analyzer import SurvivalAnalyzer
+    from utils.survival_analysis import SurvivalAnalyzer
     
     # Initialize analyzer
     if 'survival_analyzer' not in st.session_state:
@@ -11256,7 +11256,7 @@ def show_network_analysis():
     st.markdown("Analyze networks to discover relationships, communities, and key influencers.")
     
     # Import utilities
-    from utils.network_analyzer import NetworkAnalyzer
+    from utils.network_analysis import NetworkAnalyzer
     
     # Initialize analyzer
     if 'network_analyzer' not in st.session_state:
