@@ -296,9 +296,21 @@ Be specific, actionable, and focus on [BUSINESS OUTCOME]. Consider [DOMAIN-SPECI
 ### **Step 6: Increase Token Limit**
 - [ ] Change from 1000-1200 to **1500 tokens**
 
-### **Step 7: Fix Status Overlay**
-- [ ] Change `expanded=True` to `expanded=False` to remove grey shadow overlay
-- [ ] Example: `with st.status("🤖 Analyzing...", expanded=False) as status:`
+### **Step 7: Display Inside Status Block (CRITICAL!)**
+- [ ] **Move display INSIDE the `with st.status` block** to avoid duplicates
+- [ ] Keep `expanded=True` (matches all working modules)
+- [ ] Example:
+  ```python
+  with st.status("🤖 Analyzing...", expanded=True) as status:
+      # ... API call ...
+      st.session_state.module_ai_insights = response.choices[0].message.content
+      status.update(label="✅ Complete!", state="complete", expanded=False)
+      
+      # Display INSIDE the block
+      st.success("✅ AI insights generated successfully!")
+      st.markdown(st.session_state.module_ai_insights)
+      st.info("✅ AI insights saved! These will be included in your report downloads.")
+  ```
 
 ### **Step 8: Test Compilation**
 - [ ] Run: `python -m py_compile app.py`
