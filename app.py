@@ -12023,8 +12023,12 @@ def show_network_analysis():
         
         # Network visualization
         st.subheader("🕸️ Network Visualization")
-        fig = analyzer.create_network_visualization(analyzer.graph, title='Network Graph')
-        st.plotly_chart(fig, use_container_width=True)
+        try:
+            fig = analyzer.create_network_visualization(analyzer.graph, title='Network Graph')
+            st.plotly_chart(fig, use_container_width=True)
+        except Exception as e:
+            st.error(f"❌ Error creating network visualization: {str(e)}")
+            st.info("💡 The network metrics are still available above. Visualization may fail for very large or disconnected networks.")
     
     # AI Insights
     if 'net_results' in st.session_state:
