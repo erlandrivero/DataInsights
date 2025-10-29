@@ -8850,30 +8850,21 @@ def show_ab_testing():
         st.success("✅ Using dataset from Data Upload section")
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
         
-        # Smart column detection
-        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        categorical_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
+        # Smart column detection using ColumnDetector
+        from utils.column_detector import ColumnDetector
+        suggestions = ColumnDetector.get_ab_testing_column_suggestions(df)
         
         st.info("💡 **Smart Detection:** Select columns for your A/B test")
         
         col1, col2 = st.columns(2)
         with col1:
-            # Find columns suitable for A/B testing (2-3 unique values)
-            suitable_group_cols = [col for col in df.columns if 2 <= df[col].nunique() <= 3]
-            
-            # If no suitable columns, show all but highlight the issue
-            if suitable_group_cols:
-                group_default = suitable_group_cols[0]
-                group_options = suitable_group_cols
-                group_idx = 0
-            else:
-                group_options = df.columns.tolist()
-                group_default = group_options[0]
-                group_idx = 0
+            # Get suggested group column
+            group_default = suggestions['group']
+            group_idx = list(df.columns).index(group_default)
             
             group_col = st.selectbox(
                 "Group Column (A/B variant):",
-                group_options,
+                df.columns,
                 index=group_idx,
                 key="ab_group_col",
                 help="Column that identifies control vs treatment"
@@ -8941,8 +8932,8 @@ def show_ab_testing():
                 st.caption(f"🔍 Groups: {list(groups[:5])}")
         
         with col2:
-            # Auto-select first numeric column
-            metric_default = numeric_cols[0] if numeric_cols else df.columns[0]
+            # Get suggested metric column
+            metric_default = suggestions['metric']
             metric_idx = list(df.columns).index(metric_default)
             
             metric_col = st.selectbox(
@@ -9550,37 +9541,24 @@ def show_cohort_analysis():
         with st.expander("👁️ Preview Dataset", expanded=False):
             st.dataframe(df.head(20), use_container_width=True)
         
-        # Smart column detection
-        date_cols = df.select_dtypes(include=['datetime64', 'object']).columns.tolist()
-        id_cols = df.columns.tolist()
+        # Smart column detection using ColumnDetector
+        from utils.column_detector import ColumnDetector
+        suggestions = ColumnDetector.get_cohort_column_suggestions(df)
         
         st.info("💡 **Smart Detection:** Select user ID and date columns for cohort analysis")
         
         col1, col2, col3 = st.columns(3)
         with col1:
-            # Try to detect ID column
-            id_suggestions = [col for col in id_cols if any(keyword in col.lower() for keyword in ['id', 'user', 'customer', 'client'])]
-            user_default = id_suggestions[0] if id_suggestions else id_cols[0]
+            user_default = suggestions['user_id']
             user_idx = list(df.columns).index(user_default)
-            
-            user_col = st.selectbox("User ID Column", id_cols, index=user_idx, key="cohort_user")
+            user_col = st.selectbox("User ID Column", df.columns, index=user_idx, key="cohort_user")
         with col2:
-            # Smart detection for cohort date (signup, registration, created, first, date-related)
-            cohort_suggestions = [col for col in date_cols if any(keyword in col.lower() for keyword in ['signup', 'register', 'created', 'first', 'join', 'date', 'invoice', 'order'])]
-            # Exclude non-date columns
-            cohort_suggestions = [col for col in cohort_suggestions if not any(exclude in col.lower() for exclude in ['description', 'name', 'country', 'status'])]
-            cohort_default = cohort_suggestions[0] if cohort_suggestions else (date_cols[0] if date_cols else df.columns[0])
-            cohort_idx = list(df.columns).index(cohort_default) if cohort_default in df.columns else 0
-            
+            cohort_default = suggestions['cohort_date']
+            cohort_idx = list(df.columns).index(cohort_default)
             cohort_col = st.selectbox("Cohort Date (signup/first purchase)", df.columns, index=cohort_idx, key="cohort_date")
         with col3:
-            # Smart detection for activity date (activity, purchase, order, transaction)
-            activity_suggestions = [col for col in date_cols if any(keyword in col.lower() for keyword in ['activity', 'purchase', 'order', 'transaction', 'date', 'time', 'invoice'])]
-            # Exclude non-date columns
-            activity_suggestions = [col for col in activity_suggestions if not any(exclude in col.lower() for exclude in ['description', 'name', 'country', 'status'])]
-            activity_default = activity_suggestions[0] if activity_suggestions else (date_cols[1] if len(date_cols) > 1 else (date_cols[0] if date_cols else df.columns[0]))
-            activity_idx = list(df.columns).index(activity_default) if activity_default in df.columns else 0
-            
+            activity_default = suggestions['activity_date']
+            activity_idx = list(df.columns).index(activity_default)
             activity_col = st.selectbox("Activity Date", df.columns, index=activity_idx, key="cohort_activity")
         
         # Real-time validation (3-level system)
@@ -9977,33 +9955,25 @@ def show_recommendation_systems():
         st.success("✅ Using dataset from Data Upload section")
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
         
-        # Smart column detection
-        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        all_cols = df.columns.tolist()
+        # Smart column detection using ColumnDetector
+        from utils.column_detector import ColumnDetector
+        suggestions = ColumnDetector.get_recommendation_column_suggestions(df)
         
         st.info("💡 **Smart Detection:** Select user, item, and rating columns")
         
         col1, col2, col3 = st.columns(3)
         with col1:
-            # Detect user column
-            user_suggestions = [col for col in all_cols if any(keyword in col.lower() for keyword in ['user', 'customer', 'id'])]
-            user_default = user_suggestions[0] if user_suggestions else all_cols[0]
+            user_default = suggestions['user']
             user_idx = list(df.columns).index(user_default)
-            
-            user_col = st.selectbox("User Column", all_cols, index=user_idx, key="rec_user")
+            user_col = st.selectbox("User Column", df.columns, index=user_idx, key="rec_user")
         with col2:
-            # Detect item column
-            item_suggestions = [col for col in all_cols if any(keyword in col.lower() for keyword in ['item', 'product', 'movie', 'title'])]
-            item_default = item_suggestions[0] if item_suggestions else (all_cols[1] if len(all_cols) > 1 else all_cols[0])
+            item_default = suggestions['item']
             item_idx = list(df.columns).index(item_default)
-            
-            item_col = st.selectbox("Item Column", all_cols, index=item_idx, key="rec_item")
+            item_col = st.selectbox("Item Column", df.columns, index=item_idx, key="rec_item")
         with col3:
-            # Detect rating column
-            rating_default = numeric_cols[0] if numeric_cols else all_cols[0]
+            rating_default = suggestions['rating']
             rating_idx = list(df.columns).index(rating_default)
-            
-            rating_col = st.selectbox("Rating Column", all_cols, index=rating_idx, key="rec_rating")
+            rating_col = st.selectbox("Rating Column", df.columns, index=rating_idx, key="rec_rating")
         
         if st.button("📊 Validate & Process Data", type="primary"):
             # Validate rating column is numeric
@@ -10305,26 +10275,20 @@ def show_geospatial_analysis():
         st.success("✅ Using dataset from Data Upload section")
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
         
-        # Smart column detection
-        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        all_cols = df.columns.tolist()
+        # Smart column detection using ColumnDetector
+        from utils.column_detector import ColumnDetector
+        suggestions = ColumnDetector.get_geospatial_column_suggestions(df)
         
         st.info("💡 **Smart Detection:** Select latitude and longitude columns")
         
         col1, col2 = st.columns(2)
         with col1:
-            # Detect latitude column
-            lat_suggestions = [col for col in numeric_cols if any(keyword in col.lower() for keyword in ['lat', 'latitude', 'y'])]
-            lat_default = lat_suggestions[0] if lat_suggestions else (numeric_cols[0] if numeric_cols else all_cols[0])
+            lat_default = suggestions['latitude']
             lat_idx = list(df.columns).index(lat_default)
-            
             lat_col = st.selectbox("Latitude Column", df.columns, index=lat_idx, key="geo_lat")
         with col2:
-            # Detect longitude column
-            lon_suggestions = [col for col in numeric_cols if any(keyword in col.lower() for keyword in ['lon', 'long', 'longitude', 'x'])]
-            lon_default = lon_suggestions[0] if lon_suggestions else (numeric_cols[1] if len(numeric_cols) > 1 else (numeric_cols[0] if numeric_cols else all_cols[0]))
+            lon_default = suggestions['longitude']
             lon_idx = list(df.columns).index(lon_default)
-            
             lon_col = st.selectbox("Longitude Column", df.columns, index=lon_idx, key="geo_lon")
         
         if st.button("📊 Validate & Process Data", type="primary"):
@@ -10623,30 +10587,26 @@ def show_survival_analysis():
         st.success("✅ Using dataset from Data Upload section")
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
         
-        # Smart column detection
-        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        all_cols = df.columns.tolist()
+        # Smart column detection using ColumnDetector
+        from utils.column_detector import ColumnDetector
+        suggestions = ColumnDetector.get_survival_column_suggestions(df)
         
         st.info("💡 **Smart Detection:** Select time (duration), event, and optional group columns")
         
         col1, col2, col3 = st.columns(3)
         with col1:
-            # Detect time/duration column
-            time_suggestions = [col for col in numeric_cols if any(keyword in col.lower() for keyword in ['time', 'duration', 'days', 'months', 'tenure'])]
-            time_default = time_suggestions[0] if time_suggestions else (numeric_cols[0] if numeric_cols else all_cols[0])
+            time_default = suggestions['time']
             time_idx = list(df.columns).index(time_default)
-            
             time_col = st.selectbox("Time/Duration Column", df.columns, index=time_idx, key="surv_time")
         with col2:
-            # Detect event column
-            event_suggestions = [col for col in all_cols if any(keyword in col.lower() for keyword in ['event', 'churn', 'status', 'outcome', 'censored'])]
-            event_default = event_suggestions[0] if event_suggestions else all_cols[0]
+            event_default = suggestions['event']
             event_idx = list(df.columns).index(event_default)
-            
             event_col = st.selectbox("Event Column (1=event occurred, 0=censored)", df.columns, index=event_idx, key="surv_event")
         with col3:
-            # Optional group column
-            group_col = st.selectbox("Group Column (optional)", ["None"] + all_cols, key="surv_group")
+            group_default = suggestions['group']
+            group_options = ["None"] + df.columns.tolist()
+            group_idx = group_options.index(group_default) if group_default and group_default in group_options else 0
+            group_col = st.selectbox("Group Column (optional)", group_options, index=group_idx, key="surv_group")
         
         if st.button("📊 Validate & Process Data", type="primary"):
             # Validate time is numeric
@@ -10962,25 +10922,20 @@ def show_network_analysis():
         st.success("✅ Using dataset from Data Upload section")
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
         
-        # Smart column detection
-        all_cols = df.columns.tolist()
+        # Smart column detection using ColumnDetector
+        from utils.column_detector import ColumnDetector
+        suggestions = ColumnDetector.get_network_column_suggestions(df)
         
         st.info("💡 **Smart Detection:** Select source (from) and target (to) columns for network edges")
         
         col1, col2 = st.columns(2)
         with col1:
-            # Detect source column
-            source_suggestions = [col for col in all_cols if any(keyword in col.lower() for keyword in ['from', 'source', 'sender', 'user', 'node1'])]
-            source_default = source_suggestions[0] if source_suggestions else all_cols[0]
+            source_default = suggestions['source']
             source_idx = list(df.columns).index(source_default)
-            
             source_col = st.selectbox("Source (From) Column", df.columns, index=source_idx, key="net_source")
         with col2:
-            # Detect target column
-            target_suggestions = [col for col in all_cols if any(keyword in col.lower() for keyword in ['to', 'target', 'receiver', 'friend', 'node2'])]
-            target_default = target_suggestions[0] if target_suggestions else (all_cols[1] if len(all_cols) > 1 else all_cols[0])
+            target_default = suggestions['target']
             target_idx = list(df.columns).index(target_default)
-            
             target_col = st.selectbox("Target (To) Column", df.columns, index=target_idx, key="net_target")
         
         if st.button("📊 Validate & Process Data", type="primary"):

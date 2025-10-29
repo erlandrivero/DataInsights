@@ -440,3 +440,236 @@ class ColumnDetector:
             return max(avg_lengths, key=avg_lengths.get)
         
         return df.columns[0] if len(df.columns) > 0 else None
+    
+    @staticmethod
+    def get_ab_testing_column_suggestions(df: pd.DataFrame) -> dict:
+        """
+        Get suggested columns for A/B Testing.
+        
+        Args:
+            df: DataFrame to analyze
+            
+        Returns:
+            Dictionary with 'group' and 'metric' suggestions
+        """
+        # Detect group column - prefer 2-3 unique values with relevant keywords
+        keyword_matches = [col for col in df.columns if any(keyword in col.lower() 
+                          for keyword in ['group', 'variant', 'test', 'ab', 'treatment', 'control', 'cohort', 'segment'])]
+        suitable_group_cols = [col for col in keyword_matches if 2 <= df[col].nunique() <= 3]
+        
+        # If no keyword matches, look for ANY columns with 2-3 unique values
+        if not suitable_group_cols:
+            suitable_group_cols = [col for col in df.columns if 2 <= df[col].nunique() <= 3]
+        
+        # Exclude clearly non-group columns
+        suitable_group_cols = [col for col in suitable_group_cols if not any(exclude in col.lower() 
+                              for exclude in ['id', 'invoice', 'order', 'date', 'time', 'price', 'quantity', 'amount'])]
+        
+        group_col = suitable_group_cols[0] if suitable_group_cols else df.columns[0]
+        
+        # Detect metric column - prefer numeric with relevant keywords
+        numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+        metric_keywords = [col for col in numeric_cols if any(keyword in col.lower() 
+                          for keyword in ['conversion', 'revenue', 'sales', 'clicks', 'ctr', 'rate', 'value', 'metric', 'score', 'amount'])]
+        
+        # Exclude ID columns
+        metric_keywords = [col for col in metric_keywords if not any(exclude in col.lower() 
+                          for exclude in ['id', 'invoice', 'order_id', 'transaction_id', 'number'])]
+        
+        if metric_keywords:
+            metric_col = metric_keywords[0]
+        elif numeric_cols:
+            clean_numeric = [col for col in numeric_cols if not any(exclude in col.lower() 
+                            for exclude in ['id', 'invoice', 'number'])]
+            metric_col = clean_numeric[0] if clean_numeric else numeric_cols[0]
+        else:
+            metric_col = df.columns[0]
+        
+        return {
+            'group': group_col,
+            'metric': metric_col
+        }
+    
+    @staticmethod
+    def get_cohort_column_suggestions(df: pd.DataFrame) -> dict:
+        """
+        Get suggested columns for Cohort Analysis.
+        
+        Args:
+            df: DataFrame to analyze
+            
+        Returns:
+            Dictionary with 'user_id', 'cohort_date', and 'activity_date' suggestions
+        """
+        date_cols = df.select_dtypes(include=['datetime64', 'object']).columns.tolist()
+        
+        # Detect User ID
+        id_suggestions = [col for col in df.columns if any(keyword in col.lower() 
+                         for keyword in ['id', 'user', 'customer', 'client'])]
+        user_col = id_suggestions[0] if id_suggestions else df.columns[0]
+        
+        # Detect Cohort Date (signup, registration, first purchase)
+        cohort_suggestions = [col for col in date_cols if any(keyword in col.lower() 
+                             for keyword in ['signup', 'register', 'created', 'first', 'join', 'date', 'invoice', 'order'])]
+        cohort_suggestions = [col for col in cohort_suggestions if not any(exclude in col.lower() 
+                             for exclude in ['description', 'name', 'country', 'status'])]
+        cohort_col = cohort_suggestions[0] if cohort_suggestions else (date_cols[0] if date_cols else df.columns[0])
+        
+        # Detect Activity Date
+        activity_suggestions = [col for col in date_cols if any(keyword in col.lower() 
+                               for keyword in ['activity', 'purchase', 'order', 'transaction', 'date', 'time', 'invoice'])]
+        activity_suggestions = [col for col in activity_suggestions if not any(exclude in col.lower() 
+                               for exclude in ['description', 'name', 'country', 'status'])]
+        activity_col = activity_suggestions[0] if activity_suggestions else (date_cols[1] if len(date_cols) > 1 else (date_cols[0] if date_cols else df.columns[0]))
+        
+        return {
+            'user_id': user_col,
+            'cohort_date': cohort_col,
+            'activity_date': activity_col
+        }
+    
+    @staticmethod
+    def get_recommendation_column_suggestions(df: pd.DataFrame) -> dict:
+        """
+        Get suggested columns for Recommendation Systems.
+        
+        Args:
+            df: DataFrame to analyze
+            
+        Returns:
+            Dictionary with 'user', 'item', and 'rating' suggestions
+        """
+        numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+        all_cols = df.columns.tolist()
+        
+        # Detect user column
+        user_suggestions = [col for col in all_cols if any(keyword in col.lower() 
+                           for keyword in ['user', 'customer', 'userid', 'customerid', 'client'])]
+        user_suggestions = [col for col in user_suggestions if not any(exclude in col.lower() 
+                           for exclude in ['item', 'product', 'movie', 'name', 'description'])]
+        user_col = user_suggestions[0] if user_suggestions else all_cols[0]
+        
+        # Detect item column
+        item_suggestions = [col for col in all_cols if any(keyword in col.lower() 
+                           for keyword in ['item', 'product', 'movie', 'title', 'stock', 'sku', 'article'])]
+        item_suggestions = [col for col in item_suggestions if not any(exclude in col.lower() 
+                           for exclude in ['user', 'customer', 'client', 'rating', 'score'])]
+        item_col = item_suggestions[0] if item_suggestions else (all_cols[1] if len(all_cols) > 1 else all_cols[0])
+        
+        # Detect rating column
+        rating_suggestions = [col for col in numeric_cols if any(keyword in col.lower() 
+                             for keyword in ['rating', 'score', 'stars', 'review'])]
+        if not rating_suggestions:
+            rating_suggestions = [col for col in numeric_cols if not any(exclude in col.lower() 
+                                 for exclude in ['id', 'index', 'count', 'number'])]
+        rating_col = rating_suggestions[0] if rating_suggestions else (numeric_cols[0] if numeric_cols else all_cols[0])
+        
+        return {
+            'user': user_col,
+            'item': item_col,
+            'rating': rating_col
+        }
+    
+    @staticmethod
+    def get_geospatial_column_suggestions(df: pd.DataFrame) -> dict:
+        """
+        Get suggested columns for Geospatial Analysis.
+        
+        Args:
+            df: DataFrame to analyze
+            
+        Returns:
+            Dictionary with 'latitude' and 'longitude' suggestions
+        """
+        numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+        
+        # Detect latitude
+        lat_suggestions = [col for col in numeric_cols if any(keyword in col.lower() 
+                          for keyword in ['lat', 'latitude', 'y', 'coord'])]
+        lat_suggestions = [col for col in lat_suggestions if not any(exclude in col.lower() 
+                          for exclude in ['long', 'lon', 'price', 'quantity', 'amount', 'id', 'index'])]
+        lat_col = lat_suggestions[0] if lat_suggestions else (numeric_cols[0] if numeric_cols else df.columns[0])
+        
+        # Detect longitude
+        lon_suggestions = [col for col in numeric_cols if any(keyword in col.lower() 
+                          for keyword in ['lon', 'long', 'longitude', 'x', 'coord'])]
+        lon_suggestions = [col for col in lon_suggestions if not any(exclude in col.lower() 
+                          for exclude in ['lat', 'latitude', 'price', 'quantity', 'amount', 'id', 'index'])]
+        lon_col = lon_suggestions[0] if lon_suggestions else (numeric_cols[1] if len(numeric_cols) > 1 else (numeric_cols[0] if numeric_cols else df.columns[0]))
+        
+        return {
+            'latitude': lat_col,
+            'longitude': lon_col
+        }
+    
+    @staticmethod
+    def get_survival_column_suggestions(df: pd.DataFrame) -> dict:
+        """
+        Get suggested columns for Survival Analysis.
+        
+        Args:
+            df: DataFrame to analyze
+            
+        Returns:
+            Dictionary with 'time', 'event', and 'group' suggestions
+        """
+        numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+        all_cols = df.columns.tolist()
+        
+        # Detect time/duration column
+        time_suggestions = [col for col in numeric_cols if any(keyword in col.lower() 
+                           for keyword in ['time', 'duration', 'days', 'months', 'tenure', 'period', 'lifetime'])]
+        time_suggestions = [col for col in time_suggestions if not any(exclude in col.lower() 
+                           for exclude in ['id', 'index', 'price', 'amount', 'quantity', 'rate'])]
+        time_col = time_suggestions[0] if time_suggestions else (numeric_cols[0] if numeric_cols else all_cols[0])
+        
+        # Detect event column
+        event_suggestions = [col for col in all_cols if any(keyword in col.lower() 
+                            for keyword in ['event', 'churn', 'status', 'outcome', 'censored', 'failed', 'died', 'left'])]
+        event_suggestions = [col for col in event_suggestions if not any(exclude in col.lower() 
+                            for exclude in ['id', 'date', 'time', 'name', 'description'])]
+        event_col = event_suggestions[0] if event_suggestions else all_cols[0]
+        
+        # Detect group column (optional) - prefer 2-5 unique values
+        group_suggestions = [col for col in all_cols if 2 <= df[col].nunique() <= 5]
+        group_keywords = [col for col in all_cols if any(keyword in col.lower() 
+                         for keyword in ['group', 'type', 'category', 'segment', 'plan', 'tier'])]
+        combined_groups = list(dict.fromkeys(group_keywords + group_suggestions))
+        
+        return {
+            'time': time_col,
+            'event': event_col,
+            'group': combined_groups[0] if combined_groups else None
+        }
+    
+    @staticmethod
+    def get_network_column_suggestions(df: pd.DataFrame) -> dict:
+        """
+        Get suggested columns for Network Analysis.
+        
+        Args:
+            df: DataFrame to analyze
+            
+        Returns:
+            Dictionary with 'source' and 'target' suggestions
+        """
+        all_cols = df.columns.tolist()
+        
+        # Detect source column
+        source_suggestions = [col for col in all_cols if any(keyword in col.lower() 
+                             for keyword in ['from', 'source', 'sender', 'user', 'node1', 'origin', 'start', 'follower'])]
+        source_suggestions = [col for col in source_suggestions if not any(exclude in col.lower() 
+                             for exclude in ['to', 'target', 'receiver', 'destination', 'node2', 'end'])]
+        source_col = source_suggestions[0] if source_suggestions else all_cols[0]
+        
+        # Detect target column
+        target_suggestions = [col for col in all_cols if any(keyword in col.lower() 
+                             for keyword in ['to', 'target', 'receiver', 'friend', 'node2', 'destination', 'end', 'following'])]
+        target_suggestions = [col for col in target_suggestions if not any(exclude in col.lower() 
+                             for exclude in ['from', 'source', 'sender', 'origin', 'node1', 'start'])]
+        target_col = target_suggestions[0] if target_suggestions else (all_cols[1] if len(all_cols) > 1 else all_cols[0])
+        
+        return {
+            'source': source_col,
+            'target': target_col
+        }
