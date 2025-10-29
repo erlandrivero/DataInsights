@@ -10624,40 +10624,46 @@ Be specific, data-driven, and focus on actionable improvements that balance tech
         ratings_data = st.session_state.rec_ratings
         
         # Generate sample recommendations for multiple users/items
-        if rec_type == 'user':
-            # Get top 10 users by number of ratings
-            top_users = ratings_data.groupby('user_id').size().nlargest(10).index
-            recommendations_list = []
+        try:
+            if rec_type == 'user':
+                # Get top 5 users by number of ratings
+                top_users = ratings_data.groupby('user_id').size().nlargest(5).index
+                recommendations_list = []
+                
+                for user in top_users:
+                    user_recs = engine.recommend_items_user_based(user, n_recommendations=5)
+                    if not user_recs.empty:
+                        for idx, row in user_recs.iterrows():
+                            recommendations_list.append({
+                                'user_id': user,
+                                'recommended_item': row['item_id'],
+                                'predicted_rating': f"{row['predicted_rating']:.4f}",
+                                'rank': idx + 1
+                            })
+                
+                recommendations_df = pd.DataFrame(recommendations_list)
+            else:
+                # Get top 5 users by number of ratings for item-based
+                top_users = ratings_data.groupby('user_id').size().nlargest(5).index
+                recommendations_list = []
+                
+                for user in top_users:
+                    user_recs = engine.recommend_items_item_based(user, n_recommendations=5)
+                    if not user_recs.empty:
+                        for idx, row in user_recs.iterrows():
+                            recommendations_list.append({
+                                'user_id': user,
+                                'recommended_item': row['item_id'],
+                                'predicted_rating': f"{row['predicted_rating']:.4f}",
+                                'rank': idx + 1
+                            })
+                
+                recommendations_df = pd.DataFrame(recommendations_list)
             
-            for user in top_users:
-                user_recs = engine.recommend_items_user_based(user, n_recommendations=5)
-                for rank, (item_id, score) in enumerate(user_recs, 1):
-                    recommendations_list.append({
-                        'user_id': user,
-                        'recommended_item': item_id,
-                        'predicted_score': f"{score:.4f}",
-                        'rank': rank
-                    })
-            
-            recommendations_df = pd.DataFrame(recommendations_list)
-        else:
-            # Get top 10 items by number of ratings
-            top_items = ratings_data.groupby('item_id').size().nlargest(10).index
-            recommendations_list = []
-            
-            for item in top_items:
-                similar_items = engine.recommend_similar_items(item, n_recommendations=5)
-                for rank, (similar_item, score) in enumerate(similar_items, 1):
-                    recommendations_list.append({
-                        'item_id': item,
-                        'similar_item': similar_item,
-                        'similarity_score': f"{score:.4f}",
-                        'rank': rank
-                    })
-            
-            recommendations_df = pd.DataFrame(recommendations_list)
-        
-        csv_string = recommendations_df.to_csv(index=False)
+            csv_string = recommendations_df.to_csv(index=False)
+        except Exception as e:
+            # Fallback: export ratings data
+            csv_string = ratings_data.to_csv(index=False)
         
         # 2-column layout for exports
         col1, col2 = st.columns(2)
