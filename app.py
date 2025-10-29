@@ -10228,72 +10228,146 @@ def show_recommendation_systems():
     # AI Insights
     if 'rec_similarity' in st.session_state:
         st.divider()
-        st.subheader("🤖 AI-Powered Insights")
+        st.subheader("✨ AI-Powered Insights")
         
-        if 'rec_ai_insights' not in st.session_state:
-            if st.button("✨ Generate AI Insights", type="primary", key="rec_ai"):
-                try:
-                    from utils.ai_helper import AIHelper
-                    ai = AIHelper()
-                    
-                    with st.status("🤖 AI is analyzing recommendations...", expanded=True) as status:
-                        rec_type = st.session_state.rec_type
-                        ratings_data = st.session_state.rec_ratings
-                        n_users = ratings_data['user_id'].nunique()
-                        n_items = ratings_data['item_id'].nunique()
-                        sparsity = 1 - (len(ratings_data) / (n_users * n_items))
-                        
-                        summary = f"""Recommendation System Results:
-- Method: {'User-based collaborative filtering' if rec_type == 'user' else 'Item-based collaborative filtering'}
-- Total Ratings: {len(ratings_data)}
-- Unique Users: {n_users}
-- Unique Items: {n_items}
-- Data Sparsity: {sparsity*100:.1f}%
-"""
-                        
-                        prompt = f"""
-As a recommendation systems expert, analyze these results and provide:
-
-1. **System Quality Assessment** (2-3 sentences): How good is this recommendation setup?
-
-2. **Data Sparsity Analysis** (2-3 sentences): How does sparsity affect recommendations?
-
-3. **Improvement Strategies** (4-5 bullet points): Specific ways to enhance recommendation quality:
-   - Data collection strategies
-   - Algorithm improvements
-   - Cold-start solutions
-   - Hybrid approaches
-
-4. **Business Impact** (2-3 sentences): How can better recommendations drive business value?
-
-{summary}
-
-Focus on practical, implementable suggestions.
-"""
-                        
-                        response = ai.client.chat.completions.create(
-                            model="gpt-4",
-                            messages=[
-                                {"role": "system", "content": "You are a recommendation systems expert specializing in collaborative filtering and personalization."},
-                                {"role": "user", "content": prompt}
-                            ],
-                            temperature=0.7,
-                            max_tokens=1200
-                        )
-                        
-                        st.session_state.rec_ai_insights = response.choices[0].message.content
-                        status.update(label="✅ Insights generated!", state="complete", expanded=False)
-                    
-                    st.success("✅ AI insights generated successfully!")
-                    st.markdown(st.session_state.rec_ai_insights)
-                    st.info("✅ AI insights saved! These will be included in your report downloads.")
-                        
-                except Exception as e:
-                    st.error(f"Error generating insights: {str(e)}")
-        
+        # Display saved insights if they exist
         if 'rec_ai_insights' in st.session_state:
             st.markdown(st.session_state.rec_ai_insights)
             st.info("✅ AI insights saved! These will be included in your report downloads.")
+        
+        if st.button("🤖 Generate AI Insights", key="rec_ai_insights_btn", use_container_width=True):
+            try:
+                from utils.ai_helper import AIHelper
+                ai = AIHelper()
+                
+                with st.status("🤖 Analyzing recommendation engine performance and generating optimization strategies...", expanded=True) as status:
+                    # Get data from session state
+                    rec_type = st.session_state.rec_type
+                    ratings_data = st.session_state.rec_ratings
+                    similarity_matrix = st.session_state.rec_similarity
+                    
+                    # Calculate comprehensive metrics
+                    n_users = ratings_data['user_id'].nunique()
+                    n_items = ratings_data['item_id'].nunique()
+                    n_ratings = len(ratings_data)
+                    sparsity = 1 - (n_ratings / (n_users * n_items))
+                    
+                    # Rating statistics
+                    avg_rating = ratings_data['rating'].mean()
+                    rating_std = ratings_data['rating'].std()
+                    min_rating = ratings_data['rating'].min()
+                    max_rating = ratings_data['rating'].max()
+                    
+                    # User/Item engagement
+                    ratings_per_user = ratings_data.groupby('user_id').size()
+                    ratings_per_item = ratings_data.groupby('item_id').size()
+                    avg_ratings_per_user = ratings_per_user.mean()
+                    avg_ratings_per_item = ratings_per_item.mean()
+                    
+                    # Popular vs niche analysis
+                    popular_items = (ratings_per_item > ratings_per_item.quantile(0.75)).sum()
+                    niche_items = (ratings_per_item < ratings_per_item.quantile(0.25)).sum()
+                    
+                    # Coverage metrics
+                    users_with_ratings = n_users
+                    items_with_ratings = n_items
+                    coverage_rate = (items_with_ratings / n_items * 100) if n_items > 0 else 0
+                    
+                    # Prepare rich context
+                    context = f"""
+Recommendation System Analysis:
+
+System Configuration:
+- Algorithm: {'User-based Collaborative Filtering' if rec_type == 'user' else 'Item-based Collaborative Filtering'}
+- Total Users: {n_users:,}
+- Total Items: {n_items:,}
+- Total Ratings: {n_ratings:,}
+- Data Sparsity: {sparsity*100:.2f}% (sparse matrix)
+
+Rating Distribution:
+- Average Rating: {avg_rating:.2f} / {max_rating:.0f}
+- Rating Std Dev: {rating_std:.2f}
+- Rating Range: {min_rating:.1f} - {max_rating:.1f}
+
+User Engagement:
+- Avg Ratings per User: {avg_ratings_per_user:.1f}
+- Most Active User: {ratings_per_user.max()} ratings
+- Least Active User: {ratings_per_user.min()} ratings
+
+Item Popularity:
+- Avg Ratings per Item: {avg_ratings_per_item:.1f}
+- Popular Items (top 25%): {popular_items} items
+- Niche Items (bottom 25%): {niche_items} items
+- Catalog Coverage: {coverage_rate:.1f}%
+
+System Characteristics:
+- Data Density: {'Very sparse' if sparsity > 0.95 else 'Sparse' if sparsity > 0.90 else 'Moderate'} ({(1-sparsity)*100:.2f}% filled)
+- User Behavior: {'Diverse' if rating_std > 1.0 else 'Consistent'} (std={rating_std:.2f})
+- Catalog Balance: {'Popular-heavy' if popular_items > niche_items * 1.5 else 'Balanced'}
+"""
+                    
+                    prompt = f"""
+As a senior recommendation systems architect with 10+ years building personalization engines for e-commerce and streaming platforms, analyze these results and provide:
+
+1. **System Performance Assessment** (3-4 sentences): Evaluate the recommendation engine's quality. How effective is the current algorithm given the data characteristics? What does the sparsity level tell us about recommendation reliability?
+
+2. **Personalization Analysis** (4-5 bullet points): How well does the system understand users?
+   - User segmentation insights (active vs. casual)
+   - Item coverage and long-tail discovery
+   - Popularity bias vs. personalization balance
+   - Cold-start challenges for new users/items
+
+3. **Algorithm Optimization** (5-6 bullet points): Technical improvements to enhance recommendation quality:
+   - Similarity metric alternatives (cosine, Pearson, adjusted cosine)
+   - Neighborhood size tuning
+   - Matrix factorization opportunities (SVD, NMF)
+   - Hybrid approaches (content + collaborative)
+   - Real-time vs. batch processing
+   - Confidence scoring and ranking
+
+4. **Business Strategy** (5-6 bullet points): Revenue and engagement opportunities:
+   - Cross-sell and upsell tactics
+   - Bundle recommendations
+   - Seasonal and trending item promotion
+   - Email/notification personalization
+   - A/B testing recommendation strategies
+   - Customer lifetime value optimization
+
+5. **User Experience Improvements** (4-5 bullet points): Making recommendations more useful:
+   - Explanation and transparency ("Why we recommend this")
+   - Diversity vs. accuracy balance
+   - Serendipity and discovery features
+   - User feedback loops (likes, dislikes, adjustments)
+   - Interface and presentation optimization
+
+6. **ROI & Metrics Tracking** (3-4 sentences): What business impact can we expect? Define KPIs to track (click-through rate, conversion rate, average order value). Estimate realistic improvements in engagement and revenue from implementing these recommendations.
+
+{context}
+
+Be specific, data-driven, and focus on actionable improvements that balance technical sophistication with business outcomes. Prioritize quick wins vs. long-term architectural changes.
+"""
+                    
+                    response = ai.client.chat.completions.create(
+                        model="gpt-4",
+                        messages=[
+                            {"role": "system", "content": "You are a senior recommendation systems architect with 10+ years of experience building personalization engines for e-commerce and streaming platforms at scale. You specialize in collaborative filtering, matrix factorization, and hybrid recommendation approaches that drive measurable business outcomes."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.7,
+                        max_tokens=1500
+                    )
+                    
+                    # Save to session state
+                    st.session_state.rec_ai_insights = response.choices[0].message.content
+                    status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+                    
+                    # Display inside status block
+                    st.success("✅ AI insights generated successfully!")
+                    st.markdown(st.session_state.rec_ai_insights)
+                    st.info("✅ AI insights saved! These will be included in your report downloads.")
+                    
+            except Exception as e:
+                st.error(f"Error generating AI insights: {str(e)}")
     
     # Export
     if 'rec_similarity' in st.session_state:
