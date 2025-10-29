@@ -10614,73 +10614,169 @@ def show_geospatial_analysis():
     # AI Insights
     if 'geo_results' in st.session_state:
         st.divider()
-        st.subheader("🤖 AI-Powered Insights")
+        st.subheader("✨ AI-Powered Insights")
         
-        if 'geo_ai_insights' not in st.session_state:
-            if st.button("✨ Generate AI Insights", type="primary", key="geo_ai"):
-                try:
-                    from utils.ai_helper import AIHelper
-                    ai = AIHelper()
-                    
-                    with st.status("🤖 AI is analyzing geographic patterns...", expanded=True) as status:
-                        result = st.session_state.geo_results
-                        geo_data = st.session_state.geo_data
-                        
-                        lat_range = geo_data['latitude'].max() - geo_data['latitude'].min()
-                        lon_range = geo_data['longitude'].max() - geo_data['longitude'].min()
-                        
-                        summary = f"""Geospatial Analysis Results:
-- Total Locations: {len(geo_data)}
-- Clustering Method: {result.get('method', 'Unknown')}
-- Clusters Found: {result['n_clusters']}
-- Geographic Spread: {lat_range:.2f}° latitude × {lon_range:.2f}° longitude
-"""
-                        if 'noise_points' in result:
-                            summary += f"- Noise Points: {result['noise_points']}\n"
-                        
-                        prompt = f"""
-As a location strategy expert, analyze these geospatial clustering results and provide:
-
-1. **Geographic Pattern Analysis** (2-3 sentences): What do these location clusters reveal?
-
-2. **Key Cluster Insights** (3-4 bullet points): Most important findings about location distribution
-
-3. **Location Strategy** (4-5 bullet points): Specific recommendations for:
-   - Service area optimization
-   - New location opportunities
-   - Resource allocation
-   - Territory management
-
-4. **Business Impact** (2-3 sentences): How can these insights drive location decisions?
-
-{summary}
-
-Focus on actionable location strategies.
-"""
-                        
-                        response = ai.client.chat.completions.create(
-                            model="gpt-4",
-                            messages=[
-                                {"role": "system", "content": "You are a geospatial analysis and location strategy expert."},
-                                {"role": "user", "content": prompt}
-                            ],
-                            temperature=0.7,
-                            max_tokens=1200
-                        )
-                        
-                        st.session_state.geo_ai_insights = response.choices[0].message.content
-                        status.update(label="✅ Insights generated!", state="complete", expanded=False)
-                    
-                    st.success("✅ AI insights generated successfully!")
-                    st.markdown(st.session_state.geo_ai_insights)
-                    st.info("✅ AI insights saved! These will be included in your report downloads.")
-                        
-                except Exception as e:
-                    st.error(f"Error generating insights: {str(e)}")
-        
+        # Display saved insights if they exist
         if 'geo_ai_insights' in st.session_state:
             st.markdown(st.session_state.geo_ai_insights)
             st.info("✅ AI insights saved! These will be included in your report downloads.")
+        
+        if st.button("🤖 Generate AI Insights", key="geo_ai_insights_btn", use_container_width=True):
+            try:
+                from utils.ai_helper import AIHelper
+                ai = AIHelper()
+                
+                with st.status("🤖 Analyzing geographic patterns and generating location intelligence strategies...", expanded=True) as status:
+                    # Get data from session state
+                    result = st.session_state.geo_results
+                    geo_data = st.session_state.geo_data
+                    
+                    # Calculate comprehensive metrics
+                    total_locations = len(geo_data)
+                    n_clusters = result['n_clusters']
+                    method = result.get('method', 'Unknown')
+                    
+                    # Geographic bounds
+                    lat_min = geo_data['latitude'].min()
+                    lat_max = geo_data['latitude'].max()
+                    lon_min = geo_data['longitude'].min()
+                    lon_max = geo_data['longitude'].max()
+                    lat_range = lat_max - lat_min
+                    lon_range = lon_max - lon_min
+                    lat_center = (lat_min + lat_max) / 2
+                    lon_center = (lon_min + lon_max) / 2
+                    
+                    # Calculate approximate area (rough estimate in km²)
+                    lat_km = lat_range * 111  # 1° latitude ≈ 111 km
+                    lon_km = lon_range * 111 * abs(np.cos(np.radians(lat_center)))  # longitude varies with latitude
+                    area_km2 = lat_km * lon_km
+                    
+                    # Cluster analysis
+                    clustered_data = result.get('data', geo_data)
+                    if 'cluster' in clustered_data.columns:
+                        cluster_sizes = clustered_data['cluster'].value_counts()
+                        avg_cluster_size = cluster_sizes.mean()
+                        largest_cluster = cluster_sizes.max()
+                        smallest_cluster = cluster_sizes.min()
+                        cluster_size_std = cluster_sizes.std()
+                    else:
+                        avg_cluster_size = largest_cluster = smallest_cluster = cluster_size_std = 0
+                    
+                    # Density analysis
+                    density = total_locations / max(area_km2, 1)
+                    locations_per_cluster = total_locations / max(n_clusters, 1)
+                    
+                    # Noise analysis (for DBSCAN)
+                    noise_points = result.get('noise_points', 0)
+                    noise_percentage = (noise_points / total_locations * 100) if total_locations > 0 else 0
+                    
+                    # Spatial distribution
+                    lat_std = geo_data['latitude'].std()
+                    lon_std = geo_data['longitude'].std()
+                    dispersion = np.sqrt(lat_std**2 + lon_std**2)
+                    
+                    # Prepare rich context
+                    context = f"""
+Geospatial Analysis Results:
+
+Study Area Overview:
+- Total Locations Analyzed: {total_locations:,}
+- Geographic Bounds: {lat_min:.4f}° to {lat_max:.4f}° latitude, {lon_min:.4f}° to {lon_max:.4f}° longitude
+- Geographic Spread: {lat_range:.2f}° × {lon_range:.2f}° ({lat_km:.1f} km × {lon_km:.1f} km)
+- Approximate Coverage Area: {area_km2:.1f} km²
+- Geographic Center: {lat_center:.4f}°N, {lon_center:.4f}°E
+
+Clustering Results:
+- Method Used: {method}
+- Clusters Identified: {n_clusters}
+- Average Locations per Cluster: {locations_per_cluster:.1f}
+- Largest Cluster Size: {largest_cluster} locations
+- Smallest Cluster Size: {smallest_cluster} locations
+- Cluster Size Variation (std): {cluster_size_std:.1f}
+
+Density Analysis:
+- Overall Location Density: {density:.2f} locations per km²
+- Spatial Dispersion Index: {dispersion:.4f}
+- Distribution Pattern: {'Highly concentrated' if dispersion < 0.5 else 'Moderately distributed' if dispersion < 2.0 else 'Widely dispersed'}
+"""
+                    
+                    # Add noise analysis for DBSCAN
+                    if noise_points > 0:
+                        context += f"""
+DBSCAN Noise Analysis:
+- Noise Points (Outliers): {noise_points} ({noise_percentage:.1f}%)
+- Clustered Locations: {total_locations - noise_points} ({100 - noise_percentage:.1f}%)
+- Clustering Efficiency: {'High' if noise_percentage < 10 else 'Moderate' if noise_percentage < 25 else 'Low'}
+"""
+                    
+                    context += f"""
+Spatial Characteristics:
+- Geographic Scale: {'Local' if area_km2 < 100 else 'Regional' if area_km2 < 10000 else 'National/Continental'}
+- Cluster Compactness: {'Tight' if avg_cluster_size / locations_per_cluster > 0.7 else 'Moderate' if avg_cluster_size / locations_per_cluster > 0.4 else 'Loose'}
+- Market Saturation Level: {'High density' if density > 10 else 'Moderate density' if density > 1 else 'Low density'}
+"""
+                    
+                    prompt = f"""
+As a senior geospatial analyst and location intelligence strategist with 10+ years of experience in site selection, territory optimization, and spatial economics, analyze these geospatial clustering results and provide:
+
+1. **Spatial Pattern Assessment** (3-4 sentences): Evaluate the geographic distribution and clustering patterns. What does the cluster structure reveal about market concentration, accessibility, and coverage? How does the density and dispersion inform our understanding of the spatial dynamics?
+
+2. **Cluster Characteristics** (4-5 bullet points): Detailed insights about each major cluster:
+   - Dominant geographic areas (city, region, terrain)
+   - Cluster size and density implications
+   - Coverage gaps and overlap
+   - Competitive positioning in each cluster
+   - Accessibility and transportation considerations
+
+3. **Market Expansion Strategy** (5-6 bullet points): Data-driven recommendations for growth:
+   - Underserved geographic areas with high potential
+   - Optimal locations for new sites/facilities/stores
+   - Market penetration vs. geographic expansion trade-offs
+   - Competitor clustering and white space opportunities
+   - Demographic and economic considerations by cluster
+   - Priority ranking of expansion territories
+
+4. **Operational Optimization** (4-5 bullet points): Improve efficiency using spatial insights:
+   - Service territory redesign and optimization
+   - Resource allocation across clusters
+   - Logistics and distribution routing
+   - Field team territory assignments
+   - Capacity planning by geographic zone
+
+5. **Risk & Constraints** (3-4 bullet points): Geographic challenges to address:
+   - Over-concentration risks in certain areas
+   - Underserved markets with high opportunity cost
+   - Geographic barriers (terrain, infrastructure)
+   - Competitive saturation in specific clusters
+
+6. **ROI Projection** (3-4 sentences): Quantify the business impact of implementing these location strategies. What improvements in market coverage, operational efficiency, and revenue can be expected? Consider both quick wins (existing cluster optimization) and long-term gains (strategic expansion).
+
+{context}
+
+Be specific, data-driven, and focus on actionable location intelligence strategies that balance market opportunity with operational feasibility. Consider both tactical improvements and strategic positioning.
+"""
+                    
+                    response = ai.client.chat.completions.create(
+                        model="gpt-4",
+                        messages=[
+                            {"role": "system", "content": "You are a senior geospatial analyst and location intelligence strategist with 10+ years of experience in site selection, territory optimization, and spatial economics. You specialize in translating spatial data into actionable business strategies for retail, logistics, and service organizations."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.7,
+                        max_tokens=1500
+                    )
+                    
+                    # Save to session state
+                    st.session_state.geo_ai_insights = response.choices[0].message.content
+                    status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+                    
+                    # Display inside status block
+                    st.success("✅ AI insights generated successfully!")
+                    st.markdown(st.session_state.geo_ai_insights)
+                    st.info("✅ AI insights saved! These will be included in your report downloads.")
+                    
+            except Exception as e:
+                st.error(f"Error generating AI insights: {str(e)}")
     
     # Export
     if 'geo_results' in st.session_state:
