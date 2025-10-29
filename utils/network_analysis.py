@@ -332,8 +332,7 @@ class NetworkAnalyzer:
                 colorbar=dict(
                     thickness=15,
                     title='Node Degree',
-                    xanchor='left',
-                    titleside='right'
+                    xanchor='left'
                 ),
                 line_width=2))
         
