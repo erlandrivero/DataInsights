@@ -9565,15 +9565,19 @@ def show_cohort_analysis():
             
             user_col = st.selectbox("User ID Column", id_cols, index=user_idx, key="cohort_user")
         with col2:
-            # Smart detection for cohort date (signup, registration, created, first)
-            cohort_suggestions = [col for col in date_cols if any(keyword in col.lower() for keyword in ['signup', 'register', 'created', 'first', 'join'])]
+            # Smart detection for cohort date (signup, registration, created, first, date-related)
+            cohort_suggestions = [col for col in date_cols if any(keyword in col.lower() for keyword in ['signup', 'register', 'created', 'first', 'join', 'date', 'invoice', 'order'])]
+            # Exclude non-date columns
+            cohort_suggestions = [col for col in cohort_suggestions if not any(exclude in col.lower() for exclude in ['description', 'name', 'country', 'status'])]
             cohort_default = cohort_suggestions[0] if cohort_suggestions else (date_cols[0] if date_cols else df.columns[0])
             cohort_idx = list(df.columns).index(cohort_default) if cohort_default in df.columns else 0
             
             cohort_col = st.selectbox("Cohort Date (signup/first purchase)", df.columns, index=cohort_idx, key="cohort_date")
         with col3:
             # Smart detection for activity date (activity, purchase, order, transaction)
-            activity_suggestions = [col for col in date_cols if any(keyword in col.lower() for keyword in ['activity', 'purchase', 'order', 'transaction', 'date', 'time'])]
+            activity_suggestions = [col for col in date_cols if any(keyword in col.lower() for keyword in ['activity', 'purchase', 'order', 'transaction', 'date', 'time', 'invoice'])]
+            # Exclude non-date columns
+            activity_suggestions = [col for col in activity_suggestions if not any(exclude in col.lower() for exclude in ['description', 'name', 'country', 'status'])]
             activity_default = activity_suggestions[0] if activity_suggestions else (date_cols[1] if len(date_cols) > 1 else (date_cols[0] if date_cols else df.columns[0]))
             activity_idx = list(df.columns).index(activity_default) if activity_default in df.columns else 0
             
