@@ -296,7 +296,11 @@ Be specific, actionable, and focus on [BUSINESS OUTCOME]. Consider [DOMAIN-SPECI
 ### **Step 6: Increase Token Limit**
 - [ ] Change from 1000-1200 to **1500 tokens**
 
-### **Step 7: Test Compilation**
+### **Step 7: Fix Status Overlay**
+- [ ] Change `expanded=True` to `expanded=False` to remove grey shadow overlay
+- [ ] Example: `with st.status("🤖 Analyzing...", expanded=False) as status:`
+
+### **Step 8: Test Compilation**
 - [ ] Run: `python -m py_compile app.py`
 - [ ] Fix any syntax errors
 
