@@ -10213,17 +10213,16 @@ def show_recommendation_systems():
             # Get engine from session state
             engine = st.session_state.rec_engine
             
-            # Build user-item matrix
+            # Build user-item matrix and calculate similarities
+            # The fit method automatically calculates both user and item similarities
             engine.fit(ratings_data, user_col='user_id', item_col='item_id', rating_col='rating')
             
-            # Calculate similarity
+            # Store the appropriate similarity matrix based on method
             if method == "User-Based Collaborative Filtering":
-                similarity_matrix = engine.calculate_user_similarity(min_support=min_support)
-                st.session_state.rec_similarity = similarity_matrix
+                st.session_state.rec_similarity = engine.user_similarity
                 st.session_state.rec_type = 'user'
             else:
-                similarity_matrix = engine.calculate_item_similarity(min_support=min_support)
-                st.session_state.rec_similarity = similarity_matrix
+                st.session_state.rec_similarity = engine.item_similarity
                 st.session_state.rec_type = 'item'
             
             status.update(label="✅ Model built!", state="complete", expanded=False)
@@ -10241,23 +10240,21 @@ def show_recommendation_systems():
         
         if method == 'user':
             sample_user = ratings_data['user_id'].iloc[0]
-            recommendations = engine.get_user_recommendations(sample_user, top_n=5)
+            recommendations = engine.recommend_items_user_based(sample_user, n_recommendations=5)
             
             st.write(f"**User-Based: Top 5 for {sample_user}**")
-            if recommendations:
-                rec_df = pd.DataFrame(recommendations, columns=['Item', 'Predicted Rating'])
-                st.dataframe(rec_df, use_container_width=True)
+            if len(recommendations) > 0:
+                st.dataframe(recommendations, use_container_width=True)
             else:
                 st.info("No recommendations available for this user")
         
         else:
             sample_item = ratings_data['item_id'].iloc[0]
-            similar_items = engine.get_similar_items(sample_item, top_n=5)
+            similar_items = engine.get_similar_items(sample_item, n_items=5)
             
             st.write(f"**Item-Based: Items Similar to {sample_item}**")
-            if similar_items:
-                sim_df = pd.DataFrame(similar_items, columns=['Item', 'Similarity Score'])
-                st.dataframe(sim_df, use_container_width=True)
+            if len(similar_items) > 0:
+                st.dataframe(similar_items, use_container_width=True)
             else:
                 st.info("No similar items found")
     
@@ -10632,12 +10629,25 @@ def show_geospatial_analysis():
             # Get analyzer from session state
             analyzer = st.session_state.geo_analyzer
             
-            if cluster_method == "DBSCAN (Density-Based)":
-                result = analyzer.dbscan_clustering(geo_data, eps_km=eps, min_samples=min_samples)
-            else:
-                result = analyzer.kmeans_clustering(geo_data, n_clusters=n_clusters)
+            # Fit analyzer on data
+            analyzer.fit(geo_data, lat_col='latitude', lon_col='longitude')
             
+            # Perform clustering
+            if cluster_method == "DBSCAN (Density-Based)":
+                clusters = analyzer.perform_clustering(method='dbscan')
+            else:
+                clusters = analyzer.perform_clustering(n_clusters=n_clusters, method='kmeans')
+            
+            # Store results
+            geo_data_with_clusters = geo_data.copy()
+            geo_data_with_clusters['cluster'] = clusters
+            result = {
+                'data': geo_data_with_clusters,
+                'n_clusters': len(set(clusters)) - (1 if -1 in clusters else 0),
+                'noise_points': list(clusters).count(-1) if cluster_method == "DBSCAN (Density-Based)" else 0
+            }
             st.session_state.geo_results = result
+            st.session_state.geo_data = geo_data_with_clusters
             status.update(label="✅ Analysis complete!", state="complete", expanded=False)
         
         st.success("✅ Spatial clustering completed!")
@@ -10660,7 +10670,13 @@ def show_geospatial_analysis():
         
         # Map visualization
         st.subheader("🗺️ Interactive Map")
-        fig = analyzer.create_cluster_map(result)
+        fig = analyzer.create_scatter_map(
+            result['data'], 
+            lat_col='latitude', 
+            lon_col='longitude',
+            color_col='cluster',
+            title='Spatial Clusters'
+        )
         st.plotly_chart(fig, use_container_width=True)
     
     # AI Insights
@@ -11053,13 +11069,36 @@ def show_survival_analysis():
     # Run analysis
     if st.button("⏱️ Run Survival Analysis", type="primary"):
         with st.status("Fitting survival models...", expanded=True) as status:
-            # Get analyzer from session state
+            # Get analyzer from session state  
             analyzer = st.session_state.survival_analyzer
             
             if 'group' in surv_data.columns:
-                result = analyzer.kaplan_meier_by_group(surv_data)
+                # Perform log-rank test
+                logrank = analyzer.perform_logrank_test(
+                    surv_data, 
+                    duration_col='time', 
+                    event_col='event', 
+                    group_col='group'
+                )
+                result = {
+                    'has_groups': True,
+                    'log_rank_p': logrank['p_value'],
+                    'log_rank_stat': logrank['test_statistic'],
+                    'groups': surv_data['group'].unique().tolist(),
+                    'median_survival': {}
+                }
+                # Calculate median survival for each group
+                for group in result['groups']:
+                    group_data = surv_data[surv_data['group'] == group]
+                    analyzer.fit_kaplan_meier(group_data, 'time', 'event', label=str(group))
+                    result['median_survival'][group] = analyzer.get_median_survival_time()
             else:
-                result = analyzer.kaplan_meier_overall(surv_data)
+                # Overall survival
+                analyzer.fit_kaplan_meier(surv_data, 'time', 'event')
+                result = {
+                    'has_groups': False,
+                    'median_survival': analyzer.get_median_survival_time()
+                }
             
             st.session_state.surv_results = result
             status.update(label="✅ Analysis complete!", state="complete", expanded=False)
@@ -11075,14 +11114,19 @@ def show_survival_analysis():
         st.divider()
         # Display results
         st.subheader("📈 Survival Curve")
-        fig = analyzer.plot_survival_curve(result)
+        fig = analyzer.create_kaplan_meier_plot(
+            surv_data,
+            duration_col='time',
+            event_col='event',
+            group_col='group' if 'group' in surv_data.columns else None
+        )
         st.plotly_chart(fig, use_container_width=True)
         
         # Median survival time
         st.subheader("📊 Key Metrics")
-        if 'group' in surv_data.columns:
+        if result.get('has_groups', False):
             col1, col2 = st.columns(2)
-            groups = surv_data['group'].unique()
+            groups = result['groups']
             with col1:
                 st.metric(f"Median Survival ({groups[0]})", f"{result['median_survival'][groups[0]]:.1f} time units")
             with col2:
@@ -11454,7 +11498,30 @@ def show_network_analysis():
             # Get analyzer from session state
             analyzer = st.session_state.network_analyzer
             
-            result = analyzer.analyze_network(edge_data)
+            # Build graph
+            analyzer.build_graph(edge_data, source_col='source', target_col='target')
+            
+            # Get network statistics
+            stats = analyzer.get_network_stats()
+            
+            # Calculate centrality measures
+            degree_cent = analyzer.calculate_centrality('degree')
+            between_cent = analyzer.calculate_centrality('betweenness')
+            close_cent = analyzer.calculate_centrality('closeness')
+            
+            # Package results
+            result = {
+                'n_nodes': stats['n_nodes'],
+                'n_edges': stats['n_edges'],
+                'density': stats['density'],
+                'avg_clustering': stats.get('avg_clustering', 0),
+                'n_components': stats['n_components'],
+                'diameter': stats.get('diameter'),
+                'top_degree': degree_cent.head(10),
+                'top_betweenness': between_cent.head(10),
+                'top_closeness': close_cent.head(10)
+            }
+            
             st.session_state.net_results = result
             status.update(label="✅ Analysis complete!", state="complete", expanded=False)
         
@@ -11493,7 +11560,7 @@ def show_network_analysis():
         
         # Network visualization
         st.subheader("🕸️ Network Visualization")
-        fig = analyzer.visualize_network(result)
+        fig = analyzer.create_network_visualization(analyzer.graph, title='Network Graph')
         st.plotly_chart(fig, use_container_width=True)
     
     # AI Insights
