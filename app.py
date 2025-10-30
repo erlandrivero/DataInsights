@@ -5255,81 +5255,24 @@ def show_ml_classification():
         col1, col2 = st.columns(2)
         
         with col1:
-            # Smart target column detection
-            def detect_target_column(df):
-                """Detect likely target column for classification using intelligent ranking."""
-                # High-priority exact/specific patterns (check first)
-                priority_patterns = ['cover_type', 'covertype', 'target', 'label', 'class_label', 
-                                    'outcome', 'result', 'category', 'prediction']
-                
-                # First priority: Check for high-priority pattern matches
-                for col in df.columns:
-                    col_lower = col.lower().replace('_', '').replace(' ', '')
-                    for pattern in priority_patterns:
-                        pattern_clean = pattern.replace('_', '')
-                        if pattern_clean == col_lower or pattern_clean in col_lower:
-                            # Verify it's suitable (categorical with reasonable classes)
-                            n_unique = df[col].nunique()
-                            if 2 <= n_unique <= 50:  # Reasonable number of classes
-                                # Extra check: avoid binary indicator columns
-                                if n_unique == 2:
-                                    value_counts = df[col].value_counts()
-                                    imbalance = value_counts.max() / value_counts.min()
-                                    if imbalance > 50:  # Skip extreme imbalance binary columns
-                                        continue
-                                return col
-                
-                # Second priority: Rank all candidate columns by quality
-                candidates = []
-                for col in df.columns:
-                    n_unique = df[col].nunique()
-                    
-                    # Must have 2-50 classes
-                    if not (2 <= n_unique <= 50):
-                        continue
-                    
-                    # Skip pure binary indicator columns (likely features, not targets)
-                    # Check if column is binary AND has "Type" in name (indicator pattern)
-                    if n_unique == 2 and ('type' in col.lower() or 'flag' in col.lower()):
-                        value_counts = df[col].value_counts()
-                        # If binary with extreme imbalance (>50:1), likely an indicator
-                        if value_counts.max() / value_counts.min() > 50:
-                            continue
-                    
-                    # Calculate quality score
-                    value_counts = df[col].value_counts()
-                    imbalance = value_counts.max() / value_counts.min() if value_counts.min() > 0 else 999
-                    
-                    # Score based on:
-                    # 1. More classes is better (up to 20)
-                    # 2. Better balance is better
-                    # 3. Position (later columns often targets)
-                    class_score = min(n_unique, 20) / 20  # Normalize to 0-1
-                    balance_score = 1 / (1 + imbalance)  # Lower imbalance = higher score
-                    position_score = list(df.columns).index(col) / len(df.columns)  # Later = higher
-                    
-                    total_score = (class_score * 0.5) + (balance_score * 0.3) + (position_score * 0.2)
-                    
-                    candidates.append((col, total_score, n_unique, imbalance))
-                
-                # Return best candidate
-                if candidates:
-                    candidates.sort(key=lambda x: x[1], reverse=True)  # Sort by score
-                    return candidates[0][0]
-                
-                # Fallback to last column (common ML convention)
-                return df.columns[-1]
+            # AI-Powered Smart Detection
+            from utils.ai_smart_detection import get_ai_recommendation, AISmartDetection
             
-            suggested_target = detect_target_column(df)
+            with st.spinner("🤖 AI analyzing your dataset..."):
+                ai_recommendations = get_ai_recommendation(df, task_type='classification')
+            
+            # Display AI recommendations
+            AISmartDetection.display_ai_recommendation(ai_recommendations, expanded=True)
+            
+            # Use AI-recommended target as default
+            suggested_target = ai_recommendations['target_column']
             target_index = list(df.columns).index(suggested_target) if suggested_target in df.columns else 0
-            
-            st.info("💡 **Smart Detection:** Target column auto-selected based on your data. Change if needed.")
             
             target_col = st.selectbox(
                 "Select Target Column (what to predict)",
                 df.columns,
                 index=target_index,
-                help="Column containing the categories/classes to predict"
+                help="Column containing the categories/classes to predict. AI has analyzed your data and recommended the best option above."
             )
             
             # Show class distribution and data quality check
