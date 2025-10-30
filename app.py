@@ -9201,14 +9201,20 @@ def show_ab_testing():
             control_data = pd.DataFrame({
                 'group': ['Control'] * n_control,
                 'converted': np.random.binomial(1, 0.10, n_control),
-                'revenue': np.random.gamma(shape=2, scale=50, size=n_control)
+                'revenue': np.random.gamma(shape=2, scale=50, size=n_control),
+                'age_group': np.random.choice(['18-24', '25-34', '35-44', '45-54', '55+'], n_control),
+                'region': np.random.choice(['North', 'South', 'East', 'West'], n_control),
+                'device_type': np.random.choice(['Mobile', 'Desktop', 'Tablet'], n_control)
             })
             
             # Treatment: 12% conversion (20% lift)
             treatment_data = pd.DataFrame({
                 'group': ['Treatment'] * n_treatment,
                 'converted': np.random.binomial(1, 0.12, n_treatment),
-                'revenue': np.random.gamma(shape=2, scale=55, size=n_treatment)
+                'revenue': np.random.gamma(shape=2, scale=55, size=n_treatment),
+                'age_group': np.random.choice(['18-24', '25-34', '35-44', '45-54', '55+'], n_treatment),
+                'region': np.random.choice(['North', 'South', 'East', 'West'], n_treatment),
+                'device_type': np.random.choice(['Mobile', 'Desktop', 'Tablet'], n_treatment)
             })
             
             sample_data = pd.concat([control_data, treatment_data], ignore_index=True)
@@ -9830,15 +9836,24 @@ def show_ab_testing():
             # Check if selected column is suitable for segmentation
             num_segments = test_data[segment_col].nunique()
             
-            if num_segments < 2:
-                st.warning(f"⚠️ Column '{segment_col}' has only {num_segments} unique value(s). Need at least 2 segments for meaningful analysis.")
-            elif num_segments > 20:
-                st.warning(f"⚠️ Column '{segment_col}' has {num_segments} unique values. Consider grouping into fewer categories for clearer insights.")
-            else:
-                st.info(f"💡 Will analyze {num_segments} segments in '{segment_col}'")
+            # Validate segment column suitability
+            segment_blocked = False
             
-            # Run segmentation analysis button
-            if st.button("📊 Analyze by Segments", type="primary"):
+            if num_segments < 2:
+                st.error(f"🚨 **NOT SUITABLE:** Column '{segment_col}' has only {num_segments} unique value(s). Need at least 2 segments for analysis.")
+                segment_blocked = True
+            elif num_segments > 50:
+                st.error(f"🚨 **TOO MANY SEGMENTS:** Column '{segment_col}' has {num_segments:,} unique values. Maximum 50 segments recommended.")
+                st.info("💡 **Recommendation:** Use a categorical column with 2-20 groups (e.g., age_group, region, user_type)")
+                segment_blocked = True
+            elif num_segments > 20:
+                st.warning(f"⚠️ Column '{segment_col}' has {num_segments} segments. Results may be hard to interpret. Consider grouping into 2-20 categories.")
+                st.info(f"💡 Analysis will proceed with {num_segments} segments")
+            else:
+                st.success(f"✅ Will analyze {num_segments} segments in '{segment_col}'")
+            
+            # Run segmentation analysis button (disabled if blocked)
+            if st.button("📊 Analyze by Segments", type="primary", disabled=segment_blocked):
                 with st.status("Analyzing treatment effects by segment...", expanded=True) as status:
                     try:
                         segment_results = analyzer.segment_analysis(
