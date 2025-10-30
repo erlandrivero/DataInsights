@@ -5102,7 +5102,7 @@ def show_ml_classification():
     if st.session_state.data is not None:
         data_source = st.radio(
             "Choose data source:",
-            ["Use uploaded data from Data Upload page", "Sample Iris Dataset", "Upload new file for this analysis"],
+            ["Use uploaded data from Data Upload page", "Sample Covertype Dataset", "Upload new file for this analysis"],
             help="You can use the data you already uploaded, try a sample dataset, or upload a new file"
         )
         
@@ -5115,24 +5115,30 @@ def show_ml_classification():
             with st.expander("📋 Data Preview"):
                 st.dataframe(df.head(10), use_container_width=True)
                 
-        elif data_source == "Sample Iris Dataset":
-            if st.button("📥 Load Iris Dataset", type="primary"):
-                with st.status("Loading Iris dataset...", expanded=True) as status:
+        elif data_source == "Sample Covertype Dataset":
+            if st.button("📥 Load Covertype Dataset", type="primary"):
+                with st.status("Loading Covertype dataset...", expanded=True) as status:
                     try:
-                        from sklearn.datasets import load_iris
-                        iris = load_iris()
-                        df = pd.DataFrame(iris.data, columns=iris.feature_names)
-                        df['species'] = pd.Categorical.from_codes(iris.target, iris.target_names)
+                        from sklearn.datasets import fetch_covtype
+                        st.write("⏳ Downloading dataset (first time only, ~11MB)...")
+                        covtype = fetch_covtype()
+                        
+                        # Create DataFrame and sample to 10K rows
+                        df = pd.DataFrame(covtype.data, columns=covtype.feature_names)
+                        df['cover_type'] = covtype.target
+                        
+                        # Sample to exactly 10K rows
+                        df = df.sample(n=10000, random_state=42).reset_index(drop=True)
                         
                         st.session_state.ml_data = df
-                        st.success(f"✅ Loaded Iris dataset: {len(df)} rows and {len(df.columns)} columns")
+                        st.success(f"✅ Loaded Covertype dataset: {len(df):,} rows and {len(df.columns)} columns")
                         
                         st.info("""
                         **About this dataset:**
-                        - 🎯 **Target:** species (3 classes: setosa, versicolor, virginica)
-                        - 📊 **Features:** 4 measurements (sepal/petal length/width)
-                        - ✅ **Perfect for ML:** Balanced classes, 150 samples
-                        - 🏆 **Classic:** Most famous classification dataset
+                        - 🎯 **Target:** cover_type (7 forest cover types)
+                        - 📊 **Features:** 54 cartographic features
+                        - ✅ **Perfect for ML:** 10,000 samples, balanced classes
+                        - 🌲 **Real-world:** Forest cover prediction dataset
                         """)
                         
                         with st.expander("📋 Data Preview"):
@@ -5164,28 +5170,34 @@ def show_ml_classification():
     else:
         data_source = st.radio(
             "Choose data source:",
-            ["Sample Iris Dataset", "Upload new file for this analysis"],
+            ["Sample Covertype Dataset", "Upload new file for this analysis"],
             help="Try the sample dataset or upload your own"
         )
         
-        if data_source == "Sample Iris Dataset":
-            if st.button("📥 Load Iris Dataset", type="primary"):
-                with st.status("Loading Iris dataset...", expanded=True) as status:
+        if data_source == "Sample Covertype Dataset":
+            if st.button("📥 Load Covertype Dataset", type="primary"):
+                with st.status("Loading Covertype dataset...", expanded=True) as status:
                     try:
-                        from sklearn.datasets import load_iris
-                        iris = load_iris()
-                        df = pd.DataFrame(iris.data, columns=iris.feature_names)
-                        df['species'] = pd.Categorical.from_codes(iris.target, iris.target_names)
+                        from sklearn.datasets import fetch_covtype
+                        st.write("⏳ Downloading dataset (first time only, ~11MB)...")
+                        covtype = fetch_covtype()
+                        
+                        # Create DataFrame and sample to 10K rows
+                        df = pd.DataFrame(covtype.data, columns=covtype.feature_names)
+                        df['cover_type'] = covtype.target
+                        
+                        # Sample to exactly 10K rows
+                        df = df.sample(n=10000, random_state=42).reset_index(drop=True)
                         
                         st.session_state.ml_data = df
-                        st.success(f"✅ Loaded Iris dataset: {len(df)} rows and {len(df.columns)} columns")
+                        st.success(f"✅ Loaded Covertype dataset: {len(df):,} rows and {len(df.columns)} columns")
                         
                         st.info("""
                         **About this dataset:**
-                        - 🎯 **Target:** species (3 classes: setosa, versicolor, virginica)
-                        - 📊 **Features:** 4 measurements (sepal/petal length/width)
-                        - ✅ **Perfect for ML:** Balanced classes, 150 samples
-                        - 🏆 **Classic:** Most famous classification dataset
+                        - 🎯 **Target:** cover_type (7 forest cover types)
+                        - 📊 **Features:** 54 cartographic features
+                        - ✅ **Perfect for ML:** 10,000 samples, balanced classes
+                        - 🌲 **Real-world:** Forest cover prediction dataset
                         """)
                         
                         with st.expander("📋 Data Preview"):
@@ -5197,7 +5209,7 @@ def show_ml_classification():
             uploaded_file = st.file_uploader(
                 "Upload CSV file with features and target column",
                 type=['csv'],
-                key="ml_upload",
+                key="ml_upload_no_data",
                 help="Must include predictor features and target column"
             )
             
