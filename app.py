@@ -5579,6 +5579,126 @@ def show_ml_classification():
                 help=f"Recommended: {recommended_folds} for your dataset ({n_samples:,} samples, {n_classes} classes)"
             )
         
+        # Class Balancing Section (NEW)
+        st.divider()
+        st.subheader("⚖️ 2b. Balance Classes (Optional)")
+        
+        from utils.class_balancing import ClassBalancer
+        
+        # Analyze imbalance
+        imbalance_info = ClassBalancer.analyze_imbalance(df, target_col)
+        
+        if imbalance_info['imbalance_ratio'] > 3:
+            # Show balancing options for imbalanced data
+            preset = ClassBalancer.get_smart_preset(imbalance_info['imbalance_ratio'])
+            
+            st.info(f"""
+            💡 **Smart Recommendation:** {preset['method']}  
+            **Severity:** {imbalance_info['severity']} imbalance ({imbalance_info['imbalance_ratio']:.1f}:1 ratio)  
+            **Description:** {preset['description']}
+            """)
+            
+            with st.expander("⚖️ Configure Class Balancing", expanded=False):
+                apply_balancing = st.checkbox(
+                    "Apply class balancing before training",
+                    value=False,
+                    help="Recommended for imbalanced datasets to improve minority class performance"
+                )
+                
+                if apply_balancing:
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        balance_method = st.selectbox(
+                            "Balancing Method:",
+                            ["SMOTE", "Random Undersampling", "SMOTE + Tomek Links"],
+                            index=["SMOTE", "Random Undersampling", "SMOTE + Tomek Links"].index(preset['method']) if preset['method'] in ["SMOTE", "Random Undersampling", "SMOTE + Tomek Links"] else 0,
+                            help="SMOTE creates synthetic samples, Undersampling removes majority samples"
+                        )
+                    
+                    with col2:
+                        if balance_method == "Random Undersampling":
+                            default_strategy = 0.7
+                        else:
+                            default_strategy = preset.get('sampling_strategy', 0.5)
+                        
+                        sampling_strategy = st.slider(
+                            "Target Balance Ratio:",
+                            min_value=0.3,
+                            max_value=1.0,
+                            value=float(default_strategy) if isinstance(default_strategy, (int, float)) else 0.5,
+                            step=0.1,
+                            help="1.0 = fully balanced, 0.5 = minority becomes 50% of majority size"
+                        )
+                    
+                    # K-neighbors for SMOTE
+                    if balance_method in ["SMOTE", "SMOTE + Tomek Links"]:
+                        k_neighbors = st.slider(
+                            "K-Neighbors (SMOTE):",
+                            min_value=1,
+                            max_value=min(10, imbalance_info['min_samples'] - 1),
+                            value=min(5, imbalance_info['min_samples'] - 1),
+                            help="Number of nearest neighbors to use for synthetic sample generation"
+                        )
+                    else:
+                        k_neighbors = 5
+                    
+                    # Preview button
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.write("**Current Distribution:**")
+                        current_dist = imbalance_info['class_counts'].head(10)
+                        for idx, (cls, count) in enumerate(current_dist.items()):
+                            pct = (count / len(df) * 100)
+                            st.write(f"{cls}: {count:,} ({pct:.1f}%)")
+                    
+                    with col2:
+                        if st.button("👁️ Preview Balanced Data", use_container_width=True):
+                            try:
+                                with st.spinner("Applying balancing..."):
+                                    balanced_df = ClassBalancer.apply_balancing(
+                                        df,
+                                        target_col,
+                                        balance_method,
+                                        sampling_strategy,
+                                        k_neighbors
+                                    )
+                                    
+                                    st.success(f"✅ Balanced data: {len(balanced_df):,} rows")
+                                    
+                                    st.write("**After Balancing:**")
+                                    new_dist = balanced_df[target_col].value_counts().head(10)
+                                    for cls, count in new_dist.items():
+                                        pct = (count / len(balanced_df) * 100)
+                                        st.write(f"{cls}: {count:,} ({pct:.1f}%)")
+                                    
+                                    # Store preview in session state
+                                    st.session_state.ml_balanced_preview = balanced_df
+                                    st.session_state.ml_balancing_applied = True
+                                    
+                            except Exception as e:
+                                st.error(f"Error during balancing: {str(e)}")
+                                st.info("Try reducing k_neighbors or using Random Undersampling")
+                    
+                    # If balancing configured, store parameters
+                    if apply_balancing:
+                        st.session_state.ml_balance_config = {
+                            'apply': True,
+                            'method': balance_method,
+                            'sampling_strategy': sampling_strategy,
+                            'k_neighbors': k_neighbors
+                        }
+                    else:
+                        st.session_state.ml_balance_config = {'apply': False}
+                else:
+                    st.session_state.ml_balance_config = {'apply': False}
+        else:
+            st.success(f"✅ **Balanced Dataset** - Imbalance ratio: {imbalance_info['imbalance_ratio']:.1f}:1. No balancing needed.")
+            st.session_state.ml_balance_config = {'apply': False}
+        
+        st.divider()
+        
         # LEVEL 3: Train Button - Only enable if models available
         available_models = st.session_state.get('ml_available_models', [])
         can_train = len(available_models) > 0
@@ -5588,6 +5708,29 @@ def show_ml_classification():
             st.button("🚀 Train Models", type="primary", use_container_width=True, disabled=True)
         elif st.button("🚀 Train Models", type="primary", use_container_width=True):
             from utils.ml_training import MLTrainer
+            from utils.class_balancing import ClassBalancer
+            
+            # Apply class balancing if configured
+            balance_config = st.session_state.get('ml_balance_config', {'apply': False})
+            if balance_config.get('apply', False):
+                try:
+                    with st.status("Applying class balancing...", expanded=True) as status:
+                        st.write(f"⚖️ Method: {balance_config['method']}")
+                        st.write(f"📊 Target Ratio: {balance_config['sampling_strategy']}")
+                        
+                        df = ClassBalancer.apply_balancing(
+                            df,
+                            target_col,
+                            balance_config['method'],
+                            balance_config['sampling_strategy'],
+                            balance_config.get('k_neighbors', 5)
+                        )
+                        
+                        st.write(f"✅ Balanced dataset: {len(df):,} rows")
+                        status.update(label="✅ Class balancing applied!", state="complete")
+                except Exception as e:
+                    st.error(f"Error during balancing: {str(e)}")
+                    st.stop()
             
             # Comprehensive validation before training
             class_counts = df[target_col].value_counts()
