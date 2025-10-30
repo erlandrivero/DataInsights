@@ -814,12 +814,21 @@ def show_analysis():
     
     if 'cleaning_ai_recommendations' not in st.session_state:
         if st.button("🔍 Generate AI Cleaning Analysis", type="primary", use_container_width=True):
-            with st.status("🤖 AI analyzing dataset for optimal cleaning strategy...", expanded=True) as status:
+            with st.status("🤖 Analyzing dataset with AI...", expanded=True) as status:
                 try:
+                    import time
                     from utils.ai_smart_detection import get_ai_recommendation
                     
-                    # Get performance-aware recommendations for data cleaning
+                    # Step 1: Preparing data
+                    status.write("Preparing cleaning data...")
+                    time.sleep(0.5)  # Brief pause for visual feedback
+                    
+                    # Step 2: Analyzing quality
                     status.write("Analyzing data quality and cleaning requirements...")
+                    time.sleep(0.5)
+                    
+                    # Step 3: Generating AI analysis
+                    status.write("Generating AI analysis...")
                     ai_recommendations = get_ai_recommendation(df, task_type='data_cleaning')
                     st.session_state.cleaning_ai_recommendations = ai_recommendations
                     
@@ -7854,12 +7863,21 @@ def show_anomaly_detection():
     
     if 'anomaly_ai_recommendations' not in st.session_state:
         if st.button("🔍 Generate AI Anomaly Analysis", type="primary", use_container_width=True):
-            with st.status("🤖 AI analyzing dataset for optimal anomaly detection strategy...", expanded=True) as status:
+            with st.status("🤖 Analyzing dataset with AI...", expanded=True) as status:
                 try:
+                    import time
                     from utils.ai_smart_detection import get_ai_recommendation
                     
-                    # Get performance-aware recommendations for anomaly detection
+                    # Step 1: Preparing data
+                    status.write("Preparing anomaly data...")
+                    time.sleep(0.5)  # Brief pause for visual feedback
+                    
+                    # Step 2: Analyzing structure
                     status.write("Analyzing data structure and performance constraints...")
+                    time.sleep(0.5)
+                    
+                    # Step 3: Generating AI analysis
+                    status.write("Generating AI analysis...")
                     ai_recommendations = get_ai_recommendation(df, task_type='anomaly_detection')
                     st.session_state.anomaly_ai_recommendations = ai_recommendations
                     
