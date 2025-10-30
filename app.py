@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from dotenv import load_dotenv
 from datetime import datetime
+import time
 import os
 
 # Load environment variables
