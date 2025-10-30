@@ -14022,23 +14022,38 @@ def show_churn_prediction():
     """Churn Prediction page."""
     st.markdown("<h2 style='text-align: center;'>🔄 Predictive Churn Modeling & Retention</h2>", unsafe_allow_html=True)
     
-    st.markdown("""
-    Predict which customers are likely to churn and develop targeted retention strategies.
-    
-    **Key Capabilities:**
-    - 🎯 **Automated Feature Engineering** - Create predictive features from raw transaction data
-    - 🤖 **ML-Powered Predictions** - Train Random Forest, Gradient Boosting, or Logistic Regression models
-    - 📊 **Risk Segmentation** - Classify customers into High/Medium/Low risk categories
-    - 💡 **Retention Strategies** - Get personalized action plans for each risk segment
-    - 📈 **Business Impact** - Reduce churn, increase CLV, improve retention ROI
-    
-    **Common Use Cases:**
-    - **SaaS**: Subscription cancellation prediction
-    - **E-commerce**: Purchase recency and frequency analysis
-    - **Telecom**: Service discontinuation forecasting
-    - **Banking**: Account closure and product churn
-    - **Streaming**: Content engagement and cancellation risk
-    """)
+    # Help section
+    with st.expander("ℹ️ What is Predictive Churn Modeling?"):
+        st.markdown("""
+        **Predictive Churn Modeling** uses machine learning to identify customers at risk of leaving and develops targeted retention strategies.
+        
+        **Key Capabilities:**
+        - 🎯 **Automated Feature Engineering** - Create predictive features from raw transaction data
+        - 🤖 **ML-Powered Predictions** - Train Random Forest, Gradient Boosting, or Logistic Regression models
+        - 📊 **Risk Segmentation** - Classify customers into High/Medium/Low risk categories
+        - 💡 **Retention Strategies** - Get personalized action plans for each risk segment
+        - 📈 **Business Impact** - Reduce churn, increase CLV, improve retention ROI
+        
+        **Common Use Cases:**
+        - **SaaS**: Subscription cancellation prediction
+        - **E-commerce**: Purchase recency and frequency analysis
+        - **Telecom**: Service discontinuation forecasting
+        - **Banking**: Account closure and product churn
+        - **Streaming**: Content engagement and cancellation risk
+        
+        **How It Works:**
+        1. **Feature Engineering**: Automatically creates 15+ predictive features from transaction data (recency, frequency, monetary, engagement trends)
+        2. **Model Training**: Trains multiple ML models to predict churn probability for each customer
+        3. **Risk Scoring**: Classifies customers into High (>60%), Medium (30-60%), or Low (<30%) risk categories
+        4. **Retention Planning**: Generates personalized action plans for each risk segment
+        
+        **Benefits:**
+        - Early identification of at-risk customers
+        - Data-driven retention strategies
+        - Resource optimization (focus on high-risk customers)
+        - Improved customer lifetime value
+        - Reduced customer acquisition costs
+        """)
     
     # Import utilities
     from utils.churn_prediction import ChurnPredictor
