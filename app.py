@@ -7848,28 +7848,9 @@ def show_anomaly_detection():
         numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
         st.metric("Numeric Columns", len(numeric_cols))
     
-    # Feature selection
+    # AI-Powered Anomaly Detection Recommendations (Before feature selection)
     st.divider()
-    st.subheader("🎯 3. Select Features for Analysis")
-    
-    if len(numeric_cols) == 0:
-        st.error("❌ No numeric columns found in the dataset. Anomaly detection requires numeric features.")
-        return
-    
-    feature_cols = st.multiselect(
-        "Select numeric columns to analyze:",
-        numeric_cols,
-        default=numeric_cols[:min(5, len(numeric_cols))],
-        help="Choose features that might contain anomalies"
-    )
-    
-    if len(feature_cols) == 0:
-        st.warning("⚠️ Please select at least one feature to continue")
-        return
-    
-    # AI-Powered Anomaly Detection Recommendations (Above algorithm selection)
-    st.divider()
-    st.subheader("🤖 AI Anomaly Detection Recommendations")
+    st.subheader("🤖 3. AI Anomaly Detection Recommendations")
     
     if 'anomaly_ai_recommendations' not in st.session_state:
         if st.button("🔍 Generate AI Anomaly Analysis", type="primary", use_container_width=True):
@@ -7927,7 +7908,39 @@ def show_anomaly_detection():
                     else:
                         st.write(f"• {feature_info}")
     
+    # Feature selection (now informed by AI recommendations)
     st.divider()
+    st.subheader("🎯 4. Select Features for Analysis")
+    
+    if len(numeric_cols) == 0:
+        st.error("❌ No numeric columns found in the dataset. Anomaly detection requires numeric features.")
+        return
+    
+    # Get AI recommendations for smart defaults
+    ai_recs = st.session_state.get('anomaly_ai_recommendations', {})
+    excluded_columns = []
+    if ai_recs:
+        features_to_exclude = ai_recs.get('features_to_exclude', [])
+        excluded_columns = [item['column'] if isinstance(item, dict) else item for item in features_to_exclude]
+    
+    # Smart feature selection based on AI recommendations
+    recommended_features = [col for col in numeric_cols if col not in excluded_columns]
+    default_features = recommended_features[:min(5, len(recommended_features))] if recommended_features else numeric_cols[:min(5, len(numeric_cols))]
+    
+    if ai_recs and excluded_columns:
+        st.info(f"💡 **AI has pre-filtered features:** Excluded {len(excluded_columns)} problematic columns based on analysis above.")
+    
+    feature_cols = st.multiselect(
+        "Select numeric columns to analyze:",
+        numeric_cols,
+        default=default_features,
+        help="✨ AI-recommended features are pre-selected. You can still include excluded columns if needed."
+    )
+    
+    if len(feature_cols) == 0:
+        st.warning("⚠️ Please select at least one feature to continue")
+        return
+    
     
     # AI-Powered Anomaly Detection Presets
     def get_ai_anomaly_presets(df, feature_cols, ai_recommendations=None):
@@ -7980,7 +7993,7 @@ def show_anomaly_detection():
     anomaly_presets = get_ai_anomaly_presets(df, feature_cols, ai_recs)
     
     # Algorithm selection with AI presets
-    st.subheader("🤖 4. Configure Detection Algorithm")
+    st.subheader("🤖 5. Configure Detection Algorithm")
     
     # Show AI reasoning if available
     if ai_recs:
