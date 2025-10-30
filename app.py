@@ -965,12 +965,35 @@ def show_analysis():
             
             return presets
         
-        # Get AI presets
+        # Get AI presets and determine defaults
         ai_recs = st.session_state.get('cleaning_ai_recommendations', {})
-        cleaning_presets = get_ai_cleaning_presets(df, profile, ai_recs)
+        has_ai_analysis = 'cleaning_ai_recommendations' in st.session_state
+        
+        if has_ai_analysis:
+            # Use AI presets when analysis is available
+            cleaning_presets = get_ai_cleaning_presets(df, profile, ai_recs)
+        else:
+            # Default all to False when no AI analysis
+            cleaning_presets = {
+                'normalize_cols': False,
+                'convert_numeric': False,
+                'trim_strings': False,
+                'parse_dates': False,
+                'remove_dups': False,
+                'remove_constant': False,
+                'remove_empty_rows': False,
+                'drop_high_missing': False,
+                'fill_missing': False,
+                'missing_strategy': 'median',
+                'remove_outliers': False,
+                'outlier_method': 'IQR',
+                'fix_negatives': False,
+                'negative_method': 'abs',
+                'standardize_categorical': False
+            }
         
         # Show AI preset summary if available
-        if 'cleaning_ai_recommendations' in st.session_state:
+        if has_ai_analysis:
             st.info("🤖 **AI has analyzed your data and preset the cleaning options below based on your data profile.**")
             
             # Show detailed AI reasoning
@@ -1036,6 +1059,8 @@ def show_analysis():
                     st.warning("⚡ **Performance Mode**: Aggressive cleaning enabled due to high performance risk")
                 elif ai_recs.get('performance_risk') == 'Medium':
                     st.info("⚡ **Balanced Mode**: Moderate cleaning for medium performance risk")
+        else:
+            st.info("💡 **Generate AI Cleaning Analysis above to get intelligent presets for these options. Currently all options are unchecked.**")
         
         # Cleaning options
         with st.form("cleaning_form"):
@@ -1050,27 +1075,27 @@ def show_analysis():
                 with col1:
                     st.markdown("**📝 Structure & Format:**")
                     normalize_cols = st.checkbox("Normalize column names", 
-                                                value=cleaning_presets.get('normalize_cols', True), 
+                                                value=cleaning_presets.get('normalize_cols', False), 
                                                 help="Convert to lowercase with underscores")
                     convert_numeric = st.checkbox("Convert to numeric", 
-                                                 value=cleaning_presets.get('convert_numeric', True),
+                                                 value=cleaning_presets.get('convert_numeric', False),
                                                  help="Convert compatible columns to numbers")
                     trim_strings = st.checkbox("Trim whitespace from text", 
-                                               value=cleaning_presets.get('trim_strings', True),
+                                               value=cleaning_presets.get('trim_strings', False),
                                                help="Remove leading/trailing spaces")
                     parse_dates = st.checkbox("Auto-parse date columns", 
-                                             value=cleaning_presets.get('parse_dates', True),
+                                             value=cleaning_presets.get('parse_dates', False),
                                              help="Automatically detect and parse dates")
                 
                 with col2:
                     st.markdown("**🧹 Data Quality:**")
                     remove_dups = st.checkbox("Remove duplicate rows", 
-                                             value=cleaning_presets.get('remove_dups', True))
+                                             value=cleaning_presets.get('remove_dups', False))
                     remove_constant = st.checkbox("Remove constant columns", 
-                                                 value=cleaning_presets.get('remove_constant', True),
+                                                 value=cleaning_presets.get('remove_constant', False),
                                                  help="Remove columns with all same values")
                     remove_empty_rows = st.checkbox("Remove empty rows", 
-                                                   value=cleaning_presets.get('remove_empty_rows', True),
+                                                   value=cleaning_presets.get('remove_empty_rows', False),
                                                    help="Remove rows with all missing values")
                     drop_high_missing = st.checkbox("Drop columns with >80% missing", 
                                                    value=cleaning_presets.get('drop_high_missing', False))
@@ -1081,7 +1106,7 @@ def show_analysis():
                 with col1:
                     st.markdown("**📊 Missing Values:**")
                     fill_missing = st.checkbox("Fill missing values", 
-                                              value=cleaning_presets.get('fill_missing', True))
+                                              value=cleaning_presets.get('fill_missing', False))
                     
                     # Get the index of the preset strategy
                     strategies = ["median", "mean", "mode"]
