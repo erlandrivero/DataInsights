@@ -809,74 +809,73 @@ def show_analysis():
     
     st.divider()
     
+    # AI-Powered Cleaning Analysis (Above tabs for better visibility)
+    st.subheader("🤖 AI Cleaning Recommendations")
+    
+    if 'cleaning_ai_recommendations' not in st.session_state:
+        if st.button("🔍 Generate AI Cleaning Analysis", type="primary", use_container_width=True):
+            with st.status("🤖 AI analyzing dataset for optimal cleaning strategy...", expanded=True) as status:
+                try:
+                    from utils.ai_smart_detection import get_ai_recommendation
+                    
+                    # Get performance-aware recommendations for cleaning
+                    status.write("Analyzing data structure and performance constraints...")
+                    ai_recommendations = get_ai_recommendation(df, task_type='classification')
+                    st.session_state.cleaning_ai_recommendations = ai_recommendations
+                    
+                    status.update(label="✅ AI analysis complete!", state="complete")
+                    st.rerun()
+                except Exception as e:
+                    status.update(label="❌ Analysis failed", state="error")
+                    st.error(f"Error generating AI recommendations: {str(e)}")
+    else:
+        ai_recs = st.session_state.cleaning_ai_recommendations
+        
+        # Performance Risk Assessment
+        performance_risk = ai_recs.get('performance_risk', 'Low')
+        risk_emoji = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}.get(performance_risk, '❓')
+        
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            st.info(f"**⚡ Performance Risk:** {risk_emoji} {performance_risk} - Dataset suitability for Streamlit Cloud")
+        with col2:
+            if st.button("🔄 Regenerate Analysis", use_container_width=True):
+                del st.session_state.cleaning_ai_recommendations
+                st.rerun()
+        
+        # Performance Warnings
+        if performance_risk in ['Medium', 'High']:
+            perf_warnings = ai_recs.get('performance_warnings', [])
+            if perf_warnings:
+                st.warning("⚠️ **Performance Warnings:**")
+                for warning in perf_warnings:
+                    st.write(f"• {warning}")
+        
+        # Optimization Suggestions
+        optimization_suggestions = ai_recs.get('optimization_suggestions', [])
+        if optimization_suggestions:
+            with st.expander("🚀 AI Optimization Suggestions", expanded=True):
+                for suggestion in optimization_suggestions:
+                    st.write(f"• {suggestion}")
+        
+        # Columns to Consider Excluding
+        features_to_exclude = ai_recs.get('features_to_exclude', [])
+        if features_to_exclude:
+            with st.expander("🚫 Columns AI Recommends Excluding Before Analysis", expanded=False):
+                for feature_info in features_to_exclude:
+                    if isinstance(feature_info, dict):
+                        st.write(f"• **{feature_info['column']}**: {feature_info['reason']}")
+                    else:
+                        st.write(f"• {feature_info}")
+    
+    st.divider()
+    
     # Tabs organized by best practice workflow
     tab1, tab2, tab3, tab4 = st.tabs(["🧹 Quick Clean", "📈 Statistics", "📊 Visualizations", "🤖 AI Insights"])
     
     with tab1:
         st.subheader("🧹 Quick Data Cleaning")
         st.write("Apply automatic data cleaning with one click, or customize the cleaning options.")
-        
-        # AI-Powered Cleaning Analysis
-        st.divider()
-        st.subheader("🤖 AI Cleaning Recommendations")
-        
-        if 'cleaning_ai_recommendations' not in st.session_state:
-            if st.button("🔍 Generate AI Cleaning Analysis", type="primary", use_container_width=True):
-                with st.status("🤖 AI analyzing dataset for optimal cleaning strategy...", expanded=True) as status:
-                    try:
-                        from utils.ai_smart_detection import get_ai_recommendation
-                        
-                        # Get performance-aware recommendations for cleaning
-                        status.write("Analyzing data structure and performance constraints...")
-                        ai_recommendations = get_ai_recommendation(df, task_type='classification')
-                        st.session_state.cleaning_ai_recommendations = ai_recommendations
-                        
-                        status.update(label="✅ AI analysis complete!", state="complete")
-                        st.rerun()
-                    except Exception as e:
-                        status.update(label="❌ Analysis failed", state="error")
-                        st.error(f"Error generating AI recommendations: {str(e)}")
-        else:
-            ai_recs = st.session_state.cleaning_ai_recommendations
-            
-            # Performance Risk Assessment
-            performance_risk = ai_recs.get('performance_risk', 'Low')
-            risk_emoji = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}.get(performance_risk, '❓')
-            
-            col1, col2 = st.columns([2, 1])
-            with col1:
-                st.info(f"**⚡ Performance Risk:** {risk_emoji} {performance_risk} - Dataset suitability for Streamlit Cloud")
-            with col2:
-                if st.button("🔄 Regenerate Analysis", use_container_width=True):
-                    del st.session_state.cleaning_ai_recommendations
-                    st.rerun()
-            
-            # Performance Warnings
-            if performance_risk in ['Medium', 'High']:
-                perf_warnings = ai_recs.get('performance_warnings', [])
-                if perf_warnings:
-                    st.warning("⚠️ **Performance Warnings:**")
-                    for warning in perf_warnings:
-                        st.write(f"• {warning}")
-            
-            # Optimization Suggestions
-            optimization_suggestions = ai_recs.get('optimization_suggestions', [])
-            if optimization_suggestions:
-                with st.expander("🚀 AI Optimization Suggestions", expanded=True):
-                    for suggestion in optimization_suggestions:
-                        st.write(f"• {suggestion}")
-            
-            # Columns to Consider Excluding
-            features_to_exclude = ai_recs.get('features_to_exclude', [])
-            if features_to_exclude:
-                with st.expander("🚫 Columns AI Recommends Excluding Before Analysis", expanded=False):
-                    for feature_info in features_to_exclude:
-                        if isinstance(feature_info, dict):
-                            st.write(f"• **{feature_info['column']}**: {feature_info['reason']}")
-                        else:
-                            st.write(f"• {feature_info}")
-        
-        st.divider()
         
         # AI-Powered Cleaning Presets
         def get_ai_cleaning_presets(df, profile, ai_recommendations=None):
@@ -893,7 +892,8 @@ def show_analysis():
             presets['remove_dups'] = profile['basic_info']['duplicates'] > 0
             presets['remove_constant'] = len([col for col in profile['column_info'] if col['unique'] == 1]) > 0
             presets['remove_empty_rows'] = len(df.dropna(how='all')) < len(df)
-            presets['drop_high_missing'] = len([col for col in profile['column_info'] if col['missing_pct'] > 80]) > 0
+            # Fix: Calculate missing percentage as number, not string
+            presets['drop_high_missing'] = len([col for col in profile['column_info'] if (col['missing'] / len(df)) * 100 > 80]) > 0
             
             # Advanced Presets
             missing_pct = sum([col['missing'] for col in profile['column_info']]) / (len(df) * len(df.columns)) * 100
@@ -972,7 +972,7 @@ def show_analysis():
                     st.write("❌ **Remove duplicates**: No duplicates detected")
                 
                 if cleaning_presets.get('drop_high_missing'):
-                    high_missing_cols = [col['name'] for col in profile['column_info'] if col['missing_pct'] > 80]
+                    high_missing_cols = [col['name'] for col in profile['column_info'] if (col['missing'] / len(df)) * 100 > 80]
                     st.write(f"✅ **Drop high missing columns**: Found {len(high_missing_cols)} columns with >80% missing")
                 else:
                     st.write("❌ **Drop high missing columns**: No columns with excessive missing values")
