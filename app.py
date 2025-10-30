@@ -7966,7 +7966,135 @@ def show_anomaly_detection():
         st.warning("⚠️ Please select at least one feature to continue")
         return
     
+    # AI-Powered Data Preprocessing (only show when AI recommends it)
+    ai_recs = st.session_state.get('anomaly_ai_recommendations', {})
+    performance_risk = ai_recs.get('performance_risk', 'Low')
     
+    # Initialize preprocessing variables
+    df_working = df.copy()
+    feature_cols_working = feature_cols.copy()
+    preprocessing_applied = []
+    
+    # Show preprocessing options only when AI recommends them
+    if performance_risk in ['Medium', 'High'] or len(df) > 10000 or len(feature_cols) > 10:
+        st.divider()
+        st.subheader("⚡ 4.5. AI-Recommended Data Preprocessing")
+        
+        # Downsampling (show only for large datasets or high performance risk)
+        if len(df) > 10000 or performance_risk == 'High':
+            st.markdown("**🔬 Dataset Sampling**")
+            
+            # AI preset for downsampling
+            if performance_risk == 'High':
+                default_sampling = True
+                recommended_size = min(10000, len(df))
+                st.info("🤖 **AI recommends downsampling:** High performance risk detected - sampling enabled by default.")
+            elif len(df) > 50000:
+                default_sampling = True
+                recommended_size = min(20000, len(df))
+                st.info("🤖 **AI recommends downsampling:** Very large dataset - sampling enabled by default.")
+            else:
+                default_sampling = False
+                recommended_size = min(15000, len(df))
+                st.info("💡 **AI suggests considering downsampling:** Large dataset detected.")
+            
+            enable_sampling = st.checkbox(
+                "Enable dataset sampling for faster processing", 
+                value=default_sampling,
+                help="Reduces dataset size for initial testing. Other modules will still use the full dataset."
+            )
+            
+            if enable_sampling:
+                sample_size = st.slider(
+                    "Sample size", 
+                    min_value=1000, 
+                    max_value=min(50000, len(df)), 
+                    value=recommended_size,
+                    help=f"AI recommended: {recommended_size:,} samples"
+                )
+                
+                df_working = df.sample(n=sample_size, random_state=42)
+                preprocessing_applied.append(f"Sampled {sample_size:,} from {len(df):,} rows")
+                st.success(f"✅ Using {sample_size:,} samples from {len(df):,} total rows")
+        
+        # PCA (show only for high-dimensional data)
+        if len(feature_cols) > 10:
+            st.markdown("**📊 Dimensionality Reduction (PCA)**")
+            
+            # AI preset for PCA
+            if len(feature_cols) > 20:
+                default_pca = True
+                recommended_components = min(10, len(feature_cols) // 2)
+                st.info("🤖 **AI recommends PCA:** High-dimensional data - dimensionality reduction enabled by default.")
+            elif len(feature_cols) > 15:
+                default_pca = True
+                recommended_components = min(8, len(feature_cols) // 2)
+                st.info("🤖 **AI suggests PCA:** Many features detected - dimensionality reduction recommended.")
+            else:
+                default_pca = False
+                recommended_components = min(6, len(feature_cols) // 2)
+                st.info("💡 **AI suggests considering PCA:** Moderate number of features.")
+            
+            enable_pca = st.checkbox(
+                "Apply PCA before anomaly detection", 
+                value=default_pca,
+                help="Reduces feature dimensions while preserving variance. Helps with performance and visualization."
+            )
+            
+            if enable_pca:
+                n_components = st.slider(
+                    "Number of PCA components", 
+                    min_value=2, 
+                    max_value=min(15, len(feature_cols)), 
+                    value=recommended_components,
+                    help=f"AI recommended: {recommended_components} components"
+                )
+                
+                # Apply PCA
+                from sklearn.decomposition import PCA
+                from sklearn.preprocessing import StandardScaler
+                
+                # Standardize features before PCA
+                scaler = StandardScaler()
+                X_scaled = scaler.fit_transform(df_working[feature_cols])
+                
+                # Apply PCA
+                pca = PCA(n_components=n_components, random_state=42)
+                X_pca = pca.fit_transform(X_scaled)
+                
+                # Create new feature names
+                feature_cols_working = [f'PC{i+1}' for i in range(n_components)]
+                
+                # Replace features in working dataframe
+                df_working = df_working.drop(columns=feature_cols)
+                for i, col in enumerate(feature_cols_working):
+                    df_working[col] = X_pca[:, i]
+                
+                # Show PCA info
+                explained_variance = pca.explained_variance_ratio_
+                total_variance = explained_variance.sum()
+                
+                preprocessing_applied.append(f"PCA: {len(feature_cols)} → {n_components} features ({total_variance:.1%} variance retained)")
+                st.success(f"✅ PCA applied: {len(feature_cols)} → {n_components} features, retaining {total_variance:.1%} of variance")
+                
+                # Show component breakdown
+                with st.expander("📈 PCA Component Details", expanded=False):
+                    import pandas as pd
+                    pca_df = pd.DataFrame({
+                        'Component': feature_cols_working,
+                        'Variance Explained': [f"{var:.1%}" for var in explained_variance],
+                        'Cumulative Variance': [f"{explained_variance[:i+1].sum():.1%}" for i in range(len(explained_variance))]
+                    })
+                    st.dataframe(pca_df, use_container_width=True)
+        
+        # Show preprocessing summary
+        if preprocessing_applied:
+            st.info(f"🔬 **Preprocessing applied for Anomaly Detection only:** {' | '.join(preprocessing_applied)}")
+            st.info("💡 **Note:** Other modules (ML Classification, RFM Analysis, etc.) will still use the original dataset.")
+    
+    # Update feature columns for the rest of the anomaly detection process
+    feature_cols = feature_cols_working
+
     # AI-Powered Anomaly Detection Presets
     def get_ai_anomaly_presets(df, feature_cols, ai_recommendations=None):
         """Generate intelligent anomaly detection presets based on data profile and AI analysis."""
@@ -8150,7 +8278,7 @@ def show_anomaly_detection():
         
         # Summary metrics
         st.divider()
-        st.subheader("📈 5. Detection Results")
+        st.subheader("📈 6. Detection Results")
         
         stats = detector.get_summary_stats()
         
@@ -8175,12 +8303,11 @@ def show_anomaly_detection():
             st.metric("Avg Anomaly Score", f"{avg_score:.3f}", delta=score_status)
         
         # Results table
-        st.subheader("📋 5. Detailed Results")
+        st.subheader("📋 7. Detailed Results")
         
-        show_filter = st.radio(
-            "Display:",
+        show_filter = st.selectbox(
+            "Filter Results:",
             ["All Records", "Anomalies Only", "Normal Only"],
-            horizontal=True,
             key="show_filter"
         )
         
@@ -8198,7 +8325,7 @@ def show_anomaly_detection():
         
         # Visualization
         st.divider()
-        st.subheader("📊 6. Visual Analysis")
+        st.subheader("📊 7. Visual Analysis")
         
         use_pca = len(feature_cols) > 2
         if use_pca:
@@ -8221,7 +8348,7 @@ def show_anomaly_detection():
         
         # Detailed analysis tabs
         st.divider()
-        st.subheader("🔍 7. Detailed Analysis")
+        st.subheader("🔍 8. Detailed Analysis")
         
         tab1, tab2 = st.tabs(["Anomaly Profiles", "Feature Importance"])
         
@@ -8271,7 +8398,7 @@ def show_anomaly_detection():
         
         # AI Explanation section (outside tabs to prevent tab reset on button click)
         st.divider()
-        st.subheader("🤖 8. AI-Powered Anomaly Explanation")
+        st.subheader("🤖 9. AI-Powered Anomaly Explanation")
         
         # Display saved insights if they exist
         if 'anomaly_ai_insights' in st.session_state:
@@ -8343,7 +8470,7 @@ def show_anomaly_detection():
         
         # Export section
         st.divider()
-        st.subheader("📥 9. Export Results")
+        st.subheader("📥 10. Export Results")
         
         col1, col2, col3 = st.columns(3)
         
