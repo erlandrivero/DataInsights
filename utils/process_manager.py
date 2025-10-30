@@ -1,12 +1,15 @@
 """
 Process Manager for long-running operations in Streamlit.
-Handles progress tracking, interruption, and recovery.
+Handles progress tracking, interruption, recovery, and memory management.
 """
 import streamlit as st
 from typing import Callable, Any, Dict, Optional
 from datetime import datetime
 import traceback
 import time
+import psutil
+import gc
+import sys
 
 
 class ProcessManager:
@@ -255,6 +258,107 @@ class ProcessManager:
             
         finally:
             self.unlock()
+    
+    def __enter__(self):
+        """Context manager entry - start memory tracking"""
+        # Mark process as running
+        if 'active_processes' not in st.session_state:
+            st.session_state.active_processes = {}
+        
+        st.session_state.active_processes[self.process_name] = {
+            'status': 'running',
+            'start_time': time.time()
+        }
+        
+        # Track memory usage
+        self.start_time = time.time()
+        self.start_memory = self._get_memory_usage()
+        
+        # Force garbage collection before starting
+        gc.collect()
+        
+        # Also use existing lock mechanism
+        self.lock()
+        
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - cleanup and report memory"""
+        # Mark process as complete
+        if 'active_processes' in st.session_state:
+            if self.process_name in st.session_state.active_processes:
+                del st.session_state.active_processes[self.process_name]
+        
+        # Calculate memory usage
+        end_memory = self._get_memory_usage()
+        memory_used = end_memory - self.start_memory
+        duration = time.time() - self.start_time
+        
+        # Log performance metrics (only show warning for excessive memory)
+        if memory_used > 200:  # More than 200MB
+            st.warning(f"⚠️ High memory usage: {memory_used:.1f}MB for {self.process_name}")
+        
+        # Force garbage collection after completion
+        gc.collect()
+        
+        # Unlock
+        self.unlock()
+        
+        # Return False to propagate exceptions
+        return False
+    
+    @staticmethod
+    def _get_memory_usage() -> float:
+        """Get current memory usage in MB"""
+        try:
+            process = psutil.Process()
+            return process.memory_info().rss / 1024 / 1024  # Convert to MB
+        except:
+            return 0.0
+    
+    @staticmethod
+    def get_memory_stats() -> Dict[str, float]:
+        """Get detailed memory statistics"""
+        try:
+            process = psutil.Process()
+            memory_info = process.memory_info()
+            
+            return {
+                'rss_mb': memory_info.rss / 1024 / 1024,  # Resident Set Size
+                'vms_mb': memory_info.vms / 1024 / 1024,  # Virtual Memory Size
+                'percent': process.memory_percent()
+            }
+        except:
+            return {'rss_mb': 0, 'vms_mb': 0, 'percent': 0}
+    
+    @staticmethod
+    def cleanup_large_session_state_items():
+        """Remove large items from session state to free memory"""
+        if not hasattr(st, 'session_state'):
+            return
+        
+        items_to_check = list(st.session_state.keys())
+        removed_items = []
+        
+        for key in items_to_check:
+            try:
+                item = st.session_state[key]
+                size = sys.getsizeof(item) / 1024 / 1024  # Size in MB
+                
+                # Remove items larger than 50MB that aren't critical
+                if size > 50 and key not in ['data', 'profile', 'data_full']:
+                    # Keep only recent results, remove old cached data
+                    if key.endswith('_results') or key.endswith('_model') or key.endswith('_cached'):
+                        del st.session_state[key]
+                        removed_items.append(f"{key} ({size:.1f}MB)")
+            except:
+                pass
+        
+        if removed_items:
+            st.info(f"🧹 Cleaned up: {', '.join(removed_items)}")
+        
+        # Force garbage collection
+        gc.collect()
 
 
 class NavigationGuard:

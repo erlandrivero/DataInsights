@@ -81,6 +81,16 @@ def main():
     # Load custom CSS
     load_custom_css()
     
+    # Automatic memory cleanup on page load
+    if 'last_cleanup' not in st.session_state:
+        st.session_state.last_cleanup = time.time()
+    
+    # Clean up every 5 minutes (300 seconds)
+    if time.time() - st.session_state.last_cleanup > 300:
+        from utils.process_manager import ProcessManager
+        ProcessManager.cleanup_large_session_state_items()
+        st.session_state.last_cleanup = time.time()
+    
     # Header with fallback - Centered branding
     st.markdown("<h1 style='text-align: center;'>🎯 DataInsights</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: gray;'>Your AI-Powered Business Intelligence Assistant</p>", unsafe_allow_html=True)
@@ -110,6 +120,28 @@ def main():
             key="navigation",
             disabled=is_processing
         )
+        
+        st.divider()
+        
+        # Memory monitor
+        st.subheader("💾 Memory Monitor")
+        
+        from utils.process_manager import ProcessManager
+        
+        memory_stats = ProcessManager.get_memory_stats()
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Memory", f"{memory_stats['rss_mb']:.0f}MB")
+        with col2:
+            st.metric("Usage", f"{memory_stats['percent']:.1f}%")
+        
+        # Warning if memory is high
+        if memory_stats['percent'] > 80:
+            st.warning("⚠️ High memory usage!")
+            if st.button("🧹 Clean Up Memory", use_container_width=True):
+                ProcessManager.cleanup_large_session_state_items()
+                st.rerun()
         
         st.divider()
         

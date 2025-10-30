@@ -49,6 +49,9 @@ lifelines  # Kaplan-Meier estimator, log-rank test, survival curves
 # Advanced Report Exports
 kaleido  # For converting Plotly charts to static PNG images in MD+Images export
 
+# Memory Management & Performance Monitoring
+psutil>=5.9.0  # For memory usage tracking and optimization
+
 # Testing & Quality Assurance
 pytest>=7.0.0
 pytest-cov>=4.0.0
