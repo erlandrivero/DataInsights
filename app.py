@@ -818,9 +818,9 @@ def show_analysis():
                 try:
                     from utils.ai_smart_detection import get_ai_recommendation
                     
-                    # Get performance-aware recommendations for cleaning
-                    status.write("Analyzing data structure and performance constraints...")
-                    ai_recommendations = get_ai_recommendation(df, task_type='classification')
+                    # Get performance-aware recommendations for data cleaning
+                    status.write("Analyzing data quality and cleaning requirements...")
+                    ai_recommendations = get_ai_recommendation(df, task_type='data_cleaning')
                     st.session_state.cleaning_ai_recommendations = ai_recommendations
                     
                     status.update(label="✅ AI analysis complete!", state="complete")
@@ -851,22 +851,50 @@ def show_analysis():
                 for warning in perf_warnings:
                     st.write(f"• {warning}")
         
-        # Optimization Suggestions
+        # Data Quality Assessment
+        overall_quality = ai_recs.get('overall_data_quality', 'Unknown')
+        cleaning_complexity = ai_recs.get('cleaning_complexity', 'Unknown')
+        
+        col3, col4 = st.columns(2)
+        with col3:
+            quality_emoji = {'Excellent': '🟢', 'Good': '🟡', 'Fair': '🟠', 'Poor': '🔴'}.get(overall_quality, '❓')
+            st.info(f"**📊 Data Quality:** {quality_emoji} {overall_quality}")
+        with col4:
+            complexity_emoji = {'Simple': '🟢', 'Moderate': '🟡', 'Complex': '🔴'}.get(cleaning_complexity, '❓')
+            st.info(f"**🔧 Cleaning Complexity:** {complexity_emoji} {cleaning_complexity}")
+        
+        # Data Quality Issues
+        data_quality_issues = ai_recs.get('data_quality_issues', [])
+        if data_quality_issues:
+            with st.expander("🚨 Data Quality Issues Detected", expanded=True):
+                for issue in data_quality_issues:
+                    severity = issue.get('severity', 'Unknown')
+                    severity_emoji = {'High': '🔴', 'Medium': '🟡', 'Low': '🟢'}.get(severity, '❓')
+                    st.write(f"• **{issue.get('column', 'Unknown')}** {severity_emoji} {severity}: {issue.get('recommendation', 'No recommendation')}")
+        
+        # Cleaning Priorities
+        cleaning_priorities = ai_recs.get('cleaning_priorities', [])
+        if cleaning_priorities:
+            with st.expander("📋 Recommended Cleaning Order", expanded=True):
+                for i, priority in enumerate(cleaning_priorities, 1):
+                    st.write(f"{i}. {priority}")
+        
+        # Performance Optimization Tips
         optimization_suggestions = ai_recs.get('optimization_suggestions', [])
         if optimization_suggestions:
-            with st.expander("🚀 AI Optimization Suggestions", expanded=True):
+            with st.expander("🚀 Performance Optimization Tips", expanded=False):
                 for suggestion in optimization_suggestions:
                     st.write(f"• {suggestion}")
         
-        # Columns to Consider Excluding
-        features_to_exclude = ai_recs.get('features_to_exclude', [])
-        if features_to_exclude:
-            with st.expander("🚫 Columns AI Recommends Excluding Before Analysis", expanded=False):
-                for feature_info in features_to_exclude:
-                    if isinstance(feature_info, dict):
-                        st.write(f"• **{feature_info['column']}**: {feature_info['reason']}")
+        # Columns That Need Cleaning
+        columns_to_clean = ai_recs.get('columns_to_clean', [])
+        if columns_to_clean:
+            with st.expander("🔧 Columns Requiring Attention", expanded=False):
+                for col_info in columns_to_clean:
+                    if isinstance(col_info, dict):
+                        st.write(f"• **{col_info.get('column', 'Unknown')}**: {col_info.get('reason', 'No reason')} → *{col_info.get('suggested_action', 'No action')}*")
                     else:
-                        st.write(f"• {feature_info}")
+                        st.write(f"• {col_info}")
     
     st.divider()
     

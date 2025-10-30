@@ -20,7 +20,7 @@ class AISmartDetection:
         
         Args:
             df: Input DataFrame
-            task_type: 'classification', 'regression', or 'anomaly_detection'
+            task_type: 'classification', 'regression', 'anomaly_detection', or 'data_cleaning'
             
         Returns:
             Dictionary with recommendations:
@@ -45,6 +45,18 @@ class AISmartDetection:
                 'features_to_exclude': List[dict],
                 'recommended_algorithm': str,
                 'recommended_contamination': float
+            }
+            
+            For data cleaning:
+            {
+                'performance_risk': str (Low/Medium/High),
+                'performance_warnings': List[str],
+                'optimization_suggestions': List[str],
+                'data_quality_issues': List[dict],
+                'cleaning_priorities': List[str],
+                'columns_to_clean': List[dict],
+                'overall_data_quality': str,
+                'cleaning_complexity': str
             }
         """
         try:
@@ -79,7 +91,58 @@ class AISmartDetection:
                 column_info.append(info)
             
             # Create prompt for GPT-4
-            if task_type == 'anomaly_detection':
+            if task_type == 'data_cleaning':
+                prompt = f"""You are an expert data scientist analyzing a dataset for general data cleaning recommendations.
+
+Dataset Overview:
+- Total Rows: {len(df)}
+- Total Columns: {len(df.columns)}
+- Task Type: DATA CLEANING (General Purpose)
+
+Column Details:
+{json.dumps(column_info, indent=2)}
+
+Please analyze this dataset and provide general data cleaning recommendations in the following JSON format:
+{{
+    "performance_risk": "Low/Medium/High",
+    "performance_warnings": ["List of performance concerns for Streamlit Cloud"],
+    "optimization_suggestions": ["List of specific cleaning suggestions to improve data quality"],
+    "data_quality_issues": [
+        {{"column": "column_name", "issue": "missing_values/duplicates/inconsistent_format/wrong_type", "severity": "High/Medium/Low", "recommendation": "Specific cleaning action"}}
+    ],
+    "cleaning_priorities": ["List of most important cleaning steps in order"],
+    "columns_to_clean": [
+        {{"column": "column_name", "reason": "Why this column needs cleaning", "suggested_action": "Specific cleaning method"}}
+    ],
+    "overall_data_quality": "Excellent/Good/Fair/Poor",
+    "cleaning_complexity": "Simple/Moderate/Complex"
+}}
+
+Guidelines for Data Cleaning Analysis:
+1. PERFORMANCE RISK: Assess based on dataset size and memory usage
+   - Low: <10K rows, <50 columns, minimal missing data
+   - Medium: 10K-100K rows, 50-200 columns, moderate issues
+   - High: >100K rows, >200 columns, extensive cleaning needed
+2. DATA QUALITY ISSUES: Identify specific problems
+   - Missing values: High severity if >20%, Medium if 5-20%, Low if <5%
+   - Duplicates: Check for exact and near-duplicate rows
+   - Data types: Identify columns with wrong types (dates as strings, etc.)
+   - Inconsistent formats: Mixed case, different date formats, etc.
+3. CLEANING PRIORITIES: Order by impact on analysis quality
+   - Critical: Issues that break analysis (wrong types, excessive missing data)
+   - Important: Issues that reduce accuracy (duplicates, inconsistent formats)
+   - Optional: Nice-to-have improvements (standardization, normalization)
+4. PERFORMANCE OPTIMIZATION: Focus on Streamlit Cloud constraints
+   - Memory usage reduction techniques
+   - Processing speed improvements
+   - Data size reduction methods
+5. UNIVERSAL RECOMMENDATIONS: Cleaning that benefits ANY analysis type
+   - Don't assume specific ML tasks or target columns
+   - Focus on general data quality improvements
+   - Consider multiple potential use cases
+
+Provide ONLY the JSON response, no additional text."""
+            elif task_type == 'anomaly_detection':
                 prompt = f"""You are an expert data scientist analyzing a dataset for anomaly detection.
 
 Dataset Overview:
@@ -198,8 +261,8 @@ Provide ONLY the JSON response, no additional text."""
             
             recommendations = json.loads(ai_response)
             
-            # Validate target column exists (skip for anomaly detection)
-            if task_type != 'anomaly_detection' and recommendations.get('target_column') not in df.columns:
+            # Validate target column exists (skip for anomaly detection and data cleaning)
+            if task_type not in ['anomaly_detection', 'data_cleaning'] and recommendations.get('target_column') not in df.columns:
                 return AISmartDetection._fallback_detection(df, task_type)
             
             return recommendations
@@ -212,7 +275,99 @@ Provide ONLY the JSON response, no additional text."""
     @staticmethod
     def _fallback_detection(df: pd.DataFrame, task_type: str) -> Dict:
         """Fallback to rule-based detection if AI fails or API key missing."""
-        if task_type == 'anomaly_detection':
+        if task_type == 'data_cleaning':
+            # Rule-based data cleaning recommendations
+            n_samples = len(df)
+            n_features = len(df.columns)
+            
+            # Performance risk assessment
+            if n_samples > 100000 or n_features > 200:
+                performance_risk = 'High'
+                performance_warnings = [
+                    f'Large dataset ({n_samples:,} rows, {n_features} columns) may require significant cleaning time',
+                    'Consider processing in smaller batches for better performance'
+                ]
+            elif n_samples > 10000 or n_features > 50:
+                performance_risk = 'Medium'
+                performance_warnings = ['Medium-sized dataset - monitor cleaning performance']
+            else:
+                performance_risk = 'Low'
+                performance_warnings = []
+            
+            # Basic data quality assessment
+            missing_data = df.isnull().sum().sum()
+            total_cells = len(df) * len(df.columns)
+            missing_pct = (missing_data / total_cells) * 100 if total_cells > 0 else 0
+            
+            duplicates = df.duplicated().sum()
+            
+            # Generate basic recommendations
+            data_quality_issues = []
+            columns_to_clean = []
+            cleaning_priorities = []
+            
+            if missing_pct > 20:
+                data_quality_issues.append({
+                    'column': 'Multiple columns',
+                    'issue': 'missing_values',
+                    'severity': 'High',
+                    'recommendation': f'Address {missing_pct:.1f}% missing data across dataset'
+                })
+                cleaning_priorities.append('Handle missing values (high priority)')
+            elif missing_pct > 5:
+                data_quality_issues.append({
+                    'column': 'Multiple columns', 
+                    'issue': 'missing_values',
+                    'severity': 'Medium',
+                    'recommendation': f'Address {missing_pct:.1f}% missing data'
+                })
+                cleaning_priorities.append('Handle missing values (medium priority)')
+            
+            if duplicates > 0:
+                data_quality_issues.append({
+                    'column': 'Entire dataset',
+                    'issue': 'duplicates',
+                    'severity': 'Medium' if duplicates > len(df) * 0.05 else 'Low',
+                    'recommendation': f'Remove {duplicates} duplicate rows'
+                })
+                cleaning_priorities.append('Remove duplicate rows')
+            
+            # Check for potential data type issues
+            for col in df.columns:
+                if df[col].dtype == 'object':
+                    # Check if it might be a date
+                    if any(keyword in col.lower() for keyword in ['date', 'time', 'created', 'updated']):
+                        columns_to_clean.append({
+                            'column': col,
+                            'reason': 'Potential date column stored as text',
+                            'suggested_action': 'Convert to datetime format'
+                        })
+                    # Check if it might be numeric
+                    elif df[col].str.replace('.', '').str.replace('-', '').str.isdigit().any():
+                        columns_to_clean.append({
+                            'column': col,
+                            'reason': 'Potential numeric data stored as text',
+                            'suggested_action': 'Convert to numeric format'
+                        })
+            
+            if not cleaning_priorities:
+                cleaning_priorities = ['Basic data standardization', 'Column name normalization']
+            
+            return {
+                'performance_risk': performance_risk,
+                'performance_warnings': performance_warnings,
+                'optimization_suggestions': [
+                    'Remove unnecessary columns to reduce memory usage',
+                    'Handle missing values before analysis',
+                    'Standardize column names and formats'
+                ],
+                'data_quality_issues': data_quality_issues,
+                'cleaning_priorities': cleaning_priorities,
+                'columns_to_clean': columns_to_clean,
+                'overall_data_quality': 'Good' if missing_pct < 5 and duplicates == 0 else 'Fair' if missing_pct < 20 else 'Poor',
+                'cleaning_complexity': 'Simple' if len(data_quality_issues) <= 1 else 'Moderate' if len(data_quality_issues) <= 3 else 'Complex'
+            }
+        elif task_type == 'anomaly_detection':
             # Rule-based anomaly detection recommendations
             n_samples = len(df)
             n_features = len(df.columns)
@@ -395,7 +550,7 @@ def get_ai_recommendation(df: pd.DataFrame, task_type: str = 'classification') -
     
     Args:
         df: Input DataFrame
-        task_type: 'classification', 'regression', or 'anomaly_detection'
+        task_type: 'classification', 'regression', 'anomaly_detection', or 'data_cleaning'
         
     Returns:
         Dictionary with AI recommendations
