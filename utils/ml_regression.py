@@ -361,7 +361,9 @@ class MLRegressor:
                         'r2': model_result.get('r2'),
                         'rmse': model_result.get('rmse'),
                         'mae': model_result.get('mae'),
-                        'cv_scores': model_result.get('cv_scores'),
+                        'mape': model_result.get('mape'),
+                        'cv_mean': model_result.get('cv_mean'),
+                        'cv_std': model_result.get('cv_std'),
                         'train_time': model_result.get('training_time', 0),
                         'feature_importance': model_result.get('feature_importance')
                     }
