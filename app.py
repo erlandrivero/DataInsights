@@ -8079,7 +8079,6 @@ def show_anomaly_detection():
                 
                 # Show component breakdown
                 with st.expander("📈 PCA Component Details", expanded=False):
-                    import pandas as pd
                     pca_df = pd.DataFrame({
                         'Component': feature_cols_working,
                         'Variance Explained': [f"{var:.1%}" for var in explained_variance],
@@ -8256,7 +8255,7 @@ def show_anomaly_detection():
                     'completed': True,
                     'algorithm': algorithm,
                     'anomalies_detected': results.get('num_anomalies', len(results.get('anomaly_indices', []))),
-                    'timestamp': pd.Timestamp.now().isoformat()
+                    'timestamp': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
                 })
                 
                 progress_bar.progress(1.0)
