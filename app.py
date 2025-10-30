@@ -5107,9 +5107,29 @@ def show_ml_classification():
         )
         
         if data_source == "Use uploaded data from Data Upload page":
+            from utils.ai_smart_detection import get_ai_recommendation
+            
             df = st.session_state.data
             st.session_state.ml_data = df
+            
+            # AI Analysis if not already done
+            if 'ml_ai_recommendations' not in st.session_state or st.session_state.get('ml_ai_data_hash') != hash(str(df.columns.tolist())):
+                with st.spinner("🤖 AI analyzing your dataset..."):
+                    ai_recommendations = get_ai_recommendation(df, task_type='classification')
+                    st.session_state.ml_ai_recommendations = ai_recommendations
+                    st.session_state.ml_ai_data_hash = hash(str(df.columns.tolist()))
+            
             st.success(f"✅ Using uploaded data: {len(df):,} rows and {len(df.columns)} columns")
+            
+            # Show AI quick summary
+            if 'ml_ai_recommendations' in st.session_state:
+                ai_recs = st.session_state.ml_ai_recommendations
+                st.info(f"""
+                **🤖 AI Analysis Complete:**
+                - 🎯 **Recommended Target:** {ai_recs['target_column']}
+                - 📊 **Data Quality:** {ai_recs.get('data_quality', 'Good')}
+                - 💡 **Confidence:** {ai_recs.get('confidence', 'High')}
+                """)
             
             # Show preview
             with st.expander("📋 Data Preview"):
@@ -5156,9 +5176,26 @@ def show_ml_classification():
             
             if uploaded_file is not None:
                 try:
+                    from utils.ai_smart_detection import get_ai_recommendation
+                    
                     df = pd.read_csv(uploaded_file)
                     st.session_state.ml_data = df
+                    
+                    # AI Analysis
+                    with st.spinner("🤖 AI analyzing your dataset..."):
+                        ai_recommendations = get_ai_recommendation(df, task_type='classification')
+                        st.session_state.ml_ai_recommendations = ai_recommendations
+                        st.session_state.ml_ai_data_hash = hash(str(df.columns.tolist()))
+                    
                     st.success(f"✅ Loaded {len(df):,} rows and {len(df.columns)} columns")
+                    
+                    # Show AI quick summary
+                    st.info(f"""
+                    **🤖 AI Analysis Complete:**
+                    - 🎯 **Recommended Target:** {ai_recommendations['target_column']}
+                    - 📊 **Data Quality:** {ai_recommendations.get('data_quality', 'Good')}
+                    - 💡 **Confidence:** {ai_recommendations.get('confidence', 'High')}
+                    """)
                     
                     with st.expander("📋 Data Preview"):
                         st.dataframe(df.head(10), use_container_width=True)
@@ -5178,6 +5215,8 @@ def show_ml_classification():
                 with st.status("Loading Iris dataset...", expanded=True) as status:
                     try:
                         from sklearn.datasets import load_iris
+                        from utils.ai_smart_detection import get_ai_recommendation
+                        
                         st.write("📊 Loading classic Iris dataset...")
                         iris = load_iris()
                         
@@ -5187,15 +5226,22 @@ def show_ml_classification():
                         df['species'] = df['species'].map({0: 'setosa', 1: 'versicolor', 2: 'virginica'})
                         
                         st.session_state.ml_data = df
+                        
+                        # AI Analysis
+                        st.write("🤖 AI analyzing dataset...")
+                        ai_recommendations = get_ai_recommendation(df, task_type='classification')
+                        st.session_state.ml_ai_recommendations = ai_recommendations
+                        
+                        status.update(label="✅ Dataset loaded and analyzed!", state="complete")
+                        
                         st.success(f"✅ Loaded Iris dataset: {len(df):,} rows and {len(df.columns)} columns")
                         
-                        st.info("""
-                        **About this dataset:**
-                        - 🎯 **Target:** species (3 iris flower types: setosa, versicolor, virginica)
-                        - 📊 **Features:** 4 measurements (sepal length/width, petal length/width)
-                        - ✅ **Perfect for ML:** 150 samples, perfectly balanced (50-50-50)
-                        - 🌸 **Classic:** Most famous ML classification benchmark dataset
-                        - ⚡ **Fast:** Trains in seconds, ideal for testing
+                        # Show AI quick summary
+                        st.info(f"""
+                        **🤖 AI Analysis Complete:**
+                        - 🎯 **Recommended Target:** {ai_recommendations['target_column']}
+                        - 📊 **Data Quality:** {ai_recommendations.get('data_quality', 'Good')}
+                        - 💡 **Confidence:** {ai_recommendations.get('confidence', 'High')}
                         """)
                         
                         with st.expander("📋 Data Preview"):
@@ -5213,9 +5259,26 @@ def show_ml_classification():
             
             if uploaded_file is not None:
                 try:
+                    from utils.ai_smart_detection import get_ai_recommendation
+                    
                     df = pd.read_csv(uploaded_file)
                     st.session_state.ml_data = df
+                    
+                    # AI Analysis
+                    with st.spinner("🤖 AI analyzing your dataset..."):
+                        ai_recommendations = get_ai_recommendation(df, task_type='classification')
+                        st.session_state.ml_ai_recommendations = ai_recommendations
+                        st.session_state.ml_ai_data_hash = hash(str(df.columns.tolist()))
+                    
                     st.success(f"✅ Loaded {len(df):,} rows and {len(df.columns)} columns")
+                    
+                    # Show AI quick summary
+                    st.info(f"""
+                    **🤖 AI Analysis Complete:**
+                    - 🎯 **Recommended Target:** {ai_recommendations['target_column']}
+                    - 📊 **Data Quality:** {ai_recommendations.get('data_quality', 'Good')}
+                    - 💡 **Confidence:** {ai_recommendations.get('confidence', 'High')}
+                    """)
                     
                     with st.expander("📋 Data Preview"):
                         st.dataframe(df.head(10), use_container_width=True)
@@ -5255,11 +5318,18 @@ def show_ml_classification():
         col1, col2 = st.columns(2)
         
         with col1:
-            # AI-Powered Smart Detection
-            from utils.ai_smart_detection import get_ai_recommendation, AISmartDetection
+            # AI-Powered Smart Detection (from session state)
+            from utils.ai_smart_detection import AISmartDetection
             
-            with st.spinner("🤖 AI analyzing your dataset..."):
-                ai_recommendations = get_ai_recommendation(df, task_type='classification')
+            # Use stored AI recommendations or run analysis if not available
+            if 'ml_ai_recommendations' in st.session_state:
+                ai_recommendations = st.session_state.ml_ai_recommendations
+            else:
+                # Fallback: run analysis now (shouldn't normally happen)
+                from utils.ai_smart_detection import get_ai_recommendation
+                with st.spinner("🤖 AI analyzing your dataset..."):
+                    ai_recommendations = get_ai_recommendation(df, task_type='classification')
+                    st.session_state.ml_ai_recommendations = ai_recommendations
             
             # Display AI recommendations
             AISmartDetection.display_ai_recommendation(ai_recommendations, expanded=True)
