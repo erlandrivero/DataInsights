@@ -93,6 +93,9 @@ Please analyze this dataset and provide recommendations in the following JSON fo
     "smote_reasoning": "Why SMOTE is/isn't recommended for this dataset",
     "recommended_cv_folds": 5,
     "recommended_test_size": 20,
+    "performance_risk": "Low/Medium/High",
+    "performance_warnings": ["List of performance concerns for Streamlit Cloud"],
+    "optimization_suggestions": ["List of specific suggestions to improve performance"],
     "warnings": ["List of any data quality concerns or warnings"],
     "data_quality": "Excellent/Good/Fair/Poor"
 }}
@@ -106,6 +109,10 @@ Guidelines:
 6. Recommend appropriate CV folds based on dataset size
 7. Flag any data quality issues
 8. Be specific about why columns should be excluded
+9. PERFORMANCE CONSTRAINTS: Consider Streamlit Cloud limitations (1GB RAM, CPU timeout)
+10. DATASET SIZE LIMITS: Flag datasets >50K rows or >100 columns as performance risks
+11. MEMORY OPTIMIZATION: Recommend excluding high-cardinality categorical columns
+12. CV FOLDS: Limit to 3-5 folds for large datasets to prevent timeouts
 
 Provide ONLY the JSON response, no additional text."""
 
@@ -246,6 +253,24 @@ Provide ONLY the JSON response, no additional text."""
                     st.success(f"🤖 **AI Recommends SMOTE:** {recommendations.get('smote_reasoning', 'Class imbalance detected')}")
                 else:
                     st.info(f"ℹ️ **SMOTE Not Needed:** {recommendations.get('smote_reasoning', 'Classes are relatively balanced')}")
+            
+            # Performance Risk Assessment
+            if recommendations.get('performance_risk'):
+                risk_level = recommendations.get('performance_risk', 'Unknown')
+                risk_emoji = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}.get(risk_level, '❓')
+                st.write(f"**⚡ Performance Risk:** {risk_emoji} {risk_level}")
+                
+                # Performance warnings
+                if recommendations.get('performance_warnings'):
+                    st.write("**⚠️ Performance Warnings:**")
+                    for warning in recommendations['performance_warnings']:
+                        st.warning(f"⚡ {warning}")
+                
+                # Optimization suggestions
+                if recommendations.get('optimization_suggestions'):
+                    with st.expander("🚀 Performance Optimization Suggestions"):
+                        for suggestion in recommendations['optimization_suggestions']:
+                            st.write(f"• {suggestion}")
             
             # Features to exclude with detailed reasons
             if recommendations.get('features_to_exclude'):

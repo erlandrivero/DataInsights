@@ -376,6 +376,18 @@ def show_data_upload():
                     # Detect issues (use sampled data if applicable)
                     issues = DataProcessor.detect_data_quality_issues(st.session_state.data)
                     st.session_state.issues = issues
+                    
+                    # AI Data Profiling (not ML-specific analysis)
+                    status.write("🤖 AI analyzing data quality and structure...")
+                    from utils.ai_helper import AIHelper
+                    ai = AIHelper()
+                    
+                    # Generate data insights (general profiling, not ML-specific)
+                    data_insights = ai.generate_data_insights(st.session_state.data, profile)
+                    st.session_state.ai_data_insights = data_insights
+                    
+                    # Store data hash to track if data changes
+                    st.session_state.data_profile_hash = hash(str(st.session_state.data.columns.tolist()) + str(len(st.session_state.data)))
                 
                 st.success(f"✅ Successfully loaded {uploaded_file.name}!")
                 
@@ -418,6 +430,14 @@ def show_data_upload():
                         )
                 else:
                     st.success("✅ No significant data quality issues detected!")
+                
+                # AI Data Insights Section
+                if 'ai_data_insights' in st.session_state:
+                    st.subheader("🤖 AI Data Insights")
+                    with st.expander("📊 View AI Analysis", expanded=False):
+                        st.markdown(st.session_state.ai_data_insights)
+                    
+                    st.info("💡 **This data profile will be available to all analytics modules. ML-specific recommendations will be generated when you use ML Classification or Regression.**")
                 
             except Exception as e:
                 st.error(f"Error loading file: {str(e)}")
@@ -790,11 +810,204 @@ def show_analysis():
     st.divider()
     
     # Tabs organized by best practice workflow
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🧹 Quick Clean", "📈 Statistics", "📊 Visualizations", "🤖 AI Insights", "🔧 Advanced Cleaning"])
+    tab1, tab2, tab3, tab4 = st.tabs(["🧹 Quick Clean", "📈 Statistics", "📊 Visualizations", "🤖 AI Insights"])
     
     with tab1:
         st.subheader("🧹 Quick Data Cleaning")
         st.write("Apply automatic data cleaning with one click, or customize the cleaning options.")
+        
+        # AI-Powered Cleaning Analysis
+        st.divider()
+        st.subheader("🤖 AI Cleaning Recommendations")
+        
+        if 'cleaning_ai_recommendations' not in st.session_state:
+            if st.button("🔍 Generate AI Cleaning Analysis", type="primary", use_container_width=True):
+                with st.status("🤖 AI analyzing dataset for optimal cleaning strategy...", expanded=True) as status:
+                    try:
+                        from utils.ai_smart_detection import get_ai_recommendation
+                        
+                        # Get performance-aware recommendations for cleaning
+                        status.write("Analyzing data structure and performance constraints...")
+                        ai_recommendations = get_ai_recommendation(df, task_type='classification')
+                        st.session_state.cleaning_ai_recommendations = ai_recommendations
+                        
+                        status.update(label="✅ AI analysis complete!", state="complete")
+                        st.rerun()
+                    except Exception as e:
+                        status.update(label="❌ Analysis failed", state="error")
+                        st.error(f"Error generating AI recommendations: {str(e)}")
+        else:
+            ai_recs = st.session_state.cleaning_ai_recommendations
+            
+            # Performance Risk Assessment
+            performance_risk = ai_recs.get('performance_risk', 'Low')
+            risk_emoji = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}.get(performance_risk, '❓')
+            
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                st.info(f"**⚡ Performance Risk:** {risk_emoji} {performance_risk} - Dataset suitability for Streamlit Cloud")
+            with col2:
+                if st.button("🔄 Regenerate Analysis", use_container_width=True):
+                    del st.session_state.cleaning_ai_recommendations
+                    st.rerun()
+            
+            # Performance Warnings
+            if performance_risk in ['Medium', 'High']:
+                perf_warnings = ai_recs.get('performance_warnings', [])
+                if perf_warnings:
+                    st.warning("⚠️ **Performance Warnings:**")
+                    for warning in perf_warnings:
+                        st.write(f"• {warning}")
+            
+            # Optimization Suggestions
+            optimization_suggestions = ai_recs.get('optimization_suggestions', [])
+            if optimization_suggestions:
+                with st.expander("🚀 AI Optimization Suggestions", expanded=True):
+                    for suggestion in optimization_suggestions:
+                        st.write(f"• {suggestion}")
+            
+            # Columns to Consider Excluding
+            features_to_exclude = ai_recs.get('features_to_exclude', [])
+            if features_to_exclude:
+                with st.expander("🚫 Columns AI Recommends Excluding Before Analysis", expanded=False):
+                    for feature_info in features_to_exclude:
+                        if isinstance(feature_info, dict):
+                            st.write(f"• **{feature_info['column']}**: {feature_info['reason']}")
+                        else:
+                            st.write(f"• {feature_info}")
+        
+        st.divider()
+        
+        # AI-Powered Cleaning Presets
+        def get_ai_cleaning_presets(df, profile, ai_recommendations=None):
+            """Generate intelligent cleaning presets based on data profile and AI analysis."""
+            presets = {}
+            
+            # Basic Cleaning Presets
+            presets['normalize_cols'] = True  # Always recommended
+            presets['convert_numeric'] = len([col for col in profile['column_info'] if col['dtype'] == 'object' and col['unique'] < len(df) * 0.8]) > 0
+            presets['trim_strings'] = len([col for col in profile['column_info'] if col['dtype'] == 'object']) > 0
+            presets['parse_dates'] = len([col for col in df.columns if any(keyword in col.lower() for keyword in ['date', 'time', 'created', 'updated'])]) > 0
+            
+            # Data Quality Presets
+            presets['remove_dups'] = profile['basic_info']['duplicates'] > 0
+            presets['remove_constant'] = len([col for col in profile['column_info'] if col['unique'] == 1]) > 0
+            presets['remove_empty_rows'] = len(df.dropna(how='all')) < len(df)
+            presets['drop_high_missing'] = len([col for col in profile['column_info'] if col['missing_pct'] > 80]) > 0
+            
+            # Advanced Presets
+            missing_pct = sum([col['missing'] for col in profile['column_info']]) / (len(df) * len(df.columns)) * 100
+            presets['fill_missing'] = missing_pct > 5 and missing_pct < 50  # Don't fill if too much missing
+            
+            # Smart missing strategy based on data types
+            numeric_cols = len([col for col in profile['column_info'] if col['dtype'] in ['int64', 'float64']])
+            categorical_cols = len([col for col in profile['column_info'] if col['dtype'] == 'object'])
+            if numeric_cols > categorical_cols:
+                presets['missing_strategy'] = 'median'
+            elif categorical_cols > numeric_cols:
+                presets['missing_strategy'] = 'mode'
+            else:
+                presets['missing_strategy'] = 'median'
+            
+            # Outlier detection for numeric data
+            presets['remove_outliers'] = numeric_cols > 0 and len(df) > 100  # Only for larger datasets
+            presets['outlier_method'] = 'IQR'  # More robust default
+            
+            # Negative values detection
+            negative_cols = []
+            for col in df.select_dtypes(include=[np.number]).columns:
+                if (df[col] < 0).any():
+                    negative_cols.append(col)
+            presets['fix_negatives'] = len(negative_cols) > 0 and any(keyword in ' '.join(negative_cols).lower() for keyword in ['amount', 'price', 'cost', 'quantity', 'qty', 'count'])
+            presets['negative_method'] = 'abs'  # Most common fix
+            
+            # Categorical standardization
+            presets['standardize_categorical'] = categorical_cols > 0
+            
+            # AI-specific adjustments
+            if ai_recommendations:
+                performance_risk = ai_recommendations.get('performance_risk', 'Low')
+                if performance_risk == 'High':
+                    # More aggressive cleaning for high-risk datasets
+                    presets['drop_high_missing'] = True
+                    presets['remove_outliers'] = True
+                    presets['fill_missing'] = False  # Don't fill, just drop
+                elif performance_risk == 'Medium':
+                    presets['remove_outliers'] = len(df) < 50000  # Only for smaller datasets
+            
+            return presets
+        
+        # Get AI presets
+        ai_recs = st.session_state.get('cleaning_ai_recommendations', {})
+        cleaning_presets = get_ai_cleaning_presets(df, profile, ai_recs)
+        
+        # Show AI preset summary if available
+        if 'cleaning_ai_recommendations' in st.session_state:
+            st.info("🤖 **AI has analyzed your data and preset the cleaning options below based on your data profile.**")
+            
+            # Show detailed AI reasoning
+            with st.expander("🧠 View AI Reasoning for Presets", expanded=False):
+                st.markdown("**📊 Data Profile Analysis:**")
+                
+                # Basic stats
+                total_missing = sum([col['missing'] for col in profile['column_info']])
+                missing_pct = (total_missing / (len(df) * len(df.columns))) * 100
+                numeric_cols = len([col for col in profile['column_info'] if col['dtype'] in ['int64', 'float64']])
+                categorical_cols = len([col for col in profile['column_info'] if col['dtype'] == 'object'])
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Missing Data", f"{missing_pct:.1f}%")
+                with col2:
+                    st.metric("Numeric Columns", numeric_cols)
+                with col3:
+                    st.metric("Text Columns", categorical_cols)
+                
+                st.markdown("**🤖 AI Reasoning:**")
+                
+                # Explain key decisions
+                if cleaning_presets.get('remove_dups'):
+                    st.write(f"✅ **Remove duplicates**: Found {profile['basic_info']['duplicates']} duplicate rows")
+                else:
+                    st.write("❌ **Remove duplicates**: No duplicates detected")
+                
+                if cleaning_presets.get('drop_high_missing'):
+                    high_missing_cols = [col['name'] for col in profile['column_info'] if col['missing_pct'] > 80]
+                    st.write(f"✅ **Drop high missing columns**: Found {len(high_missing_cols)} columns with >80% missing")
+                else:
+                    st.write("❌ **Drop high missing columns**: No columns with excessive missing values")
+                
+                if cleaning_presets.get('fill_missing'):
+                    st.write(f"✅ **Fill missing values**: {missing_pct:.1f}% missing data is manageable")
+                    st.write(f"📊 **Strategy**: {cleaning_presets.get('missing_strategy')} (based on {numeric_cols} numeric vs {categorical_cols} categorical columns)")
+                else:
+                    if missing_pct > 50:
+                        st.write(f"❌ **Fill missing values**: {missing_pct:.1f}% missing is too high - recommend dropping instead")
+                    else:
+                        st.write(f"❌ **Fill missing values**: {missing_pct:.1f}% missing is minimal")
+                
+                if cleaning_presets.get('remove_outliers'):
+                    st.write(f"✅ **Remove outliers**: Dataset has {numeric_cols} numeric columns and {len(df):,} rows - outlier detection recommended")
+                else:
+                    if numeric_cols == 0:
+                        st.write("❌ **Remove outliers**: No numeric columns for outlier detection")
+                    else:
+                        st.write(f"❌ **Remove outliers**: Dataset too small ({len(df):,} rows) for reliable outlier detection")
+                
+                if cleaning_presets.get('fix_negatives'):
+                    negative_cols = []
+                    for col in df.select_dtypes(include=[np.number]).columns:
+                        if (df[col] < 0).any():
+                            negative_cols.append(col)
+                    st.write(f"✅ **Fix negative values**: Found negative values in quantity/amount-like columns: {', '.join(negative_cols[:3])}")
+                else:
+                    st.write("❌ **Fix negative values**: No problematic negative values detected")
+                
+                # Performance considerations
+                if ai_recs.get('performance_risk') == 'High':
+                    st.warning("⚡ **Performance Mode**: Aggressive cleaning enabled due to high performance risk")
+                elif ai_recs.get('performance_risk') == 'Medium':
+                    st.info("⚡ **Balanced Mode**: Moderate cleaning for medium performance risk")
         
         # Cleaning options
         with st.form("cleaning_form"):
@@ -808,51 +1021,84 @@ def show_analysis():
                 
                 with col1:
                     st.markdown("**📝 Structure & Format:**")
-                    normalize_cols = st.checkbox("Normalize column names", value=True, 
+                    normalize_cols = st.checkbox("Normalize column names", 
+                                                value=cleaning_presets.get('normalize_cols', True), 
                                                 help="Convert to lowercase with underscores")
-                    convert_numeric = st.checkbox("Convert to numeric", value=True,
+                    convert_numeric = st.checkbox("Convert to numeric", 
+                                                 value=cleaning_presets.get('convert_numeric', True),
                                                  help="Convert compatible columns to numbers")
-                    trim_strings = st.checkbox("Trim whitespace from text", value=True,
+                    trim_strings = st.checkbox("Trim whitespace from text", 
+                                               value=cleaning_presets.get('trim_strings', True),
                                                help="Remove leading/trailing spaces")
-                    parse_dates = st.checkbox("Auto-parse date columns", value=True,
+                    parse_dates = st.checkbox("Auto-parse date columns", 
+                                             value=cleaning_presets.get('parse_dates', True),
                                              help="Automatically detect and parse dates")
                 
                 with col2:
                     st.markdown("**🧹 Data Quality:**")
-                    remove_dups = st.checkbox("Remove duplicate rows", value=True)
-                    remove_constant = st.checkbox("Remove constant columns", value=True,
-                                                help="Remove columns with all same values")
-                    remove_empty_rows = st.checkbox("Remove empty rows", value=True,
+                    remove_dups = st.checkbox("Remove duplicate rows", 
+                                             value=cleaning_presets.get('remove_dups', True))
+                    remove_constant = st.checkbox("Remove constant columns", 
+                                                 value=cleaning_presets.get('remove_constant', True),
+                                                 help="Remove columns with all same values")
+                    remove_empty_rows = st.checkbox("Remove empty rows", 
+                                                   value=cleaning_presets.get('remove_empty_rows', True),
                                                    help="Remove rows with all missing values")
-                    drop_high_missing = st.checkbox("Drop columns with >80% missing", value=False)
+                    drop_high_missing = st.checkbox("Drop columns with >80% missing", 
+                                                   value=cleaning_presets.get('drop_high_missing', False))
             
             with advanced_tab:
                 col1, col2 = st.columns(2)
                 
                 with col1:
                     st.markdown("**📊 Missing Values:**")
-                    fill_missing = st.checkbox("Fill missing values", value=True)
+                    fill_missing = st.checkbox("Fill missing values", 
+                                              value=cleaning_presets.get('fill_missing', True))
+                    
+                    # Get the index of the preset strategy
+                    strategies = ["median", "mean", "mode"]
+                    preset_strategy = cleaning_presets.get('missing_strategy', 'median')
+                    strategy_index = strategies.index(preset_strategy) if preset_strategy in strategies else 0
+                    
                     missing_strategy = st.selectbox("Fill strategy:", 
-                                                   ["median", "mean", "mode"],
+                                                   strategies,
+                                                   index=strategy_index,
                                                    help="Strategy for filling missing values (only used if checkbox is checked)")
                     
                     st.markdown("**🔢 Outliers:**")
-                    remove_outliers = st.checkbox("Remove statistical outliers", value=False,
+                    remove_outliers = st.checkbox("Remove statistical outliers", 
+                                                 value=cleaning_presets.get('remove_outliers', False),
                                                  help="Remove data points using IQR method")
+                    
+                    # Get the index of the preset outlier method
+                    outlier_methods = ["IQR", "zscore"]
+                    preset_outlier = cleaning_presets.get('outlier_method', 'IQR')
+                    outlier_index = outlier_methods.index(preset_outlier) if preset_outlier in outlier_methods else 0
+                    
                     outlier_method = st.selectbox("Outlier method:", 
-                                                 ["IQR", "zscore"],
+                                                 outlier_methods,
+                                                 index=outlier_index,
                                                  help="IQR = 1.5*IQR rule, zscore = 3 std devs (only used if checkbox is checked)")
                 
                 with col2:
                     st.markdown("**⚠️ Negative Values:**")
-                    fix_negatives = st.checkbox("Fix negative quantities/amounts", value=False,
+                    fix_negatives = st.checkbox("Fix negative quantities/amounts", 
+                                               value=cleaning_presets.get('fix_negatives', False),
                                                help="Auto-detect and fix negative values in qty/amount columns")
+                    
+                    # Get the index of the preset negative method
+                    negative_methods = ["abs", "zero", "drop"]
+                    preset_negative = cleaning_presets.get('negative_method', 'abs')
+                    negative_index = negative_methods.index(preset_negative) if preset_negative in negative_methods else 0
+                    
                     negative_method = st.selectbox("Fix method:", 
-                                                  ["abs", "zero", "drop"],
+                                                  negative_methods,
+                                                  index=negative_index,
                                                   help="abs=absolute value, zero=replace with 0, drop=remove rows (only used if checkbox is checked)")
                     
                     st.markdown("**📂 Categorical:**")
-                    standardize_categorical = st.checkbox("Standardize categorical values", value=False,
+                    standardize_categorical = st.checkbox("Standardize categorical values", 
+                                                        value=cleaning_presets.get('standardize_categorical', False),
                                                         help="Lowercase and trim categorical values")
             
             submitted = st.form_submit_button("🚀 Clean Data Now", type="primary", use_container_width=True)
@@ -1145,116 +1391,6 @@ def show_analysis():
                 del st.session_state.ai_insights
                 st.rerun()
 
-    with tab5:
-        st.subheader("🔧 AI-Powered Cleaning Suggestions")
-        
-        if not issues:
-            st.success("✅ No data quality issues detected!")
-        else:
-            if 'cleaning_suggestions' not in st.session_state:
-                if st.button("Get AI Cleaning Suggestions", type="primary"):
-                    with st.status("🤖 Generating cleaning suggestions...", expanded=True) as status:
-                        try:
-                            from utils.ai_helper import AIHelper
-                            ai = AIHelper()
-                            suggestions = ai.generate_cleaning_suggestions(df, issues)
-                            st.session_state.cleaning_suggestions = suggestions
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error generating suggestions: {str(e)}")
-            else:
-                suggestions = st.session_state.cleaning_suggestions
-                
-                st.info("💡 Review each suggestion below. You can apply fixes directly or copy the code to run manually.")
-                
-                for i, suggestion in enumerate(suggestions):
-                    with st.expander(f"💡 Suggestion {i+1}: {suggestion.get('issue', 'N/A')}", expanded=False):
-                        st.write("**What to do:**", suggestion.get('suggestion', 'N/A'))
-                        st.write("**Why:**", suggestion.get('reason', 'N/A'))
-                        
-                        if suggestion.get('code'):
-                            st.code(suggestion['code'], language='python')
-                            
-                            col1, col2, col3 = st.columns([2, 2, 1])
-                            
-                            with col1:
-                                if st.button(f"✅ Apply This Fix", key=f"apply_fix_{i}", type="primary"):
-                                    try:
-                                        # Create a copy of the dataframe to apply fix
-                                        df_copy = df.copy()
-                                        
-                                        # Execute the cleaning code
-                                        # Make df available in the exec context
-                                        exec_globals = {'df': df_copy, 'pd': pd, 'np': np}
-                                        exec(suggestion['code'], exec_globals)
-                                        
-                                        # Update the dataframe in session state
-                                        st.session_state.data = exec_globals.get('df', df_copy)
-                                        
-                                        # Clear cached analysis to force refresh
-                                        if 'profile' in st.session_state:
-                                            del st.session_state.profile
-                                        if 'issues' in st.session_state:
-                                            del st.session_state.issues
-                                        if 'cleaning_suggestions' in st.session_state:
-                                            del st.session_state.cleaning_suggestions
-                                        
-                                        st.success(f"✅ Fix applied successfully! Data updated.")
-                                        st.rerun()
-                                    except Exception as e:
-                                        st.error(f"❌ Error applying fix: {str(e)}")
-                            
-                            with col2:
-                                if st.button(f"👁️ Preview Impact", key=f"preview_{i}"):
-                                    try:
-                                        df_copy = df.copy()
-                                        exec_globals = {'df': df_copy, 'pd': pd, 'np': np}
-                                        exec(suggestion['code'], exec_globals)
-                                        df_cleaned = exec_globals.get('df', df_copy)
-                                        
-                                        st.write("**Before:**")
-                                        st.write(f"- Rows: {len(df)}, Columns: {len(df.columns)}")
-                                        st.write(f"- Missing values: {df.isnull().sum().sum()}")
-                                        
-                                        st.write("**After:**")
-                                        st.write(f"- Rows: {len(df_cleaned)}, Columns: {len(df_cleaned.columns)}")
-                                        st.write(f"- Missing values: {df_cleaned.isnull().sum().sum()}")
-                                    except Exception as e:
-                                        st.error(f"Error previewing: {str(e)}")
-                
-                st.divider()
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button("🔄 Regenerate All Suggestions", use_container_width=True):
-                        del st.session_state.cleaning_suggestions
-                        st.rerun()
-                
-                with col2:
-                    if st.button("📥 Download Cleaning Script", use_container_width=True):
-                        # Combine all code into a single script
-                        script = "# Data Cleaning Script\n"
-                        script += "# Generated by DataInsights\n\n"
-                        script += "import pandas as pd\nimport numpy as np\n\n"
-                        script += "# Load your data\n"
-                        script += "# df = pd.read_csv('your_data.csv')\n\n"
-                        
-                        for i, suggestion in enumerate(suggestions):
-                            if suggestion.get('code'):
-                                script += f"# Fix {i+1}: {suggestion.get('issue', 'N/A')}\n"
-                                script += f"# {suggestion.get('suggestion', 'N/A')}\n"
-                                script += suggestion['code'] + "\n\n"
-                        
-                        script += "# Save cleaned data\n"
-                        script += "# df.to_csv('cleaned_data.csv', index=False)\n"
-                        
-                        st.download_button(
-                            label="Download Python Script",
-                            data=script,
-                            file_name="data_cleaning_script.py",
-                            mime="text/plain",
-                            use_container_width=True
-                        )
 
 def show_insights():
     st.markdown("<h2 style='text-align: center;'>🤖 AI Insights & Natural Language Querying</h2>", unsafe_allow_html=True)
@@ -5112,9 +5248,9 @@ def show_ml_classification():
             df = st.session_state.data
             st.session_state.ml_data = df
             
-            # AI Analysis if not already done
+            # AI Analysis if not already done (ML-specific analysis)
             if 'ml_ai_recommendations' not in st.session_state or st.session_state.get('ml_ai_data_hash') != hash(str(df.columns.tolist())):
-                with st.spinner("🤖 AI analyzing your dataset..."):
+                with st.spinner("🤖 AI analyzing your dataset for ML Classification..."):
                     ai_recommendations = get_ai_recommendation(df, task_type='classification')
                     st.session_state.ml_ai_recommendations = ai_recommendations
                     st.session_state.ml_ai_data_hash = hash(str(df.columns.tolist()))
@@ -5333,6 +5469,14 @@ def show_ml_classification():
             
             # Display AI recommendations
             AISmartDetection.display_ai_recommendation(ai_recommendations, expanded=True)
+            
+            # Performance Risk Handling
+            performance_risk = ai_recommendations.get('performance_risk', 'Low')
+            if performance_risk == 'High':
+                st.error("🚨 **High Performance Risk Detected!** This dataset may cause timeouts or crashes on Streamlit Cloud.")
+                st.warning("⚡ **Recommendation:** Consider reducing dataset size, excluding high-cardinality columns, or using fewer CV folds.")
+            elif performance_risk == 'Medium':
+                st.warning("⚠️ **Medium Performance Risk:** This dataset may be slow to process. Monitor for timeouts.")
             
             # AI-Recommended Column Dropping with User Approval
             if ai_recommendations.get('features_to_exclude'):
@@ -5630,16 +5774,31 @@ def show_ml_classification():
             
             # Also check if AI has CV fold recommendation
             ai_cv_folds = ai_recommendations.get('recommended_cv_folds', recommended_folds)
-            final_recommended = max(recommended_folds, ai_cv_folds)  # Use the higher recommendation
             
-            st.info(f"💡 **AI Recommended:** {ai_cv_folds}-fold CV | **Rule-Based:** {recommended_folds}-fold CV - {cv_reason}")
+            # Performance-aware CV fold adjustment
+            performance_risk = ai_recommendations.get('performance_risk', 'Low')
+            if performance_risk == 'High':
+                # Force lower CV folds for high-risk datasets
+                final_recommended = min(3, ai_cv_folds, recommended_folds)
+                max_cv_folds = 3
+                performance_note = " (Limited to 3 folds due to high performance risk)"
+            elif performance_risk == 'Medium':
+                final_recommended = min(5, ai_cv_folds, recommended_folds)
+                max_cv_folds = 5
+                performance_note = " (Limited to 5 folds due to medium performance risk)"
+            else:
+                final_recommended = max(recommended_folds, ai_cv_folds)
+                max_cv_folds = 10
+                performance_note = ""
+            
+            st.info(f"💡 **AI Recommended:** {ai_cv_folds}-fold CV | **Rule-Based:** {recommended_folds}-fold CV - {cv_reason}{performance_note}")
             
             cv_folds = st.slider(
                 "Cross-Validation Folds",
                 min_value=3,
-                max_value=10,
-                value=final_recommended,  # Use AI recommendation as default
-                help=f"AI recommends {ai_cv_folds} folds, rule-based recommends {recommended_folds} folds for your dataset ({n_samples:,} samples, {n_classes} classes)"
+                max_value=max_cv_folds,
+                value=final_recommended,  # Use performance-aware recommendation
+                help=f"AI recommends {ai_cv_folds} folds, rule-based recommends {recommended_folds} folds for your dataset ({n_samples:,} samples, {n_classes} classes). Performance risk: {performance_risk}"
             )
         
         # Class Balancing Section - AI Enhanced
