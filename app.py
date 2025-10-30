@@ -5260,17 +5260,25 @@ def show_ml_classification():
             # Smart target column detection
             def detect_target_column(df):
                 """Detect likely target column for classification using intelligent ranking."""
-                patterns = ['target', 'label', 'class', 'outcome', 'result', 'category', 
-                           'prediction', 'y', 'dependent', 'response', 'status', 'type', 'cover']
+                # High-priority exact/specific patterns (check first)
+                priority_patterns = ['cover_type', 'covertype', 'target', 'label', 'class_label', 
+                                    'outcome', 'result', 'category', 'prediction']
                 
-                # First priority: Check for pattern matches
+                # First priority: Check for high-priority pattern matches
                 for col in df.columns:
                     col_lower = col.lower().replace('_', '').replace(' ', '')
-                    for pattern in patterns:
-                        if pattern in col_lower:
+                    for pattern in priority_patterns:
+                        pattern_clean = pattern.replace('_', '')
+                        if pattern_clean == col_lower or pattern_clean in col_lower:
                             # Verify it's suitable (categorical with reasonable classes)
                             n_unique = df[col].nunique()
                             if 2 <= n_unique <= 50:  # Reasonable number of classes
+                                # Extra check: avoid binary indicator columns
+                                if n_unique == 2:
+                                    value_counts = df[col].value_counts()
+                                    imbalance = value_counts.max() / value_counts.min()
+                                    if imbalance > 50:  # Skip extreme imbalance binary columns
+                                        continue
                                 return col
                 
                 # Second priority: Rank all candidate columns by quality
