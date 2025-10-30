@@ -5102,7 +5102,7 @@ def show_ml_classification():
     if st.session_state.data is not None:
         data_source = st.radio(
             "Choose data source:",
-            ["Use uploaded data from Data Upload page", "Sample Covertype Dataset", "Upload new file for this analysis"],
+            ["Use uploaded data from Data Upload page", "Sample Iris Dataset", "Upload new file for this analysis"],
             help="You can use the data you already uploaded, try a sample dataset, or upload a new file"
         )
         
@@ -5115,30 +5115,29 @@ def show_ml_classification():
             with st.expander("📋 Data Preview"):
                 st.dataframe(df.head(10), use_container_width=True)
                 
-        elif data_source == "Sample Covertype Dataset":
-            if st.button("📥 Load Covertype Dataset", type="primary"):
-                with st.status("Loading Covertype dataset...", expanded=True) as status:
+        elif data_source == "Sample Iris Dataset":
+            if st.button("📥 Load Iris Dataset", type="primary"):
+                with st.status("Loading Iris dataset...", expanded=True) as status:
                     try:
-                        from sklearn.datasets import fetch_covtype
-                        st.write("⏳ Downloading dataset (first time only, ~11MB)...")
-                        covtype = fetch_covtype()
+                        from sklearn.datasets import load_iris
+                        st.write("📊 Loading classic Iris dataset...")
+                        iris = load_iris()
                         
-                        # Create DataFrame and sample to 10K rows
-                        df = pd.DataFrame(covtype.data, columns=covtype.feature_names)
-                        df['cover_type'] = covtype.target
-                        
-                        # Sample to exactly 10K rows
-                        df = df.sample(n=10000, random_state=42).reset_index(drop=True)
+                        # Create DataFrame
+                        df = pd.DataFrame(iris.data, columns=iris.feature_names)
+                        df['species'] = iris.target
+                        df['species'] = df['species'].map({0: 'setosa', 1: 'versicolor', 2: 'virginica'})
                         
                         st.session_state.ml_data = df
-                        st.success(f"✅ Loaded Covertype dataset: {len(df):,} rows and {len(df.columns)} columns")
+                        st.success(f"✅ Loaded Iris dataset: {len(df):,} rows and {len(df.columns)} columns")
                         
                         st.info("""
                         **About this dataset:**
-                        - 🎯 **Target:** cover_type (7 forest cover types)
-                        - 📊 **Features:** 54 cartographic features
-                        - ✅ **Perfect for ML:** 10,000 samples, balanced classes
-                        - 🌲 **Real-world:** Forest cover prediction dataset
+                        - 🎯 **Target:** species (3 iris flower types: setosa, versicolor, virginica)
+                        - 📊 **Features:** 4 measurements (sepal length/width, petal length/width)
+                        - ✅ **Perfect for ML:** 150 samples, perfectly balanced (50-50-50)
+                        - 🌸 **Classic:** Most famous ML classification benchmark dataset
+                        - ⚡ **Fast:** Trains in seconds, ideal for testing
                         """)
                         
                         with st.expander("📋 Data Preview"):
@@ -5170,34 +5169,33 @@ def show_ml_classification():
     else:
         data_source = st.radio(
             "Choose data source:",
-            ["Sample Covertype Dataset", "Upload new file for this analysis"],
+            ["Sample Iris Dataset", "Upload new file for this analysis"],
             help="Try the sample dataset or upload your own"
         )
         
-        if data_source == "Sample Covertype Dataset":
-            if st.button("📥 Load Covertype Dataset", type="primary"):
-                with st.status("Loading Covertype dataset...", expanded=True) as status:
+        if data_source == "Sample Iris Dataset":
+            if st.button("📥 Load Iris Dataset", type="primary"):
+                with st.status("Loading Iris dataset...", expanded=True) as status:
                     try:
-                        from sklearn.datasets import fetch_covtype
-                        st.write("⏳ Downloading dataset (first time only, ~11MB)...")
-                        covtype = fetch_covtype()
+                        from sklearn.datasets import load_iris
+                        st.write("📊 Loading classic Iris dataset...")
+                        iris = load_iris()
                         
-                        # Create DataFrame and sample to 10K rows
-                        df = pd.DataFrame(covtype.data, columns=covtype.feature_names)
-                        df['cover_type'] = covtype.target
-                        
-                        # Sample to exactly 10K rows
-                        df = df.sample(n=10000, random_state=42).reset_index(drop=True)
+                        # Create DataFrame
+                        df = pd.DataFrame(iris.data, columns=iris.feature_names)
+                        df['species'] = iris.target
+                        df['species'] = df['species'].map({0: 'setosa', 1: 'versicolor', 2: 'virginica'})
                         
                         st.session_state.ml_data = df
-                        st.success(f"✅ Loaded Covertype dataset: {len(df):,} rows and {len(df.columns)} columns")
+                        st.success(f"✅ Loaded Iris dataset: {len(df):,} rows and {len(df.columns)} columns")
                         
                         st.info("""
                         **About this dataset:**
-                        - 🎯 **Target:** cover_type (7 forest cover types)
-                        - 📊 **Features:** 54 cartographic features
-                        - ✅ **Perfect for ML:** 10,000 samples, balanced classes
-                        - 🌲 **Real-world:** Forest cover prediction dataset
+                        - 🎯 **Target:** species (3 iris flower types: setosa, versicolor, virginica)
+                        - 📊 **Features:** 4 measurements (sepal length/width, petal length/width)
+                        - ✅ **Perfect for ML:** 150 samples, perfectly balanced (50-50-50)
+                        - 🌸 **Classic:** Most famous ML classification benchmark dataset
+                        - ⚡ **Fast:** Trains in seconds, ideal for testing
                         """)
                         
                         with st.expander("📋 Data Preview"):
@@ -5897,9 +5895,13 @@ def show_ml_classification():
                     st.divider()
                     st.subheader("⚙️ Training Progress")
                     
+                    # Create containers for progress tracking
                     progress_bar = st.progress(0)
                     status_text = st.empty()
-                    results_container = st.container()
+                    
+                    # Use expander for training progress details
+                    with st.expander("📋 Training Details (Click to expand)", expanded=False):
+                        results_container = st.container()
                     
                     # Progress callback function
                     def update_progress(current, total, model_name):
@@ -5999,7 +6001,7 @@ def show_ml_classification():
             if best_model:
                 st.metric("Best F1 Score", f"{best_model['f1']:.4f}")
         with col4:
-            total_time = sum(r['training_time'] for r in results)
+            total_time = sum(r.get('training_time', 0) for r in results)
             st.metric("Total Time", f"{total_time:.2f}s")
         
         # Results table
@@ -7042,7 +7044,7 @@ def show_ml_regression():
         with col3:
             st.metric("Best R² Score", f"{best_model['r2']:.4f}")
         with col4:
-            total_time = sum(r['training_time'] for r in successful_results)
+            total_time = sum(r.get('training_time', 0) for r in successful_results)
             st.metric("Total Time", f"{total_time:.1f}s")
         
         # Results table
