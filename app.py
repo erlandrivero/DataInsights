@@ -7916,25 +7916,32 @@ def show_anomaly_detection():
         st.error("❌ No numeric columns found in the dataset. Anomaly detection requires numeric features.")
         return
     
-    # Get AI recommendations for smart defaults
+    # Get AI recommendations for smart defaults (similar to Data Cleaning pattern)
     ai_recs = st.session_state.get('anomaly_ai_recommendations', {})
-    excluded_columns = []
-    if ai_recs:
+    has_ai_analysis = 'anomaly_ai_recommendations' in st.session_state
+    
+    if has_ai_analysis:
+        # After AI analysis: Use AI recommendations for smart defaults
         features_to_exclude = ai_recs.get('features_to_exclude', [])
         excluded_columns = [item['column'] if isinstance(item, dict) else item for item in features_to_exclude]
-    
-    # Smart feature selection based on AI recommendations
-    recommended_features = [col for col in numeric_cols if col not in excluded_columns]
-    default_features = recommended_features[:min(5, len(recommended_features))] if recommended_features else numeric_cols[:min(5, len(numeric_cols))]
-    
-    if ai_recs and excluded_columns:
-        st.info(f"💡 **AI has pre-filtered features:** Excluded {len(excluded_columns)} problematic columns based on analysis above.")
+        
+        # Smart feature selection based on AI recommendations
+        recommended_features = [col for col in numeric_cols if col not in excluded_columns]
+        default_features = recommended_features[:min(5, len(recommended_features))]
+        
+        st.info(f"🤖 **AI has analyzed your data and preset the feature selection below.** Excluded {len(excluded_columns)} problematic columns.")
+        help_text = "✨ AI-recommended features are pre-selected based on analysis above. You can still include excluded columns if needed."
+    else:
+        # Before AI analysis: No features selected (empty defaults)
+        default_features = []
+        st.info("💡 **Generate AI Analysis above to get intelligent feature recommendations. Currently no features are selected.**")
+        help_text = "Generate AI Analysis above to get smart feature recommendations based on your data."
     
     feature_cols = st.multiselect(
         "Select numeric columns to analyze:",
         numeric_cols,
         default=default_features,
-        help="✨ AI-recommended features are pre-selected. You can still include excluded columns if needed."
+        help=help_text
     )
     
     if len(feature_cols) == 0:
