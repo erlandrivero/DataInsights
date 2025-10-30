@@ -498,6 +498,73 @@ class MLTrainer:
         
         return results
     
+    def train_models_sequentially(
+        self,
+        model_names: List[str],
+        cv_folds: int = 3,
+        progress_callback: Optional[Callable] = None
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Train models one at a time to prevent memory overload.
+        
+        This method trains models sequentially with garbage collection between
+        each model to minimize memory usage. Only essential results are stored.
+        
+        Args:
+            model_names: List of model names to train
+            cv_folds: Number of cross-validation folds
+            progress_callback: Optional callback function(current, total, model_name)
+        
+        Returns:
+            Dict of model results (without full model objects)
+        """
+        import gc
+        
+        all_models = self.get_all_models()
+        results = {}
+        total = len(model_names)
+        
+        for i, model_name in enumerate(model_names):
+            try:
+                # Update progress
+                if progress_callback:
+                    progress_callback(i + 1, total, model_name)
+                
+                # Get model
+                if model_name not in all_models:
+                    results[model_name] = {'error': f'Unknown model: {model_name}'}
+                    continue
+                
+                model = all_models[model_name]
+                
+                # Train single model
+                model_result = self.train_single_model(model_name, model, cv_folds)
+                
+                # Store only essential results (not the full model object)
+                results[model_name] = {
+                    'accuracy': model_result.get('accuracy'),
+                    'precision': model_result.get('precision'),
+                    'recall': model_result.get('recall'),
+                    'f1': model_result.get('f1'),
+                    'cv_scores': model_result.get('cv_scores'),
+                    'train_time': model_result.get('train_time'),
+                    'feature_importance': model_result.get('feature_importance')
+                }
+                
+                # Clean up model object to free memory
+                if 'model' in model_result:
+                    del model_result['model']
+                del model
+                
+                # Force garbage collection after each model
+                gc.collect()
+                
+            except Exception as e:
+                results[model_name] = {'error': str(e)}
+                gc.collect()
+        
+        return results
+    
     def get_best_model_details(self, results: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Get detailed information about the best model.

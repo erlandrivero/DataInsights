@@ -5644,8 +5644,12 @@ def show_ml_classification():
                     
                     st.info(f"📊 Training {len(models_to_train)} available model(s): {', '.join(models_to_train)}")
                     
-                    # Get all models dictionary
-                    all_models = trainer.get_all_models()
+                    # Check memory before starting
+                    memory_stats = ProcessManager.get_memory_stats()
+                    st.info(f"💾 Memory usage before training: {memory_stats['rss_mb']:.1f}MB ({memory_stats['percent']:.1f}%)")
+                    
+                    # Clean up old results
+                    ProcessManager.cleanup_large_session_state_items()
                     
                     # Progress tracking
                     st.divider()
@@ -5655,47 +5659,53 @@ def show_ml_classification():
                     status_text = st.empty()
                     results_container = st.container()
                     
-                    results = []
-                    total_models = len(models_to_train)
-                    
-                    # Train each model
-                    for idx, model_name in enumerate(models_to_train):
-                        # Check if process was cancelled
-                        if not pm.is_locked():
-                            with results_container:
-                                st.warning("⚠️ Training cancelled by user. Partial results have been saved.")
-                            break
-                        
-                        # Update progress
-                        progress = idx / total_models
+                    # Progress callback function
+                    def update_progress(current, total, model_name):
+                        progress = current / total
                         progress_bar.progress(progress)
-                        status_text.text(f"Training model {idx + 1}/{total_models}: {model_name}...")
-                        
-                        # Get model instance
-                        model = all_models.get(model_name)
-                        if model is None:
-                            st.warning(f"⚠️ Model '{model_name}' not found, skipping...")
-                            continue
-                        
-                        # Train single model
-                        result = trainer.train_single_model(model_name, model, cv_folds=cv_folds)
-                        results.append(result)
-                        
-                        # Show intermediate result
+                        status_text.text(f"Training {model_name}... ({current}/{total})")
                         with results_container:
-                            st.write(f"✅ **{model_name}** - Accuracy: {result['accuracy']:.4f}, F1: {result['f1']:.4f}")
-                        
-                        # Save checkpoint every 2 models
-                        if (idx + 1) % 2 == 0:
-                            pm.save_checkpoint({
-                                'completed_models': idx + 1,
-                                'results': results,
-                                'total_models': total_models
-                            })
+                            st.write(f"🔄 Training: **{model_name}**")
+                    
+                    # Train models sequentially with memory management
+                    import gc
+                    results_dict = trainer.train_models_sequentially(
+                        model_names=models_to_train,
+                        cv_folds=cv_folds,
+                        progress_callback=update_progress
+                    )
+                    
+                    # Convert dict results to list format for compatibility
+                    results = []
+                    for model_name, model_result in results_dict.items():
+                        if 'error' not in model_result:
+                            # Add model name to result
+                            model_result['model_name'] = model_name
+                            model_result['success'] = True
+                            # Add dummy model object (not saved for memory)
+                            model_result['model'] = None
+                            # Use train_time or default to 0
+                            if 'training_time' not in model_result:
+                                model_result['training_time'] = model_result.get('train_time', 0)
+                            results.append(model_result)
+                            
+                            with results_container:
+                                st.write(f"✅ **{model_name}** - Accuracy: {model_result.get('accuracy', 0):.4f}, F1: {model_result.get('f1', 0):.4f}")
+                        else:
+                            with results_container:
+                                st.warning(f"⚠️ **{model_name}** - Error: {model_result['error']}")
                     
                     # Store final results
                     st.session_state.ml_results = results
                     st.session_state.ml_trainer = trainer
+                    
+                    # Check memory after training
+                    memory_stats_after = ProcessManager.get_memory_stats()
+                    memory_used = memory_stats_after['rss_mb'] - memory_stats['rss_mb']
+                    st.info(f"💾 Memory used during training: {memory_used:.1f}MB")
+                    
+                    # Force garbage collection
+                    gc.collect()
                     
                     # Clear progress
                     progress_bar.progress(1.0)
