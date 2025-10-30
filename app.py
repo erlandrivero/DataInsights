@@ -5334,6 +5334,46 @@ def show_ml_classification():
             # Display AI recommendations
             AISmartDetection.display_ai_recommendation(ai_recommendations, expanded=True)
             
+            # AI-Recommended Column Dropping with User Approval
+            if ai_recommendations.get('features_to_exclude'):
+                st.divider()
+                st.subheader("🚫 2a. AI-Recommended Column Exclusions")
+                
+                st.info("🤖 **AI has identified columns that may hurt model performance.** Review and approve exclusions below:")
+                
+                excluded_columns = []
+                for feature_info in ai_recommendations['features_to_exclude']:
+                    if isinstance(feature_info, dict):
+                        col_name = feature_info['column']
+                        reason = feature_info['reason']
+                    else:
+                        # Backward compatibility
+                        col_name = feature_info
+                        reason = "AI recommends excluding this column"
+                    
+                    if col_name in df.columns:
+                        col1, col2 = st.columns([1, 3])
+                        with col1:
+                            exclude = st.checkbox(
+                                f"Exclude **{col_name}**",
+                                value=False,
+                                key=f"exclude_{col_name}",
+                                help=f"AI Reason: {reason}"
+                            )
+                        with col2:
+                            st.write(f"**Reason:** {reason}")
+                        
+                        if exclude:
+                            excluded_columns.append(col_name)
+                
+                # Apply exclusions to dataframe
+                if excluded_columns:
+                    df_filtered = df.drop(columns=excluded_columns)
+                    st.success(f"✅ Excluded {len(excluded_columns)} columns: {', '.join(excluded_columns)}")
+                    st.info(f"📊 **Dataset updated:** {len(df_filtered)} rows × {len(df_filtered.columns)} columns (was {len(df.columns)})")
+                    df = df_filtered  # Use filtered dataframe for the rest of the analysis
+                    st.session_state.ml_data = df  # Update session state
+            
             # Use AI-recommended target as default
             suggested_target = ai_recommendations['target_column']
             target_index = list(df.columns).index(suggested_target) if suggested_target in df.columns else 0
@@ -5588,17 +5628,21 @@ def show_ml_classification():
             n_classes = df[target_col].nunique()
             recommended_folds, cv_reason = get_recommended_cv_folds(n_samples, n_classes)
             
-            st.info(f"💡 **Recommended:** {recommended_folds}-fold CV - {cv_reason}")
+            # Also check if AI has CV fold recommendation
+            ai_cv_folds = ai_recommendations.get('recommended_cv_folds', recommended_folds)
+            final_recommended = max(recommended_folds, ai_cv_folds)  # Use the higher recommendation
+            
+            st.info(f"💡 **AI Recommended:** {ai_cv_folds}-fold CV | **Rule-Based:** {recommended_folds}-fold CV - {cv_reason}")
             
             cv_folds = st.slider(
                 "Cross-Validation Folds",
-                min_value=recommended_folds,
+                min_value=3,
                 max_value=10,
-                value=3,
-                help=f"Recommended: {recommended_folds} for your dataset ({n_samples:,} samples, {n_classes} classes)"
+                value=final_recommended,  # Use AI recommendation as default
+                help=f"AI recommends {ai_cv_folds} folds, rule-based recommends {recommended_folds} folds for your dataset ({n_samples:,} samples, {n_classes} classes)"
             )
         
-        # Class Balancing Section (NEW)
+        # Class Balancing Section - AI Enhanced
         st.divider()
         st.subheader("⚖️ 2b. Balance Classes (Optional)")
         
@@ -5607,32 +5651,70 @@ def show_ml_classification():
         # Analyze imbalance
         imbalance_info = ClassBalancer.analyze_imbalance(df, target_col)
         
-        if imbalance_info['imbalance_ratio'] > 3:
-            # Show balancing options for imbalanced data
+        # Check if AI recommends SMOTE
+        ai_recommends_smote = ai_recommendations.get('recommend_smote', False)
+        ai_detected_imbalance = ai_recommendations.get('class_imbalance_detected', False)
+        
+        # Show if either rule-based OR AI detects imbalance
+        show_balancing = imbalance_info['imbalance_ratio'] > 3 or ai_detected_imbalance
+        
+        if show_balancing:
+            # Show combined recommendations
             preset = ClassBalancer.get_smart_preset(imbalance_info['imbalance_ratio'])
             
-            st.info(f"""
-            💡 **Smart Recommendation:** {preset['method']}  
-            **Severity:** {imbalance_info['severity']} imbalance ({imbalance_info['imbalance_ratio']:.1f}:1 ratio)  
-            **Description:** {preset['description']}
-            """)
+            # Enhanced recommendation combining AI and rule-based analysis
+            if ai_recommends_smote and imbalance_info['imbalance_ratio'] > 3:
+                recommendation_text = f"""
+                🤖 **AI + Rule-Based Analysis Agree:** Both recommend class balancing  
+                **AI Severity:** {ai_recommendations.get('imbalance_severity', 'Unknown')}  
+                **Rule-Based Ratio:** {imbalance_info['imbalance_ratio']:.1f}:1  
+                **AI Reasoning:** {ai_recommendations.get('smote_reasoning', 'Class imbalance detected')}
+                """
+                expanded_default = True  # Auto-expand when both agree
+            elif ai_recommends_smote:
+                recommendation_text = f"""
+                🤖 **AI Recommends SMOTE:** {ai_recommendations.get('smote_reasoning', 'Class imbalance detected')}  
+                **AI Severity:** {ai_recommendations.get('imbalance_severity', 'Unknown')}  
+                **Rule-Based Ratio:** {imbalance_info['imbalance_ratio']:.1f}:1 (below threshold)
+                """
+                expanded_default = True  # Auto-expand when AI recommends
+            else:
+                recommendation_text = f"""
+                💡 **Rule-Based Recommendation:** {preset['method']}  
+                **Severity:** {imbalance_info['severity']} imbalance ({imbalance_info['imbalance_ratio']:.1f}:1 ratio)  
+                **Description:** {preset['description']}
+                """
+                expanded_default = False
             
-            with st.expander("⚖️ Configure Class Balancing", expanded=False):
+            st.info(recommendation_text)
+            
+            with st.expander("⚖️ Configure Class Balancing", expanded=expanded_default):
+                # Auto-enable balancing when AI strongly recommends it
+                default_balancing = ai_recommends_smote and ai_recommendations.get('imbalance_severity') in ['Moderate', 'Severe']
+                
                 apply_balancing = st.checkbox(
                     "Apply class balancing before training",
-                    value=False,
-                    help="Recommended for imbalanced datasets to improve minority class performance"
+                    value=default_balancing,
+                    help="✨ Auto-enabled because AI detected class imbalance" if default_balancing else "Recommended for imbalanced datasets to improve minority class performance"
                 )
                 
                 if apply_balancing:
                     col1, col2 = st.columns(2)
                     
                     with col1:
+                        # Prefer SMOTE when AI recommends it, otherwise use preset
+                        if ai_recommends_smote:
+                            default_method_index = 0  # SMOTE is first in list
+                            help_text = "🤖 SMOTE recommended by AI - creates synthetic samples for minority classes"
+                        else:
+                            default_method_index = ["SMOTE", "Random Undersampling", "SMOTE + Tomek Links"].index(preset['method']) if preset['method'] in ["SMOTE", "Random Undersampling", "SMOTE + Tomek Links"] else 0
+                            help_text = "SMOTE creates synthetic samples, Undersampling removes majority samples"
+                        
                         balance_method = st.selectbox(
                             "Balancing Method:",
                             ["SMOTE", "Random Undersampling", "SMOTE + Tomek Links"],
-                            index=["SMOTE", "Random Undersampling", "SMOTE + Tomek Links"].index(preset['method']) if preset['method'] in ["SMOTE", "Random Undersampling", "SMOTE + Tomek Links"] else 0,
-                            help="SMOTE creates synthetic samples, Undersampling removes majority samples"
+                            index=default_method_index,
+                            help=help_text
                         )
                     
                     with col2:
@@ -6014,7 +6096,16 @@ def show_ml_classification():
             if best_model:
                 st.metric("Best F1 Score", f"{best_model['f1']:.4f}")
         with col4:
-            total_time = sum(r.get('training_time', 0) for r in results)
+            # Safely sum training times, handling non-numeric values
+            total_time = 0
+            for r in results:
+                time_val = r.get('training_time', 0)
+                try:
+                    if time_val is not None:
+                        total_time += float(time_val)
+                except (ValueError, TypeError):
+                    # Skip non-numeric training times
+                    continue
             st.metric("Total Time", f"{total_time:.2f}s")
         
         # Results table
@@ -7060,7 +7151,16 @@ def show_ml_regression():
         with col3:
             st.metric("Best R² Score", f"{best_model['r2']:.4f}")
         with col4:
-            total_time = sum(r.get('training_time', 0) for r in successful_results)
+            # Safely sum training times, handling non-numeric values
+            total_time = 0
+            for r in successful_results:
+                time_val = r.get('training_time', 0)
+                try:
+                    if time_val is not None:
+                        total_time += float(time_val)
+                except (ValueError, TypeError):
+                    # Skip non-numeric training times
+                    continue
             st.metric("Total Time", f"{total_time:.1f}s")
         
         # Results table

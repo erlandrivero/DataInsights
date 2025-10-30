@@ -84,7 +84,13 @@ Please analyze this dataset and provide recommendations in the following JSON fo
     "reasoning": "Detailed explanation of why this column is the best target (2-3 sentences)",
     "confidence": "High/Medium/Low",
     "features_to_use": ["list", "of", "recommended", "feature", "columns"],
-    "features_to_exclude": ["list", "of", "columns", "to", "exclude", "with", "reasons"],
+    "features_to_exclude": [
+        {{"column": "column_name", "reason": "Specific reason for exclusion"}}
+    ],
+    "class_imbalance_detected": true/false,
+    "imbalance_severity": "None/Mild/Moderate/Severe",
+    "recommend_smote": true/false,
+    "smote_reasoning": "Why SMOTE is/isn't recommended for this dataset",
     "recommended_cv_folds": 5,
     "recommended_test_size": 20,
     "warnings": ["List of any data quality concerns or warnings"],
@@ -95,9 +101,11 @@ Guidelines:
 1. For CLASSIFICATION: Target should be categorical with 2-50 classes
 2. For REGRESSION: Target should be continuous with many unique values
 3. Exclude ID columns, timestamps, or highly correlated features
-4. Consider class balance for classification
-5. Recommend appropriate CV folds based on dataset size
-6. Flag any data quality issues
+4. ANALYZE CLASS BALANCE: Check if classes are imbalanced (>3:1 ratio = imbalanced)
+5. RECOMMEND SMOTE: If severe imbalance detected, recommend SMOTE
+6. Recommend appropriate CV folds based on dataset size
+7. Flag any data quality issues
+8. Be specific about why columns should be excluded
 
 Provide ONLY the JSON response, no additional text."""
 
@@ -227,11 +235,27 @@ Provide ONLY the JSON response, no additional text."""
             with col2:
                 st.metric("Recommended Test Size", f"{recommendations.get('recommended_test_size', 20)}%")
             
-            # Features to exclude
+            # Class imbalance and SMOTE recommendations
+            if recommendations.get('class_imbalance_detected'):
+                st.write("**⚖️ Class Imbalance Analysis:**")
+                severity = recommendations.get('imbalance_severity', 'Unknown')
+                severity_emoji = {'None': '✅', 'Mild': '🟡', 'Moderate': '🟠', 'Severe': '🔴'}.get(severity, '❓')
+                st.write(f"{severity_emoji} **Severity:** {severity}")
+                
+                if recommendations.get('recommend_smote'):
+                    st.success(f"🤖 **AI Recommends SMOTE:** {recommendations.get('smote_reasoning', 'Class imbalance detected')}")
+                else:
+                    st.info(f"ℹ️ **SMOTE Not Needed:** {recommendations.get('smote_reasoning', 'Classes are relatively balanced')}")
+            
+            # Features to exclude with detailed reasons
             if recommendations.get('features_to_exclude'):
                 with st.expander("🚫 Features to Consider Excluding"):
-                    for feature in recommendations['features_to_exclude']:
-                        st.write(f"• {feature}")
+                    for feature_info in recommendations['features_to_exclude']:
+                        if isinstance(feature_info, dict):
+                            st.write(f"• **{feature_info['column']}**: {feature_info['reason']}")
+                        else:
+                            # Backward compatibility for old format
+                            st.write(f"• {feature_info}")
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
