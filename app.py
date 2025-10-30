@@ -316,17 +316,64 @@ def show_data_upload():
             try:
                 with st.status("Loading and analyzing your data...", expanded=True) as status:
                     from utils.data_processor import DataProcessor
+                    from utils.data_optimizer import DataOptimizer
                     
                     # Load data
+                    status.write("📁 Reading file...")
                     df = DataProcessor.load_data(uploaded_file)
-                    st.session_state.data = df
+                    
+                    # Check data size and optimize
+                    status.write("💾 Checking data size...")
+                    original_memory = DataOptimizer.get_memory_usage(df)
+                    
+                    # Optimize DataFrame
+                    status.write("⚡ Optimizing data...")
+                    df = DataOptimizer.optimize_dataframe(df)
+                    optimized_memory = DataOptimizer.get_memory_usage(df)
+                    memory_saved = original_memory['total_mb'] - optimized_memory['total_mb']
+                    
+                    # Check if sampling is needed
+                    if DataOptimizer.should_sample_data(df):
+                        status.write("⚠️ Large dataset detected - sampling recommended...")
+                        st.session_state.data_full = df  # Keep reference to full data
+                        
+                        # Show sampling option
+                        st.warning(f"""
+                        ⚠️ **Large Dataset Detected**
+                        
+                        Your dataset has **{len(df):,} rows**. For optimal performance on Streamlit Cloud,
+                        we recommend sampling to prevent memory issues.
+                        """)
+                        
+                        sample_size = st.slider(
+                            "Sample size for analysis:",
+                            min_value=10000,
+                            max_value=min(len(df), 200000),
+                            value=min(50000, len(df)),
+                            step=10000,
+                            help="Larger samples provide better accuracy but use more memory"
+                        )
+                        
+                        if sample_size < len(df):
+                            df_sampled = DataOptimizer.sample_data(df, sample_size=sample_size)
+                            st.info(f"📊 Using {len(df_sampled):,} sampled rows (from {len(df):,} total)")
+                            st.session_state.data = df_sampled
+                        else:
+                            st.session_state.data = df
+                    else:
+                        st.session_state.data = df
+                    
+                    # Show optimization results
+                    if memory_saved > 0.1:
+                        st.success(f"✅ Optimized! Saved {memory_saved:.1f}MB ({memory_saved/original_memory['total_mb']*100:.1f}%)")
                     
                     # Profile data
-                    profile = DataProcessor.profile_data(df)
+                    status.write("📊 Profiling data...")
+                    profile = DataProcessor.profile_data(st.session_state.data)
                     st.session_state.profile = profile
                     
-                    # Detect issues
-                    issues = DataProcessor.detect_data_quality_issues(df)
+                    # Detect issues (use sampled data if applicable)
+                    issues = DataProcessor.detect_data_quality_issues(st.session_state.data)
                     st.session_state.issues = issues
                 
                 st.success(f"✅ Successfully loaded {uploaded_file.name}!")
