@@ -7814,17 +7814,146 @@ def show_anomaly_detection():
         st.warning("⚠️ Please select at least one feature to continue")
         return
     
-    # Algorithm selection
+    # AI-Powered Anomaly Detection Recommendations (Above algorithm selection)
     st.divider()
+    st.subheader("🤖 AI Anomaly Detection Recommendations")
+    
+    if 'anomaly_ai_recommendations' not in st.session_state:
+        if st.button("🔍 Generate AI Anomaly Analysis", type="primary", use_container_width=True):
+            with st.status("🤖 AI analyzing dataset for optimal anomaly detection strategy...", expanded=True) as status:
+                try:
+                    from utils.ai_smart_detection import get_ai_recommendation
+                    
+                    # Get performance-aware recommendations for anomaly detection
+                    status.write("Analyzing data structure and performance constraints...")
+                    ai_recommendations = get_ai_recommendation(df, task_type='anomaly_detection')
+                    st.session_state.anomaly_ai_recommendations = ai_recommendations
+                    
+                    status.update(label="✅ AI analysis complete!", state="complete")
+                    st.rerun()
+                except Exception as e:
+                    status.update(label="❌ Analysis failed", state="error")
+                    st.error(f"Error generating AI recommendations: {str(e)}")
+    else:
+        ai_recs = st.session_state.anomaly_ai_recommendations
+        
+        # Performance Risk Assessment
+        performance_risk = ai_recs.get('performance_risk', 'Low')
+        risk_emoji = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}.get(performance_risk, '❓')
+        
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            st.info(f"**⚡ Performance Risk:** {risk_emoji} {performance_risk} - Dataset suitability for Streamlit Cloud")
+        with col2:
+            if st.button("🔄 Regenerate Analysis", use_container_width=True):
+                del st.session_state.anomaly_ai_recommendations
+                st.rerun()
+        
+        # Performance Warnings
+        if performance_risk in ['Medium', 'High']:
+            perf_warnings = ai_recs.get('performance_warnings', [])
+            if perf_warnings:
+                st.warning("⚠️ **Performance Warnings:**")
+                for warning in perf_warnings:
+                    st.write(f"• {warning}")
+        
+        # Optimization Suggestions
+        optimization_suggestions = ai_recs.get('optimization_suggestions', [])
+        if optimization_suggestions:
+            with st.expander("🚀 AI Optimization Suggestions", expanded=True):
+                for suggestion in optimization_suggestions:
+                    st.write(f"• {suggestion}")
+        
+        # Columns to Consider Excluding
+        features_to_exclude = ai_recs.get('features_to_exclude', [])
+        if features_to_exclude:
+            with st.expander("🚫 Columns AI Recommends Excluding Before Analysis", expanded=False):
+                for feature_info in features_to_exclude:
+                    if isinstance(feature_info, dict):
+                        st.write(f"• **{feature_info['column']}**: {feature_info['reason']}")
+                    else:
+                        st.write(f"• {feature_info}")
+    
+    st.divider()
+    
+    # AI-Powered Anomaly Detection Presets
+    def get_ai_anomaly_presets(df, feature_cols, ai_recommendations=None):
+        """Generate intelligent anomaly detection presets based on data profile and AI analysis."""
+        presets = {}
+        
+        # Dataset characteristics
+        n_samples = len(df)
+        n_features = len(feature_cols)
+        
+        # Algorithm selection based on dataset characteristics
+        if n_samples < 100:
+            presets['algorithm'] = "Isolation Forest"  # Fast for small data
+            presets['algorithm_reason'] = "Small dataset - Isolation Forest is fastest"
+        elif n_features > 10:
+            presets['algorithm'] = "Isolation Forest"  # Best for high-dimensional
+            presets['algorithm_reason'] = "High-dimensional data - Isolation Forest handles this best"
+        elif n_samples > 5000:
+            presets['algorithm'] = "Isolation Forest"  # Scalable for large data
+            presets['algorithm_reason'] = "Large dataset - Isolation Forest is most scalable"
+        else:
+            presets['algorithm'] = "Local Outlier Factor"  # Good for medium-sized data
+            presets['algorithm_reason'] = "Medium dataset - LOF can detect local anomalies well"
+        
+        # Contamination based on data characteristics and performance risk
+        performance_risk = ai_recommendations.get('performance_risk', 'Low') if ai_recommendations else 'Low'
+        
+        if performance_risk == 'High':
+            presets['contamination'] = 0.1  # Higher contamination for faster processing
+            presets['contamination_reason'] = "High performance risk - using higher contamination (10%) for faster processing"
+        elif n_samples < 500:
+            presets['contamination'] = 0.05  # Standard for small datasets
+            presets['contamination_reason'] = "Small dataset - standard 5% contamination"
+        elif n_samples > 10000:
+            presets['contamination'] = 0.02  # Lower for large datasets (more precision)
+            presets['contamination_reason'] = "Large dataset - lower 2% contamination for precision"
+        else:
+            presets['contamination'] = 0.05  # Default
+            presets['contamination_reason'] = "Standard 5% contamination for typical anomaly detection"
+        
+        # Performance adjustments
+        if performance_risk == 'High' and presets['algorithm'] != "Isolation Forest":
+            presets['algorithm'] = "Isolation Forest"
+            presets['algorithm_reason'] = "High performance risk - switched to Isolation Forest for speed"
+        
+        return presets
+    
+    # Generate AI presets
+    ai_recs = st.session_state.get('anomaly_ai_recommendations', {})
+    anomaly_presets = get_ai_anomaly_presets(df, feature_cols, ai_recs)
+    
+    # Algorithm selection with AI presets
     st.subheader("🤖 4. Configure Detection Algorithm")
+    
+    # Show AI reasoning if available
+    if ai_recs:
+        with st.expander("🧠 View AI Reasoning for Algorithm Settings", expanded=False):
+            st.markdown("**🤖 AI Analysis:**")
+            st.write(f"📊 **Dataset Profile**: {len(df):,} samples, {len(feature_cols)} features")
+            
+            performance_risk = ai_recs.get('performance_risk', 'Low')
+            st.write(f"⚡ **Performance Risk**: {performance_risk}")
+            
+            st.markdown("**🎯 AI Recommendations:**")
+            st.write(f"✅ **Algorithm**: {anomaly_presets['algorithm']} - {anomaly_presets['algorithm_reason']}")
+            st.write(f"✅ **Contamination**: {anomaly_presets['contamination']*100:.1f}% - {anomaly_presets['contamination_reason']}")
     
     col1, col2 = st.columns(2)
     
     with col1:
+        # Get algorithm index for default selection
+        algorithms = ["Isolation Forest", "Local Outlier Factor", "One-Class SVM"]
+        default_algorithm_index = algorithms.index(anomaly_presets['algorithm']) if anomaly_presets['algorithm'] in algorithms else 0
+        
         algorithm = st.selectbox(
             "Choose Algorithm:",
-            ["Isolation Forest", "Local Outlier Factor", "One-Class SVM"],
-            help="Isolation Forest is recommended for most cases"
+            algorithms,
+            index=default_algorithm_index,
+            help=f"AI Recommended: {anomaly_presets['algorithm']} - {anomaly_presets['algorithm_reason']}"
         )
     
     with col2:
@@ -7833,17 +7962,17 @@ def show_anomaly_detection():
                 "Contamination (Expected % of Anomalies)",
                 min_value=0.01,
                 max_value=0.5,
-                value=0.05,
+                value=anomaly_presets['contamination'],
                 step=0.01,
                 format="%.2f",
-                help="Proportion of data expected to be anomalies"
+                help=f"AI Recommended: {anomaly_presets['contamination']*100:.1f}% - {anomaly_presets['contamination_reason']}"
             )
         else:  # One-Class SVM
             contamination = st.slider(
                 "Nu (Upper Bound on Outliers)",
                 min_value=0.01,
                 max_value=0.5,
-                value=0.05,
+                value=anomaly_presets['contamination'],
                 step=0.01,
                 format="%.2f",
                 help="Upper bound on the fraction of outliers"

@@ -20,10 +20,11 @@ class AISmartDetection:
         
         Args:
             df: Input DataFrame
-            task_type: 'classification' or 'regression'
+            task_type: 'classification', 'regression', or 'anomaly_detection'
             
         Returns:
             Dictionary with recommendations:
+            For ML tasks:
             {
                 'target_column': str,
                 'reasoning': str,
@@ -34,6 +35,16 @@ class AISmartDetection:
                 'recommended_test_size': int,
                 'warnings': List[str],
                 'data_quality': str
+            }
+            
+            For anomaly detection:
+            {
+                'performance_risk': str (Low/Medium/High),
+                'performance_warnings': List[str],
+                'optimization_suggestions': List[str],
+                'features_to_exclude': List[dict],
+                'recommended_algorithm': str,
+                'recommended_contamination': float
             }
         """
         try:
@@ -68,7 +79,52 @@ class AISmartDetection:
                 column_info.append(info)
             
             # Create prompt for GPT-4
-            prompt = f"""You are an expert data scientist analyzing a dataset for machine learning {task_type}.
+            if task_type == 'anomaly_detection':
+                prompt = f"""You are an expert data scientist analyzing a dataset for anomaly detection.
+
+Dataset Overview:
+- Total Rows: {len(df)}
+- Total Columns: {len(df.columns)}
+- Task Type: ANOMALY DETECTION
+
+Column Details:
+{json.dumps(column_info, indent=2)}
+
+Please analyze this dataset and provide anomaly detection recommendations in the following JSON format:
+{{
+    "performance_risk": "Low/Medium/High",
+    "performance_warnings": ["List of performance concerns for Streamlit Cloud"],
+    "optimization_suggestions": ["List of specific suggestions to improve performance"],
+    "features_to_exclude": [
+        {{"column": "column_name", "reason": "Specific reason for exclusion"}}
+    ],
+    "recommended_algorithm": "Isolation Forest/Local Outlier Factor/One-Class SVM",
+    "recommended_contamination": 0.05,
+    "algorithm_reasoning": "Why this algorithm is best for this dataset",
+    "contamination_reasoning": "Why this contamination level is appropriate"
+}}
+
+Guidelines for Anomaly Detection:
+1. PERFORMANCE RISK: Assess based on dataset size and complexity
+   - Low: <1K rows, <20 columns
+   - Medium: 1K-10K rows, 20-50 columns  
+   - High: >10K rows, >50 columns
+2. ALGORITHM SELECTION:
+   - Isolation Forest: Best for high-dimensional data, large datasets, general purpose
+   - Local Outlier Factor: Good for local anomalies, medium datasets with clusters
+   - One-Class SVM: Best for well-separated normal data, smaller datasets
+3. CONTAMINATION: Expected proportion of anomalies
+   - Small datasets (<500): 0.05 (5%)
+   - Large datasets (>10K): 0.02 (2%) for precision
+   - High performance risk: 0.1 (10%) for speed
+4. EXCLUDE: ID columns, timestamps, categorical with >50 categories, constant columns
+5. PERFORMANCE CONSTRAINTS: Consider Streamlit Cloud limitations (1GB RAM, CPU timeout)
+6. MEMORY OPTIMIZATION: Recommend excluding high-cardinality categorical columns
+7. Be specific about performance warnings and optimization suggestions
+
+Provide ONLY the JSON response, no additional text."""
+            else:
+                prompt = f"""You are an expert data scientist analyzing a dataset for machine learning {task_type}.
 
 Dataset Overview:
 - Total Rows: {len(df)}
@@ -142,8 +198,8 @@ Provide ONLY the JSON response, no additional text."""
             
             recommendations = json.loads(ai_response)
             
-            # Validate target column exists
-            if recommendations['target_column'] not in df.columns:
+            # Validate target column exists (skip for anomaly detection)
+            if task_type != 'anomaly_detection' and recommendations.get('target_column') not in df.columns:
                 return AISmartDetection._fallback_detection(df, task_type)
             
             return recommendations
@@ -156,7 +212,50 @@ Provide ONLY the JSON response, no additional text."""
     @staticmethod
     def _fallback_detection(df: pd.DataFrame, task_type: str) -> Dict:
         """Fallback to rule-based detection if AI fails or API key missing."""
-        if task_type == 'classification':
+        if task_type == 'anomaly_detection':
+            # Rule-based anomaly detection recommendations
+            n_samples = len(df)
+            n_features = len(df.columns)
+            
+            # Performance risk assessment
+            if n_samples > 10000 or n_features > 50:
+                performance_risk = 'High'
+                performance_warnings = [
+                    f'Large dataset ({n_samples:,} rows, {n_features} columns) may cause performance issues',
+                    'Consider sampling data or reducing features for better performance'
+                ]
+                contamination = 0.1  # Higher for speed
+            elif n_samples > 1000 or n_features > 20:
+                performance_risk = 'Medium'
+                performance_warnings = ['Medium-sized dataset - monitor performance']
+                contamination = 0.05
+            else:
+                performance_risk = 'Low'
+                performance_warnings = []
+                contamination = 0.05
+            
+            # Algorithm selection
+            if n_features > 10 or n_samples > 5000:
+                algorithm = 'Isolation Forest'
+                algorithm_reason = 'Isolation Forest recommended for high-dimensional or large datasets'
+            else:
+                algorithm = 'Local Outlier Factor'
+                algorithm_reason = 'Local Outlier Factor good for medium-sized datasets'
+            
+            return {
+                'performance_risk': performance_risk,
+                'performance_warnings': performance_warnings,
+                'optimization_suggestions': [
+                    'Consider using only numeric features for anomaly detection',
+                    'Remove ID columns and timestamps before analysis'
+                ],
+                'features_to_exclude': [],
+                'recommended_algorithm': algorithm,
+                'recommended_contamination': contamination,
+                'algorithm_reasoning': algorithm_reason,
+                'contamination_reasoning': f'Standard {contamination*100:.0f}% contamination for rule-based detection'
+            }
+        elif task_type == 'classification':
             # Simple classification target detection
             target = None
             # Look for common target patterns
@@ -193,6 +292,7 @@ Provide ONLY the JSON response, no additional text."""
             if not target:
                 target = numeric_cols[-1] if len(numeric_cols) > 0 else df.columns[-1]
         
+        # Return format for ML tasks
         return {
             'target_column': target,
             'reasoning': 'Using rule-based detection (AI unavailable). This column was selected based on data type and position.',
@@ -295,7 +395,7 @@ def get_ai_recommendation(df: pd.DataFrame, task_type: str = 'classification') -
     
     Args:
         df: Input DataFrame
-        task_type: 'classification' or 'regression'
+        task_type: 'classification', 'regression', or 'anomaly_detection'
         
     Returns:
         Dictionary with AI recommendations
