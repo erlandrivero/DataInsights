@@ -150,6 +150,15 @@ class ClassBalancer:
         X = df.drop(columns=[target_col])
         y = df[target_col]
         
+        # Determine if binary or multi-class
+        n_classes = y.nunique()
+        
+        # For multi-class (>2 classes), use 'auto' instead of float
+        if n_classes > 2:
+            sampling_strategy_param = 'auto'  # Balance all minority classes to majority
+        else:
+            sampling_strategy_param = sampling_strategy  # Float works for binary
+        
         # Handle non-numeric features
         categorical_cols = X.select_dtypes(include=['object']).columns.tolist()
         if categorical_cols:
@@ -162,18 +171,18 @@ class ClassBalancer:
         try:
             if method == 'SMOTE':
                 sampler = SMOTE(
-                    sampling_strategy=sampling_strategy,
+                    sampling_strategy=sampling_strategy_param,
                     k_neighbors=min(k_neighbors, y.value_counts().min() - 1),
                     random_state=random_state
                 )
             elif method == 'Random Undersampling':
                 sampler = RandomUnderSampler(
-                    sampling_strategy=sampling_strategy,
+                    sampling_strategy=sampling_strategy_param,
                     random_state=random_state
                 )
             elif method == 'SMOTE + Tomek Links':
                 sampler = SMOTETomek(
-                    sampling_strategy=sampling_strategy,
+                    sampling_strategy=sampling_strategy_param,
                     random_state=random_state,
                     smote=SMOTE(
                         k_neighbors=min(k_neighbors, y.value_counts().min() - 1),
