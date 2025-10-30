@@ -6622,23 +6622,26 @@ def show_ml_regression():
                 # Look for numerical columns with many unique values
                 numeric_cols = df.select_dtypes(include=[np.number]).columns
                 
-                # Common regression target patterns
-                patterns = ['price', 'value', 'amount', 'cost', 'sales', 'revenue', 'income',
-                           'score', 'rating', 'age', 'salary', 'weight', 'height', 'medv']
+                # High-priority patterns (specific target indicators)
+                priority_patterns = ['medv', 'median_value', 'price', 'cost', 'value', 'target', 
+                                    'y', 'label', 'sales', 'revenue', 'income', 'salary']
                 
-                # Check for pattern matches
+                # Check for high-priority pattern matches first
                 for col in numeric_cols:
-                    col_lower = col.lower()
-                    for pattern in patterns:
-                        if pattern in col_lower:
+                    col_lower = col.lower().replace('_', '')
+                    for pattern in priority_patterns:
+                        pattern_clean = pattern.replace('_', '')
+                        if pattern_clean == col_lower or (pattern_clean in col_lower and len(pattern_clean) > 3):
                             # Verify it's continuous (many unique values)
                             if df[col].nunique() > 10:
                                 return col
                 
-                # Find numerical column with most unique values (likely continuous)
-                for col in numeric_cols:
-                    if df[col].nunique() > 10:
-                        return col
+                # Secondary: Find numerical column with most unique values (likely continuous target)
+                candidates = [(col, df[col].nunique()) for col in numeric_cols if df[col].nunique() > 10]
+                if candidates:
+                    # Sort by number of unique values (descending)
+                    candidates.sort(key=lambda x: x[1], reverse=True)
+                    return candidates[0][0]
                 
                 # Fallback to last numerical column
                 if len(numeric_cols) > 0:
