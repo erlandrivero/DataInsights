@@ -8141,9 +8141,9 @@ def show_anomaly_detection():
         
         return presets
     
-    # Generate AI presets
+    # Generate AI presets (use preprocessed data for accurate presets)
     ai_recs = st.session_state.get('anomaly_ai_recommendations', {})
-    anomaly_presets = get_ai_anomaly_presets(df, feature_cols, ai_recs)
+    anomaly_presets = get_ai_anomaly_presets(df_working, feature_cols, ai_recs)
     
     # Algorithm selection with AI presets
     st.subheader("🤖 5. Configure Detection Algorithm")
@@ -8152,7 +8152,12 @@ def show_anomaly_detection():
     if ai_recs:
         with st.expander("🧠 View AI Reasoning for Algorithm Settings", expanded=False):
             st.markdown("**🤖 AI Analysis:**")
-            st.write(f"📊 **Dataset Profile**: {len(df):,} samples, {len(feature_cols)} features")
+            # Show both original and preprocessed data info if different
+            if len(df_working) != len(df) or len(feature_cols) != len(feature_cols_working):
+                st.write(f"📊 **Original Dataset**: {len(df):,} samples, {len(feature_cols_working)} features")
+                st.write(f"📊 **Preprocessed Dataset**: {len(df_working):,} samples, {len(feature_cols)} features")
+            else:
+                st.write(f"📊 **Dataset Profile**: {len(df_working):,} samples, {len(feature_cols)} features")
             
             performance_risk = ai_recs.get('performance_risk', 'Low')
             st.write(f"⚡ **Performance Risk**: {performance_risk}")
@@ -8223,8 +8228,8 @@ def show_anomaly_detection():
                 
                 progress_bar.progress(0.2)
                 
-                # Initialize detector
-                detector = AnomalyDetector(df)
+                # Initialize detector with preprocessed data
+                detector = AnomalyDetector(df_working)
                 detector.set_features(feature_cols)
                 
                 st.write(f"🔍 Running {algorithm} algorithm...")
