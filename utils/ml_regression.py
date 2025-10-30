@@ -313,6 +313,75 @@ class MLRegressor:
         
         return results
     
+    def train_models_sequentially(
+        self,
+        model_names: List[str],
+        cv_folds: int = 3,
+        progress_callback: Optional[Callable] = None
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Train models one at a time to prevent memory overload.
+        
+        This method trains models sequentially with garbage collection between
+        each model to minimize memory usage. Only essential results are stored.
+        
+        Args:
+            model_names: List of model names to train
+            cv_folds: Number of cross-validation folds
+            progress_callback: Optional callback function(current, total, model_name)
+        
+        Returns:
+            Dict of model results (without full model objects)
+        """
+        import gc
+        
+        all_models = self.get_all_models()
+        results = {}
+        total = len(model_names)
+        
+        for i, model_name in enumerate(model_names):
+            try:
+                # Update progress
+                if progress_callback:
+                    progress_callback(i + 1, total, model_name)
+                
+                # Get model
+                if model_name not in all_models:
+                    results[model_name] = {'error': f'Unknown model: {model_name}'}
+                    continue
+                
+                model = all_models[model_name]
+                
+                # Train single model
+                model_result = self.train_model(model_name, model, cv_folds)
+                
+                # Store only essential results (not the full model object)
+                if model_result.get('success'):
+                    results[model_name] = {
+                        'r2': model_result.get('r2'),
+                        'rmse': model_result.get('rmse'),
+                        'mae': model_result.get('mae'),
+                        'cv_scores': model_result.get('cv_scores'),
+                        'train_time': model_result.get('training_time', 0),
+                        'feature_importance': model_result.get('feature_importance')
+                    }
+                else:
+                    results[model_name] = {'error': model_result.get('error', 'Training failed')}
+                
+                # Clean up model object to free memory
+                if 'model' in model_result:
+                    del model_result['model']
+                del model
+                
+                # Force garbage collection after each model
+                gc.collect()
+                
+            except Exception as e:
+                results[model_name] = {'error': str(e)}
+                gc.collect()
+        
+        return results
+    
     def get_model_info(self, model_name: str) -> Dict[str, str]:
         """Get detailed information about a model."""
         model_info = {

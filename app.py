@@ -6744,16 +6744,58 @@ def show_ml_regression():
                 
                 st.info(f"📊 Training {len(models_to_train)} available model(s): {', '.join(models_to_train)}")
                 
-                # Train models
-                results = regressor.train_all_models(
-                    selected_models=models_to_train,
+                # Check memory before starting
+                memory_stats = ProcessManager.get_memory_stats()
+                st.info(f"💾 Memory usage before training: {memory_stats['rss_mb']:.1f}MB ({memory_stats['percent']:.1f}%)")
+                
+                # Clean up old results
+                ProcessManager.cleanup_large_session_state_items()
+                
+                # Progress callback for sequential training
+                def seq_progress_callback(current, total, model_name):
+                    progress = current / total
+                    progress_bar.progress(progress)
+                    status_text.text(f"Training {model_name}... ({current}/{total})")
+                
+                # Train models sequentially with memory management
+                import gc
+                results_dict = regressor.train_models_sequentially(
+                    model_names=models_to_train,
                     cv_folds=cv_folds,
-                    progress_callback=progress_callback
+                    progress_callback=seq_progress_callback
                 )
+                
+                # Convert dict results to list format for compatibility
+                results = []
+                for model_name, model_result in results_dict.items():
+                    if 'error' not in model_result:
+                        # Add model name and success flag
+                        model_result['model_name'] = model_name
+                        model_result['success'] = True
+                        model_result['model'] = None  # Don't store model for memory
+                        # Use train_time or training_time
+                        if 'training_time' not in model_result:
+                            model_result['training_time'] = model_result.get('train_time', 0)
+                        results.append(model_result)
+                    else:
+                        # Add error result
+                        results.append({
+                            'model_name': model_name,
+                            'success': False,
+                            'error': model_result['error']
+                        })
                 
                 # Store results
                 st.session_state.mlr_results = results
                 st.session_state.mlr_regressor = regressor
+                
+                # Check memory after training
+                memory_stats_after = ProcessManager.get_memory_stats()
+                memory_used = memory_stats_after['rss_mb'] - memory_stats['rss_mb']
+                st.info(f"💾 Memory used during training: {memory_used:.1f}MB")
+                
+                # Force garbage collection
+                gc.collect()
                 
                 # Final checkpoint
                 pm.save_checkpoint({
