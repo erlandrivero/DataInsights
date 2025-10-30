@@ -9864,14 +9864,28 @@ def show_ab_testing():
         seg_res = st.session_state.segment_results
         segments_df = seg_res['segments']
         
+        # Check if DataFrame is empty
+        if segments_df.empty:
+            st.warning("⚠️ No segmentation results available. The selected segment column may not have enough data in each group.")
+            st.stop()
+        
         st.markdown("### 📋 Segment Performance")
         
-        # Display results table
-        display_df = segments_df[[
+        # Verify all required columns exist
+        required_cols = [
             'segment', 'control_n', 'treatment_n', 
             'control_mean', 'treatment_mean', 'lift', 
             'relative_lift', 'p_value', 'significant'
-        ]].copy()
+        ]
+        missing_cols = [col for col in required_cols if col not in segments_df.columns]
+        
+        if missing_cols:
+            st.error(f"Error: Missing columns in segmentation results: {', '.join(missing_cols)}")
+            st.info(f"Available columns: {', '.join(segments_df.columns.tolist())}")
+            st.stop()
+        
+        # Display results table
+        display_df = segments_df[required_cols].copy()
         
         # Format columns
         display_df['control_mean'] = display_df['control_mean'].apply(lambda x: f"{x:.4f}")
