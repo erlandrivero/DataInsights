@@ -14540,9 +14540,12 @@ def show_churn_prediction():
                     roc_auc = results['roc_auc']
                     
                     # Feature importance (top 5)
-                    top_features = results['feature_importance'].head(5)
-                    top_feature_str = "\n".join([f"  - {row['feature']}: {row['importance']:.3f}" 
-                                                for _, row in top_features.iterrows()])
+                    if results.get('feature_importance') is not None and len(results['feature_importance']) > 0:
+                        top_features = results['feature_importance'].head(5)
+                        top_feature_str = "\n".join([f"  - {row['feature']}: {row['importance']:.3f}" 
+                                                    for _, row in top_features.iterrows()])
+                    else:
+                        top_feature_str = "  - Feature importance not available for this model type"
                     
                     # Customer behavior patterns
                     avg_recency = features['recency_days'].mean()

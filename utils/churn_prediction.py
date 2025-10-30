@@ -198,6 +198,9 @@ class ChurnPredictor:
                 'feature': self.feature_names,
                 'importance': self.model.feature_importances_
             }).sort_values('importance', ascending=False)
+            results['feature_importance'] = self.feature_importance
+        else:
+            results['feature_importance'] = None
         
         self.results = results
         return results
