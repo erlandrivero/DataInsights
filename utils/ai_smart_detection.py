@@ -227,8 +227,10 @@ Guidelines for Market Basket Analysis:
    - Good: Adequate transaction data, reasonable patterns
    - Fair: Limited transactions but workable, some structural issues
    - Poor: No clear transaction structure, too few transactions (<50), or fundamentally unsuitable
-2. TRANSACTION COLUMN: Should have repeated values (customer/order IDs)
-3. ITEM COLUMN: Should have variety of items that appear across transactions
+2. TRANSACTION COLUMN: Should have repeated values (customer/order IDs, invoice numbers)
+3. ITEM COLUMN: Prefer human-readable item names/descriptions over codes
+   - PRIORITY: 'description', 'product_name', 'item_name' columns
+   - AVOID: 'stockcode', 'sku', 'product_id' (codes are not meaningful for patterns)
 4. PERFORMANCE RISK: Assess based on unique transactions and items
    - Low: <1K transactions, <100 unique items
    - Medium: 1K-10K transactions, 100-1K unique items  
@@ -532,16 +534,29 @@ Provide ONLY the JSON response, no additional text."""
                         transaction_col = col
                         break
             
-            # Look for item/product patterns
+            # Look for item/product patterns - prioritize descriptions over codes
+            # First pass: Look for description/name columns (most meaningful)
             for col in df.columns:
                 if col == transaction_col:
                     continue
                 col_lower = col.lower()
                 unique_ratio = df[col].nunique() / len(df)
-                if any(pattern in col_lower for pattern in ['item', 'product', 'description', 'stock', 'sku']):
+                if any(pattern in col_lower for pattern in ['description', 'product_name', 'item_name', 'product_desc']):
                     if unique_ratio > 0.01:  # Has variety
                         item_col = col
                         break
+            
+            # Second pass: If no description found, look for other item indicators
+            if not item_col:
+                for col in df.columns:
+                    if col == transaction_col:
+                        continue
+                    col_lower = col.lower()
+                    unique_ratio = df[col].nunique() / len(df)
+                    if any(pattern in col_lower for pattern in ['item', 'product']):
+                        if unique_ratio > 0.01:  # Has variety
+                            item_col = col
+                            break
             
             # Fallback: use first two columns
             if not transaction_col:
@@ -590,7 +605,7 @@ Provide ONLY the JSON response, no additional text."""
                 ],
                 'recommended_transaction_column': transaction_col,
                 'recommended_item_column': item_col,
-                'column_reasoning': f'Rule-based detection: {transaction_col} for transactions, {item_col} for items',
+                'column_reasoning': f'Rule-based detection: {transaction_col} for transactions (repeated IDs), {item_col} for items (human-readable names preferred over codes)',
                 'recommended_min_support': 0.01,
                 'recommended_min_confidence': 0.5,
                 'thresholds_reasoning': 'Standard thresholds for rule-based detection'
