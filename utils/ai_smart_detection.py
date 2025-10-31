@@ -197,13 +197,16 @@ Dataset Overview:
 Column Details:
 {json.dumps(column_info, indent=2)}
 
-Please analyze this processed transaction dataset and provide Market Basket Analysis recommendations in the following JSON format:
+Please analyze this dataset and provide Market Basket Analysis recommendations in the following JSON format:
 {{
     "performance_risk": "Low/Medium/High",
     "performance_warnings": ["List of performance concerns for Streamlit Cloud"],
     "optimization_suggestions": ["List of specific suggestions to improve MBA performance"],
     "data_suitability": "Excellent/Good/Fair/Poor",
-    "suitability_reasoning": "Why this processed dataset is/isn't suitable for Market Basket Analysis",
+    "suitability_reasoning": "Why this dataset is/isn't suitable for Market Basket Analysis",
+    "recommended_transaction_column": "column_name",
+    "recommended_item_column": "column_name",
+    "column_reasoning": "Why these columns are best for transaction ID and item identification",
     "recommended_min_support": 0.02,
     "recommended_min_confidence": 0.4,
     "recommended_min_lift": 1.5,
@@ -219,12 +222,17 @@ Guidelines for Market Basket Analysis:
    - Low: <5K transactions, <500 unique items
    - Medium: 5K-50K transactions, 500-2K unique items
    - High: >50K transactions, >2K unique items (memory intensive for Apriori)
-2. DATA SUITABILITY: Evaluate processed transaction data structure
-   - Excellent: Well-formed binary matrix, good basket diversity, reasonable item counts
-   - Good: Minor issues, reasonable transaction sizes
+2. DATA SUITABILITY: Evaluate transaction data structure
+   - Excellent: Clear transaction IDs, item names, good basket diversity
+   - Good: Minor formatting issues, reasonable transaction sizes
    - Fair: Some structural problems, very small or very large baskets
-   - Poor: Poorly formed transactions, single-item transactions, no clear patterns
-3. THRESHOLD RECOMMENDATIONS:
+   - Poor: Missing transaction structure, single-item transactions, no clear items
+3. COLUMN SELECTION: Identify best columns for MBA
+   - Transaction Column: Look for ID columns (invoice, order, transaction, basket)
+   - Item Column: Look for product/item names (description, product, item, name)
+   - Avoid: Price, quantity, date columns for item identification
+   - Prefer: Columns with reasonable cardinality and clear item names
+4. THRESHOLD RECOMMENDATIONS:
    - Support: Based on transaction count and item frequency distribution
      * Small datasets (<1K trans): 0.01-0.05 (1-5%)
      * Medium datasets (1K-10K): 0.005-0.02 (0.5-2%)

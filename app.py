@@ -3042,31 +3042,114 @@ def show_market_basket_analysis():
         else:
             st.success(f"✅ **Dataset looks suitable for MBA** (Confidence: {validation['confidence']})")
         
-        # Column selection using smart detection (from cleaned data)
+        # AI-Powered MBA Recommendations (Before column selection)
         st.divider()
-        st.subheader("📋 2. Select Columns for Analysis")
-        st.info("💡 **Smart Detection:** Columns are auto-selected based on your cleaned data. You can change them if needed.")
+        st.subheader("🤖 2. AI Market Basket Analysis Recommendations")
+        
+        if 'mba_ai_recommendations' not in st.session_state:
+            if st.button("🔍 Generate AI MBA Analysis", type="primary", use_container_width=True):
+                with st.status("🤖 Analyzing dataset with AI...", expanded=True) as status:
+                    try:
+                        import time
+                        from utils.ai_smart_detection import get_ai_recommendation
+                        
+                        # Step 1: Preparing data
+                        status.write("Preparing dataset for analysis...")
+                        time.sleep(0.5)
+                        
+                        # Step 2: Analyzing structure
+                        status.write("Analyzing data structure and column suitability...")
+                        time.sleep(0.5)
+                        
+                        # Step 3: Generating AI analysis
+                        status.write("Generating AI recommendations...")
+                        ai_recommendations = get_ai_recommendation(df, task_type='market_basket_analysis')
+                        st.session_state.mba_ai_recommendations = ai_recommendations
+                        
+                        status.update(label="✅ AI analysis complete!", state="complete")
+                        st.rerun()
+                    except Exception as e:
+                        status.update(label="❌ Analysis failed", state="error")
+                        st.error(f"Error generating AI recommendations: {str(e)}")
+        else:
+            ai_recs = st.session_state.mba_ai_recommendations
+            
+            # Performance Risk Assessment
+            performance_risk = ai_recs.get('performance_risk', 'Low')
+            risk_emoji = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}.get(performance_risk, '❓')
+            
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                st.info(f"**⚡ Performance Risk:** {risk_emoji} {performance_risk} - Dataset suitability for Streamlit Cloud")
+            with col2:
+                if st.button("🔄 Regenerate Analysis", use_container_width=True):
+                    del st.session_state.mba_ai_recommendations
+                    st.rerun()
+            
+            # Data Suitability Assessment
+            data_suitability = ai_recs.get('data_suitability', 'Unknown')
+            suitability_emoji = {'Excellent': '🌟', 'Good': '✅', 'Fair': '⚠️', 'Poor': '❌'}.get(data_suitability, '❓')
+            st.success(f"**📊 Data Suitability:** {suitability_emoji} {data_suitability} for Market Basket Analysis")
+            
+            # Suitability reasoning
+            suitability_reasoning = ai_recs.get('suitability_reasoning', 'No reasoning provided')
+            with st.expander("💡 Why this suitability rating?", expanded=False):
+                st.info(suitability_reasoning)
+            
+            # Column recommendations
+            recommended_trans_col = ai_recs.get('recommended_transaction_column', df.columns[0])
+            recommended_item_col = ai_recs.get('recommended_item_column', df.columns[1] if len(df.columns) > 1 else df.columns[0])
+            column_reasoning = ai_recs.get('column_reasoning', 'AI analysis of column characteristics')
+            
+            with st.expander("🧠 AI Column Selection Reasoning", expanded=False):
+                st.info(f"**🤖 Why these columns?** {column_reasoning}")
+                st.write(f"**Transaction Column:** {recommended_trans_col}")
+                st.write(f"**Item Column:** {recommended_item_col}")
+        
+        # Column selection (now informed by AI recommendations)
+        st.divider()
+        st.subheader("📋 3. Select Columns for Analysis")
+        
+        # Get AI recommendations for smart defaults
+        ai_recs = st.session_state.get('mba_ai_recommendations', {})
+        has_ai_analysis = 'mba_ai_recommendations' in st.session_state
+        
+        if has_ai_analysis:
+            # After AI analysis: Use AI recommendations for smart defaults
+            recommended_trans_col = ai_recs.get('recommended_transaction_column', df.columns[0])
+            recommended_item_col = ai_recs.get('recommended_item_column', df.columns[1] if len(df.columns) > 1 else df.columns[0])
+            
+            # Find indices of AI-recommended columns
+            trans_idx = list(df.columns).index(recommended_trans_col) if recommended_trans_col in df.columns else 0
+            item_idx = list(df.columns).index(recommended_item_col) if recommended_item_col in df.columns else 0
+            
+            st.info(f"🤖 **AI has analyzed your data and preset the columns below.** Transaction: {recommended_trans_col}, Item: {recommended_item_col}")
+            help_text_trans = f"AI Recommended: {recommended_trans_col} - {ai_recs.get('column_reasoning', 'Best for transaction grouping')}"
+            help_text_item = f"AI Recommended: {recommended_item_col} - {ai_recs.get('column_reasoning', 'Best for item identification')}"
+        else:
+            # Before AI analysis: Use smart detection as fallback
+            trans_idx = list(df.columns).index(suggestions['transaction_id']) if suggestions['transaction_id'] in df.columns else 0
+            item_idx = list(df.columns).index(suggestions['item']) if suggestions['item'] in df.columns else 0
+            st.info("💡 **Generate AI Analysis above to get intelligent column recommendations. Currently using smart detection.**")
+            help_text_trans = "Generate AI Analysis above to get smart column recommendations based on your data."
+            help_text_item = "Generate AI Analysis above to get smart column recommendations based on your data."
         
         col1, col2 = st.columns(2)
         with col1:
-            # Find index of suggested column
-            trans_idx = list(df.columns).index(suggestions['transaction_id']) if suggestions['transaction_id'] in df.columns else 0
             trans_col = st.selectbox(
                 "Transaction ID column:", 
                 df.columns, 
                 index=trans_idx,
                 key="loaded_trans_col",
-                help="Column that groups items into transactions (e.g., Order ID, Invoice ID)"
+                help=help_text_trans
             )
         with col2:
-            # Find index of suggested column
-            item_idx = list(df.columns).index(suggestions['item']) if suggestions['item'] in df.columns else 0
             item_col = st.selectbox(
                 "Item column:", 
                 df.columns,
                 index=item_idx, 
                 key="loaded_item_col",
-                help="Column containing item names or product descriptions"
+                help=help_text_item
             )
         
         # Only show button if data is suitable
@@ -3193,89 +3276,6 @@ def show_market_basket_analysis():
             all_items_set.update(trans)
         st.write(f"**Unique items from raw transactions:** {len(all_items_set)}")
 
-    # AI-Powered MBA Recommendations (After processing - for thresholds and performance)
-    st.divider()
-    st.subheader("🤖 3. AI Market Basket Analysis Recommendations")
-    
-    if 'mba_ai_recommendations' not in st.session_state:
-        if st.button("🔍 Generate AI MBA Analysis", type="primary", use_container_width=True):
-            with st.status("🤖 Analyzing transaction data with AI...", expanded=True) as status:
-                try:
-                    import time
-                    from utils.ai_smart_detection import get_ai_recommendation
-                    
-                    # Step 1: Preparing data
-                    status.write("Preparing transaction data...")
-                    time.sleep(0.5)  # Brief pause for visual feedback
-                    
-                    # Step 2: Analyzing structure
-                    status.write("Analyzing transaction structure and performance constraints...")
-                    time.sleep(0.5)
-                    
-                    # Step 3: Generating AI analysis
-                    status.write("Generating AI analysis...")
-                    ai_recommendations = get_ai_recommendation(df_encoded, task_type='market_basket_analysis')
-                    st.session_state.mba_ai_recommendations = ai_recommendations
-                    
-                    status.update(label="✅ AI analysis complete!", state="complete")
-                    st.rerun()
-                except Exception as e:
-                    status.update(label="❌ Analysis failed", state="error")
-                    st.error(f"Error generating AI recommendations: {str(e)}")
-    else:
-        ai_recs = st.session_state.mba_ai_recommendations
-        
-        # Performance Risk Assessment
-        performance_risk = ai_recs.get('performance_risk', 'Low')
-        risk_emoji = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}.get(performance_risk, '❓')
-        
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            st.info(f"**⚡ Performance Risk:** {risk_emoji} {performance_risk} - Dataset suitability for Streamlit Cloud")
-        with col2:
-            if st.button("🔄 Regenerate Analysis", use_container_width=True):
-                del st.session_state.mba_ai_recommendations
-                st.rerun()
-        
-        # Data Suitability Assessment
-        data_suitability = ai_recs.get('data_suitability', 'Unknown')
-        suitability_emoji = {'Excellent': '🌟', 'Good': '✅', 'Fair': '⚠️', 'Poor': '❌'}.get(data_suitability, '❓')
-        st.success(f"**📊 Data Suitability:** {suitability_emoji} {data_suitability} for Market Basket Analysis")
-        
-        # Suitability reasoning
-        suitability_reasoning = ai_recs.get('suitability_reasoning', 'No reasoning provided')
-        with st.expander("💡 Why this suitability rating?", expanded=False):
-            st.info(suitability_reasoning)
-        
-        # Performance Warnings
-        if performance_risk in ['Medium', 'High']:
-            perf_warnings = ai_recs.get('performance_warnings', [])
-            if perf_warnings:
-                st.warning("⚠️ **Performance Warnings:**")
-                for warning in perf_warnings:
-                    st.write(f"• {warning}")
-        
-        # Optimization Suggestions
-        optimization_suggestions = ai_recs.get('optimization_suggestions', [])
-        if optimization_suggestions:
-            with st.expander("🚀 AI Optimization Suggestions", expanded=True):
-                for suggestion in optimization_suggestions:
-                    st.write(f"• {suggestion}")
-        
-        # Transaction Structure Issues
-        structure_issues = ai_recs.get('transaction_structure_issues', [])
-        if structure_issues:
-            with st.expander("⚠️ Transaction Structure Issues", expanded=False):
-                for issue in structure_issues:
-                    st.warning(f"• {issue}")
-        
-        # Preprocessing Recommendations
-        preprocessing_recs = ai_recs.get('preprocessing_recommendations', [])
-        if preprocessing_recs:
-            with st.expander("🔧 MBA Preprocessing Recommendations", expanded=False):
-                for rec in preprocessing_recs:
-                    st.write(f"• {rec}")
-    
     # Threshold controls (now informed by AI recommendations)
     st.divider()
     st.subheader("🎛️ 4. Adjust Thresholds")
