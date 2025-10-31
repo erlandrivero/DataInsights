@@ -63,6 +63,7 @@ class AISmartDetection:
             # Check if OpenAI API key is available
             api_key = os.getenv('OPENAI_API_KEY')
             if not api_key:
+                print(f"No OpenAI API key found - using fallback detection for {task_type}")
                 return AISmartDetection._fallback_detection(df, task_type)
             
             # Prepare dataset summary for GPT-4
@@ -342,6 +343,7 @@ Guidelines:
 Provide ONLY the JSON response, no additional text."""
 
             # Call OpenAI API
+            print(f"Making AI API call for {task_type}...")
             from openai import OpenAI
             client = OpenAI(api_key=api_key)
             
@@ -354,9 +356,11 @@ Provide ONLY the JSON response, no additional text."""
                 temperature=0.3,
                 max_tokens=1000
             )
+            print(f"AI API call successful for {task_type}")
             
             # Parse response
             ai_response = response.choices[0].message.content.strip()
+            print(f"Raw AI response for {task_type}: {ai_response[:200]}...")
             
             # Remove markdown code blocks if present
             if ai_response.startswith('```'):
@@ -365,7 +369,9 @@ Provide ONLY the JSON response, no additional text."""
                     ai_response = ai_response[4:]
                 ai_response = ai_response.strip()
             
+            print(f"Cleaned AI response for {task_type}: {ai_response[:200]}...")
             recommendations = json.loads(ai_response)
+            print(f"Successfully parsed AI recommendations for {task_type}")
             
             # Validate target column exists (skip for anomaly detection and data cleaning)
             if task_type not in ['anomaly_detection', 'data_cleaning'] and recommendations.get('target_column') not in df.columns:
