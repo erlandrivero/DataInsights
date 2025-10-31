@@ -8032,36 +8032,39 @@ def show_anomaly_detection():
         numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
         st.metric("Numeric Columns", len(numeric_cols))
     
-    # AI-Powered Anomaly Detection Recommendations (Before feature selection)
+    # AI-Powered Anomaly Detection Recommendations (MOVED BEFORE validation to prevent blocking)
     st.divider()
-    st.subheader("🤖 3. AI Anomaly Detection Recommendations")
+    st.subheader("🤖 2. AI Anomaly Detection Recommendations")
     
-    if 'anomaly_ai_recommendations' not in st.session_state:
-        if st.button("🔍 Generate AI Anomaly Analysis", type="primary", use_container_width=True):
-            with st.status("🤖 Analyzing dataset with AI...", expanded=True) as status:
-                try:
-                    import time
-                    from utils.ai_smart_detection import get_ai_recommendation
-                    
-                    # Step 1: Preparing data
-                    status.write("Preparing anomaly data...")
-                    time.sleep(0.5)  # Brief pause for visual feedback
-                    
-                    # Step 2: Analyzing structure
-                    status.write("Analyzing data structure and performance constraints...")
-                    time.sleep(0.5)
-                    
-                    # Step 3: Generating AI analysis
-                    status.write("Generating AI analysis...")
-                    ai_recommendations = get_ai_recommendation(df, task_type='anomaly_detection')
-                    st.session_state.anomaly_ai_recommendations = ai_recommendations
-                    
-                    status.update(label="✅ AI analysis complete!", state="complete")
-                    st.rerun()
-                except Exception as e:
-                    status.update(label="❌ Analysis failed", state="error")
-                    st.error(f"Error generating AI recommendations: {str(e)}")
-    else:
+    # Simple AI button without complex conditionals
+    if st.button("🔍 Generate AI Anomaly Analysis", type="primary", use_container_width=True, key="anomaly_ai_btn"):
+        with st.status("🤖 Analyzing dataset with AI...", expanded=True) as status:
+            try:
+                import time
+                from utils.ai_smart_detection import get_ai_recommendation
+                
+                # Step 1: Preparing data
+                status.write("Preparing anomaly data...")
+                time.sleep(0.5)
+                
+                # Step 2: Analyzing structure
+                status.write("Analyzing data structure and performance constraints...")
+                time.sleep(0.5)
+                
+                # Step 3: Generating AI analysis
+                status.write("Generating AI analysis...")
+                status.write(f"Analyzing {len(df)} rows, {len(df.columns)} columns: {list(df.columns)}")
+                ai_recommendations = get_ai_recommendation(df, task_type='anomaly_detection')
+                st.session_state.anomaly_ai_recommendations = ai_recommendations
+                
+                status.update(label="✅ AI analysis complete!", state="complete")
+                st.rerun()
+            except Exception as e:
+                status.update(label="❌ Analysis failed", state="error")
+                st.error(f"Error generating AI recommendations: {str(e)}")
+    
+    # Show AI recommendations if available
+    if 'anomaly_ai_recommendations' in st.session_state:
         ai_recs = st.session_state.anomaly_ai_recommendations
         
         # Performance Risk Assessment
@@ -8072,11 +8075,46 @@ def show_anomaly_detection():
         with col1:
             st.info(f"**⚡ Performance Risk:** {risk_emoji} {performance_risk} - Dataset suitability for Streamlit Cloud")
         with col2:
-            if st.button("🔄 Regenerate Analysis", use_container_width=True):
+            if st.button("🔄 Regenerate Analysis", use_container_width=True, key="anomaly_regen_btn"):
                 del st.session_state.anomaly_ai_recommendations
                 st.rerun()
         
-        # Performance Warnings
+        # Data Suitability Assessment - AI DECISION POINT
+        data_suitability = ai_recs.get('data_suitability', 'Unknown')
+        suitability_emoji = {'Excellent': '🌟', 'Good': '✅', 'Fair': '⚠️', 'Poor': '❌'}.get(data_suitability, '❓')
+        
+        # AI-DRIVEN BLOCKING LOGIC
+        if data_suitability == 'Poor':
+            st.error(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for Anomaly Detection")
+            
+            # Show AI reasoning for why it's not suitable
+            suitability_reasoning = ai_recs.get('suitability_reasoning', 'AI determined this data is not suitable for Anomaly Detection')
+            st.error(f"**🤖 AI Recommendation:** {suitability_reasoning}")
+            
+            # Show AI suggestions
+            ai_suggestions = ai_recs.get('alternative_suggestions', [])
+            if ai_suggestions:
+                st.info("**💡 AI Suggestions:**")
+                for suggestion in ai_suggestions:
+                    st.write(f"- {suggestion}")
+            else:
+                st.info("**💡 AI Suggestions:**")
+                st.write("- Use Sample Data (built-in credit card transactions)")
+                st.write("- Upload a different dataset with numeric features")
+                st.write("- Ensure your data has measurable anomaly patterns")
+            
+            st.warning("**⚠️ Module not available for this dataset based on AI analysis.**")
+            st.stop()  # AI-DRIVEN STOP - Only stop if AI says data is Poor
+        else:
+            # AI approves - show positive assessment
+            st.success(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for Anomaly Detection")
+            
+            # Suitability reasoning
+            suitability_reasoning = ai_recs.get('suitability_reasoning', 'AI determined this data is suitable for Anomaly Detection')
+            with st.expander("💡 Why this suitability rating?", expanded=False):
+                st.info(suitability_reasoning)
+        
+        # Performance Warnings (only shown if AI approves)
         if performance_risk in ['Medium', 'High']:
             perf_warnings = ai_recs.get('performance_warnings', [])
             if perf_warnings:
@@ -8100,8 +8138,32 @@ def show_anomaly_detection():
                         st.write(f"• **{feature_info['column']}**: {feature_info['reason']}")
                     else:
                         st.write(f"• {feature_info}")
+    else:
+        # No AI analysis yet - show prompt to run AI analysis
+        st.info("🤖 **Run AI Analysis above to determine if this dataset is suitable for Anomaly Detection.**")
     
-    # Feature selection (now informed by AI recommendations)
+    # Data validation (INFORMATIONAL ONLY - AI makes the final decision)
+    st.divider()
+    st.subheader("📊 3. Dataset Validation (Informational)")
+    
+    # Only show validation if AI analysis has been run
+    if 'anomaly_ai_recommendations' in st.session_state:
+        with st.expander("🔍 Technical Validation Details", expanded=False):
+            # Basic data validation for anomaly detection
+            if len(numeric_cols) < 2:
+                st.warning("⚠️ **Rule-based validation:** Dataset has fewer than 2 numeric columns")
+                st.info("**Technical recommendation:** Anomaly detection works best with multiple numeric features")
+            elif len(df) < 50:
+                st.warning("⚠️ **Rule-based validation:** Dataset has fewer than 50 rows")
+                st.info("**Technical recommendation:** Larger datasets provide more reliable anomaly detection")
+            else:
+                st.success(f"✅ **Rule-based validation passed** - {len(numeric_cols)} numeric columns, {len(df)} rows")
+            
+            st.info("**Note:** AI analysis above provides the authoritative assessment for module availability.")
+    else:
+        st.info("📋 **Technical validation will be shown after AI analysis is complete.**")
+    
+    # Feature Selection (only available if AI approves)
     st.divider()
     st.subheader("🎯 4. Select Features for Analysis")
     
@@ -8113,7 +8175,8 @@ def show_anomaly_detection():
     ai_recs = st.session_state.get('anomaly_ai_recommendations', {})
     has_ai_analysis = 'anomaly_ai_recommendations' in st.session_state
     
-    if has_ai_analysis:
+    # Only show feature selection if AI analysis exists and approves
+    if has_ai_analysis and ai_recs.get('data_suitability', 'Unknown') != 'Poor':
         # After AI analysis: Use AI recommendations for smart defaults
         features_to_exclude = ai_recs.get('features_to_exclude', [])
         excluded_columns = [item['column'] if isinstance(item, dict) else item for item in features_to_exclude]
@@ -8124,21 +8187,26 @@ def show_anomaly_detection():
         
         st.info(f"🤖 **AI has analyzed your data and preset the feature selection below.** Excluded {len(excluded_columns)} problematic columns.")
         help_text = "✨ AI-recommended features are pre-selected based on analysis above. You can still include excluded columns if needed."
+        
+        feature_cols = st.multiselect(
+            "Select numeric columns to analyze:",
+            numeric_cols,
+            default=default_features,
+            help=help_text
+        )
+    elif not has_ai_analysis:
+        # Before AI analysis: Show message to run AI analysis first
+        st.info("🤖 **Generate AI Analysis above to determine feature recommendations and data suitability.**")
+        st.warning("⚠️ **Feature selection not available until AI analysis is complete.**")
+        return
     else:
-        # Before AI analysis: No features selected (empty defaults)
-        default_features = []
-        st.info("💡 **Generate AI Analysis above to get intelligent feature recommendations. Currently no features are selected.**")
-        help_text = "Generate AI Analysis above to get smart feature recommendations based on your data."
+        # AI analysis exists but data not suitable (shouldn't reach here due to st.stop above)
+        st.error("❌ **Feature selection not available - AI determined data is not suitable.**")
+        return
     
-    feature_cols = st.multiselect(
-        "Select numeric columns to analyze:",
-        numeric_cols,
-        default=default_features,
-        help=help_text
-    )
-    
+    # Only proceed if AI approves and features are selected
     if len(feature_cols) == 0:
-        st.warning("⚠️ Please select at least one feature to continue")
+        st.warning("⚠️ **Please select at least one numeric feature to continue with anomaly detection.**")
         return
     
     # AI-Powered Data Preprocessing (only show when AI recommends it)
