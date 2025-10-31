@@ -150,9 +150,13 @@ def main():
         if st.session_state.data is not None:
             st.header("📥 Quick Export")
             
-            from utils.export_helper import ExportHelper
-            from datetime import datetime
-            export = ExportHelper()
+            try:
+                from utils.export_helper import ExportHelper
+                from datetime import datetime
+                export = ExportHelper()
+            except Exception as e:
+                st.error(f"Export module loading error. Please refresh the page. Error: {str(e)}")
+                st.stop()
             
             df = st.session_state.data
             profile = st.session_state.get('profile', {})
