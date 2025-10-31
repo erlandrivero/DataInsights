@@ -3017,74 +3017,39 @@ def show_market_basket_analysis():
         
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
         
-        # Get smart column suggestions
-        from utils.column_detector import ColumnDetector
-        suggestions = ColumnDetector.get_mba_column_suggestions(df)
-        
-        # Validate data suitability
-        validation = ColumnDetector.validate_mba_suitability(df)
-        
-        # Store validation result
-        st.session_state.mba_data_suitable = validation['suitable']
-        
-        if not validation['suitable']:
-            st.error("❌ **Dataset Not Suitable for Market Basket Analysis**")
-            for warning in validation['warnings']:
-                st.warning(warning)
-            st.info("**💡 Recommendations:**")
-            for rec in validation['recommendations']:
-                st.write(f"- {rec}")
-            st.write("**Consider using:**")
-            st.write("- Sample Groceries Dataset (built-in)")
-            st.write("- A different dataset with transactional data")
-            st.stop()  # STOP here - don't show process button
-        elif len(validation['warnings']) > 0:
-            with st.expander("⚠️ Data Quality Warnings", expanded=False):
-                for warning in validation['warnings']:
-                    st.warning(warning)
-                if validation['recommendations']:
-                    st.info("**Recommendations:**")
-                    for rec in validation['recommendations']:
-                        st.write(f"- {rec}")
-        else:
-            st.success(f"✅ **Dataset looks suitable for MBA** (Confidence: {validation['confidence']})")
-        
-        # AI-Powered MBA Recommendations (Before column selection)
+        # AI-Powered MBA Recommendations (MOVED BEFORE validation to prevent blocking)
         st.divider()
         st.subheader("🤖 2. AI Market Basket Analysis Recommendations")
         
-        print(f"🔥 MBA SESSION CHECK: mba_ai_recommendations in session_state = {'mba_ai_recommendations' in st.session_state}")
-        if 'mba_ai_recommendations' not in st.session_state:
-            print("🔥 MBA SESSION STATE: Button should be visible")
-            if st.button("🔍 Generate AI MBA Analysis", type="primary", use_container_width=True):
-                print("🔥 MBA BUTTON CLICKED! Starting AI analysis...")
-                with st.status("🤖 Analyzing dataset with AI...", expanded=True) as status:
-                    try:
-                        import time
-                        from utils.ai_smart_detection import get_ai_recommendation
-                        print("🔥 IMPORT SUCCESSFUL! About to call AI function...")
-                        
-                        # Step 1: Preparing data
-                        status.write("Preparing dataset for analysis...")
-                        time.sleep(0.5)
-                        
-                        # Step 2: Analyzing structure
-                        status.write("Analyzing data structure and column suitability...")
-                        time.sleep(0.5)
-                        
-                        # Step 3: Generating AI analysis
-                        status.write("Generating AI recommendations...")
-                        status.write(f"Analyzing {len(df)} rows, {len(df.columns)} columns: {list(df.columns)}")
-                        ai_recommendations = get_ai_recommendation(df, task_type='market_basket_analysis')
-                        st.session_state.mba_ai_recommendations = ai_recommendations
-                        
-                        status.update(label="✅ AI analysis complete!", state="complete")
-                        st.rerun()
-                    except Exception as e:
-                        status.update(label="❌ Analysis failed", state="error")
-                        st.error(f"Error generating AI recommendations: {str(e)}")
-        else:
-            print("🔥 MBA SESSION STATE: Recommendations exist, showing regenerate button")
+        # Simple AI button without complex conditionals
+        if st.button("🔍 Generate AI MBA Analysis", type="primary", use_container_width=True, key="mba_ai_btn"):
+            with st.status("🤖 Analyzing dataset with AI...", expanded=True) as status:
+                try:
+                    import time
+                    from utils.ai_smart_detection import get_ai_recommendation
+                    
+                    # Step 1: Preparing data
+                    status.write("Preparing dataset for analysis...")
+                    time.sleep(0.5)
+                    
+                    # Step 2: Analyzing structure
+                    status.write("Analyzing data structure and column suitability...")
+                    time.sleep(0.5)
+                    
+                    # Step 3: Generating AI analysis
+                    status.write("Generating AI recommendations...")
+                    status.write(f"Analyzing {len(df)} rows, {len(df.columns)} columns: {list(df.columns)}")
+                    ai_recommendations = get_ai_recommendation(df, task_type='market_basket_analysis')
+                    st.session_state.mba_ai_recommendations = ai_recommendations
+                    
+                    status.update(label="✅ AI analysis complete!", state="complete")
+                    st.rerun()
+                except Exception as e:
+                    status.update(label="❌ Analysis failed", state="error")
+                    st.error(f"Error generating AI recommendations: {str(e)}")
+        
+        # Show AI recommendations if available
+        if 'mba_ai_recommendations' in st.session_state:
             ai_recs = st.session_state.mba_ai_recommendations
             
             # Performance Risk Assessment
@@ -3095,7 +3060,7 @@ def show_market_basket_analysis():
             with col1:
                 st.info(f"**⚡ Performance Risk:** {risk_emoji} {performance_risk} - Dataset suitability for Streamlit Cloud")
             with col2:
-                if st.button("🔄 Regenerate Analysis", use_container_width=True):
+                if st.button("🔄 Regenerate Analysis", use_container_width=True, key="mba_regen_btn"):
                     del st.session_state.mba_ai_recommendations
                     st.rerun()
             
@@ -3119,9 +3084,46 @@ def show_market_basket_analysis():
                 st.write(f"**Transaction Column:** {recommended_trans_col}")
                 st.write(f"**Item Column:** {recommended_item_col}")
         
+        # Data validation (MOVED AFTER AI analysis, non-blocking)
+        st.divider()
+        st.subheader("📊 3. Dataset Validation")
+        
+        # Get smart column suggestions
+        from utils.column_detector import ColumnDetector
+        suggestions = ColumnDetector.get_mba_column_suggestions(df)
+        
+        # Validate data suitability
+        validation = ColumnDetector.validate_mba_suitability(df)
+        
+        # Store validation result
+        st.session_state.mba_data_suitable = validation['suitable']
+        
+        if not validation['suitable']:
+            st.error("❌ **Dataset Not Suitable for Market Basket Analysis**")
+            for warning in validation['warnings']:
+                st.warning(warning)
+            st.info("**💡 Recommendations:**")
+            for rec in validation['recommendations']:
+                st.write(f"- {rec}")
+            st.write("**Consider using:**")
+            st.write("- Sample Groceries Dataset (built-in)")
+            st.write("- A different dataset with transactional data")
+            # REMOVED st.stop() - allow user to continue with warnings
+        elif len(validation['warnings']) > 0:
+            with st.expander("⚠️ Data Quality Warnings", expanded=False):
+                for warning in validation['warnings']:
+                    st.warning(warning)
+                if validation['recommendations']:
+                    st.info("**Recommendations:**")
+                    for rec in validation['recommendations']:
+                        st.write(f"- {rec}")
+        else:
+            st.success(f"✅ **Dataset looks suitable for MBA** (Confidence: {validation['confidence']})")
+        
+        
         # Column selection (now informed by AI recommendations)
         st.divider()
-        st.subheader("📋 3. Select Columns for Analysis")
+        st.subheader("📋 4. Select Columns for Analysis")
         
         # Get AI recommendations for smart defaults
         ai_recs = st.session_state.get('mba_ai_recommendations', {})
@@ -3323,7 +3325,7 @@ def show_market_basket_analysis():
 
     # Threshold controls (now informed by AI recommendations)
     st.divider()
-    st.subheader("🎛️ 4. Adjust Thresholds")
+    st.subheader("🎛️ 5. Adjust Thresholds")
     
     st.info("💡 **Memory-Friendly Defaults:** Higher support = less memory usage. Recommended for large datasets (>10k transactions).")
     
