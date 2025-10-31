@@ -3459,8 +3459,22 @@ def show_market_basket_analysis():
                 status_text.text("Mining frequent itemsets...")
                 progress_bar.progress(0.3)
                 
-                # Find frequent itemsets
-                itemsets = mba.find_frequent_itemsets(min_support=min_support)
+                # Determine max_len based on dataset size to prevent memory issues
+                transactions = st.session_state.mba_transactions
+                unique_items = len(set([item for trans in transactions for item in trans]))
+                
+                # CRITICAL: Limit itemset size for large datasets (Streamlit Cloud protection)
+                if len(transactions) > 10000 or unique_items > 1000:
+                    max_len = 3  # Max 3-item combinations for large datasets
+                    st.info(f"🛡️ **Memory Protection:** Limiting to {max_len}-item combinations (Large dataset: {len(transactions):,} transactions, {unique_items} items)")
+                elif len(transactions) > 5000 or unique_items > 500:
+                    max_len = 4  # Max 4-item combinations for medium datasets
+                    st.info(f"🛡️ **Memory Protection:** Limiting to {max_len}-item combinations (Medium dataset: {len(transactions):,} transactions, {unique_items} items)")
+                else:
+                    max_len = 5  # Max 5-item combinations for small datasets
+                
+                # Find frequent itemsets with memory protection
+                itemsets = mba.find_frequent_itemsets(min_support=min_support, max_len=max_len)
                 
                 if len(itemsets) == 0:
                     st.warning(f"⚠️ No frequent itemsets found with support >= {min_support}. Try lowering the minimum support.")
