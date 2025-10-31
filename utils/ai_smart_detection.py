@@ -231,14 +231,21 @@ Guidelines for Market Basket Analysis:
 3. ITEM COLUMN: Prefer human-readable item names/descriptions over codes
    - PRIORITY: 'description', 'product_name', 'item_name' columns
    - AVOID: 'stockcode', 'sku', 'product_id' (codes are not meaningful for patterns)
-4. PERFORMANCE RISK: Assess based on unique transactions and items
+4. PERFORMANCE RISK: CRITICAL - Assess based on unique item count (combinatorial explosion risk)
    - Low: <1K transactions, <100 unique items
    - Medium: 1K-10K transactions, 100-1K unique items  
    - High: >10K transactions, >1K unique items
-5. EXCLUDE: Columns with unique values per row (likely not transactional)
-6. THRESHOLDS: Higher support/confidence for larger datasets
-7. PERFORMANCE CONSTRAINTS: Consider Streamlit Cloud limitations (1GB RAM, CPU timeout)
-8. Be specific about why columns are or aren't suitable for MBA
+   - CRITICAL: >2K unique items = Extreme memory risk (billions of combinations)
+5. THRESHOLDS: MUST be aggressive for large item catalogs
+   - <100 items: 0.01 support (1%)
+   - 100-500 items: 0.02 support (2%)
+   - 500-1K items: 0.03 support (3%)
+   - 1K-2K items: 0.05 support (5%)
+   - >2K items: 0.10 support (10%) - MANDATORY for Streamlit Cloud survival
+6. EXCLUDE: Columns with unique values per row (likely not transactional)
+7. MEMORY PROTECTION: System will limit to 2-item combinations for >2K items automatically
+8. PERFORMANCE CONSTRAINTS: Streamlit Cloud has 1GB RAM limit - MBA with large catalogs WILL crash without aggressive thresholds
+9. Be specific about unique item count impact on memory and recommend accordingly
 
 Provide ONLY the JSON response, no additional text."""
             elif task_type == 'rfm_analysis':
@@ -671,9 +678,9 @@ Provide ONLY the JSON response, no additional text."""
                 'recommended_transaction_column': transaction_col,
                 'recommended_item_column': item_col,
                 'column_reasoning': f'Rule-based detection: {transaction_col} for transactions (repeated IDs), {item_col} for items (human-readable names preferred over codes)',
-                'recommended_min_support': 0.01,
-                'recommended_min_confidence': 0.5,
-                'thresholds_reasoning': 'Standard thresholds for rule-based detection'
+                'recommended_min_support': 0.10 if unique_items > 2000 else 0.05 if unique_items > 1000 else 0.03 if unique_items > 500 else 0.02 if unique_items > 100 else 0.01,
+                'recommended_min_confidence': 0.6 if unique_items > 2000 else 0.5,
+                'thresholds_reasoning': f'Aggressive thresholds for {unique_items} unique items - higher support required to prevent memory overflow on Streamlit Cloud'
             }
         elif task_type == 'rfm_analysis':
             # Rule-based RFM analysis recommendations

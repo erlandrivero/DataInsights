@@ -3464,7 +3464,12 @@ def show_market_basket_analysis():
                 unique_items = len(set([item for trans in transactions for item in trans]))
                 
                 # CRITICAL: Limit itemset size for large datasets (Streamlit Cloud protection)
-                if len(transactions) > 10000 or unique_items > 1000:
+                # More aggressive limits for very high unique item counts
+                if unique_items > 2000:
+                    max_len = 2  # ONLY pairs for very large item catalogs
+                    st.warning(f"🛡️ **Aggressive Memory Protection:** Limiting to {max_len}-item combinations only (Very large catalog: {len(transactions):,} transactions, {unique_items} unique items)")
+                    st.info("💡 **Note:** With 2000+ unique items, even 3-item combinations cause memory overflow. Analyzing pairs only.")
+                elif len(transactions) > 10000 or unique_items > 1000:
                     max_len = 3  # Max 3-item combinations for large datasets
                     st.info(f"🛡️ **Memory Protection:** Limiting to {max_len}-item combinations (Large dataset: {len(transactions):,} transactions, {unique_items} items)")
                 elif len(transactions) > 5000 or unique_items > 500:
