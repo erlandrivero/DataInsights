@@ -1110,26 +1110,36 @@ Provide ONLY the JSON response, no additional text."""
                 text_col = df.columns[0]
             
             # Assess text quality
+            text_quality = 'Unknown'
+            text_length_summary = 'Could not assess text length'
+            avg_length = 0
+            
             if text_col and text_col in df.columns:
-                # Calculate average text length
-                text_lengths = df[text_col].astype(str).str.split().str.len()
-                avg_length = text_lengths.mean()
-                
-                if avg_length < 5:
-                    text_quality = 'Poor'
-                    text_length_summary = f'Very short texts (avg {avg_length:.1f} words) - may not be suitable for analysis'
-                elif avg_length < 20:
-                    text_quality = 'Fair'
-                    text_length_summary = f'Short texts (avg {avg_length:.1f} words) - suitable for sentiment, limited for topics'
-                elif avg_length < 100:
-                    text_quality = 'Good'
-                    text_length_summary = f'Medium texts (avg {avg_length:.1f} words) - good for all analyses'
-                else:
-                    text_quality = 'Excellent'
-                    text_length_summary = f'Long texts (avg {avg_length:.1f} words) - ideal for comprehensive analysis'
-            else:
-                text_quality = 'Unknown'
-                text_length_summary = 'Could not assess text length'
+                try:
+                    # Calculate average text length
+                    text_lengths = df[text_col].astype(str).str.split().str.len()
+                    avg_length = text_lengths.mean()
+                    
+                    # Check if avg_length is valid
+                    if pd.notna(avg_length) and avg_length > 0:
+                        if avg_length < 5:
+                            text_quality = 'Poor'
+                            text_length_summary = f'Very short texts (avg {avg_length:.1f} words) - may not be suitable for analysis'
+                        elif avg_length < 20:
+                            text_quality = 'Fair'
+                            text_length_summary = f'Short texts (avg {avg_length:.1f} words) - suitable for sentiment, limited for topics'
+                        elif avg_length < 100:
+                            text_quality = 'Good'
+                            text_length_summary = f'Medium texts (avg {avg_length:.1f} words) - good for all analyses'
+                        else:
+                            text_quality = 'Excellent'
+                            text_length_summary = f'Long texts (avg {avg_length:.1f} words) - ideal for comprehensive analysis'
+                    else:
+                        text_quality = 'Unknown'
+                        text_length_summary = f'Column "{text_col}" does not appear to contain text data'
+                except Exception as e:
+                    text_quality = 'Unknown'
+                    text_length_summary = f'Error assessing text: {str(e)}'
             
             # Performance risk assessment
             if n_samples > 5000:
