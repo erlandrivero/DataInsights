@@ -375,7 +375,8 @@ Provide ONLY the JSON response, no additional text."""
             
         except Exception as e:
             # Fallback to rule-based detection on any error
-            print(f"AI detection error: {str(e)}")
+            print(f"AI detection error for {task_type}: {str(e)}")
+            print(f"Falling back to rule-based detection...")
             return AISmartDetection._fallback_detection(df, task_type)
     
     @staticmethod
@@ -515,6 +516,81 @@ Provide ONLY the JSON response, no additional text."""
                 'recommended_contamination': contamination,
                 'algorithm_reasoning': algorithm_reason,
                 'contamination_reasoning': f'Standard {contamination*100:.0f}% contamination for rule-based detection'
+            }
+        elif task_type == 'market_basket_analysis':
+            # Rule-based MBA recommendations
+            n_samples = len(df)
+            n_features = len(df.columns)
+            
+            # Performance risk assessment
+            if n_samples > 50000 or n_features > 2000:
+                performance_risk = 'High'
+                performance_warnings = [
+                    f'Large dataset ({n_samples:,} transactions, {n_features} potential items) may be memory intensive',
+                    'Consider using higher support thresholds to reduce memory usage'
+                ]
+            elif n_samples > 5000 or n_features > 500:
+                performance_risk = 'Medium'
+                performance_warnings = ['Medium-sized dataset - monitor memory usage during analysis']
+            else:
+                performance_risk = 'Low'
+                performance_warnings = []
+            
+            # Smart column detection for MBA
+            transaction_col = None
+            item_col = None
+            
+            # Look for transaction ID patterns
+            for col in df.columns:
+                col_lower = col.lower()
+                if any(pattern in col_lower for pattern in ['invoice', 'order', 'transaction', 'basket', 'receipt']):
+                    # Check if it has repeated values (good for grouping)
+                    if df[col].nunique() < len(df) * 0.8:  # Less than 80% unique (has repeats)
+                        transaction_col = col
+                        break
+            
+            # Look for item description patterns (avoid codes)
+            for col in df.columns:
+                col_lower = col.lower()
+                if any(pattern in col_lower for pattern in ['description', 'product', 'item', 'name']):
+                    # Check if it contains descriptive text (not just codes)
+                    sample_values = df[col].dropna().head(5).astype(str)
+                    if any(len(str(val)) > 5 and not str(val).isdigit() for val in sample_values):
+                        item_col = col
+                        break
+            
+            # Fallbacks if no good matches found
+            if not transaction_col:
+                transaction_col = df.columns[0]  # First column as fallback
+            if not item_col:
+                # Avoid numeric columns and codes
+                for col in df.columns:
+                    if col != transaction_col and not pd.api.types.is_numeric_dtype(df[col]):
+                        item_col = col
+                        break
+                if not item_col:
+                    item_col = df.columns[1] if len(df.columns) > 1 else df.columns[0]
+            
+            return {
+                'performance_risk': performance_risk,
+                'performance_warnings': performance_warnings,
+                'optimization_suggestions': [
+                    'Use higher support thresholds for large datasets',
+                    'Consider filtering out very rare or very common items'
+                ],
+                'data_suitability': 'Good',
+                'suitability_reasoning': 'Rule-based analysis suggests this data can be used for Market Basket Analysis',
+                'recommended_transaction_column': transaction_col,
+                'recommended_item_column': item_col,
+                'column_reasoning': f'Selected {transaction_col} for transactions and {item_col} for items based on column names and content patterns',
+                'recommended_min_support': 0.01,
+                'recommended_min_confidence': 0.3,
+                'recommended_min_lift': 1.2,
+                'support_reasoning': 'Conservative support threshold for rule-based detection',
+                'confidence_reasoning': 'Moderate confidence threshold for exploratory analysis',
+                'lift_reasoning': 'Standard lift threshold for meaningful associations',
+                'transaction_structure_issues': [],
+                'preprocessing_recommendations': ['Verify transaction grouping is correct', 'Check for item name consistency']
             }
         elif task_type == 'classification':
             # Simple classification target detection
