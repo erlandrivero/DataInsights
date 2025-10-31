@@ -10402,6 +10402,9 @@ This text mining analysis can be used for:
 
 def show_ab_testing():
     """A/B Testing page."""
+    import pandas as pd
+    from scipy.stats import chi2_contingency
+    
     st.markdown("<h2 style='text-align: center;'>🧪 A/B Testing & Statistical Hypothesis Testing</h2>", unsafe_allow_html=True)
     
     # Help section
@@ -11210,9 +11213,6 @@ def show_ab_testing():
         )
         
         if st.button("🧪 Run Statistical Test", type="primary", key="run_loaded_test"):
-            import pandas as pd
-            from scipy.stats import chi2_contingency
-            
             with st.status("Running statistical test...", expanded=True) as status:
                 # Extract data for both groups
                 control_data = test_data[test_data[groups_info['group_col']] == groups_info['control']][groups_info['metric_col']].values
