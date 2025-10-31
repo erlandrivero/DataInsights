@@ -308,6 +308,77 @@ Guidelines for RFM Analysis:
 8. Be specific about column selection reasoning and data quality
 
 Provide ONLY the JSON response, no additional text."""
+            elif task_type == 'time_series_forecasting':
+                prompt = f"""You are an expert data scientist analyzing a dataset for Time Series Forecasting.
+
+Dataset Overview:
+- Total Rows: {len(df)}
+- Total Columns: {len(df.columns)}
+- Task Type: TIME SERIES FORECASTING
+
+Column Details:
+{json.dumps(column_info, indent=2)}
+
+Please analyze this dataset and provide Time Series forecasting recommendations in the following JSON format:
+{{
+    "data_suitability": "Excellent/Good/Fair/Poor",
+    "suitability_reasoning": "Detailed explanation of why this rating was given for time series",
+    "alternative_suggestions": ["List of suggestions if data is Poor"],
+    "performance_risk": "Low/Medium/High",
+    "performance_warnings": ["List of performance concerns for Streamlit Cloud"],
+    "optimization_suggestions": ["List of specific suggestions to improve performance"],
+    "recommended_date_column": "column_name",
+    "recommended_value_column": "column_name",
+    "column_reasoning": "Why these columns are recommended for time series",
+    "recommended_model": "ARIMA/Prophet",
+    "model_reasoning": "Why this model is appropriate",
+    "frequency_detected": "Daily/Weekly/Monthly/Yearly/Unknown",
+    "seasonality_detected": true/false,
+    "trend_detected": true/false,
+    "forecast_horizon_recommendation": 30,
+    "data_preprocessing_needed": ["List of preprocessing steps needed"]
+}}
+
+Guidelines for Time Series Forecasting:
+1. DATA SUITABILITY: Assess if dataset is appropriate for time series forecasting
+   - Excellent: Clear temporal ordering, consistent frequency, sufficient history (>100 points)
+   - Good: Has date column and numeric values, reasonable temporal coverage
+   - Fair: Limited history (<50 points) or irregular frequency
+   - Poor: No date column, too few data points (<20), or fundamentally unsuitable
+2. DATE COLUMN: Should contain timestamps or dates
+   - Look for datetime columns or parseable date strings
+   - Check if dates are sequential and cover a meaningful time range
+   - Prefer columns with consistent frequency (daily, weekly, monthly)
+3. VALUE COLUMN: Should be numeric column to forecast
+   - Prefer columns with clear meaning (sales, revenue, temperature, etc.)
+   - Should have continuous numeric values
+   - Check for missing values and outliers
+4. FREQUENCY DETECTION: Identify time intervals between observations
+   - Daily: observations every day
+   - Weekly: observations every 7 days
+   - Monthly: observations monthly
+   - Irregular: inconsistent intervals (may need resampling)
+5. MODEL SELECTION:
+   - ARIMA: Good for stationary data, univariate, <10K points
+   - Prophet: Good for business data with seasonality, holidays, missing data
+   - Consider data size, seasonality, and trend patterns
+6. PERFORMANCE RISK: Assess based on data size and complexity
+   - Low: <1K data points, simple patterns
+   - Medium: 1K-10K points, seasonal patterns
+   - High: >10K points, complex seasonality, high-dimensional
+7. FORECAST HORIZON: Recommend reasonable prediction length
+   - Short: 10-20% of historical data length
+   - Medium: 20-30% of historical data length
+   - Don't forecast beyond data support
+8. PREPROCESSING NEEDS: Identify necessary data transformations
+   - Handle missing values (interpolation, forward fill)
+   - Outlier detection and treatment
+   - Differencing for stationarity
+   - Seasonal decomposition if needed
+9. PERFORMANCE CONSTRAINTS: Consider Streamlit Cloud limitations (1GB RAM, CPU timeout)
+10. Be specific about temporal patterns and data quality
+
+Provide ONLY the JSON response, no additional text."""
             else:
                 prompt = f"""You are an expert data scientist analyzing a dataset for machine learning {task_type}.
 
@@ -813,6 +884,134 @@ Provide ONLY the JSON response, no additional text."""
                 'column_reasoning': f'Rule-based detection: {customer_col} for customers (repeated IDs), {date_col} for dates, {amount_col} for monetary amounts',
                 'date_format_detected': 'Will be parsed automatically',
                 'requires_date_parsing': True
+            }
+        elif task_type == 'time_series_forecasting':
+            # Rule-based Time Series forecasting recommendations
+            n_samples = len(df)
+            n_features = len(df.columns)
+            
+            # Performance risk assessment
+            if n_samples > 10000:
+                performance_risk = 'High'
+                performance_warnings = [
+                    f'Very large dataset ({n_samples:,} data points) may cause performance issues',
+                    'Consider aggregating to lower frequency (e.g., weekly instead of daily)',
+                    'Large forecasts may timeout on Streamlit Cloud'
+                ]
+            elif n_samples > 1000:
+                performance_risk = 'Medium'
+                performance_warnings = [
+                    f'Medium dataset ({n_samples:,} data points) - forecasting may take time'
+                ]
+            else:
+                performance_risk = 'Low'
+                performance_warnings = []
+            
+            # Try to identify date and value columns
+            date_col = None
+            value_col = None
+            
+            # Look for date/datetime columns
+            date_cols = df.select_dtypes(include=['datetime']).columns.tolist()
+            if date_cols:
+                date_col = date_cols[0]
+            else:
+                # Try to find date patterns in column names
+                for col in df.columns:
+                    col_lower = col.lower()
+                    if any(pattern in col_lower for pattern in ['date', 'time', 'day', 'month', 'year']):
+                        date_col = col
+                        break
+            
+            # Look for value columns (numeric)
+            numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+            for col in numeric_cols:
+                col_lower = col.lower()
+                if any(pattern in col_lower for pattern in ['sales', 'revenue', 'value', 'price', 'count', 'volume']):
+                    value_col = col
+                    break
+            
+            # Fallback: use first numeric column for value
+            if not value_col and numeric_cols:
+                value_col = numeric_cols[0]
+            
+            # Fallback: use first column for date if not found
+            if not date_col:
+                date_col = df.columns[0]
+            
+            # Fallback: use second column for value if not found
+            if not value_col and len(df.columns) > 1:
+                value_col = df.columns[1]
+            
+            # Data suitability assessment
+            has_date = date_col is not None
+            has_value = value_col is not None
+            
+            if n_samples < 20:
+                data_suitability = 'Poor'
+                suitability_reasoning = f'Too few data points ({n_samples}) - need at least 20 for time series forecasting, 100+ recommended'
+                alternative_suggestions = [
+                    'Use Sample Data (built-in time series dataset)',
+                    'Upload a dataset with more historical data points',
+                    'Collect more data over time before forecasting'
+                ]
+            elif not has_date or not has_value:
+                data_suitability = 'Poor'
+                suitability_reasoning = 'Missing date or value column - time series requires temporal data with numeric values'
+                alternative_suggestions = [
+                    'Use Sample Data (built-in time series dataset)',
+                    'Ensure dataset has a date/time column and numeric value column',
+                    'Check column names and data types'
+                ]
+            elif n_samples < 50:
+                data_suitability = 'Fair'
+                suitability_reasoning = f'Limited history ({n_samples} points) - forecasting possible but results may be less reliable'
+                alternative_suggestions = [
+                    'Collect more historical data if possible',
+                    'Use shorter forecast horizons',
+                    'Consider simpler models (moving average)'
+                ]
+            elif n_samples < 100:
+                data_suitability = 'Good'
+                suitability_reasoning = f'Reasonable history ({n_samples} points) - suitable for time series forecasting'
+                alternative_suggestions = []
+            else:
+                data_suitability = 'Excellent'
+                suitability_reasoning = f'Strong historical data ({n_samples} points) - excellent for time series forecasting'
+                alternative_suggestions = []
+            
+            # Model recommendation based on data size
+            if n_samples > 1000:
+                recommended_model = 'Prophet'
+                model_reasoning = 'Prophet recommended for larger datasets - handles seasonality and missing data well'
+            else:
+                recommended_model = 'ARIMA'
+                model_reasoning = 'ARIMA recommended for smaller datasets - good for univariate time series'
+            
+            # Forecast horizon recommendation (20% of data length, max 365)
+            forecast_horizon = min(max(int(n_samples * 0.2), 10), 365)
+            
+            return {
+                'data_suitability': data_suitability,
+                'suitability_reasoning': suitability_reasoning,
+                'alternative_suggestions': alternative_suggestions,
+                'performance_risk': performance_risk,
+                'performance_warnings': performance_warnings,
+                'optimization_suggestions': [
+                    'Consider aggregating to lower frequency for large datasets',
+                    'Use cross-validation for model evaluation',
+                    'Monitor forecast accuracy over time'
+                ],
+                'recommended_date_column': date_col,
+                'recommended_value_column': value_col,
+                'column_reasoning': f'Rule-based detection: {date_col} for temporal ordering, {value_col} for values to forecast',
+                'recommended_model': recommended_model,
+                'model_reasoning': model_reasoning,
+                'frequency_detected': 'Unknown - will be auto-detected',
+                'seasonality_detected': False,
+                'trend_detected': False,
+                'forecast_horizon_recommendation': forecast_horizon,
+                'data_preprocessing_needed': ['Check for missing values', 'Verify date ordering', 'Handle outliers if present']
             }
         elif task_type == 'classification':
             # Simple classification target detection

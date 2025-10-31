@@ -9096,6 +9096,106 @@ def show_time_series_forecasting():
         st.info("👆 Please select or upload data to continue")
         return
     
+    # Section 2: AI Time Series Recommendations
+    st.subheader("📊 2. AI Time Series Analysis")
+    
+    # Check if AI recommendations already exist
+    if 'ts_ai_recommendations' not in st.session_state:
+        if st.button("🤖 Generate AI Time Series Analysis", type="primary", use_container_width=True, key="ts_ai_button"):
+            with st.spinner("🔍 AI is analyzing your dataset for time series forecasting..."):
+                from utils.ai_smart_detection import AISmartDetection
+                
+                # Get AI recommendations
+                recommendations = AISmartDetection.analyze_dataset_for_ml(
+                    df=df.copy(),
+                    task_type='time_series_forecasting'
+                )
+                
+                # Store in session state
+                st.session_state.ts_ai_recommendations = recommendations
+                st.rerun()
+    
+    # Display AI recommendations if available
+    if 'ts_ai_recommendations' in st.session_state:
+        rec = st.session_state.ts_ai_recommendations
+        
+        # Performance Risk Badge
+        risk_colors = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}
+        risk_color = risk_colors.get(rec.get('performance_risk', 'Medium'), '⚪')
+        
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            suitability = rec.get('data_suitability', 'Unknown')
+            if suitability == 'Excellent' or suitability == 'Good':
+                st.success(f"✅ **Data Suitability:** {suitability} for Time Series Forecasting")
+            elif suitability == 'Fair':
+                st.warning(f"⚠️ **Data Suitability:** {suitability} for Time Series Forecasting")
+            else:
+                st.error(f"❌ **Data Suitability:** {suitability} for Time Series Forecasting")
+        
+        with col2:
+            st.info(f"{risk_color} **Performance Risk:** {rec.get('performance_risk', 'Unknown')}")
+        
+        # Expandable reasoning
+        with st.expander("💡 Why this suitability rating?", expanded=False):
+            st.write(rec.get('suitability_reasoning', 'No reasoning provided'))
+            
+            if rec.get('alternative_suggestions'):
+                st.write("**📌 Suggestions:**")
+                for suggestion in rec['alternative_suggestions']:
+                    st.write(f"- {suggestion}")
+        
+        # AI Column Selection and Model Recommendations
+        with st.expander("🤖 AI Analysis & Recommendations", expanded=True):
+            st.info(f"**🎯 Why these columns?** {rec.get('column_reasoning', 'Rule-based detection')}")
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.write("**Date Column:**")
+                st.code(rec.get('recommended_date_column', 'N/A'))
+            with col2:
+                st.write("**Value Column:**")
+                st.code(rec.get('recommended_value_column', 'N/A'))
+            with col3:
+                st.write("**Recommended Model:**")
+                st.code(rec.get('recommended_model', 'ARIMA'))
+            
+            st.write(f"**📈 Model Reasoning:** {rec.get('model_reasoning', 'N/A')}")
+            
+            if rec.get('frequency_detected'):
+                st.write(f"**🔄 Frequency:** {rec['frequency_detected']}")
+            
+            if rec.get('forecast_horizon_recommendation'):
+                st.write(f"**🎯 Recommended Forecast Horizon:** {rec['forecast_horizon_recommendation']} periods")
+        
+        # Preprocessing needs
+        if rec.get('data_preprocessing_needed'):
+            with st.expander("🔧 Data Preprocessing Recommendations", expanded=False):
+                for step in rec['data_preprocessing_needed']:
+                    st.info(f"📝 {step}")
+        
+        # Performance warnings if any
+        if rec.get('performance_warnings'):
+            with st.expander("⚠️ Performance Warnings", expanded=False):
+                for warning in rec['performance_warnings']:
+                    st.warning(warning)
+        
+        # Optimization suggestions
+        if rec.get('optimization_suggestions'):
+            with st.expander("🚀 Optimization Suggestions", expanded=False):
+                for suggestion in rec['optimization_suggestions']:
+                    st.info(f"💡 {suggestion}")
+        
+        # Button to regenerate
+        if st.button("🔄 Regenerate Analysis", key="ts_regen"):
+            del st.session_state.ts_ai_recommendations
+            st.rerun()
+        
+        st.divider()
+    
+    # Section 3: Dataset Validation
+    st.subheader("📋 3. Dataset Validation")
+    
     # Get smart column suggestions
     from utils.column_detector import ColumnDetector
     suggestions = ColumnDetector.get_time_series_column_suggestions(df)
@@ -9127,9 +9227,21 @@ def show_time_series_forecasting():
     else:
         st.success(f"✅ **Dataset looks suitable for Time Series** (Confidence: {validation['confidence']})")
     
-    # Column selection
-    st.subheader("📊 2. Configure Time Series")
-    st.info("💡 **Smart Detection:** Columns are auto-selected based on your data. You can change them if needed.")
+    # Section 4: Column selection
+    st.subheader("📊 4. Configure Time Series")
+    
+    # Use AI recommendations if available, otherwise use rule-based detection
+    if 'ts_ai_recommendations' in st.session_state:
+        rec = st.session_state.ts_ai_recommendations
+        suggestions = {
+            'date': rec.get('recommended_date_column'),
+            'value': rec.get('recommended_value_column')
+        }
+        st.info("🤖 **AI has analyzed your data and preset the columns below.** You can change them if needed.")
+    else:
+        # Fallback to rule-based detection
+        suggestions = ColumnDetector.get_time_series_column_suggestions(df)
+        st.info("💡 **Smart Detection:** Columns are auto-selected based on your data. You can change them if needed.")
     
     col1, col2 = st.columns(2)
     
