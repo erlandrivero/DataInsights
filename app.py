@@ -11804,19 +11804,24 @@ def show_ab_testing():
                     # Prepare detailed context based on test type
                     if 'control_rate' in result:
                         # Proportion test
-                        control_size = result.get('control_size', 0)
-                        treatment_size = result.get('treatment_size', 0)
+                        control_size = result.get('control_n', result.get('control_size', 0))
+                        treatment_size = result.get('treatment_n', result.get('treatment_size', 0))
                         total_size = control_size + treatment_size
-                        control_conversions = int(result['control_rate'] * control_size)
-                        treatment_conversions = int(result['treatment_rate'] * treatment_size)
+                        
+                        # Avoid division by zero
+                        control_pct = (control_size/total_size*100) if total_size > 0 else 0
+                        treatment_pct = (treatment_size/total_size*100) if total_size > 0 else 0
+                        
+                        control_conversions = int(result['control_rate'] * control_size) if control_size > 0 else 0
+                        treatment_conversions = int(result['treatment_rate'] * treatment_size) if treatment_size > 0 else 0
                         
                         context = f"""
 A/B Test Analysis (Conversion/Proportion Test):
 
 Test Configuration:
 - Total Sample Size: {total_size:,} observations
-- Control Group: {control_size:,} observations ({control_size/total_size*100:.1f}%)
-- Treatment Group: {treatment_size:,} observations ({treatment_size/total_size*100:.1f}%)
+- Control Group: {control_size:,} observations ({control_pct:.1f}%)
+- Treatment Group: {treatment_size:,} observations ({treatment_pct:.1f}%)
 
 Performance Metrics:
 - Control Conversion Rate: {result['control_rate']*100:.2f}% ({control_conversions} conversions)
@@ -11832,8 +11837,8 @@ Statistical Analysis:
 """
                     else:
                         # T-test
-                        control_size = result.get('control_size', 0)
-                        treatment_size = result.get('treatment_size', 0)
+                        control_size = result.get('control_n', result.get('control_size', 0))
+                        treatment_size = result.get('treatment_n', result.get('treatment_size', 0))
                         total_size = control_size + treatment_size
                         
                         context = f"""
