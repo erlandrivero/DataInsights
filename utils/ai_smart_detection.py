@@ -379,6 +379,78 @@ Guidelines for Time Series Forecasting:
 10. Be specific about temporal patterns and data quality
 
 Provide ONLY the JSON response, no additional text."""
+            elif task_type == 'text_mining':
+                prompt = f"""You are an expert NLP data scientist analyzing a dataset for Text Mining and Sentiment Analysis.
+
+Dataset Overview:
+- Total Rows: {len(df)}
+- Total Columns: {len(df.columns)}
+- Task Type: TEXT MINING & SENTIMENT ANALYSIS
+
+Column Details:
+{json.dumps(column_info, indent=2)}
+
+Please analyze this dataset and provide Text Mining recommendations in the following JSON format:
+{{
+    "data_suitability": "Excellent/Good/Fair/Poor",
+    "suitability_reasoning": "Detailed explanation of why this rating was given for text mining",
+    "alternative_suggestions": ["List of suggestions if data is Poor"],
+    "performance_risk": "Low/Medium/High",
+    "performance_warnings": ["List of performance concerns for Streamlit Cloud"],
+    "optimization_suggestions": ["List of specific suggestions to improve performance"],
+    "recommended_text_column": "column_name",
+    "column_reasoning": "Why this column is recommended for text analysis",
+    "text_quality_assessment": "Excellent/Good/Fair/Poor",
+    "text_length_summary": "Brief summary of text length characteristics",
+    "recommended_analyses": ["sentiment_analysis", "word_frequency", "topic_modeling"],
+    "analysis_reasoning": "Why these analyses are appropriate for this text data",
+    "preprocessing_needed": ["List of preprocessing steps recommended"],
+    "estimated_processing_time": "Quick/Moderate/Long"
+}}
+
+Guidelines for Text Mining:
+1. DATA SUITABILITY: Assess if dataset is appropriate for text mining
+   - Excellent: Clear text column with substantive content, good variety, >100 texts
+   - Good: Has text data with reasonable length and variety
+   - Fair: Limited text data (<50 texts) or very short texts
+   - Poor: No text column, too few texts (<10), or fundamentally unsuitable
+2. TEXT COLUMN: Should contain unstructured text data
+   - Look for columns with string/object dtype containing sentences or paragraphs
+   - Prefer columns with substantial text (not just single words or codes)
+   - Common names: 'text', 'review', 'comment', 'feedback', 'description', 'content'
+   - Avoid: Numeric codes, IDs, single-word categories
+3. TEXT QUALITY ASSESSMENT: Evaluate text characteristics
+   - Check average text length (prefer 20+ words for meaningful analysis)
+   - Assess variety (not just repetitive template text)
+   - Look for natural language (not just keywords or tags)
+4. RECOMMENDED ANALYSES:
+   - Sentiment Analysis: Good for opinions, reviews, feedback (subjective text)
+   - Word Frequency: Always useful for understanding vocabulary
+   - Topic Modeling (LDA): Good for >50 texts with diverse content
+   - Skip topic modeling if too few texts (<30) or very similar content
+5. PERFORMANCE RISK: Assess based on text volume and length
+   - Low: <500 texts, moderate length
+   - Medium: 500-5000 texts
+   - High: >5000 texts, very long documents (may timeout)
+6. PREPROCESSING NEEDS: Identify necessary text cleaning
+   - Remove special characters/HTML if present
+   - Lowercasing for consistency
+   - Remove stopwords for analysis
+   - Handle missing values
+   - Check for non-English text (VADER is English-optimized)
+7. TEXT LENGTH: Analyze typical text length
+   - Very short (<10 words): May not be suitable for sentiment/topics
+   - Short (10-50 words): Good for sentiment, limited for topics
+   - Medium (50-200 words): Ideal for all analyses
+   - Long (>200 words): Good for topics, may need truncation
+8. PERFORMANCE CONSTRAINTS: Consider Streamlit Cloud limitations (1GB RAM, CPU timeout)
+9. ESTIMATED PROCESSING TIME:
+   - Quick: <500 texts, sentiment only
+   - Moderate: 500-2000 texts, multiple analyses
+   - Long: >2000 texts or topic modeling on large corpus
+10. Be specific about text quality and analysis appropriateness
+
+Provide ONLY the JSON response, no additional text."""
             else:
                 prompt = f"""You are an expert data scientist analyzing a dataset for machine learning {task_type}.
 
@@ -1012,6 +1084,135 @@ Provide ONLY the JSON response, no additional text."""
                 'trend_detected': False,
                 'forecast_horizon_recommendation': forecast_horizon,
                 'data_preprocessing_needed': ['Check for missing values', 'Verify date ordering', 'Handle outliers if present']
+            }
+        elif task_type == 'text_mining':
+            # Rule-based Text Mining recommendations
+            n_samples = len(df)
+            n_features = len(df.columns)
+            
+            # Try to identify text column
+            text_col = None
+            text_cols = df.select_dtypes(include=['object']).columns.tolist()
+            
+            # Look for text column by name
+            for col in text_cols:
+                col_lower = col.lower()
+                if any(pattern in col_lower for pattern in ['text', 'review', 'comment', 'feedback', 'description', 'content', 'message']):
+                    text_col = col
+                    break
+            
+            # Fallback: use first string column
+            if not text_col and text_cols:
+                text_col = text_cols[0]
+            
+            # Fallback: use first column
+            if not text_col:
+                text_col = df.columns[0]
+            
+            # Assess text quality
+            if text_col and text_col in df.columns:
+                # Calculate average text length
+                text_lengths = df[text_col].astype(str).str.split().str.len()
+                avg_length = text_lengths.mean()
+                
+                if avg_length < 5:
+                    text_quality = 'Poor'
+                    text_length_summary = f'Very short texts (avg {avg_length:.1f} words) - may not be suitable for analysis'
+                elif avg_length < 20:
+                    text_quality = 'Fair'
+                    text_length_summary = f'Short texts (avg {avg_length:.1f} words) - suitable for sentiment, limited for topics'
+                elif avg_length < 100:
+                    text_quality = 'Good'
+                    text_length_summary = f'Medium texts (avg {avg_length:.1f} words) - good for all analyses'
+                else:
+                    text_quality = 'Excellent'
+                    text_length_summary = f'Long texts (avg {avg_length:.1f} words) - ideal for comprehensive analysis'
+            else:
+                text_quality = 'Unknown'
+                text_length_summary = 'Could not assess text length'
+            
+            # Performance risk assessment
+            if n_samples > 5000:
+                performance_risk = 'High'
+                performance_warnings = [
+                    f'Large dataset ({n_samples:,} texts) may cause performance issues',
+                    'Topic modeling on large corpus may timeout',
+                    'Consider analyzing a sample for initial exploration'
+                ]
+                estimated_time = 'Long'
+            elif n_samples > 500:
+                performance_risk = 'Medium'
+                performance_warnings = [
+                    f'Medium dataset ({n_samples:,} texts) - processing may take time'
+                ]
+                estimated_time = 'Moderate'
+            else:
+                performance_risk = 'Low'
+                performance_warnings = []
+                estimated_time = 'Quick'
+            
+            # Data suitability assessment
+            if n_samples < 10:
+                data_suitability = 'Poor'
+                suitability_reasoning = f'Too few texts ({n_samples}) - need at least 10 for text mining, 50+ recommended'
+                alternative_suggestions = [
+                    'Use Sample Data (built-in product reviews)',
+                    'Upload a dataset with more text samples',
+                    'Collect more text data before analysis'
+                ]
+            elif text_quality == 'Poor':
+                data_suitability = 'Poor'
+                suitability_reasoning = f'Text quality insufficient - very short texts (avg {avg_length:.1f} words) not suitable for meaningful analysis'
+                alternative_suggestions = [
+                    'Use Sample Data (built-in product reviews)',
+                    'Ensure text column contains full sentences or paragraphs',
+                    'Check if correct column was detected'
+                ]
+            elif n_samples < 30:
+                data_suitability = 'Fair'
+                suitability_reasoning = f'Limited text data ({n_samples} texts) - analysis possible but results may be less robust'
+                alternative_suggestions = [
+                    'Sentiment analysis still useful',
+                    'Skip topic modeling (need more texts)',
+                    'Collect more text samples if possible'
+                ]
+            elif n_samples < 100:
+                data_suitability = 'Good'
+                suitability_reasoning = f'Reasonable text corpus ({n_samples} texts) - suitable for text mining'
+                alternative_suggestions = []
+            else:
+                data_suitability = 'Excellent'
+                suitability_reasoning = f'Strong text corpus ({n_samples} texts) - excellent for comprehensive text mining'
+                alternative_suggestions = []
+            
+            # Recommended analyses based on data
+            recommended_analyses = ['word_frequency']  # Always useful
+            if n_samples >= 10:
+                recommended_analyses.insert(0, 'sentiment_analysis')  # Good for opinions
+            if n_samples >= 30 and text_quality in ['Good', 'Excellent']:
+                recommended_analyses.append('topic_modeling')  # Need sufficient texts
+            
+            analysis_reasoning = f'Recommending {len(recommended_analyses)} analyses based on {n_samples} texts with {text_quality.lower()} quality'
+            
+            return {
+                'data_suitability': data_suitability,
+                'suitability_reasoning': suitability_reasoning,
+                'alternative_suggestions': alternative_suggestions,
+                'performance_risk': performance_risk,
+                'performance_warnings': performance_warnings,
+                'optimization_suggestions': [
+                    'Start with sentiment analysis before topic modeling',
+                    'Review word frequency to understand vocabulary',
+                    'Consider sampling large datasets for initial exploration'
+                ],
+                'recommended_text_column': text_col,
+                'column_reasoning': f'Rule-based detection: {text_col} identified as text column based on data type and content',
+                'text_quality_assessment': text_quality,
+                'text_length_summary': text_length_summary,
+                'recommended_analyses': recommended_analyses,
+                'analysis_reasoning': analysis_reasoning,
+                'preprocessing_needed': ['Remove special characters if present', 'Handle missing values', 'Lowercasing recommended'],
+                'estimated_processing_time': estimated_time
             }
         elif task_type == 'classification':
             # Simple classification target detection

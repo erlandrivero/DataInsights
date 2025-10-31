@@ -9897,13 +9897,124 @@ def show_text_mining():
         st.info("👆 Please select or upload data to continue")
         return
     
-    # Column selection with smart detection
-    st.subheader("📝 2. Select Text Column")
+    # Section 2: AI Text Mining Recommendations
+    st.subheader("📊 2. AI Text Mining Analysis")
     
-    from utils.column_detector import ColumnDetector
-    suggested_col = ColumnDetector.detect_text_column(df)
+    # Check if AI recommendations already exist
+    if 'text_ai_recommendations' not in st.session_state:
+        if st.button("🤖 Generate AI Text Mining Analysis", type="primary", use_container_width=True, key="text_ai_button"):
+            with st.spinner("🔍 AI is analyzing your dataset for text mining..."):
+                from utils.ai_smart_detection import AISmartDetection
+                
+                # Get AI recommendations
+                recommendations = AISmartDetection.analyze_dataset_for_ml(
+                    df=df.copy(),
+                    task_type='text_mining'
+                )
+                
+                # Store in session state
+                st.session_state.text_ai_recommendations = recommendations
+                st.rerun()
     
-    st.info("💡 **Smart Detection:** Column is auto-selected based on your data. You can change it if needed.")
+    # Display AI recommendations if available
+    if 'text_ai_recommendations' in st.session_state:
+        rec = st.session_state.text_ai_recommendations
+        
+        # Performance Risk Badge
+        risk_colors = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}
+        risk_color = risk_colors.get(rec.get('performance_risk', 'Medium'), '⚪')
+        
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            suitability = rec.get('data_suitability', 'Unknown')
+            if suitability == 'Excellent' or suitability == 'Good':
+                st.success(f"✅ **Data Suitability:** {suitability} for Text Mining")
+            elif suitability == 'Fair':
+                st.warning(f"⚠️ **Data Suitability:** {suitability} for Text Mining")
+            else:
+                st.error(f"❌ **Data Suitability:** {suitability} for Text Mining")
+        
+        with col2:
+            st.info(f"{risk_color} **Performance Risk:** {rec.get('performance_risk', 'Unknown')}")
+        
+        # Expandable reasoning
+        with st.expander("💡 Why this suitability rating?", expanded=False):
+            st.write(rec.get('suitability_reasoning', 'No reasoning provided'))
+            
+            if rec.get('alternative_suggestions'):
+                st.write("**📌 Suggestions:**")
+                for suggestion in rec['alternative_suggestions']:
+                    st.write(f"- {suggestion}")
+        
+        # AI Text Column and Analysis Recommendations
+        with st.expander("🤖 AI Analysis & Recommendations", expanded=True):
+            st.info(f"**🎯 Why this column?** {rec.get('column_reasoning', 'Rule-based detection')}")
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.write("**Text Column:**")
+                st.code(rec.get('recommended_text_column', 'N/A'))
+            with col2:
+                st.write("**Text Quality:**")
+                quality = rec.get('text_quality_assessment', 'Unknown')
+                quality_emoji = {'Excellent': '⭐', 'Good': '✅', 'Fair': '⚠️', 'Poor': '❌'}.get(quality, '❓')
+                st.code(f"{quality_emoji} {quality}")
+            with col3:
+                st.write("**Processing Time:**")
+                time_emoji = {'Quick': '⚡', 'Moderate': '⏱️', 'Long': '⏳'}.get(rec.get('estimated_processing_time', 'Unknown'), '❓')
+                st.code(f"{time_emoji} {rec.get('estimated_processing_time', 'Unknown')}")
+            
+            st.write(f"**📏 Text Length:** {rec.get('text_length_summary', 'N/A')}")
+            
+            # Recommended analyses
+            if rec.get('recommended_analyses'):
+                st.write("**🎯 Recommended Analyses:**")
+                analysis_map = {
+                    'sentiment_analysis': '😊 Sentiment Analysis',
+                    'word_frequency': '📊 Word Frequency',
+                    'topic_modeling': '🏷️ Topic Modeling'
+                }
+                for analysis in rec['recommended_analyses']:
+                    st.write(f"  - {analysis_map.get(analysis, analysis)}")
+                st.write(f"*{rec.get('analysis_reasoning', '')}*")
+        
+        # Preprocessing needs
+        if rec.get('preprocessing_needed'):
+            with st.expander("🔧 Preprocessing Recommendations", expanded=False):
+                for step in rec['preprocessing_needed']:
+                    st.info(f"📝 {step}")
+        
+        # Performance warnings if any
+        if rec.get('performance_warnings'):
+            with st.expander("⚠️ Performance Warnings", expanded=False):
+                for warning in rec['performance_warnings']:
+                    st.warning(warning)
+        
+        # Optimization suggestions
+        if rec.get('optimization_suggestions'):
+            with st.expander("🚀 Optimization Suggestions", expanded=False):
+                for suggestion in rec['optimization_suggestions']:
+                    st.info(f"💡 {suggestion}")
+        
+        # Button to regenerate
+        if st.button("🔄 Regenerate Analysis", key="text_regen"):
+            del st.session_state.text_ai_recommendations
+            st.rerun()
+        
+        st.divider()
+    
+    # Section 3: Column selection with smart detection
+    st.subheader("📝 3. Select Text Column")
+    
+    # Use AI recommendations if available, otherwise use rule-based detection
+    if 'text_ai_recommendations' in st.session_state:
+        rec = st.session_state.text_ai_recommendations
+        suggested_col = rec.get('recommended_text_column')
+        st.info("🤖 **AI has analyzed your data and preset the text column below.** You can change it if needed.")
+    else:
+        from utils.column_detector import ColumnDetector
+        suggested_col = ColumnDetector.detect_text_column(df)
+        st.info("💡 **Smart Detection:** Column is auto-selected based on your data. You can change it if needed.")
     
     # Find index of suggested column
     col_index = list(df.columns).index(suggested_col) if suggested_col in df.columns else 0
