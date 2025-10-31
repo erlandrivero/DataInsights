@@ -3472,21 +3472,30 @@ def show_market_basket_analysis():
                 all_items = [item for trans in transactions for item in trans]
                 unique_items = len(set(all_items))
                 
-                # Step 1: Filter low-frequency items for large catalogs
+                # Step 1: AGGRESSIVE item filtering for large catalogs (percentage-based)
                 if unique_items > 1000:
                     from collections import Counter
                     item_counts = Counter(all_items)
-                    min_frequency = 5 if unique_items > 2000 else 3
                     
-                    # Remove items appearing less than min_frequency times
-                    frequent_items = {item for item, count in item_counts.items() if count >= min_frequency}
+                    # Calculate minimum percentage threshold based on catalog size
+                    if unique_items > 2000:
+                        min_pct = 0.02  # Items must appear in at least 2% of transactions
+                    elif unique_items > 1500:
+                        min_pct = 0.01  # Items must appear in at least 1% of transactions
+                    else:
+                        min_pct = 0.005  # Items must appear in at least 0.5% of transactions
+                    
+                    min_count = int(len(transactions) * min_pct)
+                    
+                    # Remove items below threshold
+                    frequent_items = {item for item, count in item_counts.items() if count >= min_count}
                     transactions_filtered = [[item for item in trans if item in frequent_items] for trans in transactions]
                     transactions_filtered = [trans for trans in transactions_filtered if len(trans) > 0]  # Remove empty
                     
                     items_removed = unique_items - len(frequent_items)
                     trans_removed = len(transactions) - len(transactions_filtered)
                     
-                    st.warning(f"🧹 **Item Filtering:** Removed {items_removed} low-frequency items (appearing <{min_frequency} times)")
+                    st.warning(f"🧹 **Aggressive Item Filtering:** Removed {items_removed} low-frequency items (appearing in <{min_pct*100}% of transactions = <{min_count} times)")
                     st.info(f"📊 **After filtering:** {len(transactions_filtered):,} transactions, {len(frequent_items)} unique items")
                     
                     transactions = transactions_filtered

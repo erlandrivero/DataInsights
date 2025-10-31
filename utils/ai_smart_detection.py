@@ -684,9 +684,9 @@ Provide ONLY the JSON response, no additional text."""
                 'recommended_transaction_column': transaction_col,
                 'recommended_item_column': item_col,
                 'column_reasoning': f'Rule-based detection: {transaction_col} for transactions (repeated IDs), {item_col} for items (human-readable names preferred over codes)',
-                'recommended_min_support': 0.10 if unique_items > 2000 else 0.05 if unique_items > 1000 else 0.03 if unique_items > 500 else 0.02 if unique_items > 100 else 0.01,
-                'recommended_min_confidence': 0.6 if unique_items > 2000 else 0.5,
-                'thresholds_reasoning': f'Aggressive thresholds for {unique_items} unique items - higher support required to prevent memory overflow on Streamlit Cloud'
+                'recommended_min_support': 0.03 if unique_items > 2000 else 0.02 if unique_items > 1000 else 0.015 if unique_items > 500 else 0.01,
+                'recommended_min_confidence': 0.5,
+                'thresholds_reasoning': f'Thresholds for {unique_items} unique items after aggressive item filtering (2% of transactions threshold) - system automatically reduces catalog size'
             }
         elif task_type == 'rfm_analysis':
             # Rule-based RFM analysis recommendations
