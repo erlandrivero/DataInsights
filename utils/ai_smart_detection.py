@@ -678,7 +678,7 @@ Provide ONLY the JSON response, no additional text."""
         }
     
     @staticmethod
-    def display_ai_recommendation(recommendations: Dict, expanded: bool = False):
+    def display_recommendations(recommendations: Dict, expanded: bool = False):
         """Display AI recommendations in Streamlit UI."""
         
         # Confidence badge
@@ -772,6 +772,7 @@ def get_ai_recommendation(df: pd.DataFrame, task_type: str = 'classification') -
     Returns:
         Dictionary with AI recommendations
     """
+    print(f"🔥 AI FUNCTION CALLED! Task type: {task_type}, DataFrame shape: {df.shape}")
     # Create hash of dataframe for caching
     df_hash = str(hash(str(df.columns.tolist()) + str(len(df))))
     
