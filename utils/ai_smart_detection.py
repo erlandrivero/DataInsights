@@ -497,6 +497,104 @@ Provide ONLY the JSON response, no additional text."""
                 'algorithm_reasoning': algorithm_reason,
                 'contamination_reasoning': f'Standard {contamination*100:.0f}% contamination for rule-based detection'
             }
+        elif task_type == 'market_basket_analysis':
+            # Rule-based market basket analysis recommendations
+            n_samples = len(df)
+            n_features = len(df.columns)
+            
+            # Performance risk assessment
+            if n_samples > 50000:
+                performance_risk = 'High'
+                performance_warnings = [
+                    f'Very large dataset ({n_samples:,} transactions) may cause performance issues',
+                    'Consider sampling or filtering transactions for initial analysis'
+                ]
+            elif n_samples > 10000:
+                performance_risk = 'Medium'
+                performance_warnings = [
+                    f'Large dataset ({n_samples:,} transactions) - monitor performance',
+                    'Apriori algorithm may take time with many unique items'
+                ]
+            else:
+                performance_risk = 'Low'
+                performance_warnings = []
+            
+            # Try to identify transaction and item columns
+            transaction_col = None
+            item_col = None
+            
+            # Look for transaction ID patterns
+            for col in df.columns:
+                col_lower = col.lower()
+                unique_ratio = df[col].nunique() / len(df)
+                if any(pattern in col_lower for pattern in ['transaction', 'invoice', 'order', 'receipt', 'id']):
+                    if 0.01 < unique_ratio < 0.9:  # Has repeated values (not all unique)
+                        transaction_col = col
+                        break
+            
+            # Look for item/product patterns
+            for col in df.columns:
+                if col == transaction_col:
+                    continue
+                col_lower = col.lower()
+                unique_ratio = df[col].nunique() / len(df)
+                if any(pattern in col_lower for pattern in ['item', 'product', 'description', 'stock', 'sku']):
+                    if unique_ratio > 0.01:  # Has variety
+                        item_col = col
+                        break
+            
+            # Fallback: use first two columns
+            if not transaction_col:
+                transaction_col = df.columns[0]
+            if not item_col and len(df.columns) > 1:
+                item_col = df.columns[1] if df.columns[1] != transaction_col else df.columns[0]
+            
+            # Data suitability assessment
+            unique_transactions = df[transaction_col].nunique() if transaction_col else 0
+            unique_items = df[item_col].nunique() if item_col else 0
+            
+            if unique_transactions < 50:
+                data_suitability = 'Poor'
+                suitability_reasoning = f'Too few transactions ({unique_transactions}) - need at least 50 for meaningful patterns'
+                alternative_suggestions = [
+                    'Use Sample Data (built-in groceries dataset)',
+                    'Collect more transaction data',
+                    'Verify correct transaction column selection'
+                ]
+            elif unique_items < 10:
+                data_suitability = 'Poor'
+                suitability_reasoning = f'Too few unique items ({unique_items}) - need variety for association rules'
+                alternative_suggestions = [
+                    'Use Sample Data (built-in groceries dataset)',
+                    'Verify correct item column selection',
+                    'Ensure dataset has multiple products/items'
+                ]
+            elif unique_transactions < 200:
+                data_suitability = 'Fair'
+                suitability_reasoning = f'Limited transactions ({unique_transactions}) - patterns may be less reliable'
+                alternative_suggestions = []
+            else:
+                data_suitability = 'Good'
+                suitability_reasoning = f'Dataset suitable for MBA - {unique_transactions} transactions, {unique_items} unique items'
+                alternative_suggestions = []
+            
+            return {
+                'data_suitability': data_suitability,
+                'suitability_reasoning': suitability_reasoning,
+                'alternative_suggestions': alternative_suggestions,
+                'performance_risk': performance_risk,
+                'performance_warnings': performance_warnings,
+                'optimization_suggestions': [
+                    'Use appropriate support and confidence thresholds',
+                    'Consider filtering low-frequency items for performance'
+                ],
+                'recommended_transaction_column': transaction_col,
+                'recommended_item_column': item_col,
+                'column_reasoning': f'Rule-based detection: {transaction_col} for transactions, {item_col} for items',
+                'recommended_min_support': 0.01,
+                'recommended_min_confidence': 0.5,
+                'thresholds_reasoning': 'Standard thresholds for rule-based detection'
+            }
         elif task_type == 'classification':
             # Simple classification target detection
             target = None
