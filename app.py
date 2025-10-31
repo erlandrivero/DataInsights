@@ -3042,9 +3042,10 @@ def show_market_basket_analysis():
         else:
             st.success(f"✅ **Dataset looks suitable for MBA** (Confidence: {validation['confidence']})")
         
-        # Let user select columns for transaction analysis
-        st.write("**Select columns for Market Basket Analysis:**")
-        st.info("💡 **Smart Detection:** Columns are auto-selected based on your data. You can change them if needed.")
+        # Column selection using smart detection (from cleaned data)
+        st.divider()
+        st.subheader("📋 2. Select Columns for Analysis")
+        st.info("💡 **Smart Detection:** Columns are auto-selected based on your cleaned data. You can change them if needed.")
         
         col1, col2 = st.columns(2)
         with col1:
@@ -3191,12 +3192,139 @@ def show_market_basket_analysis():
         for trans in transactions:
             all_items_set.update(trans)
         st.write(f"**Unique items from raw transactions:** {len(all_items_set)}")
-    
-    # Threshold controls
+
+    # AI-Powered MBA Recommendations (After processing - for thresholds and performance)
     st.divider()
-    st.subheader("🎛️ 2. Adjust Thresholds")
+    st.subheader("🤖 3. AI Market Basket Analysis Recommendations")
+    
+    if 'mba_ai_recommendations' not in st.session_state:
+        if st.button("🔍 Generate AI MBA Analysis", type="primary", use_container_width=True):
+            with st.status("🤖 Analyzing transaction data with AI...", expanded=True) as status:
+                try:
+                    import time
+                    from utils.ai_smart_detection import get_ai_recommendation
+                    
+                    # Step 1: Preparing data
+                    status.write("Preparing transaction data...")
+                    time.sleep(0.5)  # Brief pause for visual feedback
+                    
+                    # Step 2: Analyzing structure
+                    status.write("Analyzing transaction structure and performance constraints...")
+                    time.sleep(0.5)
+                    
+                    # Step 3: Generating AI analysis
+                    status.write("Generating AI analysis...")
+                    ai_recommendations = get_ai_recommendation(df_encoded, task_type='market_basket_analysis')
+                    st.session_state.mba_ai_recommendations = ai_recommendations
+                    
+                    status.update(label="✅ AI analysis complete!", state="complete")
+                    st.rerun()
+                except Exception as e:
+                    status.update(label="❌ Analysis failed", state="error")
+                    st.error(f"Error generating AI recommendations: {str(e)}")
+    else:
+        ai_recs = st.session_state.mba_ai_recommendations
+        
+        # Performance Risk Assessment
+        performance_risk = ai_recs.get('performance_risk', 'Low')
+        risk_emoji = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}.get(performance_risk, '❓')
+        
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            st.info(f"**⚡ Performance Risk:** {risk_emoji} {performance_risk} - Dataset suitability for Streamlit Cloud")
+        with col2:
+            if st.button("🔄 Regenerate Analysis", use_container_width=True):
+                del st.session_state.mba_ai_recommendations
+                st.rerun()
+        
+        # Data Suitability Assessment
+        data_suitability = ai_recs.get('data_suitability', 'Unknown')
+        suitability_emoji = {'Excellent': '🌟', 'Good': '✅', 'Fair': '⚠️', 'Poor': '❌'}.get(data_suitability, '❓')
+        st.success(f"**📊 Data Suitability:** {suitability_emoji} {data_suitability} for Market Basket Analysis")
+        
+        # Suitability reasoning
+        suitability_reasoning = ai_recs.get('suitability_reasoning', 'No reasoning provided')
+        with st.expander("💡 Why this suitability rating?", expanded=False):
+            st.info(suitability_reasoning)
+        
+        # Performance Warnings
+        if performance_risk in ['Medium', 'High']:
+            perf_warnings = ai_recs.get('performance_warnings', [])
+            if perf_warnings:
+                st.warning("⚠️ **Performance Warnings:**")
+                for warning in perf_warnings:
+                    st.write(f"• {warning}")
+        
+        # Optimization Suggestions
+        optimization_suggestions = ai_recs.get('optimization_suggestions', [])
+        if optimization_suggestions:
+            with st.expander("🚀 AI Optimization Suggestions", expanded=True):
+                for suggestion in optimization_suggestions:
+                    st.write(f"• {suggestion}")
+        
+        # Transaction Structure Issues
+        structure_issues = ai_recs.get('transaction_structure_issues', [])
+        if structure_issues:
+            with st.expander("⚠️ Transaction Structure Issues", expanded=False):
+                for issue in structure_issues:
+                    st.warning(f"• {issue}")
+        
+        # Preprocessing Recommendations
+        preprocessing_recs = ai_recs.get('preprocessing_recommendations', [])
+        if preprocessing_recs:
+            with st.expander("🔧 MBA Preprocessing Recommendations", expanded=False):
+                for rec in preprocessing_recs:
+                    st.write(f"• {rec}")
+    
+    # Threshold controls (now informed by AI recommendations)
+    st.divider()
+    st.subheader("🎛️ 4. Adjust Thresholds")
     
     st.info("💡 **Memory-Friendly Defaults:** Higher support = less memory usage. Recommended for large datasets (>10k transactions).")
+    
+    # Get AI recommendations for smart defaults (from MBA analysis)
+    ai_recs = st.session_state.get('mba_ai_recommendations', {})
+    has_ai_analysis = 'mba_ai_recommendations' in st.session_state
+    
+    if has_ai_analysis:
+        # After AI analysis: Use AI recommendations for smart defaults
+        recommended_support = ai_recs.get('recommended_min_support', 0.02)
+        recommended_confidence = ai_recs.get('recommended_min_confidence', 0.4)
+        recommended_lift = ai_recs.get('recommended_min_lift', 1.5)
+        
+        st.info(f"🤖 **AI has analyzed your data and preset the thresholds below.** Support: {recommended_support}, Confidence: {recommended_confidence}, Lift: {recommended_lift}")
+        
+        # Show AI reasoning in expandable section
+        with st.expander("🧠 View AI Reasoning for Threshold Settings", expanded=False):
+            st.markdown("**🤖 AI Threshold Recommendations:**")
+            st.write(f"📊 **Dataset Profile**: {len(transactions):,} transactions, {len(df_encoded.columns)} unique items")
+            
+            performance_risk = ai_recs.get('performance_risk', 'Low')
+            st.write(f"⚡ **Performance Risk**: {performance_risk}")
+            
+            st.markdown("**🎯 AI Recommendations:**")
+            support_reasoning = ai_recs.get('support_reasoning', 'Standard support threshold')
+            confidence_reasoning = ai_recs.get('confidence_reasoning', 'Balanced confidence threshold')
+            lift_reasoning = ai_recs.get('lift_reasoning', 'Standard lift threshold')
+            
+            st.write(f"✅ **Support**: {recommended_support} - {support_reasoning}")
+            st.write(f"✅ **Confidence**: {recommended_confidence} - {confidence_reasoning}")
+            st.write(f"✅ **Lift**: {recommended_lift} - {lift_reasoning}")
+        
+        help_text_support = f"AI Recommended: {recommended_support} - {ai_recs.get('support_reasoning', 'Optimized for your dataset')}"
+        help_text_confidence = f"AI Recommended: {recommended_confidence} - {ai_recs.get('confidence_reasoning', 'Balanced threshold')}"
+        help_text_lift = f"AI Recommended: {recommended_lift} - {ai_recs.get('lift_reasoning', 'Strong associations')}"
+    else:
+        # Before AI analysis: Use standard defaults
+        recommended_support = 0.02
+        recommended_confidence = 0.4
+        recommended_lift = 1.5
+        
+        st.info("💡 **Generate AI Analysis above to get intelligent threshold recommendations. Currently using standard defaults.**")
+        
+        help_text_support = "Generate AI Analysis above to get smart threshold recommendations based on your data."
+        help_text_confidence = "Generate AI Analysis above to get smart threshold recommendations based on your data."
+        help_text_lift = "Generate AI Analysis above to get smart threshold recommendations based on your data."
     
     col1, col2, col3 = st.columns(3)
     
@@ -3205,9 +3333,9 @@ def show_market_basket_analysis():
             "Minimum Support",
             min_value=0.001,
             max_value=0.5,
-            value=0.02,
+            value=recommended_support,
             step=0.005,
-            help="Minimum frequency for an itemset (default: 0.02 = 2% - balanced for most datasets)"
+            help=help_text_support
         )
     
     with col2:
@@ -3215,9 +3343,9 @@ def show_market_basket_analysis():
             "Minimum Confidence",
             min_value=0.1,
             max_value=1.0,
-            value=0.4,
+            value=recommended_confidence,
             step=0.05,
-            help="Minimum confidence for a rule (default: 0.4 = 40%)"
+            help=help_text_confidence
         )
     
     with col3:
@@ -3225,9 +3353,9 @@ def show_market_basket_analysis():
             "Minimum Lift",
             min_value=1.0,
             max_value=10.0,
-            value=1.5,
+            value=recommended_lift,
             step=0.1,
-            help="Minimum lift - how much more likely items are bought together (default: 1.5 for stronger patterns)"
+            help=help_text_lift
         )
     
     # Run analysis button

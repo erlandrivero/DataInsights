@@ -186,6 +186,75 @@ Guidelines for Anomaly Detection:
 7. Be specific about performance warnings and optimization suggestions
 
 Provide ONLY the JSON response, no additional text."""
+            elif task_type == 'market_basket_analysis':
+                prompt = f"""You are an expert retail analytics specialist analyzing a dataset for Market Basket Analysis.
+
+Dataset Overview:
+- Total Rows: {len(df)}
+- Total Columns: {len(df.columns)}
+- Task Type: MARKET BASKET ANALYSIS
+
+Column Details:
+{json.dumps(column_info, indent=2)}
+
+Please analyze this processed transaction dataset and provide Market Basket Analysis recommendations in the following JSON format:
+{{
+    "performance_risk": "Low/Medium/High",
+    "performance_warnings": ["List of performance concerns for Streamlit Cloud"],
+    "optimization_suggestions": ["List of specific suggestions to improve MBA performance"],
+    "data_suitability": "Excellent/Good/Fair/Poor",
+    "suitability_reasoning": "Why this processed dataset is/isn't suitable for Market Basket Analysis",
+    "recommended_min_support": 0.02,
+    "recommended_min_confidence": 0.4,
+    "recommended_min_lift": 1.5,
+    "support_reasoning": "Why this support threshold is appropriate for this dataset",
+    "confidence_reasoning": "Why this confidence threshold is appropriate",
+    "lift_reasoning": "Why this lift threshold is appropriate",
+    "transaction_structure_issues": ["List of potential issues with transaction structure"],
+    "preprocessing_recommendations": ["List of data preprocessing steps specific to MBA"]
+}}
+
+Guidelines for Market Basket Analysis:
+1. PERFORMANCE RISK: Assess based on transaction volume and item diversity
+   - Low: <5K transactions, <500 unique items
+   - Medium: 5K-50K transactions, 500-2K unique items
+   - High: >50K transactions, >2K unique items (memory intensive for Apriori)
+2. DATA SUITABILITY: Evaluate processed transaction data structure
+   - Excellent: Well-formed binary matrix, good basket diversity, reasonable item counts
+   - Good: Minor issues, reasonable transaction sizes
+   - Fair: Some structural problems, very small or very large baskets
+   - Poor: Poorly formed transactions, single-item transactions, no clear patterns
+3. THRESHOLD RECOMMENDATIONS:
+   - Support: Based on transaction count and item frequency distribution
+     * Small datasets (<1K trans): 0.01-0.05 (1-5%)
+     * Medium datasets (1K-10K): 0.005-0.02 (0.5-2%)
+     * Large datasets (>10K): 0.001-0.01 (0.1-1%)
+   - Confidence: Based on business requirements
+     * Conservative: 0.6-0.8 (60-80%)
+     * Balanced: 0.3-0.6 (30-60%)
+     * Exploratory: 0.1-0.3 (10-30%)
+   - Lift: Always start with 1.0+ for meaningful associations
+     * Weak associations: 1.0-1.5
+     * Moderate associations: 1.5-3.0
+     * Strong associations: 3.0+
+4. TRANSACTION STRUCTURE: Identify potential issues
+   - Missing transaction IDs
+   - Single-item transactions (no associations possible)
+   - Extremely large baskets (computational complexity)
+   - Item naming inconsistencies
+5. PERFORMANCE CONSTRAINTS: Consider Streamlit Cloud limitations
+   - Apriori algorithm is memory-intensive
+   - Large item catalogs create exponential complexity
+   - Recommend sampling for very large datasets
+6. PREPROCESSING: MBA-specific data preparation
+   - Item name standardization
+   - Transaction grouping validation
+   - Basket size analysis
+   - Item frequency distribution
+
+Focus ONLY on Market Basket Analysis requirements. Do not consider ML classification, regression, or other analysis types.
+
+Provide ONLY the JSON response, no additional text."""
             else:
                 prompt = f"""You are an expert data scientist analyzing a dataset for machine learning {task_type}.
 
