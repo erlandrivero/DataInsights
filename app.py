@@ -3467,10 +3467,47 @@ def show_market_basket_analysis():
                 status_text.text("Mining frequent itemsets...")
                 progress_bar.progress(0.3)
                 
-                # Determine max_len based on dataset size to prevent memory issues
+                # CRITICAL: Data reduction for large datasets (prevents memory overflow)
                 transactions = st.session_state.mba_transactions
-                unique_items = len(set([item for trans in transactions for item in trans]))
+                all_items = [item for trans in transactions for item in trans]
+                unique_items = len(set(all_items))
                 
+                # Step 1: Filter low-frequency items for large catalogs
+                if unique_items > 1000:
+                    from collections import Counter
+                    item_counts = Counter(all_items)
+                    min_frequency = 5 if unique_items > 2000 else 3
+                    
+                    # Remove items appearing less than min_frequency times
+                    frequent_items = {item for item, count in item_counts.items() if count >= min_frequency}
+                    transactions_filtered = [[item for item in trans if item in frequent_items] for trans in transactions]
+                    transactions_filtered = [trans for trans in transactions_filtered if len(trans) > 0]  # Remove empty
+                    
+                    items_removed = unique_items - len(frequent_items)
+                    trans_removed = len(transactions) - len(transactions_filtered)
+                    
+                    st.warning(f"🧹 **Item Filtering:** Removed {items_removed} low-frequency items (appearing <{min_frequency} times)")
+                    st.info(f"📊 **After filtering:** {len(transactions_filtered):,} transactions, {len(frequent_items)} unique items")
+                    
+                    transactions = transactions_filtered
+                    unique_items = len(frequent_items)
+                    st.session_state.mba_transactions = transactions  # Update with filtered version
+                
+                # Step 2: Sample transactions for very large datasets
+                if len(transactions) > 8000 and unique_items > 1500:
+                    import random
+                    sample_size = 5000 if unique_items > 2000 else 8000
+                    random.seed(42)  # Reproducible sampling
+                    transactions = random.sample(transactions, min(sample_size, len(transactions)))
+                    
+                    st.warning(f"📉 **Transaction Sampling:** Using {len(transactions):,} of {len(st.session_state.mba_transactions):,} transactions (prevents timeout)")
+                    st.info(f"💡 **Note:** Patterns found will still be representative of full dataset")
+                
+                # Re-encode transactions with filtered/sampled data
+                status_text.text("Encoding filtered transactions...")
+                mba.encode_transactions(transactions)
+                
+                # Determine max_len based on dataset size to prevent memory issues
                 # CRITICAL: Limit itemset size for large datasets (Streamlit Cloud protection)
                 # More aggressive limits for very high unique item counts
                 if unique_items > 2000:
@@ -3487,6 +3524,7 @@ def show_market_basket_analysis():
                     max_len = 5  # Max 5-item combinations for small datasets
                 
                 # Find frequent itemsets with memory protection
+                status_text.text(f"Mining frequent itemsets (max {max_len}-item combinations)...")
                 itemsets = mba.find_frequent_itemsets(min_support=min_support, max_len=max_len)
                 
                 if len(itemsets) == 0:

@@ -236,16 +236,22 @@ Guidelines for Market Basket Analysis:
    - Medium: 1K-10K transactions, 100-1K unique items  
    - High: >10K transactions, >1K unique items
    - CRITICAL: >2K unique items = Extreme memory risk (billions of combinations)
-5. THRESHOLDS: MUST be aggressive for large item catalogs
+5. DATA REDUCTION: For large datasets, RECOMMEND aggressive filtering BEFORE analysis
+   - >10K transactions: Recommend sampling to 5K-8K transactions max
+   - >1K items: Recommend removing items appearing <5 times (low-frequency filter)
+   - >2K items: MANDATORY - recommend sampling to 3K-5K transactions AND item filtering
+   - Suggest time-based filtering (e.g., last 6 months) for transaction data
+6. THRESHOLDS: MUST be aggressive for large item catalogs
    - <100 items: 0.01 support (1%)
    - 100-500 items: 0.02 support (2%)
    - 500-1K items: 0.03 support (3%)
    - 1K-2K items: 0.05 support (5%)
    - >2K items: 0.10 support (10%) - MANDATORY for Streamlit Cloud survival
-6. EXCLUDE: Columns with unique values per row (likely not transactional)
-7. MEMORY PROTECTION: System will limit to 2-item combinations for >2K items automatically
-8. PERFORMANCE CONSTRAINTS: Streamlit Cloud has 1GB RAM limit - MBA with large catalogs WILL crash without aggressive thresholds
-9. Be specific about unique item count impact on memory and recommend accordingly
+7. EXCLUDE: Columns with unique values per row (likely not transactional)
+8. MEMORY PROTECTION: System will limit to 2-item combinations for >2K items automatically
+9. PERFORMANCE CONSTRAINTS: Streamlit Cloud has 1GB RAM limit - MBA with large catalogs WILL crash without aggressive thresholds AND data reduction
+10. CRITICAL: If >2K items, explicitly state "Data MUST be reduced before analysis" in optimization_suggestions
+11. Be specific about unique item count impact and recommend specific reduction strategies
 
 Provide ONLY the JSON response, no additional text."""
             elif task_type == 'rfm_analysis':
