@@ -558,11 +558,22 @@ Provide ONLY the JSON response, no additional text."""
                             item_col = col
                             break
             
-            # Fallback: use first two columns
+            # Fallback: use first two columns, but avoid code-like columns for items
             if not transaction_col:
                 transaction_col = df.columns[0]
             if not item_col and len(df.columns) > 1:
-                item_col = df.columns[1] if df.columns[1] != transaction_col else df.columns[0]
+                # Try to find any column that's NOT a code (avoid stock, sku, id patterns)
+                for col in df.columns:
+                    if col == transaction_col:
+                        continue
+                    col_lower = col.lower()
+                    # Skip columns that look like codes
+                    if not any(pattern in col_lower for pattern in ['stockcode', 'sku', 'product_id', 'item_id', '_id', 'code']):
+                        item_col = col
+                        break
+                # Ultimate fallback if everything looks like codes
+                if not item_col:
+                    item_col = df.columns[1] if df.columns[1] != transaction_col else df.columns[0]
             
             # Data suitability assessment
             unique_transactions = df[transaction_col].nunique() if transaction_col else 0
