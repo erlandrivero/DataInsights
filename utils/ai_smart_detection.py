@@ -76,10 +76,21 @@ class AISmartDetection:
                     'missing_pct': round((df[col].isna().sum() / len(df) * 100), 2)
                 }
                 
-                # Add sample values (first 3 non-null)
-                sample_values = df[col].dropna().head(3).tolist()
-                # Convert to JSON-serializable format
-                info['sample_values'] = [str(v) for v in sample_values]
+                # Add diverse sample values for better content analysis
+                non_null_values = df[col].dropna()
+                if len(non_null_values) > 0:
+                    # Get diverse samples: first few, middle, and last few
+                    sample_indices = []
+                    if len(non_null_values) >= 5:
+                        sample_indices = [0, 1, len(non_null_values)//2, -2, -1]
+                    else:
+                        sample_indices = list(range(len(non_null_values)))
+                    
+                    sample_values = [non_null_values.iloc[i] for i in sample_indices[:5]]
+                    # Convert to JSON-serializable format and remove duplicates
+                    info['sample_values'] = list(dict.fromkeys([str(v) for v in sample_values]))
+                else:
+                    info['sample_values'] = []
                 
                 # Add statistics for numeric columns
                 if pd.api.types.is_numeric_dtype(df[col]):
@@ -222,17 +233,20 @@ Guidelines for Market Basket Analysis:
    - Low: <5K transactions, <500 unique items
    - Medium: 5K-50K transactions, 500-2K unique items
    - High: >50K transactions, >2K unique items (memory intensive for Apriori)
-2. DATA SUITABILITY: Evaluate transaction data structure
-   - Excellent: Clear transaction IDs, item names, good basket diversity
-   - Good: Minor formatting issues, reasonable transaction sizes
-   - Fair: Some structural problems, very small or very large baskets
-   - Poor: Missing transaction structure, single-item transactions, no clear items
-3. COLUMN SELECTION: Identify best columns for MBA
-   - Transaction Column: Look for ID columns (invoice, order, transaction, basket)
-   - Item Column: Look for product/item names (description, product, item, name)
-   - AVOID for Item Column: Code columns (stockcode, sku, id), price, quantity, date columns
-   - PREFER for Item Column: Descriptive text columns with actual product names/descriptions
-   - Columns with reasonable cardinality and meaningful item identification
+2. DATA SUITABILITY: Evaluate transaction data structure using MBA industry standards
+   - Excellent: Clear transaction grouping, descriptive item names, diverse baskets (2-20 items)
+   - Good: Minor formatting issues, reasonable transaction sizes (avg 3-15 items)
+   - Fair: Some structural problems, very small (<2 items) or very large (>50 items) baskets
+   - Poor: Missing transaction structure, single-item transactions, no interpretable items
+3. COLUMN SELECTION: Analyze actual data content, not just column names
+   - Transaction Column: Must contain identifiers that group items into baskets/transactions
+     * Analyze: Does the column have repeated values that logically group items?
+     * Content: Should be IDs, order numbers, session IDs, customer visits, etc.
+   - Item Column: Must contain meaningful item identifiers for association analysis
+     * Analyze: Does the column contain descriptive, human-readable item information?
+     * Content: Product names, descriptions, categories - NOT numeric codes or IDs
+     * Test: Can you understand what the item is from the column value alone?
+     * Avoid: Pure numeric codes, SKUs, IDs that don't describe the actual product
 4. THRESHOLD RECOMMENDATIONS:
    - Support: Based on transaction count and item frequency distribution
      * Small datasets (<1K trans): 0.01-0.05 (1-5%)
@@ -263,11 +277,19 @@ Guidelines for Market Basket Analysis:
 
 Focus ONLY on Market Basket Analysis requirements. Do not consider ML classification, regression, or other analysis types.
 
+ANALYSIS METHODOLOGY:
+1. Examine actual data samples from each column, not just column names
+2. For Transaction Column: Look for values that repeat and logically group items (order IDs, session IDs, etc.)
+3. For Item Column: Look for values that are human-readable and describe actual products
+4. Apply MBA industry standards: Items must be interpretable for business insights
+
 IMPORTANT: You MUST provide ALL required fields in the JSON response. Do not leave any field empty or null.
 - data_suitability must be one of: Excellent, Good, Fair, Poor
-- suitability_reasoning must provide specific reasoning based on the data
+- suitability_reasoning must provide specific reasoning based on actual data content analysis
 - recommended_transaction_column and recommended_item_column must be actual column names from the dataset
-- column_reasoning must explain why these specific columns were chosen
+- column_reasoning must explain why these columns were chosen based on content analysis, not names
+- Analyze sample values from each column to determine suitability for MBA
+- Prioritize columns with meaningful, descriptive content over codes or IDs
 
 Provide ONLY the JSON response, no additional text."""
             else:

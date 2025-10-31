@@ -3135,36 +3135,52 @@ def show_market_basket_analysis():
             help_text_trans = f"AI Recommended: {recommended_trans_col} - {ai_recs.get('column_reasoning', 'Best for transaction grouping')}"
             help_text_item = f"AI Recommended: {recommended_item_col} - {ai_recs.get('column_reasoning', 'Best for item identification')}"
         else:
-            # Before AI analysis: Use smart detection as fallback
-            trans_idx = list(df.columns).index(suggestions['transaction_id']) if suggestions['transaction_id'] in df.columns else 0
-            item_idx = list(df.columns).index(suggestions['item']) if suggestions['item'] in df.columns else 0
-            st.info("💡 **Generate AI Analysis above to get intelligent column recommendations. Currently using smart detection.**")
+            # Before AI analysis: Start with empty selection (no presets)
+            trans_idx = None  # No default selection
+            item_idx = None   # No default selection
+            st.info("💡 **Generate AI Analysis above to get intelligent column recommendations. Dropdowns are empty until AI analysis is complete.**")
             help_text_trans = "Generate AI Analysis above to get smart column recommendations based on your data."
             help_text_item = "Generate AI Analysis above to get smart column recommendations based on your data."
         
         col1, col2 = st.columns(2)
         with col1:
-            trans_col = st.selectbox(
+            # Create options list with placeholder if no AI analysis
+            trans_options = ["Select a column..."] + list(df.columns) if not has_ai_analysis else list(df.columns)
+            trans_index = (trans_idx + 1) if (has_ai_analysis and trans_idx is not None) else (0 if not has_ai_analysis else trans_idx)
+            
+            trans_selection = st.selectbox(
                 "Transaction ID column:", 
-                df.columns, 
-                index=trans_idx,
+                trans_options, 
+                index=trans_index,
                 key="loaded_trans_col",
                 help=help_text_trans
             )
+            # Get actual column name (remove placeholder)
+            trans_col = trans_selection if trans_selection != "Select a column..." else None
+            
         with col2:
-            item_col = st.selectbox(
+            # Create options list with placeholder if no AI analysis  
+            item_options = ["Select a column..."] + list(df.columns) if not has_ai_analysis else list(df.columns)
+            item_index = (item_idx + 1) if (has_ai_analysis and item_idx is not None) else (0 if not has_ai_analysis else item_idx)
+            
+            item_selection = st.selectbox(
                 "Item column:", 
-                df.columns,
-                index=item_idx, 
+                item_options,
+                index=item_index, 
                 key="loaded_item_col",
                 help=help_text_item
             )
+            # Get actual column name (remove placeholder)
+            item_col = item_selection if item_selection != "Select a column..." else None
         
-        # Only show button if data is suitable
+        # Only show button if data is suitable and columns are selected
         data_suitable = st.session_state.get('mba_data_suitable', True)
+        columns_selected = trans_col is not None and item_col is not None
         
         if not data_suitable:
             st.error("❌ **Cannot process - data incompatible with Market Basket Analysis**")
+        elif not columns_selected:
+            st.warning("⚠️ **Please select both Transaction ID and Item columns to continue**")
         elif st.button("🔄 Process Loaded Data", type="primary"):
             with st.status("Processing transactions...", expanded=True) as status:
                 try:
