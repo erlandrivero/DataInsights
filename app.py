@@ -3450,6 +3450,14 @@ def show_market_basket_analysis():
                     pm.unlock()
                     st.stop()
                 
+                # CRITICAL: Clear old MBA results to prevent memory accumulation
+                if 'mba_itemsets' in st.session_state:
+                    del st.session_state.mba_itemsets
+                if 'mba_rules' in st.session_state:
+                    del st.session_state.mba_rules
+                if 'mba_insights' in st.session_state:
+                    del st.session_state.mba_insights
+                
                 # Progress tracking
                 st.divider()
                 st.subheader("⚙️ Analysis Progress")
