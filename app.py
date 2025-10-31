@@ -4253,9 +4253,97 @@ def show_rfm_analysis():
         
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
         
-        # Get smart column suggestions
+        # Section 2: AI RFM Analysis Recommendations
+        st.subheader("📊 2. AI RFM Analysis Recommendations")
+        
+        # Check if AI recommendations already exist
+        if 'rfm_ai_recommendations' not in st.session_state:
+            if st.button("🤖 Generate AI RFM Analysis", type="primary", use_container_width=True, key="rfm_ai_button"):
+                with st.spinner("🔍 AI is analyzing your dataset for RFM suitability..."):
+                    from utils.ai_smart_detection import AISmartDetection
+                    
+                    # Get AI recommendations
+                    recommendations = AISmartDetection.analyze_dataset_for_ml(
+                        df=df.copy(),
+                        task_type='rfm_analysis'
+                    )
+                    
+                    # Store in session state
+                    st.session_state.rfm_ai_recommendations = recommendations
+                    st.rerun()
+        
+        # Display AI recommendations if available
+        if 'rfm_ai_recommendations' in st.session_state:
+            rec = st.session_state.rfm_ai_recommendations
+            
+            # Performance Risk Badge
+            risk_colors = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}
+            risk_color = risk_colors.get(rec.get('performance_risk', 'Medium'), '⚪')
+            
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                suitability = rec.get('data_suitability', 'Unknown')
+                if suitability == 'Excellent' or suitability == 'Good':
+                    st.success(f"✅ **Data Suitability:** {suitability} for RFM Analysis")
+                elif suitability == 'Fair':
+                    st.warning(f"⚠️ **Data Suitability:** {suitability} for RFM Analysis")
+                else:
+                    st.error(f"❌ **Data Suitability:** {suitability} for RFM Analysis")
+            
+            with col2:
+                st.info(f"{risk_color} **Performance Risk:** {rec.get('performance_risk', 'Unknown')}")
+            
+            # Expandable reasoning
+            with st.expander("💡 Why this suitability rating?", expanded=False):
+                st.write(rec.get('suitability_reasoning', 'No reasoning provided'))
+                
+                if rec.get('alternative_suggestions'):
+                    st.write("**📌 Suggestions:**")
+                    for suggestion in rec['alternative_suggestions']:
+                        st.write(f"- {suggestion}")
+            
+            # AI Column Selection Reasoning
+            with st.expander("🤖 AI Column Selection Reasoning", expanded=True):
+                st.info(f"**🎯 Why these columns?** {rec.get('column_reasoning', 'Rule-based detection')}")
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.write("**Customer Column:**")
+                    st.code(rec.get('recommended_customer_column', 'N/A'))
+                with col2:
+                    st.write("**Date Column:**")
+                    st.code(rec.get('recommended_date_column', 'N/A'))
+                with col3:
+                    st.write("**Amount Column:**")
+                    st.code(rec.get('recommended_amount_column', 'N/A'))
+                
+                if rec.get('date_format_detected'):
+                    st.write(f"**📅 Date Format:** {rec['date_format_detected']}")
+            
+            # Performance warnings if any
+            if rec.get('performance_warnings'):
+                with st.expander("⚠️ Performance Warnings", expanded=False):
+                    for warning in rec['performance_warnings']:
+                        st.warning(warning)
+            
+            # Optimization suggestions
+            if rec.get('optimization_suggestions'):
+                with st.expander("🚀 Optimization Suggestions", expanded=False):
+                    for suggestion in rec['optimization_suggestions']:
+                        st.info(f"💡 {suggestion}")
+            
+            # Button to regenerate
+            if st.button("🔄 Regenerate Analysis", key="rfm_regen"):
+                del st.session_state.rfm_ai_recommendations
+                st.rerun()
+            
+            st.divider()
+        
+        # Section 3: Dataset Validation (make it informational only)
+        st.subheader("📋 3. Dataset Validation")
+        
+        # Get smart column suggestions for validation
         from utils.column_detector import ColumnDetector
-        suggestions = ColumnDetector.get_rfm_column_suggestions(df)
         
         # Validate data suitability
         validation = ColumnDetector.validate_rfm_suitability(df)
@@ -4285,9 +4373,22 @@ def show_rfm_analysis():
         else:
             st.success(f"✅ **Dataset looks suitable for RFM** (Confidence: {validation['confidence']})")
         
-        # Let user select columns for RFM analysis
-        st.write("**Select columns for RFM Analysis:**")
-        st.info("💡 **Smart Detection:** Columns are auto-selected based on your data. You can change them if needed.")
+        # Section 4: Let user select columns for RFM analysis
+        st.subheader("📋 4. Select Columns for Analysis")
+        
+        # Use AI recommendations if available, otherwise use rule-based detection
+        if 'rfm_ai_recommendations' in st.session_state:
+            rec = st.session_state.rfm_ai_recommendations
+            suggestions = {
+                'customer_id': rec.get('recommended_customer_column'),
+                'date': rec.get('recommended_date_column'),
+                'amount': rec.get('recommended_amount_column')
+            }
+            st.info("🤖 **AI has analyzed your data and preset the columns below.** You can change them if needed.")
+        else:
+            # Fallback to rule-based detection
+            suggestions = ColumnDetector.get_rfm_column_suggestions(df)
+            st.info("💡 **Smart Detection:** Columns are auto-selected based on your data. You can change them if needed.")
         
         # Show column types to help user
         numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
