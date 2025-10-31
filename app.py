@@ -3055,10 +3055,12 @@ def show_market_basket_analysis():
         
         if 'mba_ai_recommendations' not in st.session_state:
             if st.button("🔍 Generate AI MBA Analysis", type="primary", use_container_width=True):
+                print("🔥 MBA BUTTON CLICKED! Starting AI analysis...")
                 with st.status("🤖 Analyzing dataset with AI...", expanded=True) as status:
                     try:
                         import time
                         from utils.ai_smart_detection import get_ai_recommendation
+                        print("🔥 IMPORT SUCCESSFUL! About to call AI function...")
                         
                         # Step 1: Preparing data
                         status.write("Preparing dataset for analysis...")
