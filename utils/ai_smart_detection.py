@@ -194,6 +194,51 @@ Guidelines for Anomaly Detection:
 8. Be specific about performance warnings and optimization suggestions
 
 Provide ONLY the JSON response, no additional text."""
+            elif task_type == 'market_basket_analysis':
+                prompt = f"""You are an expert data scientist analyzing a dataset for Market Basket Analysis (MBA).
+
+Dataset Overview:
+- Total Rows: {len(df)}
+- Total Columns: {len(df.columns)}
+- Task Type: MARKET BASKET ANALYSIS
+
+Column Details:
+{json.dumps(column_info, indent=2)}
+
+Please analyze this dataset and provide MBA recommendations in the following JSON format:
+{{
+    "data_suitability": "Excellent/Good/Fair/Poor",
+    "suitability_reasoning": "Detailed explanation of why this rating was given for MBA",
+    "alternative_suggestions": ["List of suggestions if data is Poor"],
+    "performance_risk": "Low/Medium/High",
+    "performance_warnings": ["List of performance concerns for Streamlit Cloud"],
+    "optimization_suggestions": ["List of specific suggestions to improve performance"],
+    "recommended_transaction_column": "column_name",
+    "recommended_item_column": "column_name",
+    "column_reasoning": "Why these columns are recommended for MBA",
+    "recommended_min_support": 0.01,
+    "recommended_min_confidence": 0.5,
+    "thresholds_reasoning": "Why these thresholds are appropriate"
+}}
+
+Guidelines for Market Basket Analysis:
+1. DATA SUITABILITY: Assess if dataset is appropriate for MBA
+   - Excellent: Clear transaction/item structure, many transactions, good variety
+   - Good: Adequate transaction data, reasonable patterns
+   - Fair: Limited transactions but workable, some structural issues
+   - Poor: No clear transaction structure, too few transactions (<50), or fundamentally unsuitable
+2. TRANSACTION COLUMN: Should have repeated values (customer/order IDs)
+3. ITEM COLUMN: Should have variety of items that appear across transactions
+4. PERFORMANCE RISK: Assess based on unique transactions and items
+   - Low: <1K transactions, <100 unique items
+   - Medium: 1K-10K transactions, 100-1K unique items  
+   - High: >10K transactions, >1K unique items
+5. EXCLUDE: Columns with unique values per row (likely not transactional)
+6. THRESHOLDS: Higher support/confidence for larger datasets
+7. PERFORMANCE CONSTRAINTS: Consider Streamlit Cloud limitations (1GB RAM, CPU timeout)
+8. Be specific about why columns are or aren't suitable for MBA
+
+Provide ONLY the JSON response, no additional text."""
             else:
                 prompt = f"""You are an expert data scientist analyzing a dataset for machine learning {task_type}.
 
