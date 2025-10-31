@@ -11210,6 +11210,9 @@ def show_ab_testing():
         )
         
         if st.button("🧪 Run Statistical Test", type="primary", key="run_loaded_test"):
+            import pandas as pd
+            from scipy.stats import chi2_contingency
+            
             with st.status("Running statistical test...", expanded=True) as status:
                 # Extract data for both groups
                 control_data = test_data[test_data[groups_info['group_col']] == groups_info['control']][groups_info['metric_col']].values
@@ -11236,9 +11239,6 @@ def show_ab_testing():
                     
                 elif selected_test == "Chi-Square Test":
                     # For chi-square, create contingency table
-                    import pandas as pd
-                    from scipy.stats import chi2_contingency
-                    
                     # Combine data with group labels
                     combined = pd.DataFrame({
                         'group': ['Control'] * len(control_data) + ['Treatment'] * len(treatment_data),
