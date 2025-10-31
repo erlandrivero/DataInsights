@@ -11107,6 +11107,52 @@ def show_ab_testing():
             st.dataframe(test_data.head(20), use_container_width=True)
             st.caption(f"Showing first 20 of {len(test_data)} rows")
         
+        # Manual Column Selection (with AI defaults)
+        st.subheader("🎯 Select Columns")
+        
+        # Get AI recommendations if available
+        ai_group_col = groups_info['group_col']
+        ai_metric_col = groups_info['metric_col']
+        
+        if 'ab_ai_recommendations' in st.session_state:
+            ai_rec = st.session_state.ab_ai_recommendations
+            ai_group_col = ai_rec.get('recommended_group_column', ai_group_col)
+            ai_metric_col = ai_rec.get('recommended_metric_column', ai_metric_col)
+            st.info("🤖 **AI has preset the columns below based on your data.** You can change them if needed.")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            # Group column selector
+            group_col_options = test_data.columns.tolist()
+            group_default_idx = group_col_options.index(ai_group_col) if ai_group_col in group_col_options else 0
+            
+            selected_group_col = st.selectbox(
+                "Group Column (Control vs Treatment):",
+                group_col_options,
+                index=group_default_idx,
+                help="Column with exactly 2 groups (e.g., Control/Treatment, A/B)"
+            )
+        
+        with col2:
+            # Metric column selector
+            metric_col_options = test_data.columns.tolist()
+            metric_default_idx = metric_col_options.index(ai_metric_col) if ai_metric_col in metric_col_options else 0
+            
+            selected_metric_col = st.selectbox(
+                "Metric Column (Outcome to measure):",
+                metric_col_options,
+                index=metric_default_idx,
+                help="Binary (0/1), continuous, or categorical outcome"
+            )
+        
+        # Update groups_info with selected columns
+        groups_info = {
+            'group_col': selected_group_col,
+            'metric_col': selected_metric_col,
+            'control': test_data[selected_group_col].unique()[0] if len(test_data[selected_group_col].unique()) >= 1 else None,
+            'treatment': test_data[selected_group_col].unique()[1] if len(test_data[selected_group_col].unique()) >= 2 else None
+        }
+        
         # Display dataset overview
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -11136,61 +11182,149 @@ def show_ab_testing():
             else:
                 st.success(f"✅ **No SRM Detected** - Sample ratio is balanced (Chi² = {srm['chi_square']:.2f}, p = {srm['p_value']:.4f})")
         
+        # Test Type Selection (with AI recommendation)
+        st.subheader("🧪 Select Test Type")
+        
+        # Get AI recommendation if available
+        default_test = "T-Test"
+        if 'ab_ai_recommendations' in st.session_state:
+            ai_test = st.session_state.ab_ai_recommendations.get('test_type_recommendation', 't_test')
+            if ai_test == 'proportion_test':
+                default_test = "Proportion Test (Z-test)"
+            elif ai_test == 't_test':
+                default_test = "T-Test"
+            elif ai_test == 'chi_square':
+                default_test = "Chi-Square Test"
+            
+            st.info(f"🤖 **AI Recommendation:** {default_test} - You can override this selection if needed.")
+        
+        test_options = ["Proportion Test (Z-test)", "T-Test", "Chi-Square Test"]
+        default_index = test_options.index(default_test) if default_test in test_options else 1
+        
+        selected_test = st.radio(
+            "Choose statistical test:",
+            test_options,
+            index=default_index,
+            help="Proportion Test: for binary outcomes (0/1) | T-Test: for continuous metrics | Chi-Square: for categorical outcomes",
+            horizontal=True
+        )
+        
         if st.button("🧪 Run Statistical Test", type="primary", key="run_loaded_test"):
             with st.status("Running statistical test...", expanded=True) as status:
                 # Extract data for both groups
                 control_data = test_data[test_data[groups_info['group_col']] == groups_info['control']][groups_info['metric_col']].values
                 treatment_data = test_data[test_data[groups_info['group_col']] == groups_info['treatment']][groups_info['metric_col']].values
                 
-                # Run t-test
-                result = analyzer.run_ttest(control_data, treatment_data, equal_var=False)
+                # Run selected test
+                if selected_test == "Proportion Test (Z-test)":
+                    # For proportion test, count successes (1s) and total
+                    control_successes = int(control_data.sum())
+                    treatment_successes = int(treatment_data.sum())
+                    control_n = len(control_data)
+                    treatment_n = len(treatment_data)
+                    
+                    result = analyzer.run_proportion_test(
+                        control_n, control_successes,
+                        treatment_n, treatment_successes,
+                        alternative='two-sided'
+                    )
+                    result['test_type'] = 'Proportion Test (Z-test)'
+                    
+                elif selected_test == "T-Test":
+                    result = analyzer.run_ttest(control_data, treatment_data, equal_var=False)
+                    result['test_type'] = 'T-Test (Welch)'
+                    
+                elif selected_test == "Chi-Square Test":
+                    # For chi-square, create contingency table
+                    import pandas as pd
+                    from scipy.stats import chi2_contingency
+                    
+                    # Combine data with group labels
+                    combined = pd.DataFrame({
+                        'group': ['Control'] * len(control_data) + ['Treatment'] * len(treatment_data),
+                        'outcome': list(control_data) + list(treatment_data)
+                    })
+                    
+                    # Create contingency table
+                    contingency = pd.crosstab(combined['group'], combined['outcome'])
+                    chi2, p_value, dof, expected = chi2_contingency(contingency)
+                    
+                    result = {
+                        'test_type': 'Chi-Square Test',
+                        'chi_square': chi2,
+                        'p_value': p_value,
+                        'degrees_of_freedom': dof,
+                        'significant': p_value < 0.05,
+                        'contingency_table': contingency
+                    }
+                
                 st.session_state.ab_test_results = result
+                st.session_state.ab_test_type = selected_test
                 
                 status.update(label="✅ Test complete!", state="complete", expanded=False)
             
-            st.success("✅ Statistical test completed!")
+            st.success(f"✅ {selected_test} completed!")
     
     # Display results if they exist
     if 'ab_test_results' in st.session_state:
         result = st.session_state.ab_test_results
+        test_type_used = st.session_state.get('ab_test_type', 'Unknown')
         
         st.divider()
-        st.subheader("📊 Test Results")
+        st.subheader(f"📊 Test Results - {test_type_used}")
         
-        col1, col2, col3, col4 = st.columns(4)
+        # Display common metrics
+        col1, col2 = st.columns([1, 3])
         with col1:
             st.metric("P-value", f"{result['p_value']:.4f}")
         with col2:
-            st.metric("Mean Difference", f"{result['absolute_diff']:.2f}")
-        with col3:
-            st.metric("% Difference", f"{result['relative_diff']:.1f}%")
-        with col4:
-            sig_label = "✅ Significant" if result['is_significant'] else "❌ Not Significant"
-            st.metric("Result", sig_label)
+            sig_label = "✅ Significant" if result.get('is_significant', result.get('significant', result['p_value'] < 0.05)) else "❌ Not Significant"
+            st.metric("Result (α=0.05)", sig_label)
+        
+        # Display test-specific metrics
+        if 'absolute_diff' in result:  # T-Test or Proportion Test
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Absolute Difference", f"{result['absolute_diff']:.4f}")
+            with col2:
+                st.metric("Relative Difference", f"{result.get('relative_diff', 0):.2f}%")
+        
+        if 'chi_square' in result:  # Chi-Square Test
+            st.metric("Chi-Square Statistic", f"{result['chi_square']:.4f}")
+            st.metric("Degrees of Freedom", result['degrees_of_freedom'])
+            
+            if 'contingency_table' in result:
+                st.write("**Contingency Table:**")
+                st.dataframe(result['contingency_table'], use_container_width=True)
         
         # Interpretation
-        if result['is_significant']:
+        is_sig = result.get('is_significant', result.get('significant', result['p_value'] < 0.05))
+        if is_sig:
             st.success(f"""
             ✅ **Statistically Significant Result!**
             
-            The treatment group shows a statistically significant difference (p={result['p_value']:.4f} < 0.05).
-            The difference is unlikely due to chance.
+            The test shows a statistically significant difference (p={result['p_value']:.4f} < 0.05).
+            The observed difference is unlikely due to chance alone.
             """)
         else:
             st.warning(f"""
             ⚠️ **No Statistical Significance**
             
             The difference is not statistically significant (p={result['p_value']:.4f} ≥ 0.05).
-            Consider collecting more data or accepting the current variation.
+            Consider collecting more data or the groups may truly be similar.
             """)
         
-        # Visualization
-        fig = ABTestAnalyzer.create_ab_test_visualization(result)
-        st.plotly_chart(fig, use_container_width=True)
+        # Visualization (if available)
+        try:
+            fig = ABTestAnalyzer.create_ab_test_visualization(result)
+            st.plotly_chart(fig, use_container_width=True)
+        except:
+            pass  # Skip visualization if not applicable
         
-        # Effect size
-        effect_interp = ABTestAnalyzer.interpret_effect_size(result['effect_size'], 'cohens_d')
-        st.info(f"**Effect Size (Cohen's d):** {result['effect_size']:.3f} ({effect_interp})")
+        # Effect size (if available)
+        if 'effect_size' in result:
+            effect_interp = ABTestAnalyzer.interpret_effect_size(result['effect_size'], 'cohens_d')
+            st.info(f"**Effect Size (Cohen's d):** {result['effect_size']:.3f} ({effect_interp})")
     
     # Sequential Testing Section
     if 'ab_test_results' in st.session_state and 'control_rate' in st.session_state.ab_test_results:
