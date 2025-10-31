@@ -753,7 +753,7 @@ class ABTestAnalyzer:
                 'lift': lift,
                 'relative_lift': relative_lift,
                 'p_value': segment_test['p_value'],
-                'significant': segment_test['significant'],
+                'significant': segment_test.get('is_significant', segment_test.get('significant', False)),
                 'ci_lower': segment_test['confidence_interval'][0],
                 'ci_upper': segment_test['confidence_interval'][1]
             })
