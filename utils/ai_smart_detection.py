@@ -61,9 +61,35 @@ class AISmartDetection:
         """
         try:
             # Check if OpenAI API key is available
+            print(f"Checking for OpenAI API key...")
             api_key = os.getenv('OPENAI_API_KEY')
+            print(f"Environment variable OPENAI_API_KEY: {'Found' if api_key else 'Not found'}")
+            
+            # Also check for alternative environment variable names
+            alt_keys = ['OPENAI_KEY', 'OPENAI_TOKEN', 'GPT_API_KEY']
+            for alt_key in alt_keys:
+                alt_value = os.getenv(alt_key)
+                if alt_value:
+                    print(f"Alternative key {alt_key}: Found")
+                    if not api_key:
+                        api_key = alt_value
+                        print(f"Using {alt_key} as API key")
+            
+            # Also check Streamlit secrets if available
             if not api_key:
-                print(f"No OpenAI API key found - using fallback detection for {task_type}")
+                try:
+                    import streamlit as st
+                    if hasattr(st, 'secrets') and 'OPENAI_API_KEY' in st.secrets:
+                        api_key = st.secrets['OPENAI_API_KEY']
+                        print(f"Found API key in Streamlit secrets")
+                    elif hasattr(st, 'secrets') and 'openai_api_key' in st.secrets:
+                        api_key = st.secrets['openai_api_key']
+                        print(f"Found API key in Streamlit secrets (lowercase)")
+                except:
+                    print(f"Could not access Streamlit secrets")
+            
+            if not api_key:
+                print(f"No OpenAI API key found in environment variables or Streamlit secrets - using fallback detection for {task_type}")
                 return AISmartDetection._fallback_detection(df, task_type)
             
             # Prepare dataset summary for GPT-4
@@ -344,6 +370,9 @@ Provide ONLY the JSON response, no additional text."""
 
             # Call OpenAI API
             print(f"Making AI API call for {task_type}...")
+            print(f"API key present: {bool(api_key)}")
+            print(f"API key length: {len(api_key) if api_key else 0}")
+            
             from openai import OpenAI
             client = OpenAI(api_key=api_key)
             
