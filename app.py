@@ -10969,10 +10969,126 @@ def show_ab_testing():
                     with col3:
                         st.metric("Effect Size", f"{result['effect_size']:.3f}")
     
-    # Analysis section (for loaded/sample/upload data)
+    # Section 2: AI A/B Testing Recommendations (for loaded/sample/upload data)
     if 'ab_test_data' in st.session_state and data_source != "Manual Calculator":
         st.divider()
-        st.subheader("📊 2. Run A/B Test Analysis")
+        st.subheader("📊 2. AI A/B Testing Analysis")
+        
+        # Check if AI recommendations already exist
+        if 'ab_ai_recommendations' not in st.session_state:
+            if st.button("🤖 Generate AI A/B Testing Analysis", type="primary", use_container_width=True, key="ab_ai_button"):
+                with st.spinner("🔍 AI is analyzing your dataset for A/B testing..."):
+                    from utils.ai_smart_detection import AISmartDetection
+                    
+                    # Get AI recommendations
+                    test_data = st.session_state.ab_test_data
+                    recommendations = AISmartDetection.analyze_dataset_for_ml(
+                        df=test_data.copy(),
+                        task_type='ab_testing'
+                    )
+                    
+                    # Store in session state
+                    st.session_state.ab_ai_recommendations = recommendations
+                    st.rerun()
+        
+        # Display AI recommendations if available
+        if 'ab_ai_recommendations' in st.session_state:
+            rec = st.session_state.ab_ai_recommendations
+            
+            # Performance Risk Badge
+            risk_colors = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}
+            risk_color = risk_colors.get(rec.get('performance_risk', 'Medium'), '⚪')
+            
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                suitability = rec.get('data_suitability', 'Unknown')
+                if suitability == 'Excellent' or suitability == 'Good':
+                    st.success(f"✅ **Data Suitability:** {suitability} for A/B Testing")
+                elif suitability == 'Fair':
+                    st.warning(f"⚠️ **Data Suitability:** {suitability} for A/B Testing")
+                else:
+                    st.error(f"❌ **Data Suitability:** {suitability} for A/B Testing")
+            
+            with col2:
+                st.info(f"{risk_color} **Performance Risk:** {rec.get('performance_risk', 'Unknown')}")
+            
+            # Expandable reasoning
+            with st.expander("💡 Why this suitability rating?", expanded=False):
+                st.write(rec.get('suitability_reasoning', 'No reasoning provided'))
+                
+                if rec.get('alternative_suggestions'):
+                    st.write("**📌 Suggestions:**")
+                    for suggestion in rec['alternative_suggestions']:
+                        st.write(f"- {suggestion}")
+            
+            # AI Column and Test Recommendations
+            with st.expander("🤖 AI Recommendations & Test Design", expanded=True):
+                st.info(f"**🎯 Column Selection:** {rec.get('column_reasoning', 'Rule-based detection')}")
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.write("**Group Column:**")
+                    st.code(rec.get('recommended_group_column', 'N/A'))
+                    st.caption(f"Control: {rec.get('recommended_control_group', 'N/A')}")
+                    st.caption(f"Treatment: {rec.get('recommended_treatment_group', 'N/A')}")
+                with col2:
+                    st.write("**Metric Column:**")
+                    st.code(rec.get('recommended_metric_column', 'N/A'))
+                with col3:
+                    st.write("**Recommended Test:**")
+                    test_emoji = {'proportion_test': '📊', 't_test': '📈', 'chi_square': '🧮'}.get(rec.get('test_type_recommendation', ''), '❓')
+                    st.code(f"{test_emoji} {rec.get('test_type_recommendation', 'N/A').replace('_', ' ').title()}")
+                
+                st.write(f"**🧪 Test Type Reasoning:** {rec.get('test_reasoning', 'N/A')}")
+                
+                # Statistical Power Assessment
+                st.write("**📊 Statistical Power Assessment:**")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    power = rec.get('expected_test_power', 'Unknown')
+                    power_emoji = {'High': '⚡', 'Medium': '⚠️', 'Low': '❌'}.get(power, '❓')
+                    st.metric("Expected Power", f"{power_emoji} {power}")
+                with col2:
+                    st.metric("Min Detectable Effect", rec.get('minimum_detectable_effect', 'Unknown'))
+                with col3:
+                    st.metric("Significance Level", rec.get('statistical_significance_level', '0.05'))
+                
+                # Sample Size Assessment
+                sample_assess = rec.get('sample_size_assessment', 'Unknown')
+                if sample_assess in ['Excellent', 'Good']:
+                    st.success(f"✅ **Sample Size:** {sample_assess} - {rec.get('sample_size_reasoning', '')}")
+                elif sample_assess == 'Fair':
+                    st.warning(f"⚠️ **Sample Size:** {sample_assess} - {rec.get('sample_size_reasoning', '')}")
+                else:
+                    st.error(f"❌ **Sample Size:** {sample_assess} - {rec.get('sample_size_reasoning', '')}")
+            
+            # Data Quality Checks
+            if rec.get('data_quality_checks'):
+                with st.expander("🔍 Data Quality Checks", expanded=False):
+                    for check in rec['data_quality_checks']:
+                        st.info(f"📝 {check}")
+            
+            # Optimization suggestions
+            if rec.get('optimization_suggestions'):
+                with st.expander("🚀 Optimization Suggestions", expanded=False):
+                    for suggestion in rec['optimization_suggestions']:
+                        st.info(f"💡 {suggestion}")
+            
+            # Performance warnings if any
+            if rec.get('performance_warnings'):
+                with st.expander("⚠️ Performance Warnings", expanded=False):
+                    for warning in rec['performance_warnings']:
+                        st.warning(warning)
+            
+            # Button to regenerate
+            if st.button("🔄 Regenerate Analysis", key="ab_regen"):
+                del st.session_state.ab_ai_recommendations
+                st.rerun()
+            
+            st.divider()
+        
+        # Section 3: Run A/B Test Analysis
+        st.subheader("📊 3. Run A/B Test Analysis")
         
         test_data = st.session_state.ab_test_data
         groups_info = st.session_state.ab_test_groups

@@ -451,6 +451,83 @@ Guidelines for Text Mining:
 10. Be specific about text quality and analysis appropriateness
 
 Provide ONLY the JSON response, no additional text."""
+            elif task_type == 'ab_testing':
+                prompt = f"""You are an expert statistician analyzing a dataset for A/B Testing and Hypothesis Testing.
+
+Dataset Overview:
+- Total Rows: {len(df)}
+- Total Columns: {len(df.columns)}
+- Task Type: A/B TESTING & STATISTICAL HYPOTHESIS TESTING
+
+Column Details:
+{json.dumps(column_info, indent=2)}
+
+Please analyze this dataset and provide A/B Testing recommendations in the following JSON format:
+{{
+    "data_suitability": "Excellent/Good/Fair/Poor",
+    "suitability_reasoning": "Detailed explanation of why this rating was given for A/B testing",
+    "alternative_suggestions": ["List of suggestions if data is Poor"],
+    "performance_risk": "Low/Medium/High",
+    "performance_warnings": ["List of performance concerns for Streamlit Cloud"],
+    "optimization_suggestions": ["List of specific suggestions to improve test design"],
+    "recommended_group_column": "column_name",
+    "recommended_metric_column": "column_name",
+    "column_reasoning": "Why these columns are recommended for A/B testing",
+    "test_type_recommendation": "proportion_test/t_test/chi_square",
+    "test_reasoning": "Why this test type is appropriate for the data",
+    "recommended_control_group": "value_in_group_column",
+    "recommended_treatment_group": "value_in_group_column",
+    "sample_size_assessment": "Excellent/Good/Fair/Poor",
+    "sample_size_reasoning": "Assessment of whether sample size is adequate",
+    "expected_test_power": "High/Medium/Low",
+    "minimum_detectable_effect": "Estimated MDE percentage or range",
+    "statistical_significance_level": "Recommended alpha (typically 0.05)",
+    "data_quality_checks": ["List of data quality considerations"]
+}}
+
+Guidelines for A/B Testing:
+1. DATA SUITABILITY: Assess if dataset is appropriate for A/B testing
+   - Excellent: 2 clear groups, good sample sizes (>100 per group), clean metric
+   - Good: 2 groups with adequate samples (>50 per group), workable metric
+   - Fair: Groups exist but small samples (<50 per group) or unclear metric
+   - Poor: <2 groups, too small (<20 total), or fundamentally unsuitable
+2. GROUP COLUMN: Must have exactly 2 distinct groups (control vs treatment)
+   - Look for binary columns with names like: 'group', 'variant', 'version', 'test_group'
+   - Common values: Control/Treatment, A/B, 0/1, Variant_A/Variant_B
+   - Must have: exactly 2 unique values (not 1, not 3+)
+   - Sample size: Ideally >100 per group, minimum 30 per group
+3. METRIC COLUMN: Depends on test type
+   - Proportion Test: Binary outcome (0/1, True/False, converted/not_converted)
+     - Examples: 'converted', 'clicked', 'purchased', 'signup'
+   - T-Test: Continuous numeric metric (revenue, time_on_site, order_value)
+     - Examples: 'revenue', 'spend', 'duration', 'value'
+   - Chi-Square: Categorical variable with 2+ categories
+4. TEST TYPE RECOMMENDATION: Choose based on metric type
+   - Binary metric (0/1) → Proportion Test (Z-test)
+   - Continuous metric (amounts, times) → T-Test
+   - Categorical metric (3+ categories) → Chi-Square Test
+5. SAMPLE SIZE ASSESSMENT: Evaluate statistical power
+   - Excellent: >1000 per group (high power, detect small effects)
+   - Good: 200-1000 per group (good power for medium effects)
+   - Fair: 50-200 per group (can detect large effects only)
+   - Poor: <50 per group (underpowered, unreliable results)
+6. EXPECTED TEST POWER: Estimate ability to detect true effects
+   - High: Large samples (>500 per group), can detect small effects (5-10%)
+   - Medium: Moderate samples (100-500), detects medium effects (10-20%)
+   - Low: Small samples (<100), only detects large effects (>20%)
+7. MINIMUM DETECTABLE EFFECT (MDE): Smallest effect size detectable
+   - Large samples: 5-10% relative improvement
+   - Medium samples: 10-20% relative improvement
+   - Small samples: >20% relative improvement
+8. DATA QUALITY CHECKS: Identify issues
+   - Sample Ratio Mismatch (SRM): Groups not split 50/50 as expected
+   - Missing values in group or metric columns
+   - Outliers in metric column (for T-test)
+   - Zero/low variance in metric (makes test invalid)
+9. PERFORMANCE CONSTRAINTS: Consider Streamlit Cloud limitations (1GB RAM, CPU timeout)
+10. Be specific about why groups/metrics are appropriate and expected statistical power
+
+Provide ONLY the JSON response, no additional text."""
             else:
                 prompt = f"""You are an expert data scientist analyzing a dataset for machine learning {task_type}.
 
@@ -527,7 +604,7 @@ Provide ONLY the JSON response, no additional text."""
             recommendations = json.loads(ai_response)
             
             # Validate target column exists (skip for modules without target columns)
-            if task_type not in ['anomaly_detection', 'data_cleaning', 'text_mining', 'time_series'] and recommendations.get('target_column') not in df.columns:
+            if task_type not in ['anomaly_detection', 'data_cleaning', 'text_mining', 'time_series', 'ab_testing'] and recommendations.get('target_column') not in df.columns:
                 return AISmartDetection._fallback_detection(df, task_type)
             
             return recommendations
@@ -1223,6 +1300,166 @@ Provide ONLY the JSON response, no additional text."""
                 'analysis_reasoning': analysis_reasoning,
                 'preprocessing_needed': ['Remove special characters if present', 'Handle missing values', 'Lowercasing recommended'],
                 'estimated_processing_time': estimated_time
+            }
+        elif task_type == 'ab_testing':
+            # Rule-based A/B Testing recommendations
+            n_samples = len(df)
+            n_features = len(df.columns)
+            
+            # Try to identify group column (must have exactly 2 unique values)
+            group_col = None
+            binary_cols = []
+            for col in df.columns:
+                n_unique = df[col].nunique()
+                if n_unique == 2:
+                    binary_cols.append(col)
+                    col_lower = col.lower()
+                    # Prioritize columns with test-related names
+                    if any(pattern in col_lower for pattern in ['group', 'variant', 'version', 'test', 'arm', 'condition']):
+                        group_col = col
+                        break
+            
+            # Fallback to first binary column
+            if not group_col and binary_cols:
+                group_col = binary_cols[0]
+            
+            # Try to identify metric column
+            metric_col = None
+            numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+            
+            if numeric_cols:
+                # Look for common metric names
+                for col in numeric_cols:
+                    col_lower = col.lower()
+                    if any(pattern in col_lower for pattern in ['converted', 'conversion', 'clicked', 'click', 'revenue', 'value', 'spend', 'purchase']):
+                        metric_col = col
+                        break
+                
+                # Fallback to first numeric column
+                if not metric_col:
+                    metric_col = numeric_cols[0]
+            
+            # Determine test type based on metric
+            test_type = 'proportion_test'
+            test_reasoning = 'Rule-based: Default to proportion test'
+            if metric_col and metric_col in df.columns:
+                unique_values = df[metric_col].nunique()
+                if unique_values == 2:
+                    test_type = 'proportion_test'
+                    test_reasoning = 'Binary metric detected - suitable for proportion test (Z-test)'
+                elif unique_values > 10:
+                    test_type = 't_test'
+                    test_reasoning = 'Continuous metric detected - suitable for t-test'
+            
+            # Assess sample sizes
+            sample_size_assessment = 'Unknown'
+            sample_size_reasoning = 'Could not assess - group column not identified'
+            expected_power = 'Unknown'
+            mde = 'Unknown'
+            
+            if group_col and group_col in df.columns:
+                groups = df[group_col].unique()
+                if len(groups) == 2:
+                    control_size = (df[group_col] == groups[0]).sum()
+                    treatment_size = (df[group_col] == groups[1]).sum()
+                    min_size = min(control_size, treatment_size)
+                    
+                    if min_size >= 1000:
+                        sample_size_assessment = 'Excellent'
+                        sample_size_reasoning = f'Large samples ({control_size:,} vs {treatment_size:,}) - high statistical power'
+                        expected_power = 'High'
+                        mde = '5-10% relative improvement'
+                    elif min_size >= 200:
+                        sample_size_assessment = 'Good'
+                        sample_size_reasoning = f'Good samples ({control_size:,} vs {treatment_size:,}) - adequate power for medium effects'
+                        expected_power = 'Medium'
+                        mde = '10-20% relative improvement'
+                    elif min_size >= 50:
+                        sample_size_assessment = 'Fair'
+                        sample_size_reasoning = f'Moderate samples ({control_size:,} vs {treatment_size:,}) - can detect large effects'
+                        expected_power = 'Medium'
+                        mde = '20-30% relative improvement'
+                    else:
+                        sample_size_assessment = 'Poor'
+                        sample_size_reasoning = f'Small samples ({control_size:,} vs {treatment_size:,}) - underpowered, unreliable'
+                        expected_power = 'Low'
+                        mde = '>30% relative improvement'
+            
+            # Performance risk (A/B testing is usually fast)
+            if n_samples > 100000:
+                performance_risk = 'Medium'
+                performance_warnings = [f'Large dataset ({n_samples:,} rows) may take time to process']
+            else:
+                performance_risk = 'Low'
+                performance_warnings = []
+            
+            # Data suitability
+            if not group_col:
+                data_suitability = 'Poor'
+                suitability_reasoning = 'No column with exactly 2 groups found - A/B testing requires 2 groups (control/treatment)'
+                alternative_suggestions = [
+                    'Use Sample A/B Test Data (built-in dataset)',
+                    'Ensure dataset has a column with exactly 2 distinct values representing groups',
+                    'Check if groups are in separate columns instead'
+                ]
+            elif not metric_col:
+                data_suitability = 'Poor'
+                suitability_reasoning = 'No numeric metric column found - need outcome to measure (conversions, revenue, etc.)'
+                alternative_suggestions = [
+                    'Use Sample A/B Test Data (built-in dataset)',
+                    'Add a numeric metric column (0/1 for conversions, or continuous for revenue)',
+                    'Check if metric is encoded as text instead of numbers'
+                ]
+            elif sample_size_assessment == 'Poor':
+                data_suitability = 'Fair'
+                suitability_reasoning = f'Groups and metric found but sample size is small - results may be unreliable'
+                alternative_suggestions = [
+                    'Collect more data before running test',
+                    'Only expect to detect very large effects (>30%)',
+                    'Consider using Sample Data for practice'
+                ]
+            elif sample_size_assessment == 'Fair':
+                data_suitability = 'Good'
+                suitability_reasoning = 'Suitable for A/B testing - can detect large to medium effects'
+                alternative_suggestions = []
+            else:
+                data_suitability = 'Excellent'
+                suitability_reasoning = 'Well-suited for A/B testing - good sample sizes and clear structure'
+                alternative_suggestions = []
+            
+            # Get group values for recommendations
+            control_group = 'Unknown'
+            treatment_group = 'Unknown'
+            if group_col and group_col in df.columns:
+                groups = df[group_col].unique()
+                if len(groups) == 2:
+                    control_group = str(groups[0])
+                    treatment_group = str(groups[1])
+            
+            return {
+                'data_suitability': data_suitability,
+                'suitability_reasoning': suitability_reasoning,
+                'alternative_suggestions': alternative_suggestions,
+                'performance_risk': performance_risk,
+                'performance_warnings': performance_warnings,
+                'optimization_suggestions': [
+                    'Ensure groups are randomized properly',
+                    'Check for Sample Ratio Mismatch (SRM)',
+                    'Consider running power analysis before test'
+                ],
+                'recommended_group_column': group_col or 'N/A',
+                'recommended_metric_column': metric_col or 'N/A',
+                'column_reasoning': f'Rule-based detection: {group_col} has 2 groups, {metric_col} is numeric metric',
+                'test_type_recommendation': test_type,
+                'test_reasoning': test_reasoning,
+                'recommended_control_group': control_group,
+                'recommended_treatment_group': treatment_group,
+                'sample_size_assessment': sample_size_assessment,
+                'sample_size_reasoning': sample_size_reasoning,
+                'expected_test_power': expected_power,
+                'minimum_detectable_effect': mde,
+                'statistical_significance_level': '0.05 (standard)',
+                'data_quality_checks': ['Check for missing values', 'Verify group randomization', 'Look for outliers in metric']
             }
         elif task_type == 'classification':
             # Simple classification target detection
