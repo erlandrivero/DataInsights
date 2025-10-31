@@ -748,14 +748,24 @@ def show_analysis():
     
     # Calculate quality metrics
     cleaner = DataCleaner(df)
-    quality_score = cleaner.calculate_quality_score()
+    # Use cleaning result score if available (for consistency), otherwise calculate fresh
+    quality_score = st.session_state.get('cleaning_quality_score', cleaner.calculate_quality_score())
     
     # Quality metrics cards with smart indicators
     col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
+        # Show delta if cleaning was performed
+        if 'cleaning_quality_score_before' in st.session_state:
+            score_delta = quality_score - st.session_state.cleaning_quality_score_before
+            delta_text = f"+{score_delta:.1f}" if score_delta > 0 else f"{score_delta:.1f}"
+            delta_color = "normal" if score_delta >= 0 else "inverse"
+        else:
+            delta_text = "Good" if quality_score >= 80 else "Needs Improvement"
+            delta_color = "normal" if quality_score >= 80 else "inverse"
+        
         st.metric("Quality Score", f"{quality_score:.1f}/100", 
-                 delta="Good" if quality_score >= 80 else "Needs Improvement",
-                 delta_color="normal" if quality_score >= 80 else "inverse")
+                 delta=delta_text,
+                 delta_color=delta_color)
     with col2:
         missing_pct = (df.isnull().sum().sum() / (df.shape[0] * df.shape[1])) * 100
         # Best practice: < 5% is good, > 20% needs attention
@@ -8653,7 +8663,7 @@ def show_anomaly_detection():
             st.markdown(st.session_state.anomaly_ai_insights)
             st.info("✅ AI insights saved! These will be included in your report downloads.")
         
-        if st.button("🤖 Generate AI Explanation", key="anomaly_ai_btn", type="primary"):
+        if st.button("🤖 Generate AI Explanation", key="anomaly_ai_explanation_btn", type="primary"):
             with st.status("🤖 Analyzing anomalies with AI...", expanded=True) as status:
                 try:
                     from utils.ai_helper import AIHelper
