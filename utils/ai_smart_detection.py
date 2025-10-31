@@ -526,8 +526,8 @@ Provide ONLY the JSON response, no additional text."""
             
             recommendations = json.loads(ai_response)
             
-            # Validate target column exists (skip for anomaly detection and data cleaning)
-            if task_type not in ['anomaly_detection', 'data_cleaning'] and recommendations.get('target_column') not in df.columns:
+            # Validate target column exists (skip for modules without target columns)
+            if task_type not in ['anomaly_detection', 'data_cleaning', 'text_mining', 'time_series'] and recommendations.get('target_column') not in df.columns:
                 return AISmartDetection._fallback_detection(df, task_type)
             
             return recommendations
