@@ -241,6 +241,60 @@ Guidelines for Market Basket Analysis:
 8. Be specific about why columns are or aren't suitable for MBA
 
 Provide ONLY the JSON response, no additional text."""
+            elif task_type == 'rfm_analysis':
+                prompt = f"""You are an expert data scientist analyzing a dataset for RFM (Recency, Frequency, Monetary) Analysis.
+
+Dataset Overview:
+- Total Rows: {len(df)}
+- Total Columns: {len(df.columns)}
+- Task Type: RFM ANALYSIS
+
+Column Details:
+{json.dumps(column_info, indent=2)}
+
+Please analyze this dataset and provide RFM recommendations in the following JSON format:
+{{
+    "data_suitability": "Excellent/Good/Fair/Poor",
+    "suitability_reasoning": "Detailed explanation of why this rating was given for RFM",
+    "alternative_suggestions": ["List of suggestions if data is Poor"],
+    "performance_risk": "Low/Medium/High",
+    "performance_warnings": ["List of performance concerns for Streamlit Cloud"],
+    "optimization_suggestions": ["List of specific suggestions to improve performance"],
+    "recommended_customer_column": "column_name",
+    "recommended_date_column": "column_name",
+    "recommended_amount_column": "column_name",
+    "column_reasoning": "Why these columns are recommended for RFM",
+    "date_format_detected": "YYYY-MM-DD or description",
+    "requires_date_parsing": true/false
+}}
+
+Guidelines for RFM Analysis:
+1. DATA SUITABILITY: Assess if dataset is appropriate for RFM
+   - Excellent: Clear customer IDs, dates, amounts; good transaction history
+   - Good: Has required columns, reasonable data quality
+   - Fair: Limited transaction history or data quality issues
+   - Poor: Missing required columns, too few transactions (<50), or fundamentally unsuitable
+2. CUSTOMER COLUMN: Should identify unique customers (IDs, emails, names)
+   - Look for columns with repeated values (same customer multiple transactions)
+   - Avoid columns where every row is unique (likely transaction IDs, not customer IDs)
+3. DATE COLUMN: Should contain transaction timestamps
+   - Check for date/datetime columns or parseable date strings
+   - Sample values should look like dates (YYYY-MM-DD, timestamps, etc.)
+4. AMOUNT COLUMN: Should be numeric monetary values
+   - Prefer columns with names like 'amount', 'total', 'price', 'revenue'
+   - Should have positive numeric values representing money
+5. PERFORMANCE RISK: Assess based on unique customers and date range
+   - Low: <1K customers, <10K transactions
+   - Medium: 1K-10K customers, 10K-100K transactions
+   - High: >10K customers, >100K transactions
+6. DATA REQUIREMENTS:
+   - Minimum 50 transactions for meaningful RFM
+   - Need at least 10 unique customers
+   - Date range should span multiple time periods
+7. PERFORMANCE CONSTRAINTS: Consider Streamlit Cloud limitations (1GB RAM, CPU timeout)
+8. Be specific about column selection reasoning and data quality
+
+Provide ONLY the JSON response, no additional text."""
             else:
                 prompt = f"""You are an expert data scientist analyzing a dataset for machine learning {task_type}.
 
@@ -620,6 +674,132 @@ Provide ONLY the JSON response, no additional text."""
                 'recommended_min_support': 0.01,
                 'recommended_min_confidence': 0.5,
                 'thresholds_reasoning': 'Standard thresholds for rule-based detection'
+            }
+        elif task_type == 'rfm_analysis':
+            # Rule-based RFM analysis recommendations
+            n_samples = len(df)
+            n_features = len(df.columns)
+            
+            # Performance risk assessment
+            if n_samples > 100000:
+                performance_risk = 'High'
+                performance_warnings = [
+                    f'Very large dataset ({n_samples:,} transactions) may cause performance issues',
+                    'Consider filtering to recent transactions or sampling'
+                ]
+            elif n_samples > 10000:
+                performance_risk = 'Medium'
+                performance_warnings = [
+                    f'Large dataset ({n_samples:,} transactions) - RFM calculation may take time'
+                ]
+            else:
+                performance_risk = 'Low'
+                performance_warnings = []
+            
+            # Try to identify customer, date, and amount columns
+            customer_col = None
+            date_col = None
+            amount_col = None
+            
+            # Look for customer ID patterns (columns with repeated values, not all unique)
+            for col in df.columns:
+                col_lower = col.lower()
+                unique_ratio = df[col].nunique() / len(df)
+                if any(pattern in col_lower for pattern in ['customer', 'client', 'user', 'member']):
+                    if 0.01 < unique_ratio < 0.9:  # Has repeated values
+                        customer_col = col
+                        break
+            
+            # Look for date columns
+            date_cols = df.select_dtypes(include=['datetime']).columns.tolist()
+            if date_cols:
+                date_col = date_cols[0]
+            else:
+                # Try to find date patterns in column names
+                for col in df.columns:
+                    col_lower = col.lower()
+                    if any(pattern in col_lower for pattern in ['date', 'time', 'day', 'invoice']):
+                        date_col = col
+                        break
+            
+            # Look for amount/monetary columns (numeric)
+            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+            for col in numeric_cols:
+                col_lower = col.lower()
+                if any(pattern in col_lower for pattern in ['amount', 'total', 'price', 'revenue', 'value', 'sales']):
+                    amount_col = col
+                    break
+            
+            # Fallback: use first numeric column for amount
+            if not amount_col and numeric_cols:
+                amount_col = numeric_cols[0]
+            
+            # Fallback: use first column for customer if not found
+            if not customer_col:
+                customer_col = df.columns[0]
+            
+            # Fallback: use second column for date if not found
+            if not date_col and len(df.columns) > 1:
+                date_col = df.columns[1]
+            
+            # Data suitability assessment
+            unique_customers = df[customer_col].nunique() if customer_col else 0
+            has_amount = amount_col is not None
+            has_date = date_col is not None
+            
+            if unique_customers < 10:
+                data_suitability = 'Poor'
+                suitability_reasoning = f'Too few unique customers ({unique_customers}) - need at least 10 for meaningful RFM'
+                alternative_suggestions = [
+                    'Use Sample Data (built-in RFM dataset)',
+                    'Upload a dataset with more customer transactions',
+                    'Verify correct customer ID column selection'
+                ]
+            elif not has_amount:
+                data_suitability = 'Poor'
+                suitability_reasoning = 'No numeric amount column found - RFM requires monetary values'
+                alternative_suggestions = [
+                    'Use Sample Data (built-in RFM dataset)',
+                    'Ensure dataset has a numeric amount/total column',
+                    'Add monetary values to your transaction data'
+                ]
+            elif not has_date:
+                data_suitability = 'Poor'
+                suitability_reasoning = 'No date column found - RFM requires transaction dates for recency'
+                alternative_suggestions = [
+                    'Use Sample Data (built-in RFM dataset)',
+                    'Ensure dataset has a date/datetime column',
+                    'Add transaction dates to your data'
+                ]
+            elif n_samples < 50:
+                data_suitability = 'Fair'
+                suitability_reasoning = f'Limited transactions ({n_samples}) - RFM works better with more data'
+                alternative_suggestions = []
+            elif unique_customers < 50:
+                data_suitability = 'Fair'
+                suitability_reasoning = f'Limited customers ({unique_customers}) - segments may be less meaningful'
+                alternative_suggestions = []
+            else:
+                data_suitability = 'Good'
+                suitability_reasoning = f'Dataset suitable for RFM - {unique_customers} customers, {n_samples} transactions'
+                alternative_suggestions = []
+            
+            return {
+                'data_suitability': data_suitability,
+                'suitability_reasoning': suitability_reasoning,
+                'alternative_suggestions': alternative_suggestions,
+                'performance_risk': performance_risk,
+                'performance_warnings': performance_warnings,
+                'optimization_suggestions': [
+                    'Consider analyzing recent time periods only',
+                    'Filter to active customers for focused insights'
+                ],
+                'recommended_customer_column': customer_col,
+                'recommended_date_column': date_col,
+                'recommended_amount_column': amount_col,
+                'column_reasoning': f'Rule-based detection: {customer_col} for customers (repeated IDs), {date_col} for dates, {amount_col} for monetary amounts',
+                'date_format_detected': 'Will be parsed automatically',
+                'requires_date_parsing': True
             }
         elif task_type == 'classification':
             # Simple classification target detection
