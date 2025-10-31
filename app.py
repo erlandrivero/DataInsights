@@ -688,7 +688,7 @@ def show_data_upload():
                         issues = DataProcessor.detect_data_quality_issues(df)
                         st.session_state.issues = issues
                         
-                        status.update(label=f"✅ Successfully loaded from Kaggle!", state="complete", expanded=False)
+                        status.update(label=f"✅ Successfully loaded from Kaggle!", state="complete", expanded=True)
                         st.success(f"✅ Successfully loaded {csv_file} from Kaggle!")
                         
                         if len(csv_files) > 1:
