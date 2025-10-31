@@ -829,6 +829,7 @@ def show_analysis():
                     
                     # Step 3: Generating AI analysis
                     status.write("Generating AI analysis...")
+                    status.write(f"Analyzing {len(df)} rows, {len(df.columns)} columns: {list(df.columns)}")
                     ai_recommendations = get_ai_recommendation(df, task_type='data_cleaning')
                     st.session_state.cleaning_ai_recommendations = ai_recommendations
                     
