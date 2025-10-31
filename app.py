@@ -3053,7 +3053,9 @@ def show_market_basket_analysis():
         st.divider()
         st.subheader("🤖 2. AI Market Basket Analysis Recommendations")
         
+        print(f"🔥 MBA SESSION CHECK: mba_ai_recommendations in session_state = {'mba_ai_recommendations' in st.session_state}")
         if 'mba_ai_recommendations' not in st.session_state:
+            print("🔥 MBA SESSION STATE: Button should be visible")
             if st.button("🔍 Generate AI MBA Analysis", type="primary", use_container_width=True):
                 print("🔥 MBA BUTTON CLICKED! Starting AI analysis...")
                 with st.status("🤖 Analyzing dataset with AI...", expanded=True) as status:
@@ -3082,6 +3084,7 @@ def show_market_basket_analysis():
                         status.update(label="❌ Analysis failed", state="error")
                         st.error(f"Error generating AI recommendations: {str(e)}")
         else:
+            print("🔥 MBA SESSION STATE: Recommendations exist, showing regenerate button")
             ai_recs = st.session_state.mba_ai_recommendations
             
             # Performance Risk Assessment
