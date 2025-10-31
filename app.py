@@ -7959,9 +7959,12 @@ def show_ml_regression():
                     
                     # Save to session state
                     st.session_state.mlr_ai_insights = response.choices[0].message.content
-                    st.success("✅ AI insights generated successfully!")
-                    st.markdown(st.session_state.mlr_ai_insights)
-                    st.info("✅ AI insights saved! These will be included in your report downloads.")
+                    status.update(label="✅ AI insights generated successfully!", state="complete")
+                
+                # Display results outside status block (no grey overlay)
+                st.success("✅ AI insights generated successfully!")
+                st.markdown(st.session_state.mlr_ai_insights)
+                st.info("✅ AI insights saved! These will be included in your report downloads.")
                     
             except Exception as e:
                 st.error(f"Error generating insights: {str(e)}")
