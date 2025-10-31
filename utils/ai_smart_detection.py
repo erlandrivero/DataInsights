@@ -482,7 +482,9 @@ Please analyze this dataset and provide A/B Testing recommendations in the follo
     "expected_test_power": "High/Medium/Low",
     "minimum_detectable_effect": "Estimated MDE percentage or range",
     "statistical_significance_level": "Recommended alpha (typically 0.05)",
-    "data_quality_checks": ["List of data quality considerations"]
+    "data_quality_checks": ["List of data quality considerations"],
+    "recommended_segmentation_columns": ["column1", "column2"],
+    "segmentation_reasoning": "Why these columns are good for segmentation analysis"
 }}
 
 Guidelines for A/B Testing:
@@ -525,7 +527,13 @@ Guidelines for A/B Testing:
    - Outliers in metric column (for T-test)
    - Zero/low variance in metric (makes test invalid)
 9. PERFORMANCE CONSTRAINTS: Consider Streamlit Cloud limitations (1GB RAM, CPU timeout)
-10. Be specific about why groups/metrics are appropriate and expected statistical power
+10. SEGMENTATION COLUMNS: Identify categorical columns for post-hoc heterogeneous treatment effect analysis
+   - Look for categorical columns with 2-20 unique values (not the group or metric columns)
+   - Prefer demographic/contextual columns: age_group, region, device_type, user_type, segment
+   - Exclude: IDs, dates, the group column, the metric column, high-cardinality columns
+   - Good segmentation reveals which subgroups benefit most from treatment
+   - Recommend up to 3 best segmentation columns in priority order
+11. Be specific about why groups/metrics are appropriate and expected statistical power
 
 Provide ONLY the JSON response, no additional text."""
             else:
@@ -1436,6 +1444,27 @@ Provide ONLY the JSON response, no additional text."""
                     control_group = str(groups[0])
                     treatment_group = str(groups[1])
             
+            # Detect segmentation columns (categorical with 2-20 values, excluding group/metric)
+            segmentation_cols = []
+            excluded_for_seg = {group_col, metric_col}
+            for col in df.columns:
+                if col not in excluded_for_seg:
+                    n_unique = df[col].nunique()
+                    if 2 <= n_unique <= 20:
+                        # Prioritize columns with segmentation-related names
+                        col_lower = col.lower()
+                        if any(pattern in col_lower for pattern in ['age', 'region', 'segment', 'type', 'category', 'group', 'device', 'platform']):
+                            segmentation_cols.insert(0, col)  # Add to front
+                        else:
+                            segmentation_cols.append(col)
+            
+            # Limit to top 3 segmentation columns
+            segmentation_cols = segmentation_cols[:3]
+            
+            segmentation_reasoning = f'Rule-based: Found {len(segmentation_cols)} categorical columns with 2-20 values suitable for segmentation'
+            if not segmentation_cols:
+                segmentation_reasoning = 'No suitable segmentation columns found (need categorical columns with 2-20 unique values)'
+            
             return {
                 'data_suitability': data_suitability,
                 'suitability_reasoning': suitability_reasoning,
@@ -1459,7 +1488,9 @@ Provide ONLY the JSON response, no additional text."""
                 'expected_test_power': expected_power,
                 'minimum_detectable_effect': mde,
                 'statistical_significance_level': '0.05 (standard)',
-                'data_quality_checks': ['Check for missing values', 'Verify group randomization', 'Look for outliers in metric']
+                'data_quality_checks': ['Check for missing values', 'Verify group randomization', 'Look for outliers in metric'],
+                'recommended_segmentation_columns': segmentation_cols,
+                'segmentation_reasoning': segmentation_reasoning
             }
         elif task_type == 'classification':
             # Simple classification target detection

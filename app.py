@@ -11062,6 +11062,15 @@ def show_ab_testing():
                 else:
                     st.error(f"❌ **Sample Size:** {sample_assess} - {rec.get('sample_size_reasoning', '')}")
             
+            # Segmentation Recommendations
+            if rec.get('recommended_segmentation_columns'):
+                with st.expander("📊 Segmentation Analysis Recommendations", expanded=False):
+                    st.info(f"**💡 Reasoning:** {rec.get('segmentation_reasoning', 'AI detected suitable columns for segmentation')}")
+                    st.write("**🎯 Recommended Columns for Heterogeneous Treatment Effect Analysis:**")
+                    for i, col in enumerate(rec['recommended_segmentation_columns'], 1):
+                        st.write(f"{i}. `{col}`")
+                    st.caption("Use these columns to identify which subgroups benefit most from the treatment")
+            
             # Data Quality Checks
             if rec.get('data_quality_checks'):
                 with st.expander("🔍 Data Quality Checks", expanded=False):
@@ -11424,9 +11433,29 @@ def show_ab_testing():
         segment_options = [col for col in test_data.columns if col not in excluded_cols]
         
         if len(segment_options) > 0:
+            # Use AI recommendation if available
+            default_segment_col = None
+            if 'ab_ai_recommendations' in st.session_state:
+                ai_rec = st.session_state.ab_ai_recommendations
+                recommended_seg_cols = ai_rec.get('recommended_segmentation_columns', [])
+                # Use first recommended column that exists in segment_options
+                for rec_col in recommended_seg_cols:
+                    if rec_col in segment_options:
+                        default_segment_col = rec_col
+                        break
+            
+            # Find index for default selection
+            default_index = 0
+            if default_segment_col and default_segment_col in segment_options:
+                default_index = segment_options.index(default_segment_col)
+                st.info("🤖 **AI has preset the segmentation column below based on your data.** You can change it if needed.")
+            else:
+                st.info("💡 **Tip:** Select a categorical column with 2-20 groups (e.g., age_group, region, user_type)")
+            
             segment_col = st.selectbox(
                 "Select Segment Column:",
                 segment_options,
+                index=default_index,
                 help="Choose a column to segment by (e.g., age_group, region, user_type)"
             )
             
