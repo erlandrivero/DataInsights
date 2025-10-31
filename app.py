@@ -3144,34 +3144,50 @@ def show_market_basket_analysis():
         
         col1, col2 = st.columns(2)
         with col1:
-            # Create options list with placeholder if no AI analysis
-            trans_options = ["Select a column..."] + list(df.columns) if not has_ai_analysis else list(df.columns)
-            trans_index = (trans_idx + 1) if (has_ai_analysis and trans_idx is not None) else (0 if not has_ai_analysis else trans_idx)
-            
-            trans_selection = st.selectbox(
-                "Transaction ID column:", 
-                trans_options, 
-                index=trans_index,
-                key="loaded_trans_col",
-                help=help_text_trans
-            )
-            # Get actual column name (remove placeholder)
-            trans_col = trans_selection if trans_selection != "Select a column..." else None
+            if has_ai_analysis:
+                # After AI analysis: Use direct column list with AI-recommended index
+                trans_selection = st.selectbox(
+                    "Transaction ID column:", 
+                    list(df.columns), 
+                    index=trans_idx,
+                    key="loaded_trans_col",
+                    help=help_text_trans
+                )
+                trans_col = trans_selection
+            else:
+                # Before AI analysis: Use placeholder
+                trans_options = ["Select a column..."] + list(df.columns)
+                trans_selection = st.selectbox(
+                    "Transaction ID column:", 
+                    trans_options, 
+                    index=0,  # Default to placeholder
+                    key="loaded_trans_col",
+                    help=help_text_trans
+                )
+                trans_col = trans_selection if trans_selection != "Select a column..." else None
             
         with col2:
-            # Create options list with placeholder if no AI analysis  
-            item_options = ["Select a column..."] + list(df.columns) if not has_ai_analysis else list(df.columns)
-            item_index = (item_idx + 1) if (has_ai_analysis and item_idx is not None) else (0 if not has_ai_analysis else item_idx)
-            
-            item_selection = st.selectbox(
-                "Item column:", 
-                item_options,
-                index=item_index, 
-                key="loaded_item_col",
-                help=help_text_item
-            )
-            # Get actual column name (remove placeholder)
-            item_col = item_selection if item_selection != "Select a column..." else None
+            if has_ai_analysis:
+                # After AI analysis: Use direct column list with AI-recommended index
+                item_selection = st.selectbox(
+                    "Item column:", 
+                    list(df.columns),
+                    index=item_idx, 
+                    key="loaded_item_col",
+                    help=help_text_item
+                )
+                item_col = item_selection
+            else:
+                # Before AI analysis: Use placeholder
+                item_options = ["Select a column..."] + list(df.columns)
+                item_selection = st.selectbox(
+                    "Item column:", 
+                    item_options,
+                    index=0,  # Default to placeholder
+                    key="loaded_item_col",
+                    help=help_text_item
+                )
+                item_col = item_selection if item_selection != "Select a column..." else None
         
         # Only show button if data is suitable and columns are selected
         data_suitable = st.session_state.get('mba_data_suitable', True)
