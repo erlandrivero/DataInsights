@@ -221,7 +221,7 @@ class MarketBasketAnalyzer:
         
         return self.df_encoded
     
-    def find_frequent_itemsets(self, min_support: float = 0.01) -> pd.DataFrame:
+    def find_frequent_itemsets(self, min_support: float = 0.01, max_len: Optional[int] = None) -> pd.DataFrame:
         """Find frequent itemsets using the Apriori algorithm.
         
         Discovers all itemsets (combinations of items) that appear together
@@ -232,6 +232,10 @@ class MarketBasketAnalyzer:
                         - 0.01 = itemset must appear in at least 1% of transactions
                         - 0.1 = itemset must appear in at least 10% of transactions
                         - Lower values find more (but potentially less meaningful) itemsets
+            max_len: Maximum length of itemsets to find (None = no limit)
+                    - 2 = only find single items and pairs
+                    - 3 = find up to 3-item combinations
+                    - Limits memory usage for large datasets (Streamlit Cloud protection)
         
         Returns:
             DataFrame with columns:
@@ -244,7 +248,7 @@ class MarketBasketAnalyzer:
         
         Example:
             >>> analyzer.encode_transactions(transactions)
-            >>> itemsets = analyzer.find_frequent_itemsets(min_support=0.02)
+            >>> itemsets = analyzer.find_frequent_itemsets(min_support=0.02, max_len=3)
             >>> 
             >>> # View most frequent itemsets
             >>> print(itemsets.sort_values('support', ascending=False).head())
@@ -258,6 +262,7 @@ class MarketBasketAnalyzer:
             - Result is stored in self.frequent_itemsets
             - Required before generating association rules
             - Higher min_support = faster computation, fewer results
+            - max_len limits memory usage (critical for Streamlit Cloud)
         """
         if self.df_encoded is None:
             raise ValueError("Transactions must be encoded first using encode_transactions()")
@@ -265,7 +270,8 @@ class MarketBasketAnalyzer:
         self.frequent_itemsets = apriori(
             self.df_encoded, 
             min_support=min_support, 
-            use_colnames=True
+            use_colnames=True,
+            max_len=max_len
         )
         
         # Add itemset length for easy filtering
