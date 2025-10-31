@@ -520,7 +520,7 @@ Provide ONLY the JSON response, no additional text."""
                 algorithm_reason = 'Local Outlier Factor good for medium-sized datasets'
             
             # Data suitability assessment
-            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+            numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
             if len(numeric_cols) == 0:
                 data_suitability = 'Poor'
                 suitability_reasoning = 'No numeric columns found - anomaly detection requires numeric features'
@@ -736,7 +736,7 @@ Provide ONLY the JSON response, no additional text."""
                         break
             
             # Look for amount/monetary columns (numeric)
-            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+            numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
             for col in numeric_cols:
                 col_lower = col.lower()
                 if any(pattern in col_lower for pattern in ['amount', 'total', 'price', 'revenue', 'value', 'sales']):
