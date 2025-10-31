@@ -61,35 +61,8 @@ class AISmartDetection:
         """
         try:
             # Check if OpenAI API key is available
-            print(f"Checking for OpenAI API key...")
             api_key = os.getenv('OPENAI_API_KEY')
-            print(f"Environment variable OPENAI_API_KEY: {'Found' if api_key else 'Not found'}")
-            
-            # Also check for alternative environment variable names
-            alt_keys = ['OPENAI_KEY', 'OPENAI_TOKEN', 'GPT_API_KEY']
-            for alt_key in alt_keys:
-                alt_value = os.getenv(alt_key)
-                if alt_value:
-                    print(f"Alternative key {alt_key}: Found")
-                    if not api_key:
-                        api_key = alt_value
-                        print(f"Using {alt_key} as API key")
-            
-            # Also check Streamlit secrets if available
             if not api_key:
-                try:
-                    import streamlit as st
-                    if hasattr(st, 'secrets') and 'OPENAI_API_KEY' in st.secrets:
-                        api_key = st.secrets['OPENAI_API_KEY']
-                        print(f"Found API key in Streamlit secrets")
-                    elif hasattr(st, 'secrets') and 'openai_api_key' in st.secrets:
-                        api_key = st.secrets['openai_api_key']
-                        print(f"Found API key in Streamlit secrets (lowercase)")
-                except:
-                    print(f"Could not access Streamlit secrets")
-            
-            if not api_key:
-                print(f"No OpenAI API key found in environment variables or Streamlit secrets - using fallback detection for {task_type}")
                 return AISmartDetection._fallback_detection(df, task_type)
             
             # Prepare dataset summary for GPT-4
@@ -103,21 +76,10 @@ class AISmartDetection:
                     'missing_pct': round((df[col].isna().sum() / len(df) * 100), 2)
                 }
                 
-                # Add diverse sample values for better content analysis
-                non_null_values = df[col].dropna()
-                if len(non_null_values) > 0:
-                    # Get diverse samples: first few, middle, and last few
-                    sample_indices = []
-                    if len(non_null_values) >= 5:
-                        sample_indices = [0, 1, len(non_null_values)//2, -2, -1]
-                    else:
-                        sample_indices = list(range(len(non_null_values)))
-                    
-                    sample_values = [non_null_values.iloc[i] for i in sample_indices[:5]]
-                    # Convert to JSON-serializable format and remove duplicates
-                    info['sample_values'] = list(dict.fromkeys([str(v) for v in sample_values]))
-                else:
-                    info['sample_values'] = []
+                # Add sample values (first 3 non-null)
+                sample_values = df[col].dropna().head(3).tolist()
+                # Convert to JSON-serializable format
+                info['sample_values'] = [str(v) for v in sample_values]
                 
                 # Add statistics for numeric columns
                 if pd.api.types.is_numeric_dtype(df[col]):
@@ -193,6 +155,9 @@ Column Details:
 
 Please analyze this dataset and provide anomaly detection recommendations in the following JSON format:
 {{
+    "data_suitability": "Excellent/Good/Fair/Poor",
+    "suitability_reasoning": "Detailed explanation of why this rating was given",
+    "alternative_suggestions": ["List of suggestions if data is Poor"],
     "performance_risk": "Low/Medium/High",
     "performance_warnings": ["List of performance concerns for Streamlit Cloud"],
     "optimization_suggestions": ["List of specific suggestions to improve performance"],
@@ -206,117 +171,27 @@ Please analyze this dataset and provide anomaly detection recommendations in the
 }}
 
 Guidelines for Anomaly Detection:
-1. PERFORMANCE RISK: Assess based on dataset size and complexity
+1. DATA SUITABILITY: Assess if dataset is appropriate for anomaly detection
+   - Excellent: Multiple numeric features, sufficient data, clear patterns
+   - Good: Adequate numeric features, reasonable data quality
+   - Fair: Limited features but workable, some data quality issues
+   - Poor: No numeric features, too small (<20 rows), or fundamentally unsuitable
+2. PERFORMANCE RISK: Assess based on dataset size and complexity
    - Low: <1K rows, <20 columns
    - Medium: 1K-10K rows, 20-50 columns  
    - High: >10K rows, >50 columns
-2. ALGORITHM SELECTION:
+3. ALGORITHM SELECTION:
    - Isolation Forest: Best for high-dimensional data, large datasets, general purpose
    - Local Outlier Factor: Good for local anomalies, medium datasets with clusters
    - One-Class SVM: Best for well-separated normal data, smaller datasets
-3. CONTAMINATION: Expected proportion of anomalies
+4. CONTAMINATION: Expected proportion of anomalies
    - Small datasets (<500): 0.05 (5%)
    - Large datasets (>10K): 0.02 (2%) for precision
    - High performance risk: 0.1 (10%) for speed
-4. EXCLUDE: ID columns, timestamps, categorical with >50 categories, constant columns
-5. PERFORMANCE CONSTRAINTS: Consider Streamlit Cloud limitations (1GB RAM, CPU timeout)
-6. MEMORY OPTIMIZATION: Recommend excluding high-cardinality categorical columns
-7. Be specific about performance warnings and optimization suggestions
-
-Provide ONLY the JSON response, no additional text."""
-            elif task_type == 'market_basket_analysis':
-                prompt = f"""You are an expert retail analytics specialist analyzing a dataset for Market Basket Analysis.
-
-Dataset Overview:
-- Total Rows: {len(df)}
-- Total Columns: {len(df.columns)}
-- Task Type: MARKET BASKET ANALYSIS
-
-Column Details:
-{json.dumps(column_info, indent=2)}
-
-Please analyze this dataset and provide Market Basket Analysis recommendations in the following JSON format:
-{{
-    "performance_risk": "Low/Medium/High",
-    "performance_warnings": ["List of performance concerns for Streamlit Cloud"],
-    "optimization_suggestions": ["List of specific suggestions to improve MBA performance"],
-    "data_suitability": "Excellent/Good/Fair/Poor",
-    "suitability_reasoning": "Why this dataset is/isn't suitable for Market Basket Analysis",
-    "recommended_transaction_column": "column_name",
-    "recommended_item_column": "column_name",
-    "column_reasoning": "Why these columns are best for transaction ID and item identification",
-    "recommended_min_support": 0.02,
-    "recommended_min_confidence": 0.4,
-    "recommended_min_lift": 1.5,
-    "support_reasoning": "Why this support threshold is appropriate for this dataset",
-    "confidence_reasoning": "Why this confidence threshold is appropriate",
-    "lift_reasoning": "Why this lift threshold is appropriate",
-    "transaction_structure_issues": ["List of potential issues with transaction structure"],
-    "preprocessing_recommendations": ["List of data preprocessing steps specific to MBA"]
-}}
-
-Guidelines for Market Basket Analysis:
-1. PERFORMANCE RISK: Assess based on transaction volume and item diversity
-   - Low: <5K transactions, <500 unique items
-   - Medium: 5K-50K transactions, 500-2K unique items
-   - High: >50K transactions, >2K unique items (memory intensive for Apriori)
-2. DATA SUITABILITY: Evaluate transaction data structure using MBA industry standards
-   - Excellent: Clear transaction grouping, descriptive item names, diverse baskets (2-20 items)
-   - Good: Minor formatting issues, reasonable transaction sizes (avg 3-15 items)
-   - Fair: Some structural problems, very small (<2 items) or very large (>50 items) baskets
-   - Poor: Missing transaction structure, single-item transactions, no interpretable items
-3. COLUMN SELECTION: Analyze actual data content, not just column names
-   - Transaction Column: Must contain identifiers that group items into baskets/transactions
-     * Analyze: Does the column have repeated values that logically group items?
-     * Content: Should be IDs, order numbers, session IDs, customer visits, etc.
-   - Item Column: Must contain meaningful item identifiers for association analysis
-     * Analyze: Does the column contain descriptive, human-readable item information?
-     * Content: Product names, descriptions, categories - NOT numeric codes or IDs
-     * Test: Can you understand what the item is from the column value alone?
-     * Avoid: Pure numeric codes, SKUs, IDs that don't describe the actual product
-4. THRESHOLD RECOMMENDATIONS:
-   - Support: Based on transaction count and item frequency distribution
-     * Small datasets (<1K trans): 0.01-0.05 (1-5%)
-     * Medium datasets (1K-10K): 0.005-0.02 (0.5-2%)
-     * Large datasets (>10K): 0.001-0.01 (0.1-1%)
-   - Confidence: Based on business requirements
-     * Conservative: 0.6-0.8 (60-80%)
-     * Balanced: 0.3-0.6 (30-60%)
-     * Exploratory: 0.1-0.3 (10-30%)
-   - Lift: Always start with 1.0+ for meaningful associations
-     * Weak associations: 1.0-1.5
-     * Moderate associations: 1.5-3.0
-     * Strong associations: 3.0+
-4. TRANSACTION STRUCTURE: Identify potential issues
-   - Missing transaction IDs
-   - Single-item transactions (no associations possible)
-   - Extremely large baskets (computational complexity)
-   - Item naming inconsistencies
-5. PERFORMANCE CONSTRAINTS: Consider Streamlit Cloud limitations
-   - Apriori algorithm is memory-intensive
-   - Large item catalogs create exponential complexity
-   - Recommend sampling for very large datasets
-6. PREPROCESSING: MBA-specific data preparation
-   - Item name standardization
-   - Transaction grouping validation
-   - Basket size analysis
-   - Item frequency distribution
-
-Focus ONLY on Market Basket Analysis requirements. Do not consider ML classification, regression, or other analysis types.
-
-ANALYSIS METHODOLOGY:
-1. Examine actual data samples from each column, not just column names
-2. For Transaction Column: Look for values that repeat and logically group items (order IDs, session IDs, etc.)
-3. For Item Column: Look for values that are human-readable and describe actual products
-4. Apply MBA industry standards: Items must be interpretable for business insights
-
-IMPORTANT: You MUST provide ALL required fields in the JSON response. Do not leave any field empty or null.
-- data_suitability must be one of: Excellent, Good, Fair, Poor
-- suitability_reasoning must provide specific reasoning based on actual data content analysis
-- recommended_transaction_column and recommended_item_column must be actual column names from the dataset
-- column_reasoning must explain why these columns were chosen based on content analysis, not names
-- Analyze sample values from each column to determine suitability for MBA
-- Prioritize columns with meaningful, descriptive content over codes or IDs
+5. EXCLUDE: ID columns, timestamps, categorical with >50 categories, constant columns
+6. PERFORMANCE CONSTRAINTS: Consider Streamlit Cloud limitations (1GB RAM, CPU timeout)
+7. MEMORY OPTIMIZATION: Recommend excluding high-cardinality categorical columns
+8. Be specific about performance warnings and optimization suggestions
 
 Provide ONLY the JSON response, no additional text."""
             else:
@@ -369,10 +244,6 @@ Guidelines:
 Provide ONLY the JSON response, no additional text."""
 
             # Call OpenAI API
-            print(f"Making AI API call for {task_type}...")
-            print(f"API key present: {bool(api_key)}")
-            print(f"API key length: {len(api_key) if api_key else 0}")
-            
             from openai import OpenAI
             client = OpenAI(api_key=api_key)
             
@@ -385,11 +256,9 @@ Provide ONLY the JSON response, no additional text."""
                 temperature=0.3,
                 max_tokens=1000
             )
-            print(f"AI API call successful for {task_type}")
             
             # Parse response
             ai_response = response.choices[0].message.content.strip()
-            print(f"Raw AI response for {task_type}: {ai_response[:200]}...")
             
             # Remove markdown code blocks if present
             if ai_response.startswith('```'):
@@ -398,20 +267,17 @@ Provide ONLY the JSON response, no additional text."""
                     ai_response = ai_response[4:]
                 ai_response = ai_response.strip()
             
-            print(f"Cleaned AI response for {task_type}: {ai_response[:200]}...")
             recommendations = json.loads(ai_response)
-            print(f"Successfully parsed AI recommendations for {task_type}")
             
-            # Validate target column exists (skip for anomaly detection, data cleaning, and market basket analysis)
-            if task_type not in ['anomaly_detection', 'data_cleaning', 'market_basket_analysis'] and recommendations.get('target_column') not in df.columns:
+            # Validate target column exists (skip for anomaly detection and data cleaning)
+            if task_type not in ['anomaly_detection', 'data_cleaning'] and recommendations.get('target_column') not in df.columns:
                 return AISmartDetection._fallback_detection(df, task_type)
             
             return recommendations
             
         except Exception as e:
             # Fallback to rule-based detection on any error
-            print(f"AI detection error for {task_type}: {str(e)}")
-            print(f"Falling back to rule-based detection...")
+            print(f"AI detection error: {str(e)}")
             return AISmartDetection._fallback_detection(df, task_type)
     
     @staticmethod
@@ -539,7 +405,41 @@ Provide ONLY the JSON response, no additional text."""
                 algorithm = 'Local Outlier Factor'
                 algorithm_reason = 'Local Outlier Factor good for medium-sized datasets'
             
+            # Data suitability assessment
+            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+            if len(numeric_cols) == 0:
+                data_suitability = 'Poor'
+                suitability_reasoning = 'No numeric columns found - anomaly detection requires numeric features'
+                alternative_suggestions = [
+                    'Use Sample Data (built-in credit card transactions)',
+                    'Upload a different dataset with numeric features',
+                    'Convert categorical columns to numeric if appropriate'
+                ]
+            elif len(df) < 20:
+                data_suitability = 'Poor'
+                suitability_reasoning = f'Dataset too small ({len(df)} rows) - need at least 20 rows for reliable anomaly detection'
+                alternative_suggestions = [
+                    'Use Sample Data (built-in credit card transactions)',
+                    'Collect more data points',
+                    'Combine with additional datasets'
+                ]
+            elif len(numeric_cols) < 2:
+                data_suitability = 'Fair'
+                suitability_reasoning = f'Limited numeric features ({len(numeric_cols)} column) - anomaly detection works better with multiple features'
+                alternative_suggestions = []
+            elif len(df) < 100:
+                data_suitability = 'Fair'
+                suitability_reasoning = f'Small dataset ({len(df)} rows) - results may be less reliable'
+                alternative_suggestions = []
+            else:
+                data_suitability = 'Good'
+                suitability_reasoning = f'Dataset suitable for anomaly detection - {len(numeric_cols)} numeric features, {len(df)} rows'
+                alternative_suggestions = []
+            
             return {
+                'data_suitability': data_suitability,
+                'suitability_reasoning': suitability_reasoning,
+                'alternative_suggestions': alternative_suggestions,
                 'performance_risk': performance_risk,
                 'performance_warnings': performance_warnings,
                 'optimization_suggestions': [
@@ -551,81 +451,6 @@ Provide ONLY the JSON response, no additional text."""
                 'recommended_contamination': contamination,
                 'algorithm_reasoning': algorithm_reason,
                 'contamination_reasoning': f'Standard {contamination*100:.0f}% contamination for rule-based detection'
-            }
-        elif task_type == 'market_basket_analysis':
-            # Rule-based MBA recommendations
-            n_samples = len(df)
-            n_features = len(df.columns)
-            
-            # Performance risk assessment
-            if n_samples > 50000 or n_features > 2000:
-                performance_risk = 'High'
-                performance_warnings = [
-                    f'Large dataset ({n_samples:,} transactions, {n_features} potential items) may be memory intensive',
-                    'Consider using higher support thresholds to reduce memory usage'
-                ]
-            elif n_samples > 5000 or n_features > 500:
-                performance_risk = 'Medium'
-                performance_warnings = ['Medium-sized dataset - monitor memory usage during analysis']
-            else:
-                performance_risk = 'Low'
-                performance_warnings = []
-            
-            # Smart column detection for MBA
-            transaction_col = None
-            item_col = None
-            
-            # Look for transaction ID patterns
-            for col in df.columns:
-                col_lower = col.lower()
-                if any(pattern in col_lower for pattern in ['invoice', 'order', 'transaction', 'basket', 'receipt']):
-                    # Check if it has repeated values (good for grouping)
-                    if df[col].nunique() < len(df) * 0.8:  # Less than 80% unique (has repeats)
-                        transaction_col = col
-                        break
-            
-            # Look for item description patterns (avoid codes)
-            for col in df.columns:
-                col_lower = col.lower()
-                if any(pattern in col_lower for pattern in ['description', 'product', 'item', 'name']):
-                    # Check if it contains descriptive text (not just codes)
-                    sample_values = df[col].dropna().head(5).astype(str)
-                    if any(len(str(val)) > 5 and not str(val).isdigit() for val in sample_values):
-                        item_col = col
-                        break
-            
-            # Fallbacks if no good matches found
-            if not transaction_col:
-                transaction_col = df.columns[0]  # First column as fallback
-            if not item_col:
-                # Avoid numeric columns and codes
-                for col in df.columns:
-                    if col != transaction_col and not pd.api.types.is_numeric_dtype(df[col]):
-                        item_col = col
-                        break
-                if not item_col:
-                    item_col = df.columns[1] if len(df.columns) > 1 else df.columns[0]
-            
-            return {
-                'performance_risk': performance_risk,
-                'performance_warnings': performance_warnings,
-                'optimization_suggestions': [
-                    'Use higher support thresholds for large datasets',
-                    'Consider filtering out very rare or very common items'
-                ],
-                'data_suitability': 'Good',
-                'suitability_reasoning': 'Rule-based analysis suggests this data can be used for Market Basket Analysis',
-                'recommended_transaction_column': transaction_col,
-                'recommended_item_column': item_col,
-                'column_reasoning': f'Selected {transaction_col} for transactions and {item_col} for items based on column names and content patterns',
-                'recommended_min_support': 0.01,
-                'recommended_min_confidence': 0.3,
-                'recommended_min_lift': 1.2,
-                'support_reasoning': 'Conservative support threshold for rule-based detection',
-                'confidence_reasoning': 'Moderate confidence threshold for exploratory analysis',
-                'lift_reasoning': 'Standard lift threshold for meaningful associations',
-                'transaction_structure_issues': [],
-                'preprocessing_recommendations': ['Verify transaction grouping is correct', 'Check for item name consistency']
             }
         elif task_type == 'classification':
             # Simple classification target detection
@@ -678,7 +503,7 @@ Provide ONLY the JSON response, no additional text."""
         }
     
     @staticmethod
-    def display_recommendations(recommendations: Dict, expanded: bool = False):
+    def display_ai_recommendation(recommendations: Dict, expanded: bool = False):
         """Display AI recommendations in Streamlit UI."""
         
         # Confidence badge
@@ -772,7 +597,6 @@ def get_ai_recommendation(df: pd.DataFrame, task_type: str = 'classification') -
     Returns:
         Dictionary with AI recommendations
     """
-    print(f"🔥 AI FUNCTION CALLED! Task type: {task_type}, DataFrame shape: {df.shape}")
     # Create hash of dataframe for caching
     df_hash = str(hash(str(df.columns.tolist()) + str(len(df))))
     
