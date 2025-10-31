@@ -230,8 +230,9 @@ Guidelines for Market Basket Analysis:
 3. COLUMN SELECTION: Identify best columns for MBA
    - Transaction Column: Look for ID columns (invoice, order, transaction, basket)
    - Item Column: Look for product/item names (description, product, item, name)
-   - Avoid: Price, quantity, date columns for item identification
-   - Prefer: Columns with reasonable cardinality and clear item names
+   - AVOID for Item Column: Code columns (stockcode, sku, id), price, quantity, date columns
+   - PREFER for Item Column: Descriptive text columns with actual product names/descriptions
+   - Columns with reasonable cardinality and meaningful item identification
 4. THRESHOLD RECOMMENDATIONS:
    - Support: Based on transaction count and item frequency distribution
      * Small datasets (<1K trans): 0.01-0.05 (1-5%)
@@ -261,6 +262,12 @@ Guidelines for Market Basket Analysis:
    - Item frequency distribution
 
 Focus ONLY on Market Basket Analysis requirements. Do not consider ML classification, regression, or other analysis types.
+
+IMPORTANT: You MUST provide ALL required fields in the JSON response. Do not leave any field empty or null.
+- data_suitability must be one of: Excellent, Good, Fair, Poor
+- suitability_reasoning must provide specific reasoning based on the data
+- recommended_transaction_column and recommended_item_column must be actual column names from the dataset
+- column_reasoning must explain why these specific columns were chosen
 
 Provide ONLY the JSON response, no additional text."""
             else:

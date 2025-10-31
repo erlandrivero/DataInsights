@@ -3008,6 +3008,13 @@ def show_market_basket_analysis():
         st.success("✅ Using dataset from Data Upload section")
         df = st.session_state.data
         
+        # Check if data has been cleaned
+        has_been_cleaned = 'cleaning_stats' in st.session_state
+        if has_been_cleaned:
+            st.info("🧹 **Using cleaned data** from Data Cleaning section")
+        else:
+            st.warning("⚠️ **Using raw data** - Consider running Data Cleaning first for better results")
+        
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
         
         # Get smart column suggestions
@@ -3063,6 +3070,7 @@ def show_market_basket_analysis():
                         
                         # Step 3: Generating AI analysis
                         status.write("Generating AI recommendations...")
+                        status.write(f"Analyzing {len(df)} rows, {len(df.columns)} columns: {list(df.columns)}")
                         ai_recommendations = get_ai_recommendation(df, task_type='market_basket_analysis')
                         st.session_state.mba_ai_recommendations = ai_recommendations
                         
