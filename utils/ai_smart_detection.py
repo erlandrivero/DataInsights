@@ -402,8 +402,8 @@ Provide ONLY the JSON response, no additional text."""
             recommendations = json.loads(ai_response)
             print(f"Successfully parsed AI recommendations for {task_type}")
             
-            # Validate target column exists (skip for anomaly detection and data cleaning)
-            if task_type not in ['anomaly_detection', 'data_cleaning'] and recommendations.get('target_column') not in df.columns:
+            # Validate target column exists (skip for anomaly detection, data cleaning, and market basket analysis)
+            if task_type not in ['anomaly_detection', 'data_cleaning', 'market_basket_analysis'] and recommendations.get('target_column') not in df.columns:
                 return AISmartDetection._fallback_detection(df, task_type)
             
             return recommendations
