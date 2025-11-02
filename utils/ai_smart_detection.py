@@ -194,6 +194,191 @@ Guidelines for Anomaly Detection:
 8. Be specific about performance warnings and optimization suggestions
 
 Provide ONLY the JSON response, no additional text."""
+            elif task_type == 'classification':
+                prompt = f"""You are an expert data scientist analyzing a dataset for ML Classification.
+
+Dataset Overview:
+- Total Rows: {len(df)}
+- Total Columns: {len(df.columns)}
+- Task Type: ML CLASSIFICATION
+
+Column Details:
+{json.dumps(column_info, indent=2)}
+
+Please analyze this dataset and provide ML Classification recommendations in the following JSON format:
+{{
+    "data_suitability": "Excellent/Good/Fair/Poor",
+    "suitability_reasoning": "Detailed explanation of why this rating was given for classification",
+    "alternative_suggestions": ["List of suggestions if data is Poor"],
+    "performance_risk": "Low/Medium/High",
+    "performance_warnings": ["List of performance concerns for Streamlit Cloud"],
+    "optimization_suggestions": ["List of specific suggestions to improve performance"],
+    "target_column": "column_name",
+    "target_reasoning": "Why this column is recommended as target",
+    "confidence": "High/Medium/Low",
+    "data_quality": "Excellent/Good/Fair/Poor",
+    "features_to_use": ["list", "of", "feature", "columns"],
+    "features_to_exclude": [
+        {{"column": "column_name", "reason": "Specific reason for exclusion"}}
+    ],
+    "recommended_cv_folds": 5,
+    "recommended_test_size": 20,
+    "class_imbalance_detected": true/false,
+    "imbalance_severity": "None/Mild/Moderate/Severe",
+    "recommend_smote": true/false,
+    "smote_reasoning": "Explanation for SMOTE recommendation",
+    "warnings": ["List of warnings"]
+}}
+
+CRITICAL Guidelines for ML Classification:
+1. DATA SUITABILITY: STRICT assessment if dataset is appropriate for classification
+   - Excellent: Clear categorical target (2-20 classes), balanced classes, sufficient samples per class (50+)
+   - Good: Categorical target with minor imbalance, adequate samples (20+ per class)
+   - Fair: High class imbalance (>10:1) OR many classes (>50) OR small samples (<20 per class)
+   - Poor: **NUMERIC/CONTINUOUS target**, only 1 class, >200 classes, <10 total samples per class
+
+2. TARGET COLUMN VALIDATION - CRITICAL:
+   **NUMERIC/CONTINUOUS targets are POOR for classification:**
+   - If target has >50 unique values AND values look continuous (prices, quantities, measurements)
+     → Mark as "Poor" and suggest "Use ML Regression instead"
+   - Examples of POOR classification targets: quantity, price, amount, revenue, age, temperature
+   - Examples of GOOD classification targets: country, category, status, type, species, label
+   
+3. TARGET COLUMN SELECTION:
+   - PREFER: Categorical columns with meaningful classes (country, category, status, species)
+   - Look for columns with: 2-50 unique values, clear categorical nature
+   - **CHECK IF NUMERIC**: If column has all numeric values → likely continuous → POOR for classification
+   - **AVOID**: ID columns, timestamps, continuous numeric columns, unique identifiers
+   
+4. CLASS DISTRIBUTION ANALYSIS:
+   - Count samples per class
+   - Severe imbalance (>100:1): Mark as Fair, recommend SMOTE or downsampling
+   - Too many rare classes: Suggest filtering or grouping classes
+   
+5. PERFORMANCE RISK: Assess based on dataset size and complexity
+   - Low: <10K rows, <20 features, 2-10 classes
+   - Medium: 10K-100K rows, 20-100 features, 10-50 classes
+   - High: >100K rows, >100 features, >50 classes
+   
+6. FEATURES TO EXCLUDE:
+   - ID columns (unique per row)
+   - Timestamps (unless creating time-based features)
+   - High cardinality categoricals (>100 unique values)
+   - Constant columns (all same value)
+   - Target leakage columns (directly reveal answer)
+   
+7. CV FOLDS RECOMMENDATION:
+   - Small datasets (<500): 3-fold
+   - Medium datasets (500-5K): 5-fold
+   - Large datasets (>5K): 3-fold (for speed)
+   - Many classes (>20): 3-fold (for stratification)
+   
+8. SMOTE RECOMMENDATION:
+   - Recommend for Moderate/Severe imbalance (>10:1 ratio)
+   - Not recommended if: <100 total samples, classes naturally imbalanced
+   
+9. PERFORMANCE CONSTRAINTS: Consider Streamlit Cloud limitations (1GB RAM, CPU timeout)
+   - >100K rows: Recommend sampling to 50K
+   - >100 features: Recommend feature selection or PCA
+   - >50 classes: Recommend grouping rare classes
+
+10. BE SPECIFIC: If data is Poor, clearly explain WHY and what would make it suitable
+
+Provide ONLY the JSON response, no additional text."""
+            elif task_type == 'regression':
+                prompt = f"""You are an expert data scientist analyzing a dataset for ML Regression.
+
+Dataset Overview:
+- Total Rows: {len(df)}
+- Total Columns: {len(df.columns)}
+- Task Type: ML REGRESSION
+
+Column Details:
+{json.dumps(column_info, indent=2)}
+
+Please analyze this dataset and provide ML Regression recommendations in the following JSON format:
+{{
+    "data_suitability": "Excellent/Good/Fair/Poor",
+    "suitability_reasoning": "Detailed explanation of why this rating was given for regression",
+    "alternative_suggestions": ["List of suggestions if data is Poor"],
+    "performance_risk": "Low/Medium/High",
+    "performance_warnings": ["List of performance concerns for Streamlit Cloud"],
+    "optimization_suggestions": ["List of specific suggestions to improve performance"],
+    "target_column": "column_name",
+    "target_reasoning": "Why this column is recommended as target",
+    "confidence": "High/Medium/Low",
+    "data_quality": "Excellent/Good/Fair/Poor",
+    "features_to_use": ["list", "of", "feature", "columns"],
+    "features_to_exclude": [
+        {{"column": "column_name", "reason": "Specific reason for exclusion"}}
+    ],
+    "recommended_cv_folds": 5,
+    "recommended_test_size": 20,
+    "target_distribution": "Normal/Skewed/Uniform",
+    "outliers_detected": true/false,
+    "recommend_log_transform": true/false,
+    "transform_reasoning": "Explanation for transformation recommendation",
+    "warnings": ["List of warnings"]
+}}
+
+CRITICAL Guidelines for ML Regression:
+1. DATA SUITABILITY: STRICT assessment if dataset is appropriate for regression
+   - Excellent: Clear continuous numeric target, good feature correlation, sufficient samples (>100)
+   - Good: Numeric target with reasonable distribution, adequate samples (>50)
+   - Fair: Highly skewed target OR limited samples (<50) OR weak feature correlation
+   - Poor: **CATEGORICAL target**, only 1 unique value, <20 total samples, all features categorical
+
+2. TARGET COLUMN VALIDATION - CRITICAL:
+   **CATEGORICAL targets are POOR for regression:**
+   - If target has <50 unique values AND values are categorical (countries, statuses, types)
+     → Mark as "Poor" and suggest "Use ML Classification instead"
+   - Examples of GOOD regression targets: price, quantity, amount, revenue, temperature, salary
+   - Examples of POOR regression targets: country, category, status, species, type, label
+   
+3. TARGET COLUMN SELECTION:
+   - REQUIRE: Continuous numeric column (int or float)
+   - PREFER: Wide range of values, reasonable distribution
+   - **CHECK IF CATEGORICAL**: If column has text values or <20 unique values → likely categorical → POOR for regression
+   - **AVOID**: ID columns, timestamps, binary columns, categorical columns
+   
+4. TARGET DISTRIBUTION ANALYSIS:
+   - Check for skewness (mean vs median)
+   - Highly skewed (>2 std ratio): Recommend log transform
+   - Outliers present: Suggest outlier handling
+   
+5. FEATURE REQUIREMENTS:
+   - Need at least 2-3 numeric features for regression
+   - Categorical features are OK if not high-cardinality
+   - Check for multicollinearity (mention if detected)
+   
+6. PERFORMANCE RISK: Assess based on dataset size and complexity
+   - Low: <10K rows, <20 features
+   - Medium: 10K-100K rows, 20-100 features
+   - High: >100K rows, >100 features
+   
+7. FEATURES TO EXCLUDE:
+   - ID columns (unique per row)
+   - Timestamps (unless creating time-based features)
+   - High cardinality categoricals (>100 unique values)
+   - Constant columns (all same value)
+   - Perfect correlations with target (data leakage)
+   
+8. CV FOLDS RECOMMENDATION:
+   - Small datasets (<500): 3-fold
+   - Medium datasets (500-5K): 5-fold
+   - Large datasets (>5K): 3-fold (for speed)
+   
+9. TRANSFORMATION RECOMMENDATION:
+   - Recommend log transform if: target is heavily right-skewed (prices, revenues)
+   - Not recommended if: target has zeros or negative values
+   
+10. PERFORMANCE CONSTRAINTS: Consider Streamlit Cloud limitations (1GB RAM, CPU timeout)
+    - >100K rows: Recommend sampling to 50K
+    - >100 features: Recommend feature selection or PCA
+
+11. BE SPECIFIC: If data is Poor, clearly explain WHY and what would make it suitable
+
+Provide ONLY the JSON response, no additional text."""
             elif task_type == 'market_basket_analysis':
                 prompt = f"""You are an expert data scientist analyzing a dataset for Market Basket Analysis (MBA).
 
@@ -1497,12 +1682,16 @@ Provide ONLY the JSON response, no additional text."""
                 'segmentation_reasoning': segmentation_reasoning
             }
         elif task_type == 'classification':
-            # Simple classification target detection
+            # Rule-based classification target detection with suitability check
             target = None
+            data_suitability = 'Unknown'
+            suitability_reasoning = 'Rule-based fallback - limited analysis'
+            alternative_suggestions = []
+            
             # Look for common target patterns
             for col in df.columns:
                 col_lower = col.lower()
-                if any(pattern in col_lower for pattern in ['target', 'label', 'class', 'category', 'species']):
+                if any(pattern in col_lower for pattern in ['target', 'label', 'class', 'category', 'species', 'country', 'status']):
                     n_unique = df[col].nunique()
                     if 2 <= n_unique <= 50:
                         target = col
@@ -1512,38 +1701,116 @@ Provide ONLY the JSON response, no additional text."""
             if not target:
                 for col in df.columns:
                     n_unique = df[col].nunique()
+                    # Avoid numeric columns with many unique values (likely continuous)
                     if 2 <= n_unique <= 50:
+                        # Check if it's not purely numeric/continuous
+                        if pd.api.types.is_numeric_dtype(df[col]):
+                            # If numeric with >50 unique values, likely continuous
+                            if n_unique > 50:
+                                continue
                         target = col
                         break
             
             # Ultimate fallback: last column
             if not target:
                 target = df.columns[-1]
-        else:
-            # Simple regression detection
+            
+            # Assess suitability for classification
+            if target and target in df.columns:
+                n_unique = df[target].nunique()
+                n_samples = len(df)
+                
+                # Check if target is numeric/continuous (BAD for classification)
+                if pd.api.types.is_numeric_dtype(df[target]) and n_unique > 50:
+                    data_suitability = 'Poor'
+                    suitability_reasoning = f'Target column "{target}" appears to be continuous/numeric ({n_unique} unique values). Classification requires categorical targets.'
+                    alternative_suggestions = [
+                        'Use ML Regression instead for continuous numeric targets',
+                        'Convert numeric target into categorical bins if classification is needed',
+                        'Choose a different categorical column as target'
+                    ]
+                elif n_unique == 1:
+                    data_suitability = 'Poor'
+                    suitability_reasoning = f'Target column "{target}" has only 1 unique value. Cannot perform classification.'
+                    alternative_suggestions = ['Choose a column with 2 or more classes']
+                elif n_unique > 200:
+                    data_suitability = 'Poor'
+                    suitability_reasoning = f'Target column "{target}" has too many classes ({n_unique}). Classification with >200 classes is impractical.'
+                    alternative_suggestions = ['Group rare classes together', 'Filter to top 20-50 classes', 'Use different target column']
+                elif n_unique > 50:
+                    data_suitability = 'Fair'
+                    suitability_reasoning = f'Target column "{target}" has many classes ({n_unique}). This may be challenging.'
+                elif n_samples < 50:
+                    data_suitability = 'Fair'
+                    suitability_reasoning = f'Very small dataset ({n_samples} samples). Classification may be unreliable.'
+                else:
+                    data_suitability = 'Good'
+                    suitability_reasoning = f'Target column "{target}" appears suitable for classification ({n_unique} classes, {n_samples} samples).'
+        
+        else:  # regression
+            # Rule-based regression target detection with suitability check
             numeric_cols = df.select_dtypes(include=['number']).columns
-            # Look for columns with 'value', 'price', 'medv' patterns
             target = None
+            data_suitability = 'Unknown'
+            suitability_reasoning = 'Rule-based fallback - limited analysis'
+            alternative_suggestions = []
+            
+            # Look for columns with 'value', 'price', 'medv' patterns
             for col in numeric_cols:
                 col_lower = col.lower()
-                if any(pattern in col_lower for pattern in ['medv', 'value', 'price', 'target']):
+                if any(pattern in col_lower for pattern in ['medv', 'value', 'price', 'target', 'amount', 'quantity', 'revenue', 'salary']):
                     target = col
                     break
             
             if not target:
                 target = numeric_cols[-1] if len(numeric_cols) > 0 else df.columns[-1]
+            
+            # Assess suitability for regression
+            if target and target in df.columns:
+                n_unique = df[target].nunique()
+                n_samples = len(df)
+                
+                # Check if target is categorical (BAD for regression)
+                if not pd.api.types.is_numeric_dtype(df[target]):
+                    data_suitability = 'Poor'
+                    suitability_reasoning = f'Target column "{target}" is not numeric. Regression requires continuous numeric targets.'
+                    alternative_suggestions = [
+                        'Use ML Classification instead for categorical targets',
+                        'Choose a numeric column as target'
+                    ]
+                elif n_unique < 10 and pd.api.types.is_integer_dtype(df[target]):
+                    data_suitability = 'Poor'
+                    suitability_reasoning = f'Target column "{target}" has very few unique values ({n_unique}). This appears categorical, not continuous.'
+                    alternative_suggestions = ['Use ML Classification for categorical targets', 'Choose a continuous numeric column']
+                elif n_unique == 1:
+                    data_suitability = 'Poor'
+                    suitability_reasoning = f'Target column "{target}" has only 1 unique value. Cannot perform regression.'
+                    alternative_suggestions = ['Choose a column with varying values']
+                elif n_samples < 50:
+                    data_suitability = 'Fair'
+                    suitability_reasoning = f'Very small dataset ({n_samples} samples). Regression may be unreliable.'
+                else:
+                    data_suitability = 'Good'
+                    suitability_reasoning = f'Target column "{target}" appears suitable for regression (continuous numeric with {n_unique} unique values).'
         
         # Return format for ML tasks
         return {
             'target_column': target,
+            'target_reasoning': 'Rule-based detection (AI unavailable). Column selected based on data type and naming patterns.',
             'reasoning': 'Using rule-based detection (AI unavailable). This column was selected based on data type and position.',
             'confidence': 'Medium',
+            'data_suitability': data_suitability,
+            'suitability_reasoning': suitability_reasoning,
+            'alternative_suggestions': alternative_suggestions,
             'features_to_use': [col for col in df.columns if col != target],
             'features_to_exclude': [],
             'recommended_cv_folds': 5,
             'recommended_test_size': 20,
             'warnings': ['AI-powered detection unavailable - using rule-based fallback'],
-            'data_quality': 'Unknown'
+            'data_quality': 'Unknown',
+            'performance_risk': 'Medium',
+            'performance_warnings': [],
+            'optimization_suggestions': []
         }
     
     @staticmethod
