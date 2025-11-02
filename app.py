@@ -6911,14 +6911,14 @@ def show_ml_classification():
         for r in successful_results:
             results_data.append({
                 'Model': r.get('model_name', 'Unknown'),
-                'Accuracy': f"{r.get('accuracy', 0):.4f}",
-                'Precision': f"{r.get('precision', 0):.4f}",
-                'Recall': f"{r.get('recall', 0):.4f}",
-                'F1 Score': f"{r.get('f1', 0):.4f}",
+                'Accuracy': f"{(r.get('accuracy') or 0):.4f}",
+                'Precision': f"{(r.get('precision') or 0):.4f}",
+                'Recall': f"{(r.get('recall') or 0):.4f}",
+                'F1 Score': f"{(r.get('f1') or 0):.4f}",
                 'ROC-AUC': f"{r['roc_auc']:.4f}" if r.get('roc_auc') else 'N/A',
                 'CV Mean': f"{r['cv_mean']:.4f}" if r.get('cv_mean') else 'N/A',
                 'CV Std': f"{r['cv_std']:.4f}" if r.get('cv_std') else 'N/A',
-                'Time (s)': f"{r.get('training_time', 0):.3f}"
+                'Time (s)': f"{(r.get('training_time') or 0):.3f}"
             })
         
         results_df = pd.DataFrame(results_data)
