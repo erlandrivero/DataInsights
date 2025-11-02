@@ -828,8 +828,15 @@ def show_analysis():
     
     if 'cleaning_ai_recommendations' not in st.session_state:
         if st.button("🔍 Generate AI Cleaning Analysis", type="primary", use_container_width=True):
+            # Immediate feedback - show processing started
+            processing_placeholder = st.empty()
+            processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
+            
             with st.status("🤖 Analyzing dataset with AI...", expanded=True) as status:
                 try:
+                    # Clear the placeholder now that status is visible
+                    processing_placeholder.empty()
+                    
                     import time
                     from utils.ai_smart_detection import get_ai_recommendation
                     
@@ -1181,23 +1188,33 @@ def show_analysis():
             submitted = st.form_submit_button("🚀 Clean Data Now", type="primary", use_container_width=True)
         
         if submitted:
-            from utils.process_manager import ProcessManager
+            # Immediate feedback - show processing started
+            processing_placeholder = st.empty()
+            processing_placeholder.info("⏳ **Starting data cleaning...** Please wait, do not click again.")
             
-            # Create process manager
-            pm = ProcessManager("Data_Cleaning")
-            
-            # Show warning about not navigating
-            st.warning("""
-            ⚠️ **Important:** Do not navigate away from this page during cleaning.
-            Navigation is now locked to prevent data loss.
-            """)
-            
-            # Lock navigation
-            pm.lock()
-            
-            try:
-                with st.status("🧹 Cleaning data...", expanded=True) as status:
+            # Create status block immediately for visual feedback
+            with st.status("🧹 Cleaning data...", expanded=True) as status:
+                try:
+                    # Clear the placeholder now that status is visible
+                    processing_placeholder.empty()
+                    
+                    # Import and initialize after status is shown
+                    status.write("Initializing cleaning process...")
+                    from utils.process_manager import ProcessManager
                     from utils.data_cleaning import DataCleaner
+                    
+                    # Create process manager
+                    pm = ProcessManager("Data_Cleaning")
+                    
+                    # Show warning about not navigating
+                    st.warning("""
+                    ⚠️ **Important:** Do not navigate away from this page during cleaning.
+                    Navigation is now locked to prevent data loss.
+                    """)
+                    
+                    # Lock navigation
+                    pm.lock()
+                    status.write("Navigation locked for data safety...")
                     
                     # Progress tracking
                     st.divider()
@@ -1262,19 +1279,19 @@ def show_analysis():
                     
                     st.success("✅ Data cleaned successfully!")
                     
-            except Exception as e:
-                st.error(f"❌ Error during cleaning: {str(e)}")
-                pm.save_checkpoint({'error': str(e)})
-                import traceback
-                st.code(traceback.format_exc())
-            
-            finally:
-                # Always unlock navigation
-                pm.unlock()
-                st.info("✅ Navigation unlocked - you can now navigate to other pages.")
-                # Small delay before rerun
-                import time
-                time.sleep(1)
+                except Exception as e:
+                    st.error(f"❌ Error during cleaning: {str(e)}")
+                    pm.save_checkpoint({'error': str(e)})
+                    import traceback
+                    st.code(traceback.format_exc())
+                
+                finally:
+                    # Always unlock navigation
+                    pm.unlock()
+                    st.info("✅ Navigation unlocked - you can now navigate to other pages.")
+                    # Small delay before rerun
+                    import time
+                    time.sleep(1)
                 st.rerun()
         
         # Show cleaning results if available
