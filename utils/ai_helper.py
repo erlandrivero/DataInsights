@@ -436,13 +436,31 @@ Format as JSON array with keys: "issue", "suggestion", "reason", "code"
         """
         
         try:
+            # Configure safety settings to allow data analysis content
+            safety_settings = {
+                'HARM_CATEGORY_HARASSMENT': 'BLOCK_NONE',
+                'HARM_CATEGORY_HATE_SPEECH': 'BLOCK_NONE',
+                'HARM_CATEGORY_SEXUALLY_EXPLICIT': 'BLOCK_NONE',
+                'HARM_CATEGORY_DANGEROUS_CONTENT': 'BLOCK_NONE',
+            }
+            
             response = self.model.generate_content(
                 prompt,
                 generation_config=genai.GenerationConfig(
                     temperature=0.7,
                     max_output_tokens=2000,
-                )
+                ),
+                safety_settings=safety_settings
             )
+            
+            # Check if response has valid content
+            if not (response.candidates and len(response.candidates) > 0 and response.candidates[0].finish_reason in [1, 2]):
+                return [{
+                    "issue": "Error",
+                    "suggestion": "⚠️ AI response was blocked or incomplete. Please review data manually.",
+                    "reason": "",
+                    "code": ""
+                }]
             
             content = response.text
             
@@ -502,13 +520,32 @@ Format as JSON array with keys: "issue", "suggestion", "reason", "code"
 {user_prompt}"""
         
         try:
+            # Configure safety settings to allow data analysis content
+            safety_settings = {
+                'HARM_CATEGORY_HARASSMENT': 'BLOCK_NONE',
+                'HARM_CATEGORY_HATE_SPEECH': 'BLOCK_NONE',
+                'HARM_CATEGORY_SEXUALLY_EXPLICIT': 'BLOCK_NONE',
+                'HARM_CATEGORY_DANGEROUS_CONTENT': 'BLOCK_NONE',
+            }
+            
             response = self.model.generate_content(
                 full_prompt,
                 generation_config=genai.GenerationConfig(
                     temperature=temperature,
                     max_output_tokens=max_tokens,
-                )
+                ),
+                safety_settings=safety_settings
             )
-            return response.text
+            
+            # Check if response has valid content
+            if response.candidates and len(response.candidates) > 0:
+                candidate = response.candidates[0]
+                if candidate.finish_reason in [1, 2]:  # STOP or MAX_TOKENS
+                    return response.text
+                else:
+                    return f"⚠️ AI response was blocked or incomplete (finish_reason: {candidate.finish_reason}). Please try regenerating."
+            else:
+                return "⚠️ No valid response generated. Please try again."
+                
         except Exception as e:
-            return f"Error generating insights: {str(e)}"
+            return f"❌ Error generating insights: {str(e)}"

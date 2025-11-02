@@ -781,13 +781,27 @@ Provide ONLY the JSON response, no additional text."""
 
 {prompt}"""
             
+            # Configure safety settings to allow data analysis content
+            safety_settings = {
+                'HARM_CATEGORY_HARASSMENT': 'BLOCK_NONE',
+                'HARM_CATEGORY_HATE_SPEECH': 'BLOCK_NONE',
+                'HARM_CATEGORY_SEXUALLY_EXPLICIT': 'BLOCK_NONE',
+                'HARM_CATEGORY_DANGEROUS_CONTENT': 'BLOCK_NONE',
+            }
+            
             response = model.generate_content(
                 full_prompt,
                 generation_config=genai.GenerationConfig(
                     temperature=0.3,
                     max_output_tokens=1000,
-                )
+                ),
+                safety_settings=safety_settings
             )
+            
+            # Check if response has valid content
+            if not (response.candidates and len(response.candidates) > 0 and response.candidates[0].finish_reason in [1, 2]):
+                # Fallback if response blocked or incomplete
+                return AISmartDetection._fallback_detection(df, task_type)
             
             # Parse response
             ai_response = response.text.strip()
