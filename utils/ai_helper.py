@@ -220,23 +220,24 @@ Provide insights in a clear, business-friendly format.
                 safety_settings=safety_settings
             )
             
-            # Check if response has valid content
-            if response.candidates and len(response.candidates) > 0:
-                candidate = response.candidates[0]
-                
-                # Check finish reason
-                if candidate.finish_reason == 1:  # STOP - natural completion
+            # Check if response has valid content by trying to access text
+            try:
+                if response.text:
                     return response.text
-                elif candidate.finish_reason == 2:  # MAX_TOKENS
-                    return response.text + "\n\n*(Response truncated due to length limit)*"
-                elif candidate.finish_reason == 3:  # SAFETY
-                    return "⚠️ AI response was blocked by safety filters. This dataset may contain sensitive content. Please review the data manually."
-                elif candidate.finish_reason == 4:  # RECITATION
-                    return "⚠️ AI response was blocked due to recitation concerns. Please try regenerating or review the data manually."
+            except ValueError as ve:
+                # response.text raises ValueError if no valid Part exists
+                if response.candidates and len(response.candidates) > 0:
+                    finish_reason = str(response.candidates[0].finish_reason)
+                    if 'SAFETY' in finish_reason:
+                        return "⚠️ AI response was blocked by safety filters. This dataset may contain sensitive content. Please review the data manually."
+                    elif 'RECITATION' in finish_reason:
+                        return "⚠️ AI response was blocked due to recitation concerns. Please try regenerating or review the data manually."
+                    elif 'MAX_TOKENS' in finish_reason:
+                        return "⚠️ Response was truncated due to length limit. Please try regenerating with a longer token limit."
+                    else:
+                        return f"⚠️ AI response incomplete (finish_reason: {finish_reason}). Please try regenerating."
                 else:
-                    return f"⚠️ AI response incomplete (finish_reason: {candidate.finish_reason}). Please try regenerating."
-            else:
-                return "⚠️ No valid response generated. Please try again or check your API quota."
+                    return "⚠️ No valid response generated. Please try again or check your API quota."
                 
         except Exception as e:
             return f"❌ Error generating insights: {str(e)}\n\nPlease check your Google API key and try again."
@@ -333,34 +334,26 @@ The user asks: "{question}"
                 safety_settings=safety_settings
             )
             
-            # Check if response has valid content
-            if response.candidates and len(response.candidates) > 0:
-                candidate = response.candidates[0]
+            # Check if response has valid content by trying to access text
+            try:
+                content = response.text
                 
-                if candidate.finish_reason in [1, 2]:  # STOP or MAX_TOKENS - valid response
-                    content = response.text
-                    
-                    # Try to parse as JSON
-                    try:
-                        result = json.loads(content)
-                    except:
-                        # If not JSON, structure the response
-                        result = {
-                            "answer": content,
-                            "code": None,
-                            "insights": "See answer above"
-                        }
-                    
-                    return result
-                else:
-                    return {
-                        "answer": "⚠️ Response was blocked or incomplete. Please rephrase your question or review the data manually.",
+                # Try to parse as JSON
+                try:
+                    result = json.loads(content)
+                except:
+                    # If not JSON, structure the response
+                    result = {
+                        "answer": content,
                         "code": None,
-                        "insights": None
+                        "insights": "See answer above"
                     }
-            else:
+                
+                return result
+            except ValueError as ve:
+                # response.text raises ValueError if no valid Part exists
                 return {
-                    "answer": "⚠️ No valid response generated. Please try again.",
+                    "answer": "⚠️ Response was blocked or incomplete. Please rephrase your question or review the data manually.",
                     "code": None,
                     "insights": None
                 }
@@ -453,16 +446,17 @@ Format as JSON array with keys: "issue", "suggestion", "reason", "code"
                 safety_settings=safety_settings
             )
             
-            # Check if response has valid content
-            if not (response.candidates and len(response.candidates) > 0 and response.candidates[0].finish_reason in [1, 2]):
+            # Check if response has valid content by trying to access text
+            try:
+                content = response.text
+            except ValueError:
+                # response.text raises ValueError if no valid Part exists
                 return [{
                     "issue": "Error",
                     "suggestion": "⚠️ AI response was blocked or incomplete. Please review data manually.",
                     "reason": "",
                     "code": ""
                 }]
-            
-            content = response.text
             
             try:
                 suggestions = json.loads(content)
@@ -537,15 +531,16 @@ Format as JSON array with keys: "issue", "suggestion", "reason", "code"
                 safety_settings=safety_settings
             )
             
-            # Check if response has valid content
-            if response.candidates and len(response.candidates) > 0:
-                candidate = response.candidates[0]
-                if candidate.finish_reason in [1, 2]:  # STOP or MAX_TOKENS
-                    return response.text
+            # Check if response has valid content by trying to access text
+            try:
+                return response.text
+            except ValueError:
+                # response.text raises ValueError if no valid Part exists
+                if response.candidates and len(response.candidates) > 0:
+                    finish_reason = str(response.candidates[0].finish_reason)
+                    return f"⚠️ AI response was blocked or incomplete (finish_reason: {finish_reason}). Please try regenerating."
                 else:
-                    return f"⚠️ AI response was blocked or incomplete (finish_reason: {candidate.finish_reason}). Please try regenerating."
-            else:
-                return "⚠️ No valid response generated. Please try again."
+                    return "⚠️ No valid response generated. Please try again."
                 
         except Exception as e:
             return f"❌ Error generating insights: {str(e)}"

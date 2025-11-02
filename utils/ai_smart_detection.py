@@ -798,13 +798,13 @@ Provide ONLY the JSON response, no additional text."""
                 safety_settings=safety_settings
             )
             
-            # Check if response has valid content
-            if not (response.candidates and len(response.candidates) > 0 and response.candidates[0].finish_reason in [1, 2]):
-                # Fallback if response blocked or incomplete
+            # Parse response - check if valid text exists
+            try:
+                ai_response = response.text.strip()
+            except ValueError:
+                # response.text raises ValueError if no valid Part exists
+                # Fallback to rule-based detection
                 return AISmartDetection._fallback_detection(df, task_type)
-            
-            # Parse response
-            ai_response = response.text.strip()
             
             # Remove markdown code blocks if present
             if ai_response.startswith('```'):
