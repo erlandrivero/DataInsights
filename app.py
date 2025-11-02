@@ -832,12 +832,15 @@ def show_analysis():
             processing_placeholder = st.empty()
             processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
             
+            # Brief pause to ensure message displays before creating status widget
+            import time
+            time.sleep(0.1)
+            
             with st.status("🤖 Analyzing dataset with AI...", expanded=True) as status:
                 try:
                     # Clear the placeholder now that status is visible
                     processing_placeholder.empty()
                     
-                    import time
                     from utils.ai_smart_detection import get_ai_recommendation
                     
                     # Step 1: Preparing data
@@ -1192,16 +1195,22 @@ def show_analysis():
             processing_placeholder = st.empty()
             processing_placeholder.info("⏳ **Starting data cleaning...** Please wait, do not click again.")
             
+            # Brief pause to ensure message displays before heavy operations
+            import time
+            time.sleep(0.1)
+            
+            # Import modules BEFORE creating status block to avoid delay
+            from utils.process_manager import ProcessManager
+            from utils.data_cleaning import DataCleaner
+            
             # Create status block immediately for visual feedback
             with st.status("🧹 Cleaning data...", expanded=True) as status:
                 try:
                     # Clear the placeholder now that status is visible
                     processing_placeholder.empty()
                     
-                    # Import and initialize after status is shown
+                    # Initialize cleaning process
                     status.write("Initializing cleaning process...")
-                    from utils.process_manager import ProcessManager
-                    from utils.data_cleaning import DataCleaner
                     
                     # Create process manager
                     pm = ProcessManager("Data_Cleaning")
@@ -1467,8 +1476,19 @@ def show_analysis():
         
         if 'ai_insights' not in st.session_state:
             if st.button("Generate AI Insights", type="primary"):
+                # Immediate feedback - show processing started
+                processing_placeholder = st.empty()
+                processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
+                
+                # Brief pause to ensure message displays before creating status widget
+                import time
+                time.sleep(0.1)
+                
                 with st.status("🤖 AI is analyzing your data...", expanded=True) as status:
                     try:
+                        # Clear the placeholder now that status is visible
+                        processing_placeholder.empty()
+                        
                         from utils.ai_helper import AIHelper
                         ai = AIHelper()
                         st.write("Analyzing data patterns...")
