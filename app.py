@@ -1974,8 +1974,8 @@ The simulation provides probabilistic forecasts for financial planning and risk 
                     
 Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
 
-## Best Model: {best['model_name']}
-- Accuracy: {best['accuracy']:.4f}
+## Best Model: {best.get('model_name', 'Unknown')}
+- Accuracy: {best.get('accuracy', 0):.4f}
 - Precision: {best.get('precision', 0):.4f}
 - Recall: {best.get('recall', 0):.4f}
 - F1-Score: {best.get('f1', 0):.4f}
@@ -1984,7 +1984,7 @@ Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
 {pd.DataFrame(ml_results)[['model_name', 'accuracy', 'precision', 'recall', 'f1']].to_markdown(index=False)}
 
 ## Recommendation
-Use {best['model_name']} for production deployment based on highest accuracy.
+Use {best.get('model_name', 'Unknown')} for production deployment based on highest accuracy.
 """
                     st.download_button("📥 Download Report", report, f"classification_report_{pd.Timestamp.now().strftime('%Y%m%d')}.md", "text/markdown", key="dl_mlc")
         
@@ -7177,8 +7177,8 @@ def show_ml_classification():
                     Classes: {', '.join(ml_trainer_data.class_names)}
                     
                     Models Trained: {len(successful_results_data)}
-                    Best Model: {best_model_data['model_name']}
-                    Best F1 Score: {best_model_data['f1']:.4f}
+                    Best Model: {best_model_data.get('model_name', 'Unknown')}
+                    Best F1 Score: {best_model_data.get('f1', 0):.4f}
                     
                     Top 3 Models:
                     """
@@ -7189,7 +7189,7 @@ def show_ml_classification():
                     prompt = f"""
                     As a senior data science consultant, analyze these machine learning results and provide:
                     
-                    1. **Performance Analysis** (2-3 sentences): Why did {best_model_data['model_name']} perform best?
+                    1. **Performance Analysis** (2-3 sentences): Why did {best_model_data.get('model_name', 'the best model')} perform best?
                     
                     2. **Model Comparison** (2-3 sentences): Key differences between top 3 models and when to use each.
                     
@@ -7255,23 +7255,23 @@ def show_ml_classification():
                         results_table = "Results table not available"
                     
                     # Format metrics safely
-                    roc_auc_str = f"{best_model['roc_auc']:.4f}" if best_model['roc_auc'] is not None else 'N/A'
-                    cv_mean_str = f"{best_model['cv_mean']:.4f}" if best_model['cv_mean'] is not None else 'N/A'
+                    roc_auc_str = f"{best_model.get('roc_auc'):.4f}" if best_model.get('roc_auc') else 'N/A'
+                    cv_mean_str = f"{best_model.get('cv_mean'):.4f}" if best_model.get('cv_mean') else 'N/A'
                     
                     report = f"""
 # Machine Learning Classification Report
 **Generated:** {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
 
-## Best Model: {best_model['model_name']}
+## Best Model: {best_model.get('model_name', 'Unknown')}
 
 ### Performance Metrics
-- **Accuracy:** {best_model['accuracy']:.4f}
-- **Precision:** {best_model['precision']:.4f}
-- **Recall:** {best_model['recall']:.4f}
-- **F1 Score:** {best_model['f1']:.4f}
+- **Accuracy:** {best_model.get('accuracy', 0):.4f}
+- **Precision:** {best_model.get('precision', 0):.4f}
+- **Recall:** {best_model.get('recall', 0):.4f}
+- **F1 Score:** {best_model.get('f1', 0):.4f}
 - **ROC-AUC:** {roc_auc_str}
 - **CV Mean:** {cv_mean_str}
-- **Training Time:** {best_model['training_time']:.3f}s
+- **Training Time:** {(best_model.get('training_time') or 0):.3f}s
 
 ## All Models Performance
 
