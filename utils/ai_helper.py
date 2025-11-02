@@ -203,17 +203,43 @@ Provide insights in a clear, business-friendly format.
         """
         
         try:
+            # Configure safety settings to allow data analysis content
+            safety_settings = {
+                'HARM_CATEGORY_HARASSMENT': 'BLOCK_NONE',
+                'HARM_CATEGORY_HATE_SPEECH': 'BLOCK_NONE',
+                'HARM_CATEGORY_SEXUALLY_EXPLICIT': 'BLOCK_NONE',
+                'HARM_CATEGORY_DANGEROUS_CONTENT': 'BLOCK_NONE',
+            }
+            
             response = self.model.generate_content(
                 prompt,
                 generation_config=genai.GenerationConfig(
                     temperature=0.7,
-                    max_output_tokens=1000,
-                )
+                    max_output_tokens=2000,  # Increased for detailed insights
+                ),
+                safety_settings=safety_settings
             )
             
-            return response.text
+            # Check if response has valid content
+            if response.candidates and len(response.candidates) > 0:
+                candidate = response.candidates[0]
+                
+                # Check finish reason
+                if candidate.finish_reason == 1:  # STOP - natural completion
+                    return response.text
+                elif candidate.finish_reason == 2:  # MAX_TOKENS
+                    return response.text + "\n\n*(Response truncated due to length limit)*"
+                elif candidate.finish_reason == 3:  # SAFETY
+                    return "⚠️ AI response was blocked by safety filters. This dataset may contain sensitive content. Please review the data manually."
+                elif candidate.finish_reason == 4:  # RECITATION
+                    return "⚠️ AI response was blocked due to recitation concerns. Please try regenerating or review the data manually."
+                else:
+                    return f"⚠️ AI response incomplete (finish_reason: {candidate.finish_reason}). Please try regenerating."
+            else:
+                return "⚠️ No valid response generated. Please try again or check your API quota."
+                
         except Exception as e:
-            return f"Error generating insights: {str(e)}"
+            return f"❌ Error generating insights: {str(e)}\n\nPlease check your Google API key and try again."
     
     def answer_data_question(
         self, 
@@ -290,31 +316,58 @@ The user asks: "{question}"
         """
         
         try:
+            # Configure safety settings to allow data analysis content
+            safety_settings = {
+                'HARM_CATEGORY_HARASSMENT': 'BLOCK_NONE',
+                'HARM_CATEGORY_HATE_SPEECH': 'BLOCK_NONE',
+                'HARM_CATEGORY_SEXUALLY_EXPLICIT': 'BLOCK_NONE',
+                'HARM_CATEGORY_DANGEROUS_CONTENT': 'BLOCK_NONE',
+            }
+            
             response = self.model.generate_content(
                 prompt,
                 generation_config=genai.GenerationConfig(
                     temperature=0.7,
                     max_output_tokens=1500,
-                )
+                ),
+                safety_settings=safety_settings
             )
             
-            content = response.text
-            
-            # Try to parse as JSON
-            try:
-                result = json.loads(content)
-            except:
-                # If not JSON, structure the response
-                result = {
-                    "answer": content,
+            # Check if response has valid content
+            if response.candidates and len(response.candidates) > 0:
+                candidate = response.candidates[0]
+                
+                if candidate.finish_reason in [1, 2]:  # STOP or MAX_TOKENS - valid response
+                    content = response.text
+                    
+                    # Try to parse as JSON
+                    try:
+                        result = json.loads(content)
+                    except:
+                        # If not JSON, structure the response
+                        result = {
+                            "answer": content,
+                            "code": None,
+                            "insights": "See answer above"
+                        }
+                    
+                    return result
+                else:
+                    return {
+                        "answer": "⚠️ Response was blocked or incomplete. Please rephrase your question or review the data manually.",
+                        "code": None,
+                        "insights": None
+                    }
+            else:
+                return {
+                    "answer": "⚠️ No valid response generated. Please try again.",
                     "code": None,
-                    "insights": "See answer above"
+                    "insights": None
                 }
-            
-            return result
+                
         except Exception as e:
             return {
-                "answer": f"Error: {str(e)}",
+                "answer": f"❌ Error: {str(e)}",
                 "code": None,
                 "insights": None
             }
