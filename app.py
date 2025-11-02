@@ -5637,6 +5637,10 @@ def show_monte_carlo_simulation():
 def show_ml_classification():
     """Comprehensive ML Classification with 15 models and full evaluation."""
     
+    # Memory refresh to help avoid Streamlit capacity issues
+    import gc
+    gc.collect()
+    
     # Import ML helper functions for optimization
     from utils.ml_helpers import get_recommended_cv_folds, create_data_hash, cached_classification_training
     
@@ -5863,6 +5867,161 @@ def show_ml_classification():
     if 'ml_data' in st.session_state:
         df = st.session_state.ml_data
         
+        # ============================================================================
+        # Section 2: AI Classification Analysis & Recommendations
+        # ============================================================================
+        st.divider()
+        st.subheader("🤖 2. AI Classification Analysis & Recommendations")
+        
+        # Generate AI Analysis Button - Only show if not already done
+        if 'ml_classification_ai_analysis' not in st.session_state:
+            if st.button("🔍 Generate AI Classification Analysis", type="primary", use_container_width=True, key="ml_class_ai_btn"):
+                # Immediate feedback
+                processing_placeholder = st.empty()
+                processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
+                
+                with st.status("🤖 Analyzing dataset for ML Classification...", expanded=True) as status:
+                    try:
+                        processing_placeholder.empty()
+                        
+                        import time
+                        from utils.ai_smart_detection import get_ai_recommendation
+                        
+                        status.write("Analyzing data structure and quality...")
+                        time.sleep(0.5)
+                        
+                        status.write("Evaluating classification suitability...")
+                        time.sleep(0.5)
+                        
+                        status.write("Generating AI recommendations...")
+                        status.write(f"Analyzing {len(df)} rows, {len(df.columns)} columns: {list(df.columns)}")
+                        
+                        ai_analysis = get_ai_recommendation(df, task_type='classification')
+                        st.session_state.ml_classification_ai_analysis = ai_analysis
+                        
+                        status.update(label="✅ AI analysis complete!", state="complete")
+                        st.rerun()
+                    except Exception as e:
+                        status.update(label="❌ Analysis failed", state="error")
+                        st.error(f"Error generating AI analysis: {str(e)}")
+        else:
+            # AI Analysis exists - show results
+            ai_recs = st.session_state.ml_classification_ai_analysis
+            
+            # Performance Risk Assessment
+            performance_risk = ai_recs.get('performance_risk', 'Low')
+            risk_emoji = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}.get(performance_risk, '❓')
+            
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                st.info(f"**⚡ Performance Risk:** {risk_emoji} {performance_risk} - Dataset suitability for Streamlit Cloud")
+            with col2:
+                if st.button("🔄 Regenerate Analysis", use_container_width=True, key="ml_regen_btn"):
+                    del st.session_state.ml_classification_ai_analysis
+                    st.rerun()
+            
+            # Data Suitability Assessment - AI DECISION POINT
+            data_suitability = ai_recs.get('data_suitability', 'Unknown')
+            suitability_emoji = {'Excellent': '🌟', 'Good': '✅', 'Fair': '⚠️', 'Poor': '❌'}.get(data_suitability, '❓')
+            
+            # AI-DRIVEN BLOCKING LOGIC
+            if data_suitability == 'Poor':
+                st.error(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for ML Classification")
+                
+                # Show AI reasoning for why it's not suitable
+                suitability_reasoning = ai_recs.get('suitability_reasoning', 'AI determined this data is not suitable for ML Classification')
+                st.error(f"**🤖 AI Recommendation:** {suitability_reasoning}")
+                
+                # Show AI suggestions
+                ai_suggestions = ai_recs.get('alternative_suggestions', [])
+                if ai_suggestions:
+                    st.info("**💡 AI Suggestions:**")
+                    for suggestion in ai_suggestions:
+                        st.write(f"- {suggestion}")
+                else:
+                    st.info("**💡 AI Suggestions:**")
+                    st.write("- Use Sample Iris Dataset (perfect for classification)")
+                    st.write("- Ensure target column has 2+ classes with sufficient samples")
+                    st.write("- Remove or group rare classes")
+                
+                st.warning("**⚠️ Module not available for this dataset based on AI analysis.**")
+                st.stop()  # AI-DRIVEN STOP - Only stop if AI says data is Poor
+            else:
+                # AI approves - show positive assessment
+                st.success(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for ML Classification")
+                
+                # Suitability reasoning
+                suitability_reasoning = ai_recs.get('suitability_reasoning', 'AI determined this data is suitable for ML Classification')
+                with st.expander("💡 Why this suitability rating?", expanded=False):
+                    st.info(suitability_reasoning)
+            
+            # Performance Warnings (only shown if AI approves)
+            if performance_risk in ['Medium', 'High']:
+                perf_warnings = ai_recs.get('performance_warnings', [])
+                if perf_warnings:
+                    st.warning("⚠️ **Performance Warnings:**")
+                    for warning in perf_warnings:
+                        st.write(f"• {warning}")
+            
+            # Optimization Suggestions
+            optimization_suggestions = ai_recs.get('optimization_suggestions', [])
+            if optimization_suggestions:
+                with st.expander("🚀 AI Optimization Suggestions", expanded=True):
+                    for suggestion in optimization_suggestions:
+                        st.write(f"• {suggestion}")
+            
+            # Columns to Consider Excluding
+            features_to_exclude = ai_recs.get('features_to_exclude', [])
+            if features_to_exclude:
+                with st.expander("🚫 Columns AI Recommends Excluding Before Training", expanded=False):
+                    for feature_info in features_to_exclude:
+                        if isinstance(feature_info, dict):
+                            st.write(f"• **{feature_info['column']}**: {feature_info['reason']}")
+                        else:
+                            st.write(f"• {feature_info}")
+            
+            # Recommended Models (if AI provides)
+            recommended_models = ai_recs.get('recommended_models', [])
+            if recommended_models:
+                with st.expander("🎯 AI-Recommended Models for Your Data", expanded=False):
+                    st.info("Based on your dataset characteristics, AI recommends prioritizing these models:")
+                    for model_info in recommended_models:
+                        if isinstance(model_info, dict):
+                            st.write(f"• **{model_info.get('model', 'Unknown')}**: {model_info.get('reason', 'Recommended')}")
+                        else:
+                            st.write(f"• {model_info}")
+        
+        # Don't show configuration until AI analysis is complete
+        if 'ml_classification_ai_analysis' not in st.session_state:
+            st.info("🤖 **Generate AI Analysis above to determine if this dataset is suitable for ML Classification and get intelligent presets.**")
+            return  # Stop here until AI analysis is done
+        
+        # Only proceed if AI approved the data
+        ai_recs = st.session_state.get('ml_classification_ai_analysis', {})
+        if ai_recs.get('data_suitability', 'Unknown') == 'Poor':
+            return  # Already stopped above, but double-check
+        
+        # ============================================================================
+        # Dataset Validation (Informational Only - AI makes final decision)
+        # ============================================================================
+        st.divider()
+        st.subheader("📊 3. Dataset Validation (Informational)")
+        
+        with st.expander("🔍 Technical Validation Details", expanded=False):
+            st.info("**Note:** AI analysis above provides the authoritative assessment. This section shows technical validation details for reference.")
+            
+            # Show basic data stats
+            numeric_cols = df.select_dtypes(include=['int64', 'float64']).columns.tolist()
+            categorical_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
+            st.write(f"**Dataset:** {len(df):,} rows × {len(df.columns)} columns")
+            st.write(f"**Features:** {len(numeric_cols)} numeric, {len(categorical_cols)} categorical")
+            
+            # Show any rule-based warnings (non-blocking)
+            if len(df) < 50:
+                st.warning(f"⚠️ **Rule-based check:** Dataset has {len(df)} rows (recommend 100+ for reliable models)")
+            else:
+                st.success(f"✅ **Rule-based check passed:** Sufficient samples ({len(df):,} rows)")
+        
         # Check if previous quality check failed and show prominent warning
         if 'ml_training_suitable' in st.session_state and not st.session_state.ml_training_suitable:
             st.error("""
@@ -5887,26 +6046,25 @@ def show_ml_classification():
             st.divider()
         
         st.divider()
-        st.subheader("🎯 2. Configure Training")
+        st.subheader("🎯 4. Configure Training")
         
         col1, col2 = st.columns(2)
         
         with col1:
-            # AI-Powered Smart Detection (from session state)
+            # AI-Powered Smart Detection (from session state - use ml_classification_ai_analysis)
             from utils.ai_smart_detection import AISmartDetection
             
-            # Use stored AI recommendations or run analysis if not available
-            if 'ml_ai_recommendations' in st.session_state:
-                ai_recommendations = st.session_state.ml_ai_recommendations
+            # Use AI analysis from Section 2
+            if 'ml_classification_ai_analysis' in st.session_state:
+                ai_recommendations = st.session_state.ml_classification_ai_analysis
+                st.info("🤖 **Using AI Analysis from Section 2** - Target column and features are preset based on AI recommendations. You can override any selection below.")
             else:
-                # Fallback: run analysis now (shouldn't normally happen)
+                # Fallback: shouldn't reach here due to return statement above
+                st.warning("⚠️ AI Analysis not found. Using smart detection as fallback.")
                 from utils.ai_smart_detection import get_ai_recommendation
                 with st.spinner("🤖 AI analyzing your dataset..."):
                     ai_recommendations = get_ai_recommendation(df, task_type='classification')
-                    st.session_state.ml_ai_recommendations = ai_recommendations
-            
-            # Display AI recommendations
-            AISmartDetection.display_ai_recommendation(ai_recommendations, expanded=True)
+                    st.session_state.ml_classification_ai_analysis = ai_recommendations
             
             # Performance Risk Handling
             performance_risk = ai_recommendations.get('performance_risk', 'Low')
@@ -5916,56 +6074,44 @@ def show_ml_classification():
             elif performance_risk == 'Medium':
                 st.warning("⚠️ **Medium Performance Risk:** This dataset may be slow to process. Monitor for timeouts.")
             
-            # AI-Recommended Column Dropping with User Approval
+            # AI-Recommended Column Exclusions (Auto-applied)
+            # Automatically exclude problematic columns identified by AI
+            excluded_columns = []
             if ai_recommendations.get('features_to_exclude'):
-                st.divider()
-                st.subheader("🚫 2a. AI-Recommended Column Exclusions")
-                
-                st.info("🤖 **AI has identified columns that may hurt model performance.** Review and approve exclusions below:")
-                
-                excluded_columns = []
                 for feature_info in ai_recommendations['features_to_exclude']:
                     if isinstance(feature_info, dict):
                         col_name = feature_info['column']
-                        reason = feature_info['reason']
                     else:
-                        # Backward compatibility
                         col_name = feature_info
-                        reason = "AI recommends excluding this column"
                     
                     if col_name in df.columns:
-                        col1, col2 = st.columns([1, 3])
-                        with col1:
-                            exclude = st.checkbox(
-                                f"Exclude **{col_name}**",
-                                value=False,
-                                key=f"exclude_{col_name}",
-                                help=f"AI Reason: {reason}"
-                            )
-                        with col2:
-                            st.write(f"**Reason:** {reason}")
-                        
-                        if exclude:
-                            excluded_columns.append(col_name)
+                        excluded_columns.append(col_name)
                 
                 # Apply exclusions to dataframe
                 if excluded_columns:
                     df_filtered = df.drop(columns=excluded_columns)
-                    st.success(f"✅ Excluded {len(excluded_columns)} columns: {', '.join(excluded_columns)}")
+                    st.success(f"✅ Auto-excluded {len(excluded_columns)} AI-recommended columns: {', '.join(excluded_columns)}")
                     st.info(f"📊 **Dataset updated:** {len(df_filtered)} rows × {len(df_filtered.columns)} columns (was {len(df.columns)})")
                     df = df_filtered  # Use filtered dataframe for the rest of the analysis
                     st.session_state.ml_data = df  # Update session state
             
             # Use AI-recommended target as default
-            suggested_target = ai_recommendations['target_column']
+            suggested_target = ai_recommendations.get('target_column', df.columns[0])
             target_index = list(df.columns).index(suggested_target) if suggested_target in df.columns else 0
             
+            st.markdown("**🎯 Target Column**")
             target_col = st.selectbox(
                 "Select Target Column (what to predict)",
                 df.columns,
                 index=target_index,
-                help="Column containing the categories/classes to predict. AI has analyzed your data and recommended the best option above."
+                help=f"🤖 AI recommended: {suggested_target}. You can override this selection if needed.",
+                label_visibility="collapsed"
             )
+            
+            if target_col == suggested_target:
+                st.caption(f"✅ Using AI-recommended target: **{suggested_target}**")
+            else:
+                st.caption(f"⚠️ You selected **{target_col}** (AI recommended: **{suggested_target}**)")
             
             # Show class distribution and data quality check
             if target_col:
