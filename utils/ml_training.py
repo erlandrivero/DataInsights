@@ -551,7 +551,7 @@ class MLTrainer:
                     'cv_scores': model_result.get('cv_scores'),
                     'cv_mean': model_result.get('cv_mean'),
                     'cv_std': model_result.get('cv_std'),
-                    'training_time': model_result.get('train_time', 0),  # Map train_time to training_time
+                    'training_time': model_result.get('training_time', 0),  # Get correct key name
                     'feature_importance': model_result.get('feature_importance')
                 }
                 
