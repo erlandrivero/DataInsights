@@ -3740,31 +3740,6 @@ def show_market_basket_analysis():
                 hide_index=True
             )
             
-            # Export options
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                # Export all rules as CSV
-                csv = display_rules_formatted.to_csv(index=False)
-                st.download_button(
-                    label="📥 Download All Rules (CSV)",
-                    data=csv,
-                    file_name=f"association_rules_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                    mime="text/csv",
-                    use_container_width=True
-                )
-            
-            with col2:
-                # Export top rules as CSV
-                csv_top = sorted_rules.to_csv(index=False)
-                st.download_button(
-                    label=f"📥 Download Top {top_n} Rules (CSV)",
-                    data=csv_top,
-                    file_name=f"top_{top_n}_rules_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                    mime="text/csv",
-                    use_container_width=True
-                )
-            
             # Search functionality
             with st.expander("🔍 Search Rules"):
                 search_item = st.text_input(
@@ -4139,10 +4114,39 @@ def show_market_basket_analysis():
                 except Exception as e:
                     st.error(f"Error generating AI insights: {str(e)}")
             
-            # Export full report
+            # Export options and full report
             st.divider()
             
-            if st.button("📄 Generate Full Report", use_container_width=True):
+            # Download buttons for CSV exports
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                # Export all rules as CSV
+                csv = display_rules_formatted.to_csv(index=False)
+                st.download_button(
+                    label="📥 Download All Rules (CSV)",
+                    data=csv,
+                    file_name=f"association_rules_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            
+            with col2:
+                # Export top rules as CSV
+                csv_top = sorted_rules.to_csv(index=False)
+                st.download_button(
+                    label=f"📥 Download Top {top_n} Rules (CSV)",
+                    data=csv_top,
+                    file_name=f"top_{top_n}_rules_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            
+            with col3:
+                # Generate Full Report button
+                generate_report = st.button("📄 Generate Full Report", use_container_width=True)
+            
+            if generate_report:
                 with st.status("Generating comprehensive report...", expanded=True) as status:
                     # Create report content
                     report = f"""
