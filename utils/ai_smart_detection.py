@@ -773,7 +773,8 @@ Provide ONLY the JSON response, no additional text."""
             # Call Google Gemini API
             import google.generativeai as genai
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-1.5-flash')  # Using Flash for faster response
+            # Using Gemini 2.5 Flash for best price-performance, low-latency, and high volume
+            model = genai.GenerativeModel('gemini-2.5-flash')
             
             # Combine system and user prompts for Gemini
             full_prompt = f"""You are an expert data scientist providing ML configuration recommendations. Always respond with valid JSON only.
