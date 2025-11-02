@@ -7514,8 +7514,142 @@ def show_ml_regression():
             
             st.divider()
         
+        # ============================================================================
+        # Section 2: AI Regression Analysis & Recommendations
+        # ============================================================================
         st.divider()
-        st.subheader("🎯 2. Configure Training")
+        st.subheader("🤖 2. AI Regression Analysis & Recommendations")
+        
+        # Generate AI Analysis Button - Only show if not already done
+        if 'mlr_regression_ai_analysis' not in st.session_state:
+            if st.button("🔍 Generate AI Regression Analysis", type="primary", use_container_width=True, key="mlr_ai_btn"):
+                # Immediate feedback
+                processing_placeholder = st.empty()
+                processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
+                
+                with st.status("🤖 Analyzing dataset for ML Regression...", expanded=False) as status:
+                    try:
+                        processing_placeholder.empty()
+                        
+                        import time
+                        from utils.ai_smart_detection import get_ai_recommendation
+                        
+                        status.write("Analyzing data structure and quality...")
+                        time.sleep(0.5)
+                        
+                        status.write("Evaluating regression suitability...")
+                        time.sleep(0.5)
+                        
+                        status.write("Generating AI recommendations...")
+                        status.write(f"Analyzing {len(df)} rows, {len(df.columns)} columns: {list(df.columns)}")
+                        
+                        ai_analysis = get_ai_recommendation(df, task_type='regression')
+                        st.session_state.mlr_regression_ai_analysis = ai_analysis
+                        
+                        status.update(label="✅ AI analysis complete!", state="complete")
+                        st.rerun()
+                    except Exception as e:
+                        status.update(label="❌ Analysis failed", state="error")
+                        st.error(f"Error generating AI analysis: {str(e)}")
+        else:
+            # AI Analysis exists - show results
+            ai_recs = st.session_state.mlr_regression_ai_analysis
+            
+            # Performance Risk Assessment
+            performance_risk = ai_recs.get('performance_risk', 'Low')
+            risk_emoji = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}.get(performance_risk, '❓')
+            
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                st.info(f"**⚡ Performance Risk:** {risk_emoji} {performance_risk} - Dataset suitability for Streamlit Cloud")
+            with col2:
+                if st.button("🔄 Regenerate Analysis", use_container_width=True, key="mlr_regen_btn"):
+                    del st.session_state.mlr_regression_ai_analysis
+                    st.rerun()
+            
+            # Data Suitability Assessment - AI DECISION POINT
+            data_suitability = ai_recs.get('data_suitability', 'Unknown')
+            suitability_emoji = {'Excellent': '🌟', 'Good': '✅', 'Fair': '⚠️', 'Poor': '❌'}.get(data_suitability, '❓')
+            
+            # AI-DRIVEN BLOCKING LOGIC
+            if data_suitability == 'Poor':
+                st.error(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for ML Regression")
+                
+                # Show AI reasoning for why it's not suitable
+                suitability_reasoning = ai_recs.get('suitability_reasoning', 'AI determined this data is not suitable for ML Regression')
+                st.error(f"**🤖 AI Recommendation:** {suitability_reasoning}")
+                
+                # Show AI suggestions
+                ai_suggestions = ai_recs.get('alternative_suggestions', [])
+                if ai_suggestions:
+                    st.info("**💡 AI Suggestions:**")
+                    for suggestion in ai_suggestions:
+                        st.write(f"- {suggestion}")
+                else:
+                    st.info("**💡 AI Suggestions:**")
+                    st.write("- Use Sample Boston Housing Dataset (perfect for regression)")
+                    st.write("- Ensure target column is continuous with sufficient variability")
+                    st.write("- Remove or impute missing values in target column")
+                
+                st.warning("**⚠️ Module not available for this dataset based on AI analysis.**")
+                st.stop()  # AI-DRIVEN STOP - Only stop if AI says data is Poor
+            else:
+                # AI approves - show positive assessment
+                st.success(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for ML Regression")
+                
+                # Suitability reasoning
+                suitability_reasoning = ai_recs.get('suitability_reasoning', 'AI determined this data is suitable for ML Regression')
+                with st.expander("💡 Why this suitability rating?", expanded=False):
+                    st.info(suitability_reasoning)
+            
+            # Performance Warnings (only shown if AI approves)
+            if performance_risk in ['Medium', 'High']:
+                perf_warnings = ai_recs.get('performance_warnings', [])
+                if perf_warnings:
+                    st.warning("⚠️ **Performance Warnings:**")
+                    for warning in perf_warnings:
+                        st.write(f"• {warning}")
+            
+            # Optimization Suggestions
+            optimization_suggestions = ai_recs.get('optimization_suggestions', [])
+            if optimization_suggestions:
+                with st.expander("🚀 AI Optimization Suggestions", expanded=True):
+                    for suggestion in optimization_suggestions:
+                        st.write(f"• {suggestion}")
+            
+            # Columns to Consider Excluding
+            features_to_exclude = ai_recs.get('features_to_exclude', [])
+            if features_to_exclude:
+                with st.expander("🚫 Columns AI Recommends Excluding Before Training", expanded=False):
+                    for feature_info in features_to_exclude:
+                        if isinstance(feature_info, dict):
+                            st.write(f"• **{feature_info['column']}**: {feature_info['reason']}")
+                        else:
+                            st.write(f"• {feature_info}")
+            
+            # Recommended Models (if AI provides)
+            recommended_models = ai_recs.get('recommended_models', [])
+            if recommended_models:
+                with st.expander("🎯 AI-Recommended Models for Your Data", expanded=False):
+                    st.info("Based on your dataset characteristics, AI recommends prioritizing these models:")
+                    for model_info in recommended_models:
+                        if isinstance(model_info, dict):
+                            st.write(f"• **{model_info.get('model', 'Unknown')}**: {model_info.get('reason', 'Recommended')}")
+                        else:
+                            st.write(f"• {model_info}")
+        
+        # Don't show configuration until AI analysis is complete
+        if 'mlr_regression_ai_analysis' not in st.session_state:
+            st.info("🤖 **Generate AI Analysis above to determine if this dataset is suitable for ML Regression and get intelligent presets.**")
+            return  # Stop here until AI analysis is done
+        
+        # Only proceed if AI approved the data
+        ai_recs = st.session_state.get('mlr_regression_ai_analysis', {})
+        if ai_recs.get('data_suitability', 'Unknown') == 'Poor':
+            return  # Already stopped above, but double-check
+        
+        st.divider()
+        st.subheader("🎯 3. Configure Training")
         
         col1, col2 = st.columns(2)
         
@@ -7937,7 +8071,7 @@ def show_ml_regression():
         regressor = st.session_state.mlr_regressor
         
         st.divider()
-        st.subheader("📊 3. Model Performance Results")
+        st.subheader("📊 4. Model Performance Results")
         
         # Summary metrics
         successful_results = [r for r in results if r.get('success')]
@@ -7996,7 +8130,7 @@ def show_ml_regression():
         
         # Visualizations
         st.divider()
-        st.subheader("📈 4. Model Comparison Visualizations")
+        st.subheader("📈 5. Model Comparison Visualizations")
         
         tab1, tab2, tab3 = st.tabs(["📊 R² Comparison", "📉 Error Metrics", "⏱️ Training Time"])
         
@@ -8185,7 +8319,7 @@ def show_ml_regression():
         
         # Export section
         st.divider()
-        st.subheader("📥 5. Export & Download")
+        st.subheader("📥 6. Export & Download")
         
         col1, col2 = st.columns(2)
         
