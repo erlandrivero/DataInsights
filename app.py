@@ -9066,7 +9066,7 @@ def show_anomaly_detection():
                         system_role="expert data analyst specializing in anomaly detection and business insights",
                         user_prompt=prompt,
                         temperature=0.7,
-                        max_tokens=1500
+                        max_tokens=3000  # Increased for comprehensive anomaly analysis
                     )
                     
                     # Save to session state

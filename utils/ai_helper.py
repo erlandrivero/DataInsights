@@ -222,8 +222,7 @@ Provide insights in a clear, business-friendly format.
             
             # Check if response has valid content by trying to access text
             try:
-                if response.text:
-                    return response.text
+                return response.text
             except ValueError as ve:
                 # response.text raises ValueError if no valid Part exists
                 if response.candidates and len(response.candidates) > 0:
