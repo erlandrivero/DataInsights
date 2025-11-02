@@ -6949,7 +6949,7 @@ def show_ml_classification():
             st.write("**F1 Score Comparison (All Models)**")
             
             # Sort by F1 for visualization
-            f1_data = [(r.get('model_name', 'Unknown'), r.get('f1', 0)) for r in successful_results]
+            f1_data = [(r.get('model_name', 'Unknown'), r.get('f1') or 0) for r in successful_results]
             f1_data.sort(key=lambda x: x[1], reverse=True)
             
             models = [d[0] for d in f1_data]
@@ -7033,7 +7033,7 @@ def show_ml_classification():
             st.write("**Training Time Analysis**")
             
             # Sort by time
-            time_data = [(r.get('model_name', 'Unknown'), r.get('training_time', 0)) for r in successful_results]
+            time_data = [(r.get('model_name', 'Unknown'), r.get('training_time') or 0) for r in successful_results]
             time_data.sort(key=lambda x: x[1])
             
             models_time = [d[0] for d in time_data]
