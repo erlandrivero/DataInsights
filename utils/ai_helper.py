@@ -344,7 +344,26 @@ The user asks: "{question}"
                 
                 # Try to parse as JSON
                 try:
+                    # Strip markdown code blocks if present
+                    if content.strip().startswith('```'):
+                        # Remove markdown code block markers
+                        lines = content.strip().split('\n')
+                        # Remove first line (```json or ```)
+                        if lines[0].startswith('```'):
+                            lines = lines[1:]
+                        # Remove last line (```)
+                        if lines and lines[-1].strip() == '```':
+                            lines = lines[:-1]
+                        content = '\n'.join(lines)
+                    
                     result = json.loads(content)
+                    
+                    # Clean up any "undefined" values in the result
+                    for key in ['code', 'insights']:
+                        if key in result and isinstance(result[key], str):
+                            if result[key].lower().strip() in ['undefined', 'null', 'none']:
+                                result[key] = None
+                                
                 except:
                     # If not JSON, structure the response
                     result = {
