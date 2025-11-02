@@ -1496,10 +1496,14 @@ def show_analysis():
                         insights = ai.generate_data_insights(df, profile)
                         st.session_state.ai_insights = insights
                         status.update(label="✅ Analysis complete!", state="complete", expanded=False)
-                        st.rerun()
                     except Exception as e:
                         status.update(label="❌ Analysis failed", state="error", expanded=True)
                         st.error(f"Error generating insights: {str(e)}")
+                
+                # Display insights immediately after generation (outside status block)
+                if 'ai_insights' in st.session_state:
+                    st.success("✅ AI insights generated successfully!")
+                    st.markdown(st.session_state.ai_insights)
         else:
             st.markdown(st.session_state.ai_insights)
             if st.button("Regenerate Insights"):
