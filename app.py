@@ -4083,18 +4083,16 @@ def show_market_basket_analysis():
                         Be specific with product names from the rules. Focus on actionable strategies that drive revenue.
                         """
                         
-                        response = ai.client.chat.completions.create(
-                            model="gpt-4",
-                            messages=[
-                                {"role": "system", "content": "You are a retail analytics expert specializing in market basket analysis and customer behavior."},
-                                {"role": "user", "content": prompt}
-                            ],
+                        # Generate insights using Gemini
+                        insights = ai.generate_module_insights(
+                            system_role="retail analytics expert specializing in market basket analysis and customer behavior",
+                            user_prompt=prompt,
                             temperature=0.7,
                             max_tokens=1500
                         )
                         
                         # Save to session state
-                        st.session_state.mba_ai_insights = response.choices[0].message.content
+                        st.session_state.mba_ai_insights = insights
                         status.update(label="✅ Analysis complete!", state="complete", expanded=False)
                     
                     st.success("✅ AI insights generated successfully!")
@@ -4999,18 +4997,16 @@ def show_rfm_analysis():
                     Be specific, actionable, and focus on ROI. Consider typical e-commerce/retail business models.
                     """
                     
-                    response = ai.client.chat.completions.create(
-                        model="gpt-4",
-                        messages=[
-                            {"role": "system", "content": "You are a CRM and customer analytics expert specializing in RFM segmentation and customer lifecycle marketing."},
-                            {"role": "user", "content": prompt}
-                        ],
+                    # Generate insights using Gemini
+                    insights = ai.generate_module_insights(
+                        system_role="CRM and customer analytics expert specializing in RFM segmentation and customer lifecycle marketing",
+                        user_prompt=prompt,
                         temperature=0.7,
                         max_tokens=1500
                     )
                     
                     # Save to session state
-                    st.session_state.rfm_ai_insights = response.choices[0].message.content
+                    st.session_state.rfm_ai_insights = insights
                     st.success("✅ AI insights generated successfully!")
                     st.markdown(st.session_state.rfm_ai_insights)
                     st.info("✅ AI insights saved! These will be included in your report downloads.")
@@ -5536,26 +5532,24 @@ def show_monte_carlo_simulation():
                     Be specific, actionable, and investor-focused. Use clear language that a non-expert can understand.
                     """
                     
-                    response = ai.client.chat.completions.create(
-                        model="gpt-4",
-                        messages=[
-                            {"role": "system", "content": "You are a senior financial advisor providing actionable investment insights based on quantitative analysis."},
-                            {"role": "user", "content": prompt}
-                        ],
+                    # Generate insights using Gemini
+                    insights = ai.generate_module_insights(
+                        system_role="senior financial advisor providing actionable investment insights based on quantitative analysis",
+                        user_prompt=prompt,
                         temperature=0.7,
                         max_tokens=1500
                     )
                     
                     # Save to session state
-                    st.session_state.mc_ai_insights = response.choices[0].message.content
+                    st.session_state.mc_ai_insights = insights
                     st.success("✅ AI insights generated successfully!")
                     st.markdown(st.session_state.mc_ai_insights)
                     st.info("✅ AI insights saved! These will be included in your report downloads.")
                     
             except Exception as e:
                 st.error(f"Error generating AI analysis: {str(e)}")
-                if "openai" in str(e).lower() or "api" in str(e).lower():
-                    st.info("💡 Make sure your OpenAI API key is configured in the secrets.")
+                if "api" in str(e).lower():
+                    st.info("💡 Make sure your Google API key is configured in the secrets.")
         
         # Export options
         st.divider()
@@ -6995,18 +6989,16 @@ def show_ml_classification():
                     Be specific, actionable, and business-focused. Use clear language.
                     """
                     
-                    response = ai.client.chat.completions.create(
-                        model="gpt-4",
-                        messages=[
-                            {"role": "system", "content": "You are a senior data science consultant providing actionable ML insights."},
-                            {"role": "user", "content": prompt}
-                        ],
+                    # Generate insights using Gemini
+                    insights = ai.generate_module_insights(
+                        system_role="senior data science consultant providing actionable ML insights",
+                        user_prompt=prompt,
                         temperature=0.7,
                         max_tokens=1500
                     )
                     
                     # Save to session state
-                    st.session_state.ml_ai_insights = response.choices[0].message.content
+                    st.session_state.ml_ai_insights = insights
                     st.success("✅ AI insights generated successfully!")
                     st.markdown(st.session_state.ml_ai_insights)
                     st.info("✅ AI insights saved! These will be included in your report downloads.")
@@ -7947,18 +7939,16 @@ def show_ml_regression():
                     Be specific, actionable, and business-focused. Use clear language. Interpret R², RMSE, and MAE in practical terms.
                     """
                     
-                    response = ai.client.chat.completions.create(
-                        model="gpt-4",
-                        messages=[
-                            {"role": "system", "content": "You are a senior data science consultant providing actionable ML insights for regression problems."},
-                            {"role": "user", "content": prompt}
-                        ],
+                    # Generate insights using Gemini
+                    insights = ai.generate_module_insights(
+                        system_role="senior data science consultant providing actionable ML insights for regression problems",
+                        user_prompt=prompt,
                         temperature=0.7,
                         max_tokens=1500
                     )
                     
                     # Save to session state
-                    st.session_state.mlr_ai_insights = response.choices[0].message.content
+                    st.session_state.mlr_ai_insights = insights
                     status.update(label="✅ AI insights generated successfully!", state="complete")
                 
                 # Display results outside status block (no grey overlay)
@@ -7968,8 +7958,8 @@ def show_ml_regression():
                     
             except Exception as e:
                 st.error(f"Error generating insights: {str(e)}")
-                if "openai" in str(e).lower() or "api" in str(e).lower():
-                    st.info("💡 Make sure your OpenAI API key is configured in the secrets.")
+                if "api" in str(e).lower():
+                    st.info("💡 Make sure your Google API key is configured in the secrets.")
         
         # Export section
         st.divider()
@@ -8883,19 +8873,16 @@ def show_anomaly_detection():
                     """
                     
                     st.write("Generating AI analysis...")
-                    # Get AI response
-                    response = ai.client.chat.completions.create(
-                        model="gpt-4",
-                        messages=[
-                            {"role": "system", "content": "You are an expert data analyst specializing in anomaly detection and business insights."},
-                            {"role": "user", "content": prompt}
-                        ],
+                    # Generate insights using Gemini
+                    insights = ai.generate_module_insights(
+                        system_role="expert data analyst specializing in anomaly detection and business insights",
+                        user_prompt=prompt,
                         temperature=0.7,
                         max_tokens=1500
                     )
                     
                     # Save to session state
-                    st.session_state.anomaly_ai_insights = response.choices[0].message.content
+                    st.session_state.anomaly_ai_insights = insights
                     status.update(label="✅ AI analysis complete!", state="complete", expanded=False)
                     
                 except Exception as e:
@@ -9623,18 +9610,16 @@ def show_time_series_forecasting():
                         Provide actionable insights in business-friendly language.
                         """
                         
-                        response = ai.client.chat.completions.create(
-                            model="gpt-4",
-                            messages=[
-                                {"role": "system", "content": "You are an expert business analyst specializing in time series forecasting."},
-                                {"role": "user", "content": prompt}
-                            ],
+                        # Generate insights using Gemini
+                        insights = ai.generate_module_insights(
+                            system_role="expert business analyst specializing in time series forecasting",
+                            user_prompt=prompt,
                             temperature=0.7,
                             max_tokens=1500
                         )
                         
                         # Save to session state
-                        st.session_state.ts_ai_insights = response.choices[0].message.content
+                        st.session_state.ts_ai_insights = insights
                         st.success("✅ AI insights generated successfully!")
                         st.markdown(st.session_state.ts_ai_insights)
                         st.info("✅ AI insights saved! These will be included in your report downloads.")
@@ -10269,18 +10254,16 @@ def show_text_mining():
                         Provide clear, business-friendly insights.
                         """
                         
-                        response = ai.client.chat.completions.create(
-                            model="gpt-4",
-                            messages=[
-                                {"role": "system", "content": "You are an expert business analyst specializing in text analytics and sentiment analysis."},
-                                {"role": "user", "content": prompt}
-                            ],
+                        # Generate insights using Gemini
+                        insights = ai.generate_module_insights(
+                            system_role="expert business analyst specializing in text analytics and sentiment analysis",
+                            user_prompt=prompt,
                             temperature=0.7,
                             max_tokens=1500
                         )
                         
                         # Save to session state
-                        st.session_state.text_ai_insights = response.choices[0].message.content
+                        st.session_state.text_ai_insights = insights
                         st.success("✅ AI insights generated successfully!")
                         st.markdown(st.session_state.text_ai_insights)
                         st.info("✅ AI insights saved! These will be included in your report downloads.")
@@ -11889,18 +11872,16 @@ As a senior experimentation and conversion optimization expert, analyze these A/
 Be specific, actionable, and balance statistical rigor with business pragmatism. Consider both short-term and long-term implications.
 """
                     
-                    response = ai.client.chat.completions.create(
-                        model="gpt-4",
-                        messages=[
-                            {"role": "system", "content": "You are a senior experimentation and conversion optimization expert with 10+ years of experience running A/B tests at scale. You specialize in balancing statistical rigor with business pragmatism."},
-                            {"role": "user", "content": prompt}
-                        ],
+                    # Generate insights using Gemini
+                    insights = ai.generate_module_insights(
+                        system_role="senior experimentation and conversion optimization expert with 10+ years of experience running A/B tests at scale. You specialize in balancing statistical rigor with business pragmatism",
+                        user_prompt=prompt,
                         temperature=0.7,
                         max_tokens=1500
                     )
                     
                     # Save to session state
-                    st.session_state.ab_ai_insights = response.choices[0].message.content
+                    st.session_state.ab_ai_insights = insights
                     status.update(label="✅ Analysis complete!", state="complete", expanded=False)
                     
                     # Display results inside status block to avoid duplicates
@@ -12605,18 +12586,16 @@ As a senior retention strategist and customer lifecycle expert with 10+ years of
 Be specific, data-driven, and focus on actionable strategies that directly impact retention metrics and customer lifetime value. Consider both immediate tactics and sustainable long-term improvements.
 """
                     
-                    response = ai.client.chat.completions.create(
-                        model="gpt-4",
-                        messages=[
-                            {"role": "system", "content": "You are a senior retention strategist and customer lifecycle expert with 10+ years of experience optimizing subscription and SaaS retention metrics. You specialize in cohort analysis, churn prediction, and customer lifetime value maximization."},
-                            {"role": "user", "content": prompt}
-                        ],
+                    # Generate insights using Gemini
+                    insights = ai.generate_module_insights(
+                        system_role="senior retention strategist and customer lifecycle expert with 10+ years of experience optimizing subscription and SaaS retention metrics. You specialize in cohort analysis, churn prediction, and customer lifetime value maximization",
+                        user_prompt=prompt,
                         temperature=0.7,
                         max_tokens=1500
                     )
                     
                     # Save to session state
-                    st.session_state.cohort_ai_insights = response.choices[0].message.content
+                    st.session_state.cohort_ai_insights = insights
                     status.update(label="✅ Analysis complete!", state="complete", expanded=False)
                     
                     # Display inside status block
@@ -13374,18 +13353,16 @@ As a senior recommendation systems architect with 10+ years building personaliza
 Be specific, data-driven, and focus on actionable improvements that balance technical sophistication with business outcomes. Prioritize quick wins vs. long-term architectural changes.
 """
                     
-                    response = ai.client.chat.completions.create(
-                        model="gpt-4",
-                        messages=[
-                            {"role": "system", "content": "You are a senior recommendation systems architect with 10+ years of experience building personalization engines for e-commerce and streaming platforms at scale. You specialize in collaborative filtering, matrix factorization, and hybrid recommendation approaches that drive measurable business outcomes."},
-                            {"role": "user", "content": prompt}
-                        ],
+                    # Generate insights using Gemini
+                    insights = ai.generate_module_insights(
+                        system_role="senior recommendation systems architect with 10+ years of experience building personalization engines for e-commerce and streaming platforms at scale. You specialize in collaborative filtering, matrix factorization, and hybrid recommendation approaches that drive measurable business outcomes",
+                        user_prompt=prompt,
                         temperature=0.7,
                         max_tokens=1500
                     )
                     
                     # Save to session state
-                    st.session_state.rec_ai_insights = response.choices[0].message.content
+                    st.session_state.rec_ai_insights = insights
                     status.update(label="✅ Analysis complete!", state="complete", expanded=False)
                     
                     # Display inside status block
@@ -14164,18 +14141,16 @@ As a senior geospatial analyst and location intelligence strategist with 10+ yea
 Be specific, data-driven, and focus on actionable location intelligence strategies that balance market opportunity with operational feasibility. Consider both tactical improvements and strategic positioning.
 """
                     
-                    response = ai.client.chat.completions.create(
-                        model="gpt-4",
-                        messages=[
-                            {"role": "system", "content": "You are a senior geospatial analyst and location intelligence strategist with 10+ years of experience in site selection, territory optimization, and spatial economics. You specialize in translating spatial data into actionable business strategies for retail, logistics, and service organizations."},
-                            {"role": "user", "content": prompt}
-                        ],
+                    # Generate insights using Gemini
+                    insights = ai.generate_module_insights(
+                        system_role="senior geospatial analyst and location intelligence strategist with 10+ years of experience in site selection, territory optimization, and spatial economics. You specialize in translating spatial data into actionable business strategies for retail, logistics, and service organizations",
+                        user_prompt=prompt,
                         temperature=0.7,
                         max_tokens=1500
                     )
                     
                     # Save to session state
-                    st.session_state.geo_ai_insights = response.choices[0].message.content
+                    st.session_state.geo_ai_insights = insights
                     status.update(label="✅ Analysis complete!", state="complete", expanded=False)
                     
                     # Display inside status block
@@ -14896,18 +14871,16 @@ As a senior biostatistician and survival analysis expert with 10+ years of exper
 Be specific, evidence-based, and focus on actionable risk mitigation strategies that can be realistically implemented. Balance statistical rigor with practical clinical or business applicability.
 """
                     
-                    response = ai.client.chat.completions.create(
-                        model="gpt-4",
-                        messages=[
-                            {"role": "system", "content": "You are a senior biostatistician and survival analysis expert with 10+ years of experience in clinical research, epidemiology, and predictive risk modeling. You specialize in Kaplan-Meier analysis, Cox proportional hazards models, and translating survival curves into actionable risk mitigation strategies."},
-                            {"role": "user", "content": prompt}
-                        ],
+                    # Generate insights using Gemini
+                    insights = ai.generate_module_insights(
+                        system_role="senior biostatistician and survival analysis expert with 10+ years of experience in clinical research, epidemiology, and predictive risk modeling. You specialize in Kaplan-Meier analysis, Cox proportional hazards models, and translating survival curves into actionable risk mitigation strategies",
+                        user_prompt=prompt,
                         temperature=0.7,
                         max_tokens=1500
                     )
                     
                     # Save to session state
-                    st.session_state.surv_ai_insights = response.choices[0].message.content
+                    st.session_state.surv_ai_insights = insights
                     status.update(label="✅ Analysis complete!", state="complete", expanded=False)
                     
                     # Display inside status block
@@ -15851,18 +15824,16 @@ As a senior network scientist and graph analytics expert with 10+ years of exper
 Be specific, data-driven, and focus on actionable network strategies that leverage graph structure for competitive advantage. Balance theoretical network science with practical business applications.
 """
                     
-                    response = ai.client.chat.completions.create(
-                        model="gpt-4",
-                        messages=[
-                            {"role": "system", "content": "You are a senior network scientist and graph analytics expert with 10+ years of experience in social network analysis, organizational network mapping, and complex systems. You specialize in translating network topology into actionable business strategies for influence, optimization, and resilience."},
-                            {"role": "user", "content": prompt}
-                        ],
+                    # Generate insights using Gemini
+                    insights = ai.generate_module_insights(
+                        system_role="senior network scientist and graph analytics expert with 10+ years of experience in social network analysis, organizational network mapping, and complex systems. You specialize in translating network topology into actionable business strategies for influence, optimization, and resilience",
+                        user_prompt=prompt,
                         temperature=0.7,
                         max_tokens=1500
                     )
                     
                     # Save to session state
-                    st.session_state.net_ai_insights = response.choices[0].message.content
+                    st.session_state.net_ai_insights = insights
                     status.update(label="✅ Analysis complete!", state="complete", expanded=False)
                 
                 # Display outside status block so it persists when collapsed
@@ -16543,18 +16514,16 @@ Generate a comprehensive churn analysis with these sections:
 Be data-driven, specific, and focus on actionable strategies that directly address the identified churn drivers. Connect patterns to business outcomes and prioritize by impact potential.
 """
                     
-                    response = ai.client.chat.completions.create(
-                        model="gpt-4",
-                        messages=[
-                            {"role": "system", "content": "You are a world-class customer retention strategist and churn analytics expert with deep expertise in predictive modeling, customer lifecycle management, and retention economics. You specialize in translating churn predictions into high-impact retention strategies."},
-                            {"role": "user", "content": prompt}
-                        ],
+                    # Generate insights using Gemini
+                    insights = ai.generate_module_insights(
+                        system_role="world-class customer retention strategist and churn analytics expert with deep expertise in predictive modeling, customer lifecycle management, and retention economics. You specialize in translating churn predictions into high-impact retention strategies",
+                        user_prompt=prompt,
                         temperature=0.7,
                         max_tokens=1500
                     )
                     
                     # Save to session state
-                    st.session_state.churn_ai_insights = response.choices[0].message.content
+                    st.session_state.churn_ai_insights = insights
                     status.update(label="✅ Analysis complete!", state="complete", expanded=False)
                 
                 # Display outside status block so it persists when collapsed

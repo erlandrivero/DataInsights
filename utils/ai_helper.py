@@ -1,13 +1,13 @@
-"""AI integration utilities for DataInsights using OpenAI GPT-4.
+"""AI integration utilities for DataInsights using Google Gemini AI.
 
 This module provides comprehensive AI capabilities including data insights generation,
 natural language question answering, and automated data cleaning suggestions.
 
 Author: DataInsights Team
-Phase 2 Enhancement: Oct 23, 2025
+Migrated to Google Gemini: Nov 2, 2025
 """
 
-import openai
+import google.generativeai as genai
 import os
 import pandas as pd
 import numpy as np
@@ -16,15 +16,15 @@ from typing import Dict, Any, List, Union, Optional
 
 
 class AIHelper:
-    """Handles all AI-related operations using OpenAI GPT-4.
+    """Handles all AI-related operations using Google Gemini AI.
     
     This class provides methods for generating intelligent insights about datasets,
     answering natural language questions about data, and suggesting data cleaning
-    operations using OpenAI's GPT-4 model.
+    operations using Google's Gemini 1.5 Pro model.
     
     Attributes:
-        api_key (str): OpenAI API key from Streamlit secrets or environment
-        client: OpenAI client instance for API calls
+        api_key (str): Google API key from Streamlit secrets or environment
+        model: Gemini model instance for API calls
     
     Example:
         >>> # Initialize AI helper
@@ -39,7 +39,7 @@ class AIHelper:
         >>> st.write(response['answer'])
     
     Note:
-        Requires OPENAI_API_KEY in Streamlit secrets or environment variables
+        Requires GOOGLE_API_KEY in Streamlit secrets or environment variables
     """
     
     @staticmethod
@@ -91,13 +91,13 @@ class AIHelper:
             return obj
     
     def __init__(self):
-        """Initialize AIHelper with OpenAI API credentials.
+        """Initialize AIHelper with Google AI API credentials.
         
         Attempts to retrieve API key from Streamlit secrets first (for cloud
         deployment), then falls back to environment variable (for local development).
         
         Raises:
-            ValueError: If OPENAI_API_KEY is not found in secrets or environment
+            ValueError: If GOOGLE_API_KEY is not found in secrets or environment
         
         Example:
             >>> try:
@@ -107,37 +107,39 @@ class AIHelper:
             >>>     st.error(f"AI not available: {e}")
         
         Note:
-            - Cloud deployment: Set OPENAI_API_KEY in Streamlit secrets.toml
-            - Local development: Set OPENAI_API_KEY in .env file
+            - Cloud deployment: Set GOOGLE_API_KEY in Streamlit secrets.toml
+            - Local development: Set GOOGLE_API_KEY in .env file
             - API key is never exposed in logs or error messages
         """
         # Try to get API key from Streamlit secrets first (for cloud deployment)
         # Then fall back to environment variable (for local development)
         try:
             import streamlit as st
-            if hasattr(st, 'secrets') and 'OPENAI_API_KEY' in st.secrets:
-                self.api_key = st.secrets['OPENAI_API_KEY']
+            if hasattr(st, 'secrets') and 'GOOGLE_API_KEY' in st.secrets:
+                self.api_key = st.secrets['GOOGLE_API_KEY']
             else:
-                self.api_key = os.getenv('OPENAI_API_KEY')
+                self.api_key = os.getenv('GOOGLE_API_KEY')
         except:
-            self.api_key = os.getenv('OPENAI_API_KEY')
+            self.api_key = os.getenv('GOOGLE_API_KEY')
         
         if not self.api_key:
             raise ValueError(
-                "OpenAI API key not found. Please set OPENAI_API_KEY in "
+                "Google API key not found. Please set GOOGLE_API_KEY in "
                 "Streamlit secrets or .env file"
             )
         
-        # Initialize OpenAI client
-        from openai import OpenAI
-        self.client = OpenAI(api_key=self.api_key)
+        # Configure Google Generative AI
+        genai.configure(api_key=self.api_key)
+        
+        # Initialize Gemini model
+        self.model = genai.GenerativeModel('gemini-1.5-pro')
     
     def generate_data_insights(
         self, 
         df: pd.DataFrame, 
         profile: Dict[str, Any]
     ) -> str:
-        """Generate AI-powered insights about the dataset using GPT-4.
+        """Generate AI-powered insights about the dataset using Gemini.
         
         Analyzes dataset characteristics including size, structure, data quality,
         and patterns to provide business-friendly insights and recommendations.
@@ -162,7 +164,7 @@ class AIHelper:
             >>> st.write(insights)
         
         Note:
-            - Uses GPT-4 model (higher quality than GPT-3.5)
+            - Uses Gemini 1.5 Pro model
             - Temperature set to 0.7 for balanced creativity
             - Max 1000 tokens output
             - Automatically handles JSON serialization of profile
@@ -186,32 +188,29 @@ class AIHelper:
         """
         
         prompt = f"""
-        You are a data analyst. Analyze this dataset and provide:
-        1. A brief summary of the data
-        2. Key observations about data quality
-        3. Interesting patterns or anomalies
-        4. Recommendations for analysis or cleaning
-        
-        {context}
-        
-        Provide insights in a clear, business-friendly format.
+You are an expert data analyst providing insights on business data.
+
+Analyze this dataset and provide:
+1. A brief summary of the data
+2. Key observations about data quality
+3. Interesting patterns or anomalies
+4. Recommendations for analysis or cleaning
+
+{context}
+
+Provide insights in a clear, business-friendly format.
         """
         
         try:
-            response = self.client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {
-                        "role": "system", 
-                        "content": "You are an expert data analyst providing insights on business data."
-                    },
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7,
-                max_tokens=1000
+            response = self.model.generate_content(
+                prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.7,
+                    max_output_tokens=1000,
+                )
             )
             
-            return response.choices[0].message.content
+            return response.text
         except Exception as e:
             return f"Error generating insights: {str(e)}"
     
@@ -221,7 +220,7 @@ class AIHelper:
         df: pd.DataFrame, 
         context: str = ""
     ) -> Dict[str, Optional[str]]:
-        """Answer a natural language question about the data using GPT-4.
+        """Answer a natural language question about the data using Gemini.
         
         Interprets user questions in natural language and provides direct answers
         along with executable Python code to reproduce the analysis.
@@ -251,7 +250,7 @@ class AIHelper:
             >>> st.info(response['insights'])
         
         Note:
-            - GPT-4 interprets ambiguous questions intelligently
+            - Gemini interprets ambiguous questions intelligently
             - "top 5" in numeric columns → 5 highest values
             - "top 5" in text columns → 5 most frequent values
             - Returns executable pandas code when possible
@@ -270,7 +269,9 @@ class AIHelper:
         """
         
         prompt = f"""
-        You are a data analyst. The user asks: "{question}"
+You are an expert data analyst. Answer questions directly and concisely.
+
+The user asks: "{question}"
         
         Dataset information:
         {data_summary}
@@ -288,22 +289,15 @@ class AIHelper:
         """
         
         try:
-            response = self.client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {
-                        "role": "system", 
-                        "content": ("You are an expert data analyst. Answer questions directly "
-                                  "and concisely. No over-explaining or philosophy - just give "
-                                  "the user what they asked for.")
-                    },
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7,
-                max_tokens=1500
+            response = self.model.generate_content(
+                prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.7,
+                    max_output_tokens=1500,
+                )
             )
             
-            content = response.choices[0].message.content
+            content = response.text
             
             # Try to parse as JSON
             try:
@@ -358,7 +352,7 @@ class AIHelper:
             >>>     st.code(sug['code'], language='python')
         
         Note:
-            - Uses GPT-4 for intelligent suggestions
+            - Uses Gemini for intelligent suggestions
             - Provides executable pandas code
             - Explains business rationale for each suggestion
             - Max 2000 tokens for comprehensive guidance
@@ -370,36 +364,33 @@ class AIHelper:
         ])
         
         prompt = f"""
-        Given these data quality issues:
-        {issues_summary}
-        
-        Dataset info:
-        - {len(df)} rows, {len(df.columns)} columns
-        - Columns: {', '.join(df.columns.tolist())}
-        
-        Provide specific, actionable cleaning suggestions. For each issue, suggest:
-        1. What to do
-        2. Why it matters
-        3. Python pandas code to fix it
-        
-        Format as JSON array with keys: "issue", "suggestion", "reason", "code"
+You are a data cleaning expert. Provide practical, executable solutions.
+
+Given these data quality issues:
+{issues_summary}
+
+Dataset info:
+- {len(df)} rows, {len(df.columns)} columns
+- Columns: {', '.join(df.columns.tolist())}
+
+Provide specific, actionable cleaning suggestions. For each issue, suggest:
+1. What to do
+2. Why it matters
+3. Python pandas code to fix it
+
+Format as JSON array with keys: "issue", "suggestion", "reason", "code"
         """
         
         try:
-            response = self.client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {
-                        "role": "system", 
-                        "content": "You are a data cleaning expert. Provide practical, executable solutions."
-                    },
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7,
-                max_tokens=2000
+            response = self.model.generate_content(
+                prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.7,
+                    max_output_tokens=2000,
+                )
             )
             
-            content = response.choices[0].message.content
+            content = response.text
             
             try:
                 suggestions = json.loads(content)
@@ -423,3 +414,47 @@ class AIHelper:
                 "reason": "",
                 "code": ""
             }]
+    
+    def generate_module_insights(
+        self,
+        system_role: str,
+        user_prompt: str,
+        temperature: float = 0.7,
+        max_tokens: int = 1500
+    ) -> str:
+        """Generate AI insights for specific modules.
+        
+        A convenience method for generating insights in app.py modules like
+        Market Basket Analysis, RFM Analysis, ML Classification, etc.
+        
+        Args:
+            system_role: The role/expertise description (e.g., "senior data science consultant")
+            user_prompt: The specific prompt with context
+            temperature: Creativity level (0.0-1.0)
+            max_tokens: Maximum response length
+        
+        Returns:
+            Generated insights as markdown text
+        
+        Example:
+            >>> ai = AIHelper()
+            >>> insights = ai.generate_module_insights(
+            >>>     system_role="retail analytics expert",
+            >>>     user_prompt="Analyze these association rules..."
+            >>> )
+        """
+        full_prompt = f"""You are a {system_role}.
+
+{user_prompt}"""
+        
+        try:
+            response = self.model.generate_content(
+                full_prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=temperature,
+                    max_output_tokens=max_tokens,
+                )
+            )
+            return response.text
+        except Exception as e:
+            return f"Error generating insights: {str(e)}"

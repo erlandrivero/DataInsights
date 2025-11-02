@@ -3,7 +3,11 @@ streamlit
 pandas<2.3.0
 numpy<2.0.0
 plotly
-openai
+
+# AI Providers
+google-generativeai  # Google Gemini AI - Primary provider
+# openai  # OpenAI GPT-4 - Backup (commented out, can re-enable if needed)
+
 python-dotenv
 openpyxl
 tabulate  # Required for pandas.to_markdown()

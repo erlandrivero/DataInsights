@@ -585,22 +585,26 @@ Guidelines:
 
 Provide ONLY the JSON response, no additional text."""
 
-            # Call OpenAI API
-            from openai import OpenAI
-            client = OpenAI(api_key=api_key)
+            # Call Google Gemini API
+            import google.generativeai as genai
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel('gemini-1.5-flash')  # Using Flash for faster response
             
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "You are an expert data scientist providing ML configuration recommendations. Always respond with valid JSON only."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.3,
-                max_tokens=1000
+            # Combine system and user prompts for Gemini
+            full_prompt = f"""You are an expert data scientist providing ML configuration recommendations. Always respond with valid JSON only.
+
+{prompt}"""
+            
+            response = model.generate_content(
+                full_prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.3,
+                    max_output_tokens=1000,
+                )
             )
             
             # Parse response
-            ai_response = response.choices[0].message.content.strip()
+            ai_response = response.text.strip()
             
             # Remove markdown code blocks if present
             if ai_response.startswith('```'):
