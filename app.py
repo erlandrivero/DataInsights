@@ -5065,9 +5065,12 @@ def show_rfm_analysis():
                     
                     # Save to session state
                     st.session_state.rfm_ai_insights = insights
-                    st.success("✅ AI insights generated successfully!")
-                    st.markdown(st.session_state.rfm_ai_insights)
-                    st.info("✅ AI insights saved! These will be included in your report downloads.")
+                    status.update(label="✅ AI insights generated successfully!", state="complete", expanded=False)
+                
+                # Display results outside status block (no grey overlay)
+                st.success("✅ AI insights generated successfully!")
+                st.markdown(st.session_state.rfm_ai_insights)
+                st.info("✅ AI insights saved! These will be included in your report downloads.")
                     
             except Exception as e:
                 st.error(f"Error generating insights: {str(e)}")
@@ -5605,9 +5608,12 @@ def show_monte_carlo_simulation():
                     
                     # Save to session state
                     st.session_state.mc_ai_insights = insights
-                    st.success("✅ AI insights generated successfully!")
-                    st.markdown(st.session_state.mc_ai_insights)
-                    st.info("✅ AI insights saved! These will be included in your report downloads.")
+                    status.update(label="✅ AI insights generated successfully!", state="complete", expanded=False)
+                
+                # Display results outside status block (no grey overlay)
+                st.success("✅ AI insights generated successfully!")
+                st.markdown(st.session_state.mc_ai_insights)
+                st.info("✅ AI insights saved! These will be included in your report downloads.")
                     
             except Exception as e:
                 st.error(f"Error generating AI analysis: {str(e)}")
@@ -7208,9 +7214,12 @@ def show_ml_classification():
                     
                     # Save to session state
                     st.session_state.ml_ai_insights = insights
-                    st.success("✅ AI insights generated successfully!")
-                    st.markdown(st.session_state.ml_ai_insights)
-                    st.info("✅ AI insights saved! These will be included in your report downloads.")
+                    status.update(label="✅ AI insights generated successfully!", state="complete", expanded=False)
+                
+                # Display results outside status block (no grey overlay)
+                st.success("✅ AI insights generated successfully!")
+                st.markdown(st.session_state.ml_ai_insights)
+                st.info("✅ AI insights saved! These will be included in your report downloads.")
                     
             except Exception as e:
                 st.error(f"Error generating insights: {str(e)}")
@@ -9843,12 +9852,15 @@ def show_time_series_forecasting():
                         
                         # Save to session state
                         st.session_state.ts_ai_insights = insights
-                        st.success("✅ AI insights generated successfully!")
-                        st.markdown(st.session_state.ts_ai_insights)
-                        st.info("✅ AI insights saved! These will be included in your report downloads.")
+                        status.update(label="✅ AI insights generated successfully!", state="complete", expanded=False)
                         
                     except Exception as e:
                         st.error(f"Error generating insights: {str(e)}")
+                
+                # Display results outside status block (no grey overlay)
+                st.success("✅ AI insights generated successfully!")
+                st.markdown(st.session_state.ts_ai_insights)
+                st.info("✅ AI insights saved! These will be included in your report downloads.")
         
         # Export section
         if 'arima_results' in st.session_state or 'prophet_results' in st.session_state:
@@ -10492,12 +10504,15 @@ def show_text_mining():
                         
                         # Save to session state
                         st.session_state.text_ai_insights = insights
-                        st.success("✅ AI insights generated successfully!")
-                        st.markdown(st.session_state.text_ai_insights)
-                        st.info("✅ AI insights saved! These will be included in your report downloads.")
+                        status.update(label="✅ AI insights generated successfully!", state="complete", expanded=False)
                         
                     except Exception as e:
                         st.error(f"Error generating AI summary: {str(e)}")
+                
+                # Display results outside status block (no grey overlay)
+                st.success("✅ AI insights generated successfully!")
+                st.markdown(st.session_state.text_ai_insights)
+                st.info("✅ AI insights saved! These will be included in your report downloads.")
         
         # Export section
         if 'sentiment_results' in st.session_state or 'word_freq_results' in st.session_state:
