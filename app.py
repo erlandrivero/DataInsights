@@ -1999,8 +1999,8 @@ Use {best.get('model_name', 'Unknown')} for production deployment based on highe
                     
 Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
 
-## Best Model: {best['model_name']}
-- R² Score: {best['r2']:.4f}
+## Best Model: {best.get('model_name', 'Unknown')}
+- R² Score: {best.get('r2', 0):.4f}
 - RMSE: {best.get('rmse', 0):.4f}
 - MAE: {best.get('mae', 0):.4f}
 
@@ -2008,7 +2008,7 @@ Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
 {pd.DataFrame(mlr_results)[['model_name', 'r2', 'rmse', 'mae']].to_markdown(index=False)}
 
 ## Recommendation
-Use {best['model_name']} for prediction based on highest R² score.
+Use {best.get('model_name', 'Unknown')} for prediction based on highest R² score.
 """
                     st.download_button("📥 Download Report", report, f"regression_report_{pd.Timestamp.now().strftime('%Y%m%d')}.md", "text/markdown", key="dl_mlr")
         
@@ -7940,16 +7940,16 @@ def show_ml_regression():
         st.subheader("📊 3. Model Performance Results")
         
         # Summary metrics
-        successful_results = [r for r in results if r['success']]
-        best_model = max(successful_results, key=lambda x: x['r2'])
+        successful_results = [r for r in results if r.get('success')]
+        best_model = max(successful_results, key=lambda x: x.get('r2', -999))
         
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Models Trained", len(successful_results))
         with col2:
-            st.metric("Best Model", best_model['model_name'])
+            st.metric("Best Model", best_model.get('model_name', 'Unknown'))
         with col3:
-            st.metric("Best R² Score", f"{best_model['r2']:.4f}")
+            st.metric("Best R² Score", f"{best_model.get('r2', 0):.4f}")
         with col4:
             # Safely sum training times, handling non-numeric values
             total_time = 0
@@ -7968,13 +7968,13 @@ def show_ml_regression():
         results_data = []
         for r in successful_results:
             results_data.append({
-                'Model': r['model_name'],
-                'R²': f"{r['r2']:.4f}",
-                'RMSE': f"{r['rmse']:.2f}",
-                'MAE': f"{r['mae']:.2f}",
-                'MAPE': f"{r['mape']:.2f}%" if r['mape'] else 'N/A',
-                'CV Mean': f"{r['cv_mean']:.4f}" if r['cv_mean'] else 'N/A',
-                'Time (s)': f"{r['training_time']:.3f}"
+                'Model': r.get('model_name', 'Unknown'),
+                'R²': f"{(r.get('r2') or 0):.4f}",
+                'RMSE': f"{(r.get('rmse') or 0):.2f}",
+                'MAE': f"{(r.get('mae') or 0):.2f}",
+                'MAPE': f"{r.get('mape'):.2f}%" if r.get('mape') else 'N/A',
+                'CV Mean': f"{r.get('cv_mean'):.4f}" if r.get('cv_mean') else 'N/A',
+                'Time (s)': f"{(r.get('training_time') or 0):.3f}"
             })
         
         results_df = pd.DataFrame(results_data)
@@ -7987,7 +7987,7 @@ def show_ml_regression():
         
         # Highlight best model
         def highlight_best(row):
-            if row['Model'] == best_model['model_name']:
+            if row['Model'] == best_model.get('model_name', 'Unknown'):
                 return ['background-color: #90EE90'] * len(row)
             return [''] * len(row)
         
@@ -8002,7 +8002,7 @@ def show_ml_regression():
         
         with tab1:
             # R² comparison - sort ascending so best model appears at TOP of chart
-            r2_scores = [(r['model_name'], r['r2']) for r in successful_results]
+            r2_scores = [(r.get('model_name', 'Unknown'), r.get('r2') or 0) for r in successful_results]
             r2_scores.sort(key=lambda x: x[1])  # Ascending order for bottom-to-top display
             
             fig_r2 = px.bar(
@@ -8019,7 +8019,7 @@ def show_ml_regression():
         with tab2:
             # Error metrics comparison
             error_data = pd.DataFrame([
-                {'Model': r['model_name'], 'RMSE': r['rmse'], 'MAE': r['mae']}
+                {'Model': r.get('model_name', 'Unknown'), 'RMSE': r.get('rmse') or 0, 'MAE': r.get('mae') or 0}
                 for r in successful_results
             ])
             
@@ -8036,7 +8036,7 @@ def show_ml_regression():
         
         with tab3:
             # Training time
-            time_data = [(r['model_name'], r['training_time']) for r in successful_results]
+            time_data = [(r.get('model_name', 'Unknown'), r.get('training_time') or 0) for r in successful_results]
             time_data.sort(key=lambda x: x[1])
             
             colors = ['green' if x[1] < 1 else 'yellow' if x[1] < 5 else 'red' for x in time_data]
@@ -8054,30 +8054,30 @@ def show_ml_regression():
         
         # Best Model Details
         st.divider()
-        st.subheader(f"🏆 Best Model: {best_model['model_name']}")
+        st.subheader(f"🏆 Best Model: {best_model.get('model_name', 'Unknown')}")
         
         col1, col2, col3, col4, col5 = st.columns(5)
         with col1:
-            st.metric("R² Score", f"{best_model['r2']:.4f}")
+            st.metric("R² Score", f"{best_model.get('r2', 0):.4f}")
         with col2:
-            st.metric("RMSE", f"{best_model['rmse']:.2f}")
+            st.metric("RMSE", f"{best_model.get('rmse', 0):.2f}")
         with col3:
-            st.metric("MAE", f"{best_model['mae']:.2f}")
+            st.metric("MAE", f"{best_model.get('mae', 0):.2f}")
         with col4:
-            if best_model['mape']:
-                st.metric("MAPE", f"{best_model['mape']:.2f}%")
+            if best_model.get('mape'):
+                st.metric("MAPE", f"{best_model.get('mape'):.2f}%")
             else:
                 st.metric("MAPE", "N/A")
         with col5:
-            if best_model['cv_mean']:
-                st.metric("CV R²", f"{best_model['cv_mean']:.4f}")
+            if best_model.get('cv_mean'):
+                st.metric("CV R²", f"{best_model.get('cv_mean'):.4f}")
             else:
                 st.metric("CV R²", "N/A")
         
         # Feature Importance
         if best_model.get('feature_importance'):
             st.write("**Top 10 Most Important Features:**")
-            feat_imp = best_model['feature_importance']
+            feat_imp = best_model.get('feature_importance')
             # Sort descending and take top 10, then reverse for proper chart display (highest at top)
             feat_imp_sorted = sorted(feat_imp.items(), key=lambda x: x[1], reverse=True)[:10]
             feat_imp_sorted = sorted(feat_imp_sorted, key=lambda x: x[1])  # Reverse for chart display
@@ -8132,21 +8132,21 @@ def show_ml_regression():
                     Target: {mlr_regressor_data.target_column}
                     
                     Models Trained: {len(successful_results_data)}
-                    Best Model: {best_model_data['model_name']}
-                    Best R² Score: {best_model_data['r2']:.4f}
-                    Best RMSE: {best_model_data['rmse']:.2f}
-                    Best MAE: {best_model_data['mae']:.2f}
+                    Best Model: {best_model_data.get('model_name', 'Unknown')}
+                    Best R² Score: {best_model_data.get('r2', 0):.4f}
+                    Best RMSE: {best_model_data.get('rmse', 0):.2f}
+                    Best MAE: {best_model_data.get('mae', 0):.2f}
                     
                     Top 3 Models:
                     """
                     
                     for i, r in enumerate(successful_results_data[:3], 1):
-                        context += f"\n{i}. {r['model_name']}: R²={r['r2']:.4f}, RMSE={r['rmse']:.2f}, MAE={r['mae']:.2f}"
+                        context += f"\n{i}. {r.get('model_name', 'Unknown')}: R²={r.get('r2', 0):.4f}, RMSE={r.get('rmse', 0):.2f}, MAE={r.get('mae', 0):.2f}"
                     
                     prompt = f"""
                     As a senior data science consultant, analyze these machine learning regression results and provide:
                     
-                    1. **Performance Analysis** (2-3 sentences): Why did {best_model_data['model_name']} perform best? What does the R² score tell us about model fit?
+                    1. **Performance Analysis** (2-3 sentences): Why did {best_model_data.get('model_name', 'the best model')} perform best? What does the R² score tell us about model fit?
                     
                     2. **Model Comparison** (2-3 sentences): Key differences between top 3 models and when to use each. Which model offers best trade-offs?
                     
@@ -8205,23 +8205,23 @@ def show_ml_regression():
             # Export best model report
             if best_model:
                 # Format metrics safely
-                mape_str = f"{best_model['mape']:.2f}%" if best_model['mape'] is not None else 'N/A'
-                cv_mean_str = f"{best_model['cv_mean']:.4f}" if best_model['cv_mean'] is not None else 'N/A'
+                mape_str = f"{best_model.get('mape'):.2f}%" if best_model.get('mape') else 'N/A'
+                cv_mean_str = f"{best_model.get('cv_mean'):.4f}" if best_model.get('cv_mean') else 'N/A'
                 results_table = st.session_state.mlr_results_df.to_markdown(index=False) if 'mlr_results_df' in st.session_state else 'Results not available'
                 
                 report = f"""
 # Machine Learning Regression Report
 **Generated:** {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
 
-## Best Model: {best_model['model_name']}
+## Best Model: {best_model.get('model_name', 'Unknown')}
 
 ### Performance Metrics
-- **R² Score:** {best_model['r2']:.4f}
-- **RMSE:** {best_model['rmse']:.2f}
-- **MAE:** {best_model['mae']:.2f}
+- **R² Score:** {best_model.get('r2', 0):.4f}
+- **RMSE:** {best_model.get('rmse', 0):.2f}
+- **MAE:** {best_model.get('mae', 0):.2f}
 - **MAPE:** {mape_str}
 - **CV R² Mean:** {cv_mean_str}
-- **Training Time:** {best_model['training_time']:.3f}s
+- **Training Time:** {(best_model.get('training_time') or 0):.3f}s
 
 ## All Models Performance
 
