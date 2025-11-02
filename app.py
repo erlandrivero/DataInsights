@@ -2979,6 +2979,11 @@ This report contains results from completed analytics modules.
 
 def show_market_basket_analysis():
     """Market Basket Analysis page."""
+    
+    # Memory refresh to help avoid Streamlit capacity issues
+    import gc
+    gc.collect()
+    
     st.markdown("<h2 style='text-align: center;'>🧺 Market Basket Analysis</h2>", unsafe_allow_html=True)
     
     # Help section
@@ -4223,6 +4228,11 @@ Based on this analysis, we recommend:
 
 def show_rfm_analysis():
     """RFM Analysis and Customer Segmentation page."""
+    
+    # Memory refresh to help avoid Streamlit capacity issues
+    import gc
+    gc.collect()
+    
     st.markdown("<h2 style='text-align: center;'>👥 RFM Analysis & Customer Segmentation</h2>", unsafe_allow_html=True)
     
     # Help section
@@ -5143,6 +5153,11 @@ Based on the RFM analysis:
 
 def show_monte_carlo_simulation():
     """Monte Carlo Simulation page for financial forecasting."""
+    
+    # Memory refresh to help avoid Streamlit capacity issues
+    import gc
+    gc.collect()
+    
     st.markdown("<h2 style='text-align: center;'>📈 Monte Carlo Simulation</h2>", unsafe_allow_html=True)
     
     # Help section
@@ -7288,6 +7303,10 @@ def show_ml_classification():
 def show_ml_regression():
     """Machine Learning Regression page with 15+ algorithms."""
     
+    # Memory refresh to help avoid Streamlit capacity issues
+    import gc
+    gc.collect()
+    
     # Import ML helper functions for optimization
     from utils.ml_helpers import get_recommended_cv_folds, create_data_hash, cached_regression_training
     
@@ -8231,6 +8250,11 @@ def show_ml_regression():
 
 def show_anomaly_detection():
     """Anomaly & Outlier Detection page."""
+    
+    # Memory refresh to help avoid Streamlit capacity issues
+    import gc
+    gc.collect()
+    
     st.markdown("<h2 style='text-align: center;'>🔬 Anomaly & Outlier Detection</h2>", unsafe_allow_html=True)
     
     # Help section
@@ -9161,6 +9185,11 @@ def show_anomaly_detection():
 
 def show_time_series_forecasting():
     """Time Series Forecasting & Analysis page."""
+    
+    # Memory refresh to help avoid Streamlit capacity issues
+    import gc
+    gc.collect()
+    
     st.markdown("<h2 style='text-align: center;'>📈 Time Series Forecasting</h2>", unsafe_allow_html=True)
     
     # Help section
@@ -9922,6 +9951,11 @@ Use these forecasts for:
 
 def show_text_mining():
     """Text Mining & Sentiment Analysis page."""
+    
+    # Memory refresh to help avoid Streamlit capacity issues
+    import gc
+    gc.collect()
+    
     st.markdown("<h2 style='text-align: center;'>💬 Text Mining & Sentiment Analysis</h2>", unsafe_allow_html=True)
     
     # Help section
@@ -10579,6 +10613,11 @@ This text mining analysis can be used for:
 
 def show_ab_testing():
     """A/B Testing page."""
+    
+    # Memory refresh to help avoid Streamlit capacity issues
+    import gc
+    gc.collect()
+    
     import pandas as pd
     from scipy.stats import chi2_contingency
     
@@ -12188,6 +12227,11 @@ Be specific, actionable, and balance statistical rigor with business pragmatism.
 
 def show_cohort_analysis():
     """Cohort Analysis page."""
+    
+    # Memory refresh to help avoid Streamlit capacity issues
+    import gc
+    gc.collect()
+    
     st.markdown("<h2 style='text-align: center;'>👥 Cohort Analysis & Retention Tracking</h2>", unsafe_allow_html=True)
     
     # Help section
@@ -12855,6 +12899,11 @@ Be specific, data-driven, and focus on actionable strategies that directly impac
 
 def show_recommendation_systems():
     """Recommendation Systems page."""
+    
+    # Memory refresh to help avoid Streamlit capacity issues
+    import gc
+    gc.collect()
+    
     st.markdown("<h2 style='text-align: center;'>🎯 Recommendation Systems & Collaborative Filtering</h2>", unsafe_allow_html=True)
     
     # Help section
@@ -13661,6 +13710,11 @@ Be specific, data-driven, and focus on actionable improvements that balance tech
 
 def show_geospatial_analysis():
     """Geospatial Analysis page."""
+    
+    # Memory refresh to help avoid Streamlit capacity issues
+    import gc
+    gc.collect()
+    
     st.markdown("<h2 style='text-align: center;'>🗺️ Geospatial Analysis & Location Intelligence</h2>", unsafe_allow_html=True)
     
     # Help section
@@ -14409,6 +14463,11 @@ Be specific, data-driven, and focus on actionable location intelligence strategi
 
 def show_survival_analysis():
     """Survival Analysis page."""
+    
+    # Memory refresh to help avoid Streamlit capacity issues
+    import gc
+    gc.collect()
+    
     st.markdown("<h2 style='text-align: center;'>⏱️ Survival Analysis & Time-to-Event Modeling</h2>", unsafe_allow_html=True)
     
     # Help section
@@ -15143,6 +15202,11 @@ Be specific, evidence-based, and focus on actionable risk mitigation strategies 
 
 def show_network_analysis():
     """Network Analysis page."""
+    
+    # Memory refresh to help avoid Streamlit capacity issues
+    import gc
+    gc.collect()
+    
     st.markdown("<h2 style='text-align: center;'>🕸️ Network Analysis & Graph Theory</h2>", unsafe_allow_html=True)
     
     # Help section
@@ -16111,6 +16175,11 @@ Be specific, data-driven, and focus on actionable network strategies that levera
 
 def show_churn_prediction():
     """Churn Prediction page."""
+    
+    # Memory refresh to help avoid Streamlit capacity issues
+    import gc
+    gc.collect()
+    
     st.markdown("<h2 style='text-align: center;'>🔄 Predictive Churn Modeling & Retention</h2>", unsafe_allow_html=True)
     
     # Help section
