@@ -4107,7 +4107,7 @@ def show_market_basket_analysis():
                             system_role="retail analytics expert specializing in market basket analysis and customer behavior",
                             user_prompt=prompt,
                             temperature=0.7,
-                            max_tokens=1500
+                            max_tokens=8000
                         )
                         
                         # Save to session state
@@ -5050,7 +5050,7 @@ def show_rfm_analysis():
                         system_role="CRM and customer analytics expert specializing in RFM segmentation and customer lifecycle marketing",
                         user_prompt=prompt,
                         temperature=0.7,
-                        max_tokens=1500
+                        max_tokens=8000
                     )
                     
                     # Save to session state
@@ -5585,7 +5585,7 @@ def show_monte_carlo_simulation():
                         system_role="senior financial advisor providing actionable investment insights based on quantitative analysis",
                         user_prompt=prompt,
                         temperature=0.7,
-                        max_tokens=1500
+                        max_tokens=8000
                     )
                     
                     # Save to session state
@@ -7188,7 +7188,7 @@ def show_ml_classification():
                         system_role="senior data science consultant providing actionable ML insights",
                         user_prompt=prompt,
                         temperature=0.7,
-                        max_tokens=1500
+                        max_tokens=8000
                     )
                     
                     # Save to session state
@@ -8138,7 +8138,7 @@ def show_ml_regression():
                         system_role="senior data science consultant providing actionable ML insights for regression problems",
                         user_prompt=prompt,
                         temperature=0.7,
-                        max_tokens=1500
+                        max_tokens=8000
                     )
                     
                     # Save to session state
@@ -9072,7 +9072,7 @@ def show_anomaly_detection():
                         system_role="expert data analyst specializing in anomaly detection and business insights",
                         user_prompt=prompt,
                         temperature=0.7,
-                        max_tokens=3000  # Increased for comprehensive anomaly analysis
+                        max_tokens=8000  # High limit to prevent truncation
                     )
                     
                     # Save to session state
@@ -9809,7 +9809,7 @@ def show_time_series_forecasting():
                             system_role="expert business analyst specializing in time series forecasting",
                             user_prompt=prompt,
                             temperature=0.7,
-                            max_tokens=1500
+                            max_tokens=8000
                         )
                         
                         # Save to session state
@@ -10453,7 +10453,7 @@ def show_text_mining():
                             system_role="expert business analyst specializing in text analytics and sentiment analysis",
                             user_prompt=prompt,
                             temperature=0.7,
-                            max_tokens=1500
+                            max_tokens=8000
                         )
                         
                         # Save to session state
@@ -12071,7 +12071,7 @@ Be specific, actionable, and balance statistical rigor with business pragmatism.
                         system_role="senior experimentation and conversion optimization expert with 10+ years of experience running A/B tests at scale. You specialize in balancing statistical rigor with business pragmatism",
                         user_prompt=prompt,
                         temperature=0.7,
-                        max_tokens=1500
+                        max_tokens=8000
                     )
                     
                     # Save to session state
@@ -12785,7 +12785,7 @@ Be specific, data-driven, and focus on actionable strategies that directly impac
                         system_role="senior retention strategist and customer lifecycle expert with 10+ years of experience optimizing subscription and SaaS retention metrics. You specialize in cohort analysis, churn prediction, and customer lifetime value maximization",
                         user_prompt=prompt,
                         temperature=0.7,
-                        max_tokens=1500
+                        max_tokens=8000
                     )
                     
                     # Save to session state
@@ -13552,7 +13552,7 @@ Be specific, data-driven, and focus on actionable improvements that balance tech
                         system_role="senior recommendation systems architect with 10+ years of experience building personalization engines for e-commerce and streaming platforms at scale. You specialize in collaborative filtering, matrix factorization, and hybrid recommendation approaches that drive measurable business outcomes",
                         user_prompt=prompt,
                         temperature=0.7,
-                        max_tokens=1500
+                        max_tokens=8000
                     )
                     
                     # Save to session state
@@ -14340,7 +14340,7 @@ Be specific, data-driven, and focus on actionable location intelligence strategi
                         system_role="senior geospatial analyst and location intelligence strategist with 10+ years of experience in site selection, territory optimization, and spatial economics. You specialize in translating spatial data into actionable business strategies for retail, logistics, and service organizations",
                         user_prompt=prompt,
                         temperature=0.7,
-                        max_tokens=1500
+                        max_tokens=8000
                     )
                     
                     # Save to session state
@@ -15070,7 +15070,7 @@ Be specific, evidence-based, and focus on actionable risk mitigation strategies 
                         system_role="senior biostatistician and survival analysis expert with 10+ years of experience in clinical research, epidemiology, and predictive risk modeling. You specialize in Kaplan-Meier analysis, Cox proportional hazards models, and translating survival curves into actionable risk mitigation strategies",
                         user_prompt=prompt,
                         temperature=0.7,
-                        max_tokens=1500
+                        max_tokens=8000
                     )
                     
                     # Save to session state
@@ -16023,7 +16023,7 @@ Be specific, data-driven, and focus on actionable network strategies that levera
                         system_role="senior network scientist and graph analytics expert with 10+ years of experience in social network analysis, organizational network mapping, and complex systems. You specialize in translating network topology into actionable business strategies for influence, optimization, and resilience",
                         user_prompt=prompt,
                         temperature=0.7,
-                        max_tokens=1500
+                        max_tokens=8000
                     )
                     
                     # Save to session state
@@ -16713,7 +16713,7 @@ Be data-driven, specific, and focus on actionable strategies that directly addre
                         system_role="world-class customer retention strategist and churn analytics expert with deep expertise in predictive modeling, customer lifecycle management, and retention economics. You specialize in translating churn predictions into high-impact retention strategies",
                         user_prompt=prompt,
                         temperature=0.7,
-                        max_tokens=1500
+                        max_tokens=8000
                     )
                     
                     # Save to session state

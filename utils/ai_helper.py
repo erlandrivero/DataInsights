@@ -215,7 +215,7 @@ Provide insights in a clear, business-friendly format.
                 prompt,
                 generation_config=genai.GenerationConfig(
                     temperature=0.7,
-                    max_output_tokens=4000,  # Increased for comprehensive data insights
+                    max_output_tokens=8000,  # High limit to prevent truncation
                 ),
                 safety_settings=safety_settings
             )
@@ -333,7 +333,7 @@ The user asks: "{question}"
                 prompt,
                 generation_config=genai.GenerationConfig(
                     temperature=0.7,
-                    max_output_tokens=1500,
+                    max_output_tokens=8000,  # High limit to prevent truncation
                 ),
                 safety_settings=safety_settings
             )
@@ -445,7 +445,7 @@ Format as JSON array with keys: "issue", "suggestion", "reason", "code"
                 prompt,
                 generation_config=genai.GenerationConfig(
                     temperature=0.7,
-                    max_output_tokens=2000,
+                    max_output_tokens=8000,  # High limit to prevent truncation
                 ),
                 safety_settings=safety_settings
             )
@@ -490,7 +490,7 @@ Format as JSON array with keys: "issue", "suggestion", "reason", "code"
         system_role: str,
         user_prompt: str,
         temperature: float = 0.7,
-        max_tokens: int = 1500
+        max_tokens: int = 8000
     ) -> str:
         """Generate AI insights for specific modules.
         
