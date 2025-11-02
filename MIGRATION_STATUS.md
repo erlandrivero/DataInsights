@@ -10,7 +10,7 @@
 ### **1.1 Configuration Files** ✅
 - [x] Updated `.env.example` with Google API key section
 - [x] Updated `.streamlit/secrets.toml.example` with Google config
-- [x] Added Google API key to `.env` (AIzaSyCGz1YHEY89vLstj0YOp_jB0Z_tjWc2Wm4)
+- [x] Added Google API key to `.env` (key stored locally)
 - [x] Set `AI_PROVIDER=google` in `.env`
 
 ### **1.2 Requirements** ✅
