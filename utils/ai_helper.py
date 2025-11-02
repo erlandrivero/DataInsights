@@ -131,8 +131,8 @@ class AIHelper:
         # Configure Google Generative AI
         genai.configure(api_key=self.api_key)
         
-        # Initialize Gemini model
-        self.model = genai.GenerativeModel('gemini-1.5-pro')
+        # Initialize Gemini model - use latest stable version
+        self.model = genai.GenerativeModel('gemini-1.5-pro-latest')
     
     def generate_data_insights(
         self, 
