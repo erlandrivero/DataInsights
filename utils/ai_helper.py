@@ -227,7 +227,12 @@ Provide insights in a clear, business-friendly format.
             except ValueError as ve:
                 # response.text raises ValueError if no valid Part exists
                 if response.candidates and len(response.candidates) > 0:
-                    finish_reason = str(response.candidates[0].finish_reason)
+                    # Get finish reason name from enum
+                    try:
+                        finish_reason = response.candidates[0].finish_reason.name
+                    except:
+                        finish_reason = str(response.candidates[0].finish_reason)
+                    
                     if 'SAFETY' in finish_reason:
                         return "⚠️ AI response was blocked by safety filters. This dataset may contain sensitive content. Please review the data manually."
                     elif 'RECITATION' in finish_reason:
@@ -537,7 +542,11 @@ Format as JSON array with keys: "issue", "suggestion", "reason", "code"
             except ValueError:
                 # response.text raises ValueError if no valid Part exists
                 if response.candidates and len(response.candidates) > 0:
-                    finish_reason = str(response.candidates[0].finish_reason)
+                    # Get finish reason name from enum
+                    try:
+                        finish_reason = response.candidates[0].finish_reason.name
+                    except:
+                        finish_reason = str(response.candidates[0].finish_reason)
                     return f"⚠️ AI response was blocked or incomplete (finish_reason: {finish_reason}). Please try regenerating."
                 else:
                     return "⚠️ No valid response generated. Please try again."
