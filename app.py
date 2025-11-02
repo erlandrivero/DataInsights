@@ -1587,9 +1587,10 @@ def show_insights():
                 st.markdown(f"**Answer:** {result.get('answer', 'No answer provided')}")
                 
                 # Display code if available
-                if result.get('code'):
+                code = result.get('code')
+                if code and code.strip() and code.lower() not in ['none', 'null', 'undefined']:
                     with st.expander("📝 See Python Code"):
-                        st.code(result['code'], language='python')
+                        st.code(code, language='python')
                         
                         # Option to execute code
                         if st.button(f"Execute Code", key=f"exec_{i}"):
@@ -1597,7 +1598,7 @@ def show_insights():
                                 import numpy as np
                                 # Create a safe execution environment
                                 exec_globals = {'df': df, 'pd': pd, 'np': np}
-                                exec(result['code'], exec_globals)
+                                exec(code, exec_globals)
                                 
                                 # Try to get result
                                 if 'result' in exec_globals:
@@ -1608,9 +1609,10 @@ def show_insights():
                             except Exception as e:
                                 st.error(f"Error executing code: {str(e)}")
                 
-                # Display insights
-                if result.get('insights'):
-                    st.info(f"💡 **Insights:** {result['insights']}")
+                # Display insights (filter out invalid values)
+                insights = result.get('insights')
+                if insights and str(insights).strip() and str(insights).lower() not in ['none', 'null', 'undefined', 'see answer above']:
+                    st.info(f"💡 **Insights:** {insights}")
                 
                 st.divider()
         
