@@ -6949,7 +6949,7 @@ def show_ml_classification():
             st.write("**F1 Score Comparison (All Models)**")
             
             # Sort by F1 for visualization
-            f1_data = [(r['model_name'], r['f1']) for r in successful_results]
+            f1_data = [(r.get('model_name', 'Unknown'), r.get('f1', 0)) for r in successful_results]
             f1_data.sort(key=lambda x: x[1], reverse=True)
             
             models = [d[0] for d in f1_data]
@@ -6984,18 +6984,18 @@ def show_ml_classification():
             for model_result in top3:
                 metrics = ['Accuracy', 'Precision', 'Recall', 'F1', 'ROC-AUC']
                 values = [
-                    model_result['accuracy'],
-                    model_result['precision'],
-                    model_result['recall'],
-                    model_result['f1'],
-                    model_result['roc_auc'] if model_result['roc_auc'] else 0
+                    model_result.get('accuracy', 0),
+                    model_result.get('precision', 0),
+                    model_result.get('recall', 0),
+                    model_result.get('f1', 0),
+                    model_result.get('roc_auc', 0) or 0
                 ]
                 
                 fig_radar.add_trace(go.Scatterpolar(
                     r=values,
                     theta=metrics,
                     fill='toself',
-                    name=model_result['model_name']
+                    name=model_result.get('model_name', 'Unknown')
                 ))
             
             fig_radar.update_layout(
@@ -7012,10 +7012,10 @@ def show_ml_classification():
             # Box plot of CV scores
             cv_data = []
             for r in successful_results:
-                if r['cv_scores'] and len(r['cv_scores']) > 0:
+                if r.get('cv_scores') and len(r.get('cv_scores', [])) > 0:
                     for score in r['cv_scores']:
                         cv_data.append({
-                            'Model': r['model_name'],
+                            'Model': r.get('model_name', 'Unknown'),
                             'CV Score': score
                         })
             
@@ -7033,7 +7033,7 @@ def show_ml_classification():
             st.write("**Training Time Analysis**")
             
             # Sort by time
-            time_data = [(r['model_name'], r['training_time']) for r in successful_results]
+            time_data = [(r.get('model_name', 'Unknown'), r.get('training_time', 0)) for r in successful_results]
             time_data.sort(key=lambda x: x[1])
             
             models_time = [d[0] for d in time_data]
@@ -7184,7 +7184,7 @@ def show_ml_classification():
                     """
                     
                     for i, r in enumerate(successful_results_data[:3], 1):
-                        context += f"\n{i}. {r['model_name']}: F1={r['f1']:.4f}, Accuracy={r['accuracy']:.4f}"
+                        context += f"\n{i}. {r.get('model_name', 'Unknown')}: F1={r.get('f1', 0):.4f}, Accuracy={r.get('accuracy', 0):.4f}"
                     
                     prompt = f"""
                     As a senior data science consultant, analyze these machine learning results and provide:
