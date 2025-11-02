@@ -542,12 +542,16 @@ class MLTrainer:
                 
                 # Store only essential results (not the full model object)
                 results[model_name] = {
+                    'model_name': model_name,
                     'accuracy': model_result.get('accuracy'),
                     'precision': model_result.get('precision'),
                     'recall': model_result.get('recall'),
                     'f1': model_result.get('f1'),
+                    'roc_auc': model_result.get('roc_auc'),
                     'cv_scores': model_result.get('cv_scores'),
-                    'train_time': model_result.get('train_time'),
+                    'cv_mean': model_result.get('cv_mean'),
+                    'cv_std': model_result.get('cv_std'),
+                    'training_time': model_result.get('train_time', 0),  # Map train_time to training_time
                     'feature_importance': model_result.get('feature_importance')
                 }
                 

@@ -6910,15 +6910,15 @@ def show_ml_classification():
         results_data = []
         for r in successful_results:
             results_data.append({
-                'Model': r['model_name'],
-                'Accuracy': f"{r['accuracy']:.4f}",
-                'Precision': f"{r['precision']:.4f}",
-                'Recall': f"{r['recall']:.4f}",
-                'F1 Score': f"{r['f1']:.4f}",
-                'ROC-AUC': f"{r['roc_auc']:.4f}" if r['roc_auc'] else 'N/A',
-                'CV Mean': f"{r['cv_mean']:.4f}" if r['cv_mean'] else 'N/A',
-                'CV Std': f"{r['cv_std']:.4f}" if r['cv_std'] else 'N/A',
-                'Time (s)': f"{r['training_time']:.3f}"
+                'Model': r.get('model_name', 'Unknown'),
+                'Accuracy': f"{r.get('accuracy', 0):.4f}",
+                'Precision': f"{r.get('precision', 0):.4f}",
+                'Recall': f"{r.get('recall', 0):.4f}",
+                'F1 Score': f"{r.get('f1', 0):.4f}",
+                'ROC-AUC': f"{r['roc_auc']:.4f}" if r.get('roc_auc') else 'N/A',
+                'CV Mean': f"{r['cv_mean']:.4f}" if r.get('cv_mean') else 'N/A',
+                'CV Std': f"{r['cv_std']:.4f}" if r.get('cv_std') else 'N/A',
+                'Time (s)': f"{r.get('training_time', 0):.3f}"
             })
         
         results_df = pd.DataFrame(results_data)
