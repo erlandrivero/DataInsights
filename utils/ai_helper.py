@@ -215,7 +215,7 @@ Provide insights in a clear, business-friendly format.
                 prompt,
                 generation_config=genai.GenerationConfig(
                     temperature=0.7,
-                    max_output_tokens=2000,  # Increased for detailed insights
+                    max_output_tokens=4000,  # Increased for comprehensive data insights
                 ),
                 safety_settings=safety_settings
             )
