@@ -736,11 +736,12 @@ def show_analysis():
     
     df = st.session_state.data
     
-    # Generate profile if not exists
+    # Generate profile if not exists - with progress indicator
     if 'profile' not in st.session_state or not st.session_state.profile:
-        from utils.data_processor import DataProcessor
-        st.session_state.profile = DataProcessor.profile_data(df)
-        st.session_state.issues = DataProcessor.detect_data_quality_issues(df)
+        with st.spinner("📊 Analyzing dataset... Please wait..."):
+            from utils.data_processor import DataProcessor
+            st.session_state.profile = DataProcessor.profile_data(df)
+            st.session_state.issues = DataProcessor.detect_data_quality_issues(df)
     
     profile = st.session_state.profile
     issues = st.session_state.get('issues', [])
