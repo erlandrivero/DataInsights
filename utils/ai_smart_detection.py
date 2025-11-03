@@ -4,6 +4,7 @@ Uses GPT-4 to intelligently detect target columns and recommend settings
 """
 
 import pandas as pd
+import numpy as np
 import json
 import streamlit as st
 from typing import Dict, List, Optional, Tuple
