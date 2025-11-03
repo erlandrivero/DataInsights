@@ -8395,13 +8395,35 @@ def show_anomaly_detection():
     
     df = None
     
+    # Import dataset tracker
+    from utils.dataset_tracker import DatasetTracker
+    
     if data_source == "Use Loaded Dataset":
         st.success("✅ Using dataset from Data Upload section")
         df = st.session_state.data
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
+        
+        # Track dataset change
+        dataset_name = "loaded_dataset"
+        current_dataset_id = DatasetTracker.generate_dataset_id(df, dataset_name)
+        
+        # Check if dataset changed
+        stored_id = st.session_state.get('anomaly_dataset_id')
+        if DatasetTracker.check_dataset_changed(df, dataset_name, stored_id):
+            # Clear stale AI recommendations
+            DatasetTracker.clear_module_ai_cache(st.session_state, 'anomaly')
+            
+            if stored_id is not None:  # Only show message if there was a previous dataset
+                st.info("🔄 **Dataset changed!** Previous AI recommendations have been cleared. Click 'Generate AI Anomaly Analysis' to analyze the new dataset.")
+        
+        # Store current dataset ID
+        st.session_state.anomaly_dataset_id = current_dataset_id
     
     elif data_source == "Use Sample Data":
         st.info("📊 Using sample credit card transaction dataset with anomalies")
+        
+        # Track dataset change for sample data
+        dataset_name = "sample_anomaly_data"
         
         # Create sample data with normal transactions and some anomalies
         np.random.seed(42)
@@ -8457,6 +8479,17 @@ def show_anomaly_detection():
         st.write("**Sample Data Preview:**")
         st.dataframe(df.head(10), use_container_width=True)
         
+        # Track dataset change for sample data
+        current_dataset_id = DatasetTracker.generate_dataset_id(df, dataset_name)
+        stored_id = st.session_state.get('anomaly_dataset_id')
+        
+        if DatasetTracker.check_dataset_changed(df, dataset_name, stored_id):
+            DatasetTracker.clear_module_ai_cache(st.session_state, 'anomaly')
+            if stored_id is not None:
+                st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+        
+        st.session_state.anomaly_dataset_id = current_dataset_id
+        
         st.info("""
         **About this dataset:**
         - 210 credit card transactions (200 normal + 10 anomalies)
@@ -8485,6 +8518,19 @@ def show_anomaly_detection():
                 
                 st.success(f"✅ Uploaded {len(df)} rows, {len(df.columns)} columns")
                 st.dataframe(df.head(), use_container_width=True)
+                
+                # Track dataset change for uploaded data
+                dataset_name = f"uploaded_{uploaded_file.name}"
+                current_dataset_id = DatasetTracker.generate_dataset_id(df, dataset_name)
+                stored_id = st.session_state.get('anomaly_dataset_id')
+                
+                if DatasetTracker.check_dataset_changed(df, dataset_name, stored_id):
+                    DatasetTracker.clear_module_ai_cache(st.session_state, 'anomaly')
+                    if stored_id is not None:
+                        st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+                
+                st.session_state.anomaly_dataset_id = current_dataset_id
+                
             except Exception as e:
                 st.error(f"Error loading file: {str(e)}")
                 return
@@ -8531,6 +8577,12 @@ def show_anomaly_detection():
                 status.write("Generating AI analysis...")
                 status.write(f"Analyzing {len(df)} rows, {len(df.columns)} columns: {list(df.columns)}")
                 ai_recommendations = get_ai_recommendation(df, task_type='anomaly_detection')
+                
+                # Add dataset metadata to AI recommendations
+                ai_recommendations['dataset_id'] = st.session_state.get('anomaly_dataset_id', 'unknown')
+                ai_recommendations['dataset_shape'] = df.shape
+                ai_recommendations['generated_at'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
+                
                 st.session_state.anomaly_ai_recommendations = ai_recommendations
                 
                 status.update(label="✅ AI analysis complete!", state="complete")
@@ -8542,6 +8594,18 @@ def show_anomaly_detection():
     # Show AI recommendations if available
     if 'anomaly_ai_recommendations' in st.session_state:
         ai_recs = st.session_state.anomaly_ai_recommendations
+        
+        # Validate AI recommendations match current dataset
+        stored_ai_dataset_id = ai_recs.get('dataset_id')
+        current_dataset_id = st.session_state.get('anomaly_dataset_id')
+        
+        if stored_ai_dataset_id and current_dataset_id and stored_ai_dataset_id != current_dataset_id:
+            st.warning("⚠️ **Dataset Mismatch Detected!** The AI recommendations below were generated for a different dataset. Please regenerate the analysis.")
+            with st.expander("📋 AI Recommendation Details"):
+                st.write(f"**Generated for dataset:** `{stored_ai_dataset_id}`")
+                st.write(f"**Current dataset:** `{current_dataset_id}`")
+                st.write(f"**Generated at:** {ai_recs.get('generated_at', 'Unknown')}")
+                st.write(f"**Dataset shape:** {ai_recs.get('dataset_shape', 'Unknown')}")
         
         # Performance Risk Assessment
         performance_risk = ai_recs.get('performance_risk', 'Low')
