@@ -13284,6 +13284,10 @@ def show_recommendation_systems():
     
     # Use Loaded Dataset
     if data_source == "Use Loaded Dataset" and has_loaded_data:
+        # Clear AI analysis cache when switching to different dataset
+        if 'rec_ai_analysis' in st.session_state:
+            del st.session_state.rec_ai_analysis
+        
         df = st.session_state.data
         st.success("✅ Using dataset from Data Upload section")
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
@@ -13291,6 +13295,10 @@ def show_recommendation_systems():
     
     elif data_source == "Sample Movie Ratings":
         if st.button("📥 Load Sample Movie Ratings", type="primary"):
+            # Clear AI analysis cache when loading new data
+            if 'rec_ai_analysis' in st.session_state:
+                del st.session_state.rec_ai_analysis
+            
             # Generate sample movie ratings
             np.random.seed(42)
             
@@ -13383,7 +13391,13 @@ def show_recommendation_systems():
                     ai_analysis = get_ai_recommendation(analysis_data, task_type='recommendation_system')
                     st.session_state.rec_ai_analysis = ai_analysis
                     
-                    status.update(label="✅ AI analysis complete!", state="complete")
+                    # Check if fallback was used
+                    if ai_analysis.get('using_fallback', False):
+                        status.update(label="⚠️ Using rule-based analysis (AI unavailable)", state="complete")
+                        ai_error = ai_analysis.get('ai_error', 'Unknown error')
+                        st.warning(f"AI analysis failed: {ai_error}. Using rule-based detection.")
+                    else:
+                        status.update(label="✅ AI analysis complete!", state="complete")
                     st.rerun()
                 except Exception as e:
                     status.update(label="❌ Analysis failed", state="error")
