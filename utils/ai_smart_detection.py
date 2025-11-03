@@ -246,58 +246,86 @@ Please analyze this dataset and provide ML Classification recommendations in the
 }}
 
 CRITICAL Guidelines for ML Classification:
-1. DATA SUITABILITY: STRICT assessment if dataset is appropriate for classification
-   - Excellent: Clear categorical target (2-20 classes), balanced classes, sufficient samples per class (50+)
-   - Good: Categorical target with minor imbalance, adequate samples (20+ per class)
-   - Fair: High class imbalance (>10:1) OR many classes (>50) OR small samples (<20 per class)
-   - Poor: **NUMERIC/CONTINUOUS target**, only 1 class, >200 classes, <10 total samples per class
+1. BUSINESS LOGIC VALIDATION - MOST IMPORTANT:
+   **Assess if the prediction task makes real-world sense:**
+   
+   RED FLAGS (Mark as "Poor" or "Fair"):
+   - Predicting METADATA from outcomes (e.g., "country" from purchases, "customer_id" from behavior)
+   - Reverse causality (predicting cause from effect when effect comes first)
+   - Pre-determined attributes (age, gender, location from transaction data)
+   - Information that's already known at decision time
+   - No practical use case (who would use this prediction?)
+   
+   GOOD TARGETS (Actual outcomes to predict):
+   - Future behavior: churn, purchase, click, conversion
+   - Status changes: approval, rejection, success, failure
+   - Risk categories: fraud, default, high-value
+   - Quality outcomes: defect, satisfaction, rating
+   - Disease diagnosis, sentiment, intent
+   
+   EXAMPLES:
+   - ❌ BAD: Predict "country" from product purchases (country is metadata, not outcome)
+   - ✅ GOOD: Predict "churn" from customer behavior (churn is future outcome)
+   - ❌ BAD: Predict "customer_id" from transactions (ID is identifier, not outcome)
+   - ✅ GOOD: Predict "fraud" from transaction patterns (fraud is what we want to detect)
+   
+   If target appears to be metadata/identifier rather than outcome:
+   → Mark as "Poor" or "Fair"
+   → Explain: "Target appears to be metadata/identifier rather than a meaningful outcome to predict"
+   → Suggest better analysis: "Consider using this data for clustering, recommendation, or predicting actual outcomes"
 
-2. TARGET COLUMN VALIDATION - CRITICAL:
+2. DATA SUITABILITY: Technical assessment after business logic check
+   - Excellent: Clear categorical outcome (2-20 classes), balanced classes, sufficient samples per class (50+), MAKES BUSINESS SENSE
+   - Good: Categorical outcome with minor imbalance, adequate samples (20+ per class), MAKES BUSINESS SENSE
+   - Fair: High class imbalance (>10:1) OR many classes (>50) OR small samples (<20 per class) OR questionable business logic
+   - Poor: **NUMERIC/CONTINUOUS target**, only 1 class, >200 classes, <10 samples per class, OR **NO BUSINESS VALUE**
+
+3. TARGET COLUMN VALIDATION - CRITICAL:
    **NUMERIC/CONTINUOUS targets are POOR for classification:**
    - If target has >50 unique values AND values look continuous (prices, quantities, measurements)
      → Mark as "Poor" and suggest "Use ML Regression instead"
    - Examples of POOR classification targets: quantity, price, amount, revenue, age, temperature
-   - Examples of GOOD classification targets: country, category, status, type, species, label
+   - Examples of GOOD classification targets: churn, fraud, category, status, type, disease, sentiment
    
-3. TARGET COLUMN SELECTION:
-   - PREFER: Categorical columns with meaningful classes (country, category, status, species)
+4. TARGET COLUMN SELECTION:
+   - PREFER: Categorical outcomes (not metadata) with meaningful classes
    - Look for columns with: 2-50 unique values, clear categorical nature
    - **CHECK IF NUMERIC**: If column has all numeric values → likely continuous → POOR for classification
-   - **AVOID**: ID columns, timestamps, continuous numeric columns, unique identifiers
+   - **AVOID**: ID columns, timestamps, continuous numeric columns, metadata identifiers
    
-4. CLASS DISTRIBUTION ANALYSIS:
+5. CLASS DISTRIBUTION ANALYSIS:
    - Count samples per class
    - Severe imbalance (>100:1): Mark as Fair, recommend SMOTE or downsampling
    - Too many rare classes: Suggest filtering or grouping classes
    
-5. PERFORMANCE RISK: Assess based on dataset size and complexity
+6. PERFORMANCE RISK: Assess based on dataset size and complexity
    - Low: <10K rows, <20 features, 2-10 classes
    - Medium: 10K-100K rows, 20-100 features, 10-50 classes
    - High: >100K rows, >100 features, >50 classes
    
-6. FEATURES TO EXCLUDE:
+7. FEATURES TO EXCLUDE:
    - ID columns (unique per row)
    - Timestamps (unless creating time-based features)
    - High cardinality categoricals (>100 unique values)
    - Constant columns (all same value)
    - Target leakage columns (directly reveal answer)
    
-7. CV FOLDS RECOMMENDATION:
+8. CV FOLDS RECOMMENDATION:
    - Small datasets (<500): 3-fold
    - Medium datasets (500-5K): 5-fold
    - Large datasets (>5K): 3-fold (for speed)
    - Many classes (>20): 3-fold (for stratification)
    
-8. SMOTE RECOMMENDATION:
+9. SMOTE RECOMMENDATION:
    - Recommend for Moderate/Severe imbalance (>10:1 ratio)
    - Not recommended if: <100 total samples, classes naturally imbalanced
    
-9. PERFORMANCE CONSTRAINTS: Consider Streamlit Cloud limitations (1GB RAM, CPU timeout)
+10. PERFORMANCE CONSTRAINTS: Consider Streamlit Cloud limitations (1GB RAM, CPU timeout)
    - >100K rows: Recommend sampling to 50K
    - >100 features: Recommend feature selection or PCA
    - >50 classes: Recommend grouping rare classes
 
-10. BE SPECIFIC: If data is Poor, clearly explain WHY and what would make it suitable
+11. BE SPECIFIC: If data is Poor/Fair, explain WHY (technical AND business logic) and what would make it suitable
 
 Provide ONLY the JSON response, no additional text."""
             elif task_type == 'regression':
@@ -1114,13 +1142,31 @@ Provide ONLY the JSON response, no additional text."""
         except Exception as e:
             # Fallback to rule-based detection on any error
             error_msg = str(e)
-            print(f"⚠️ AI detection error for {task_type}: {error_msg}")
+            error_type = type(e).__name__
+            
+            # Log detailed error for debugging
+            print(f"⚠️ AI detection error for {task_type}:")
+            print(f"   Error Type: {error_type}")
+            print(f"   Error Message: {error_msg}")
+            
+            # Provide user-friendly error message
+            if "API key" in error_msg or "authentication" in error_msg.lower():
+                user_msg = "Google API key is invalid or unauthorized"
+            elif "quota" in error_msg.lower() or "rate" in error_msg.lower():
+                user_msg = "Google API rate limit exceeded - try again later"
+            elif "timeout" in error_msg.lower():
+                user_msg = "Google API request timed out"
+            elif "json" in error_msg.lower() or "parse" in error_msg.lower():
+                user_msg = "AI response format error - unable to parse JSON"
+            else:
+                user_msg = f"AI API error: {error_msg[:100]}"
             
             # Add error info to fallback results so UI can display it
             fallback_result = AISmartDetection._fallback_detection(df, task_type)
             fallback_result['ai_error'] = error_msg
+            fallback_result['ai_error_type'] = error_type
             fallback_result['using_fallback'] = True
-            fallback_result['fallback_reason'] = 'AI API call failed - using rule-based detection'
+            fallback_result['fallback_reason'] = user_msg
             
             return fallback_result
     
