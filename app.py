@@ -11193,197 +11193,11 @@ def show_ab_testing():
         st.session_state.ab_dataset_id = current_dataset_id
         st.session_state.ab_source_df = df  # Store for AI analysis before column selection
         
-        # Smart column detection using ColumnDetector
-        from utils.column_detector import ColumnDetector
-        suggestions = ColumnDetector.get_ab_testing_column_suggestions(df)
+        # Show preview
+        with st.expander("👁️ Preview Dataset", expanded=False):
+            st.dataframe(df.head(20), use_container_width=True)
         
-        st.info("💡 **Smart Detection:** Select columns for your A/B test")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            # Get suggested group column
-            group_default = suggestions['group']
-            group_idx = list(df.columns).index(group_default)
-            
-            group_col = st.selectbox(
-                "Group Column (A/B variant):",
-                df.columns,
-                index=group_idx,
-                key="ab_group_col",
-                help="Column that identifies control vs treatment"
-            )
-            
-            # Real-time validation
-            if group_col:
-                n_groups = df[group_col].nunique()
-                groups = df[group_col].unique()
-                
-                issues = []
-                warnings = []
-                recommendations = []
-                
-                # Check 1: Must have exactly 2 groups (CRITICAL for > 10, WARNING for 3-10)
-                if n_groups < 2:
-                    issues.append(f"❌ Only {n_groups} group found. A/B testing requires exactly 2 groups")
-                    recommendations.append("Select a column with control and treatment groups")
-                elif n_groups > 10:
-                    issues.append(f"❌ {n_groups:,} groups found. This will cause errors - A/B testing requires 2 groups")
-                    recommendations.append("This column is not suitable for A/B testing. Select a different column with 2-3 groups")
-                elif n_groups > 2:
-                    warnings.append(f"⚠️ {n_groups} groups found. Standard A/B testing uses 2 groups")
-                    recommendations.append("Consider: Filter to 2 groups or use multi-variant testing")
-                
-                # Check 2: Group size balance
-                if n_groups == 2:
-                    group_counts = df[group_col].value_counts()
-                    group_sizes = group_counts.values
-                    imbalance_ratio = max(group_sizes) / min(group_sizes) if min(group_sizes) > 0 else float('inf')
-                    
-                    if imbalance_ratio > 10:
-                        warnings.append(f"⚠️ Severe group imbalance: {imbalance_ratio:.1f}:1 ratio")
-                        recommendations.append("Imbalanced groups may reduce statistical power")
-                    elif imbalance_ratio > 3:
-                        warnings.append(f"⚠️ Group imbalance: {imbalance_ratio:.1f}:1 ratio")
-                
-                # Check 3: Sample size per group
-                if n_groups == 2:
-                    min_group_size = group_counts.min()
-                    if min_group_size < 30:
-                        warnings.append(f"⚠️ Smallest group has only {min_group_size} samples (recommend 100+ per group)")
-                        recommendations.append("Small samples may not detect small effect sizes")
-                
-                # Display validation results
-                data_compatible = len(issues) == 0
-                
-                # Store validation state in session state
-                st.session_state.ab_data_compatible = data_compatible
-                st.session_state.ab_issues = issues
-                st.session_state.ab_warnings = warnings
-                
-                if len(issues) > 0:
-                    st.error("**🚨 NOT SUITABLE FOR A/B TESTING**")
-                    for issue in issues:
-                        st.write(issue)
-                    if recommendations:
-                        st.info("**💡 Recommendations:**")
-                        for rec in recommendations:
-                            st.write(f"• {rec}")
-                elif len(warnings) > 0:
-                    st.warning("**⚠️ A/B TESTING POSSIBLE (with warnings)**")
-                    for warning in warnings:
-                        st.write(warning)
-                    if recommendations:
-                        with st.expander("💡 Recommendations"):
-                            for rec in recommendations:
-                                st.write(f"• {rec}")
-                else:
-                    st.success("**✅ EXCELLENT FOR A/B TESTING**")
-                    st.write(f"✓ {n_groups} groups: {list(groups)}")
-                
-                st.caption(f"🔍 Groups: {list(groups[:5])}")
-        
-        with col2:
-            # Get suggested metric column
-            metric_default = suggestions['metric']
-            metric_idx = list(df.columns).index(metric_default)
-            
-            metric_col = st.selectbox(
-                "Metric Column:",
-                df.columns,
-                index=metric_idx,
-                key="ab_metric_col",
-                help="Numeric column to compare (e.g., 'conversion', 'revenue', 'clicks')"
-            )
-        
-        # Validate group column has exactly 2 groups
-        # Check if data is compatible (no critical issues)
-        button_disabled = not st.session_state.get('ab_data_compatible', True)
-        
-        if st.button("📊 Validate & Process Data", type="primary", disabled=button_disabled):
-            groups = df[group_col].unique()
-            
-            if len(groups) != 2:
-                st.error(f"""
-                ❌ **Invalid Group Column**
-                
-                Group column must have exactly 2 unique values for A/B testing.
-                Found: {len(groups)} unique values: {list(groups)}
-                
-                **Please select a column with 2 groups** (e.g., 'A' and 'B', 'control' and 'treatment')
-                """)
-                st.stop()
-            
-            # Check if metric is numeric
-            if not pd.api.types.is_numeric_dtype(df[metric_col]):
-                st.error(f"""
-                ❌ **Invalid Metric Column**
-                
-                Metric column '{metric_col}' must be numeric!
-                
-                **Please select a numeric column**
-                """)
-                st.stop()
-            
-            # Store processed data
-            processed_data = df[[group_col, metric_col]].copy()
-            st.session_state.ab_test_data = processed_data
-            st.session_state.ab_test_groups = {
-                'control': groups[0],
-                'treatment': groups[1],
-                'group_col': group_col,
-                'metric_col': metric_col
-            }
-            
-            # Check for Sample Ratio Mismatch (SRM)
-            test_data = st.session_state.ab_test_data
-            control_size = len(test_data[test_data[group_col] == groups[0]])
-            treatment_size = len(test_data[test_data[group_col] == groups[1]])
-            total = control_size + treatment_size
-            
-            # Chi-square test for 50/50 split
-            expected_size = total / 2
-            chi_square = ((control_size - expected_size)**2 / expected_size + 
-                         (treatment_size - expected_size)**2 / expected_size)
-            
-            # Calculate p-value from chi-square distribution (df=1)
-            from scipy import stats
-            p_value = 1 - stats.chi2.cdf(chi_square, df=1)
-            
-            # Store SRM results
-            st.session_state.ab_srm_check = {
-                'control_size': control_size,
-                'treatment_size': treatment_size,
-                'expected_ratio': 0.5,
-                'chi_square': chi_square,
-                'p_value': p_value,
-                'has_srm': p_value < 0.01
-            }
-            
-            st.success("✅ Data validated and ready for A/B testing!")
-            st.info(f"**Groups:** {groups[0]} vs {groups[1]} | **Metric:** {metric_col}")
-            
-            # Show SRM warning if detected
-            if p_value < 0.01:
-                st.warning(f"""
-                ⚠️ **Sample Ratio Mismatch (SRM) Detected!**
-                
-                - **Control Size:** {control_size:,} ({control_size/total*100:.1f}%)
-                - **Treatment Size:** {treatment_size:,} ({treatment_size/total*100:.1f}%)
-                - **Expected:** 50/50 split
-                - **Chi-square:** {chi_square:.2f}
-                - **P-value:** {p_value:.6f}
-                
-                ⚠️ This suggests a data quality issue. The traffic split is significantly different from 50/50, which may indicate:
-                - Implementation bugs in randomization
-                - Data collection issues
-                - Sample selection bias
-                
-                **Recommendation:** Investigate before running tests, as results may be unreliable.
-                """)
-            else:
-                st.info(f"✅ **No SRM Detected** - Sample sizes are balanced (p={p_value:.4f})")
-            
-            st.rerun()
+        st.info("👇 **Next Step:** Generate AI Analysis below to get intelligent column recommendations")
     
     elif data_source == "Sample A/B Test Data":
         if st.button("📥 Load Sample A/B Test Data", type="primary"):
@@ -11858,9 +11672,219 @@ def show_ab_testing():
                 st.rerun()
             
             st.divider()
+    
+    # Section 2.5: Column Selection & Validation (for Use Loaded Dataset only)
+    if 'ab_source_df' in st.session_state and 'ab_test_data' not in st.session_state:
+        st.subheader("📋 3. Select Columns for A/B Test")
         
-        # Section 3: Run A/B Test Analysis
-        st.subheader("📊 3. Run A/B Test Analysis")
+        df = st.session_state.ab_source_df
+        
+        # Get AI recommendations if available
+        from utils.column_detector import ColumnDetector
+        suggestions = ColumnDetector.get_ab_testing_column_suggestions(df)
+        
+        # Override with AI recommendations if available
+        if 'ab_ai_recommendations' in st.session_state:
+            ai_rec = st.session_state.ab_ai_recommendations
+            if ai_rec.get('recommended_group_column'):
+                suggestions['group'] = ai_rec['recommended_group_column']
+            if ai_rec.get('recommended_metric_column'):
+                suggestions['metric'] = ai_rec['recommended_metric_column']
+            st.info("🤖 **AI has preset the columns below based on your data.** You can change them if needed.")
+        else:
+            st.info("💡 **Smart Detection:** Select columns for your A/B test")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            # Get suggested group column
+            group_default = suggestions['group']
+            group_idx = list(df.columns).index(group_default)
+            
+            group_col = st.selectbox(
+                "Group Column (A/B variant):",
+                df.columns,
+                index=group_idx,
+                key="ab_group_col",
+                help="Column that identifies control vs treatment"
+            )
+            
+            # Real-time validation
+            if group_col:
+                n_groups = df[group_col].nunique()
+                groups = df[group_col].unique()
+                
+                issues = []
+                warnings = []
+                recommendations = []
+                
+                # Check 1: Must have exactly 2 groups (CRITICAL for > 10, WARNING for 3-10)
+                if n_groups < 2:
+                    issues.append(f"❌ Only {n_groups} group found. A/B testing requires exactly 2 groups")
+                    recommendations.append("Select a column with control and treatment groups")
+                elif n_groups > 10:
+                    issues.append(f"❌ {n_groups:,} groups found. This will cause errors - A/B testing requires 2 groups")
+                    recommendations.append("This column is not suitable for A/B testing. Select a different column with 2-3 groups")
+                elif n_groups > 2:
+                    warnings.append(f"⚠️ {n_groups} groups found. Standard A/B testing uses 2 groups")
+                    recommendations.append("Consider: Filter to 2 groups or use multi-variant testing")
+                
+                # Check 2: Group size balance
+                if n_groups == 2:
+                    group_counts = df[group_col].value_counts()
+                    group_sizes = group_counts.values
+                    imbalance_ratio = max(group_sizes) / min(group_sizes) if min(group_sizes) > 0 else float('inf')
+                    
+                    if imbalance_ratio > 10:
+                        warnings.append(f"⚠️ Severe group imbalance: {imbalance_ratio:.1f}:1 ratio")
+                        recommendations.append("Imbalanced groups may reduce statistical power")
+                    elif imbalance_ratio > 3:
+                        warnings.append(f"⚠️ Group imbalance: {imbalance_ratio:.1f}:1 ratio")
+                
+                # Check 3: Sample size per group
+                if n_groups == 2:
+                    min_group_size = group_counts.min()
+                    if min_group_size < 30:
+                        warnings.append(f"⚠️ Smallest group has only {min_group_size} samples (recommend 100+ per group)")
+                        recommendations.append("Small samples may not detect small effect sizes")
+                
+                # Display validation results
+                data_compatible = len(issues) == 0
+                
+                # Store validation state in session state
+                st.session_state.ab_data_compatible = data_compatible
+                st.session_state.ab_issues = issues
+                st.session_state.ab_warnings = warnings
+                
+                if len(issues) > 0:
+                    st.error("**🚨 NOT SUITABLE FOR A/B TESTING**")
+                    for issue in issues:
+                        st.write(issue)
+                    if recommendations:
+                        st.info("**💡 Recommendations:**")
+                        for rec in recommendations:
+                            st.write(f"• {rec}")
+                elif len(warnings) > 0:
+                    st.warning("**⚠️ A/B TESTING POSSIBLE (with warnings)**")
+                    for warning in warnings:
+                        st.write(warning)
+                    if recommendations:
+                        with st.expander("💡 Recommendations"):
+                            for rec in recommendations:
+                                st.write(f"• {rec}")
+                else:
+                    st.success("**✅ EXCELLENT FOR A/B TESTING**")
+                    st.write(f"✓ {n_groups} groups: {list(groups)}")
+                
+                st.caption(f"🔍 Groups: {list(groups[:5])}")
+        
+        with col2:
+            # Get suggested metric column
+            metric_default = suggestions['metric']
+            metric_idx = list(df.columns).index(metric_default)
+            
+            metric_col = st.selectbox(
+                "Metric Column:",
+                df.columns,
+                index=metric_idx,
+                key="ab_metric_col",
+                help="Numeric column to compare (e.g., 'conversion', 'revenue', 'clicks')"
+            )
+        
+        # Validate group column has exactly 2 groups
+        # Check if data is compatible (no critical issues)
+        button_disabled = not st.session_state.get('ab_data_compatible', True)
+        
+        if st.button("📊 Validate & Process Data", type="primary", disabled=button_disabled):
+            import pandas as pd
+            groups = df[group_col].unique()
+            
+            if len(groups) != 2:
+                st.error(f"""
+                ❌ **Invalid Group Column**
+                
+                Group column must have exactly 2 unique values for A/B testing.
+                Found: {len(groups)} unique values: {list(groups)}
+                
+                **Please select a column with 2 groups** (e.g., 'A' and 'B', 'control' and 'treatment')
+                """)
+                st.stop()
+            
+            # Check if metric is numeric
+            if not pd.api.types.is_numeric_dtype(df[metric_col]):
+                st.error(f"""
+                ❌ **Invalid Metric Column**
+                
+                Metric column '{metric_col}' must be numeric!
+                
+                **Please select a numeric column**
+                """)
+                st.stop()
+            
+            # Store processed data
+            processed_data = df[[group_col, metric_col]].copy()
+            st.session_state.ab_test_data = processed_data
+            st.session_state.ab_test_groups = {
+                'control': groups[0],
+                'treatment': groups[1],
+                'group_col': group_col,
+                'metric_col': metric_col
+            }
+            
+            # Check for Sample Ratio Mismatch (SRM)
+            test_data = st.session_state.ab_test_data
+            control_size = len(test_data[test_data[group_col] == groups[0]])
+            treatment_size = len(test_data[test_data[group_col] == groups[1]])
+            total = control_size + treatment_size
+            
+            # Chi-square test for 50/50 split
+            expected_size = total / 2
+            chi_square = ((control_size - expected_size)**2 / expected_size + 
+                         (treatment_size - expected_size)**2 / expected_size)
+            
+            # Calculate p-value from chi-square distribution (df=1)
+            from scipy import stats
+            p_value = 1 - stats.chi2.cdf(chi_square, df=1)
+            
+            # Store SRM results
+            st.session_state.ab_srm_check = {
+                'control_size': control_size,
+                'treatment_size': treatment_size,
+                'expected_ratio': 0.5,
+                'chi_square': chi_square,
+                'p_value': p_value,
+                'has_srm': p_value < 0.01
+            }
+            
+            st.success("✅ Data validated and ready for A/B testing!")
+            st.info(f"**Groups:** {groups[0]} vs {groups[1]} | **Metric:** {metric_col}")
+            
+            # Show SRM warning if detected
+            if p_value < 0.01:
+                st.warning(f"""
+                ⚠️ **Sample Ratio Mismatch (SRM) Detected!**
+                
+                - **Control Size:** {control_size:,} ({control_size/total*100:.1f}%)
+                - **Treatment Size:** {treatment_size:,} ({treatment_size/total*100:.1f}%)
+                - **Expected:** 50/50 split
+                - **Chi-square:** {chi_square:.2f}
+                - **P-value:** {p_value:.6f}
+                
+                ⚠️ This suggests a data quality issue. The traffic split is significantly different from 50/50, which may indicate:
+                - Implementation bugs in randomization
+                - Data collection issues
+                - Sample selection bias
+                
+                **Recommendation:** Investigate before running tests, as results may be unreliable.
+                """)
+            else:
+                st.info(f"✅ **No SRM Detected** - Sample sizes are balanced (p={p_value:.4f})")
+            
+            st.rerun()
+    
+    # Section 3: Run A/B Test Analysis (only if ab_test_data exists)
+    if 'ab_test_data' in st.session_state:
+        st.divider()
+        st.subheader("📊 4. Run A/B Test Analysis")
         
         test_data = st.session_state.ab_test_data
         groups_info = st.session_state.ab_test_groups
