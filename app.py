@@ -14894,6 +14894,7 @@ def show_geospatial_analysis():
     
     # Column Selection Section (AFTER AI Analysis) - Only for "Use Loaded Dataset"
     if 'geo_source_df' in st.session_state:
+        import pandas as pd
         st.divider()
         st.subheader("📋 Select Columns for Geospatial Analysis")
         
