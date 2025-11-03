@@ -13031,12 +13031,11 @@ def show_cohort_analysis():
     if ai_recs.get('data_suitability', 'Unknown') == 'Poor':
         return  # Already stopped above, but double-check
     
-    # Column Selection Section (AFTER AI Analysis)
-    st.divider()
-    st.subheader("📋 Select Columns for Cohort Analysis")
-    
-    # Get source dataframe
+    # Column Selection Section (AFTER AI Analysis) - Only for "Use Loaded Dataset"
     if 'cohort_source_df' in st.session_state:
+        import pandas as pd
+        st.divider()
+        st.subheader("📋 Select Columns for Cohort Analysis")
         df = st.session_state.cohort_source_df
         
         # Show data preview
@@ -13169,9 +13168,6 @@ def show_cohort_analysis():
             st.success("✅ Data processed!")
             st.info(f"📊 {user_data['user_id'].nunique()} unique users")
             st.rerun()
-    else:
-        st.info("👆 Select a data source above to continue")
-        return
     
     # Check if data has been processed (from any source)
     if 'cohort_data' not in st.session_state:
