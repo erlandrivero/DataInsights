@@ -11171,11 +11171,26 @@ def show_ab_testing():
         key="ab_data_source"
     )
     
+    # Import dataset tracker
+    from utils.dataset_tracker import DatasetTracker
+    
     # Use Loaded Dataset
     if data_source == "Use Loaded Dataset" and has_loaded_data:
         df = st.session_state.data
         st.success("✅ Using dataset from Data Upload section")
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
+        
+        # Track dataset change
+        dataset_name = "loaded_dataset"
+        current_dataset_id = DatasetTracker.generate_dataset_id(df, dataset_name)
+        stored_id = st.session_state.get('ab_dataset_id')
+        
+        if DatasetTracker.check_dataset_changed(df, dataset_name, stored_id):
+            DatasetTracker.clear_module_ai_cache(st.session_state, 'ab')
+            if stored_id is not None:
+                st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+        
+        st.session_state.ab_dataset_id = current_dataset_id
         
         # Smart column detection using ColumnDetector
         from utils.column_detector import ColumnDetector
@@ -11309,7 +11324,8 @@ def show_ab_testing():
                 st.stop()
             
             # Store processed data
-            st.session_state.ab_test_data = df[[group_col, metric_col]].copy()
+            processed_data = df[[group_col, metric_col]].copy()
+            st.session_state.ab_test_data = processed_data
             st.session_state.ab_test_groups = {
                 'control': groups[0],
                 'treatment': groups[1],
@@ -11370,6 +11386,7 @@ def show_ab_testing():
     
     elif data_source == "Sample A/B Test Data":
         if st.button("📥 Load Sample A/B Test Data", type="primary"):
+            import pandas as pd
             # Generate realistic A/B test data
             np.random.seed(42)
             
@@ -11398,6 +11415,17 @@ def show_ab_testing():
             
             sample_data = pd.concat([control_data, treatment_data], ignore_index=True)
             
+            # Track dataset change
+            dataset_name = "sample_ab_test_data"
+            current_dataset_id = DatasetTracker.generate_dataset_id(sample_data, dataset_name)
+            stored_id = st.session_state.get('ab_dataset_id')
+            
+            if DatasetTracker.check_dataset_changed(sample_data, dataset_name, stored_id):
+                DatasetTracker.clear_module_ai_cache(st.session_state, 'ab')
+                if stored_id is not None:
+                    st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+            
+            st.session_state.ab_dataset_id = current_dataset_id
             st.session_state.ab_test_data = sample_data
             st.session_state.ab_test_groups = {
                 'control': 'Control',
@@ -11412,6 +11440,7 @@ def show_ab_testing():
         uploaded_file = st.file_uploader("Upload A/B test CSV", type=['csv'], key="ab_upload")
         
         if uploaded_file:
+            import pandas as pd
             df = pd.read_csv(uploaded_file)
             st.dataframe(df.head(), use_container_width=True)
             
@@ -11424,7 +11453,20 @@ def show_ab_testing():
             if st.button("Process Data", type="primary", key="ab_process_upload"):
                 groups = df[group_col].unique()
                 if len(groups) == 2:
-                    st.session_state.ab_test_data = df[[group_col, metric_col]].copy()
+                    processed_data = df[[group_col, metric_col]].copy()
+                    
+                    # Track dataset change
+                    dataset_name = f"uploaded_{uploaded_file.name}"
+                    current_dataset_id = DatasetTracker.generate_dataset_id(processed_data, dataset_name)
+                    stored_id = st.session_state.get('ab_dataset_id')
+                    
+                    if DatasetTracker.check_dataset_changed(processed_data, dataset_name, stored_id):
+                        DatasetTracker.clear_module_ai_cache(st.session_state, 'ab')
+                        if stored_id is not None:
+                            st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+                    
+                    st.session_state.ab_dataset_id = current_dataset_id
+                    st.session_state.ab_test_data = processed_data
                     st.session_state.ab_test_groups = {
                         'control': groups[0],
                         'treatment': groups[1],
@@ -11679,11 +11721,17 @@ def show_ab_testing():
                     from utils.ai_smart_detection import AISmartDetection
                     
                     # Get AI recommendations
+                    import pandas as pd
                     test_data = st.session_state.ab_test_data
                     recommendations = AISmartDetection.analyze_dataset_for_ml(
                         df=test_data.copy(),
                         task_type='ab_testing'
                     )
+                    
+                    # Add dataset metadata
+                    recommendations['dataset_id'] = st.session_state.get('ab_dataset_id', 'unknown')
+                    recommendations['dataset_shape'] = test_data.shape
+                    recommendations['generated_at'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
                     
                     # Store in session state
                     st.session_state.ab_ai_recommendations = recommendations
@@ -11692,6 +11740,14 @@ def show_ab_testing():
         # Display AI recommendations if available
         if 'ab_ai_recommendations' in st.session_state:
             rec = st.session_state.ab_ai_recommendations
+            
+            # Check for dataset mismatch
+            current_dataset_id = st.session_state.get('ab_dataset_id', 'unknown')
+            stored_dataset_id = rec.get('dataset_id', 'unknown')
+            
+            if current_dataset_id != stored_dataset_id and stored_dataset_id != 'unknown':
+                st.warning("⚠️ **Dataset Mismatch Detected!**")
+                st.info(f"AI recommendations were generated for a different dataset. Click 'Regenerate Analysis' below.")
             
             # Performance Risk Badge
             risk_colors = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}

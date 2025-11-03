@@ -91,7 +91,8 @@ class DatasetTracker:
             'datacleaning_ai_recommendations',
             'geo_ai_analysis',
             'rec_ai_analysis',
-            'cohort_ai_analysis'
+            'cohort_ai_analysis',
+            'ab_ai_recommendations'
         ]
         
         for key in ai_cache_keys:
