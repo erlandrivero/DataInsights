@@ -13300,41 +13300,19 @@ def show_recommendation_systems():
     
     # Generate AI Analysis Button - Only show if not already done
     if 'rec_ai_analysis' not in st.session_state:
-        if st.button("🔍 Generate AI Recommendation Analysis", type="primary", use_container_width=True, key="rec_ai_btn"):
-            # Immediate feedback
-            processing_placeholder = st.empty()
-            processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
-            
-            with st.status("🤖 Analyzing dataset for Recommendation Systems...", expanded=False) as status:
-                try:
-                    processing_placeholder.empty()
-                    
-                    import time
-                    from utils.ai_smart_detection import get_ai_recommendation
-                    
-                    status.write("Analyzing data structure and quality...")
-                    time.sleep(0.5)
-                    
-                    status.write("Evaluating recommendation system suitability...")
-                    time.sleep(0.5)
-                    
-                    status.write("Generating AI recommendations...")
-                    status.write(f"Analyzing {len(analysis_data)} rows with {len(analysis_data.columns)} columns")
-                    
-                    ai_analysis = get_ai_recommendation(analysis_data, task_type='recommendation_system')
-                    st.session_state.rec_ai_analysis = ai_analysis
-                    
-                    # Check if fallback was used
-                    if ai_analysis.get('using_fallback', False):
-                        status.update(label="⚠️ Using rule-based analysis (AI unavailable)", state="complete")
-                        ai_error = ai_analysis.get('ai_error', 'Unknown error')
-                        st.warning(f"AI analysis failed: {ai_error}. Using rule-based detection.")
-                    else:
-                        status.update(label="✅ AI analysis complete!", state="complete")
-                    st.rerun()
-                except Exception as e:
-                    status.update(label="❌ Analysis failed", state="error")
-                    st.error(f"Error generating AI analysis: {str(e)}")
+        if st.button("🤖 Generate AI Recommendation Analysis", type="primary", use_container_width=True, key="rec_ai_btn"):
+            with st.spinner("🔍 AI is analyzing your dataset for recommendation systems..."):
+                from utils.ai_smart_detection import AISmartDetection
+                
+                # Get AI recommendations
+                recommendations = AISmartDetection.analyze_dataset_for_ml(
+                    df=analysis_data.copy(),
+                    task_type='recommendation_system'
+                )
+                
+                # Store in session state
+                st.session_state.rec_ai_analysis = recommendations
+                st.rerun()
     else:
         # AI Analysis exists - show results
         ai_recs = st.session_state.rec_ai_analysis
