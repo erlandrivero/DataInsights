@@ -13634,6 +13634,7 @@ Be specific, data-driven, and focus on actionable strategies that directly impac
     
     # Export
     if 'cohort_retention' in st.session_state:
+        import pandas as pd
         st.divider()
         st.subheader("📥 Export Results")
         
