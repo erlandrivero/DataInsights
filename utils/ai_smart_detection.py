@@ -721,6 +721,164 @@ Guidelines for A/B Testing:
 11. Be specific about why groups/metrics are appropriate and expected statistical power
 
 Provide ONLY the JSON response, no additional text."""
+            elif task_type == 'recommendation_system':
+                prompt = f"""You are an expert in Recommendation Systems analyzing a dataset for Collaborative Filtering.
+
+Dataset Overview:
+- Total Rows: {len(df)}
+- Total Columns: {len(df.columns)}
+- Task Type: RECOMMENDATION SYSTEM (Collaborative Filtering)
+
+Column Details:
+{json.dumps(column_info, indent=2)}
+
+Please analyze this dataset and provide Recommendation System recommendations in the following JSON format:
+{{
+    "data_suitability": "Excellent/Good/Fair/Poor",
+    "suitability_reasoning": "Detailed explanation specific to recommendation systems",
+    "alternative_suggestions": ["List of suggestions if data is Poor - DO NOT suggest other modules"],
+    "performance_risk": "Low/Medium/High",
+    "performance_warnings": ["List of performance concerns for Streamlit Cloud"],
+    "optimization_suggestions": ["List of specific suggestions to improve recommendations"],
+    "recommended_method": "User-Based Collaborative Filtering/Item-Based Collaborative Filtering",
+    "method_reasoning": "Why this method is best for this data (user/item ratio, sparsity, etc.)",
+    "recommended_min_support": 3,
+    "min_support_reasoning": "Why this minimum support value balances quality and coverage",
+    "sparsity_assessment": "Very Sparse/Sparse/Moderate/Dense",
+    "sparsity_percentage": 95.5,
+    "cold_start_severity": "High/Medium/Low",
+    "rating_distribution_analysis": "Analysis of rating patterns and scale",
+    "recommendation_method_suggestions": [
+        {{"method": "User-Based", "reason": "explanation"}},
+        {{"method": "Item-Based", "reason": "explanation"}}
+    ]
+}}
+
+Guidelines for Recommendation Systems:
+1. DATA SUITABILITY: Assess if dataset is appropriate for collaborative filtering
+   - Excellent: 50+ users, 50+ items, <99% sparsity, diverse ratings
+   - Good: 20+ users, 20+ items, reasonable sparsity
+   - Fair: 10-20 users/items, very sparse but workable
+   - Poor: <10 users OR <10 items OR all same ratings
+2. RATING VALUES: DISCRETE RATINGS (1-5, 1-10) ARE NORMAL AND CORRECT for recommendation systems
+   - Rating scales like 1-5 stars or 1-10 points are EXPECTED and IDEAL
+   - DO NOT penalize datasets for having discrete rating values
+   - DO NOT suggest using regression or classification - this is a RECOMMENDATION SYSTEM task
+   - Focus on: whether ratings have variance (not all same), reasonable scale
+3. USER COUNT: Number of unique users
+   - Minimum: 3 users (to find similarities)
+   - Good: 20+ users
+   - Excellent: 100+ users
+4. ITEM COUNT: Number of unique items
+   - Minimum: 3 items (to recommend)
+   - Good: 20+ items
+   - Excellent: 100+ items
+5. SPARSITY: Percentage of missing ratings in user-item matrix
+   - Calculate: sparsity = 100 * (1 - n_ratings / (n_users * n_items))
+   - Dense: <95% (excellent for collaborative filtering)
+   - Moderate: 95-98% (good, typical for real systems)
+   - Sparse: 98-99.5% (fair, common challenge)
+   - Very Sparse: >99.5% (poor, very challenging)
+6. METHOD RECOMMENDATION:
+   - User-Based: Better when many items, fewer users, or users have similar preferences
+   - Item-Based: Better when many users, fewer items, or more stable item catalog
+   - Consider: computational cost (user-based scales with users, item-based with items)
+7. MINIMUM SUPPORT: Min ratings required to compute similarity
+   - Very sparse data (>99%): recommend 2-3 (need enough data)
+   - Moderate sparse (95-99%): recommend 3-5 (balance quality/coverage)
+   - Dense data (<95%): recommend 5-10 (can be more selective)
+8. COLD START PROBLEM: Assess severity
+   - High: Many users/items with <2 ratings (hard to recommend)
+   - Medium: Some users/items with few ratings
+   - Low: Most users/items have 5+ ratings
+9. PERFORMANCE CONSTRAINTS: Consider Streamlit Cloud (1GB RAM, CPU timeout)
+   - High Risk: >10,000 users × >10,000 items (similarity matrix too large)
+   - Medium Risk: >1,000 users or items
+   - Low Risk: <1,000 users and items
+10. RATING ANALYSIS: Check if ratings have variance and meaningful scale
+    - Problem: All same rating (no preferences to learn)
+    - Good: Ratings use full scale with reasonable distribution
+11. DO NOT SUGGEST OTHER MODULES: Analyze THIS module's suitability only
+    - Do not recommend ML Classification or ML Regression
+    - Focus on making collaborative filtering work with this data
+    - If data is Poor, suggest improving the data FOR recommendation systems
+
+Provide ONLY the JSON response, no additional text."""
+            elif task_type == 'cohort_analysis':
+                prompt = f"""You are an expert in Cohort Analysis analyzing a dataset for retention tracking.
+
+Dataset Overview:
+- Total Rows: {len(df)}
+- Total Columns: {len(df.columns)}
+- Task Type: COHORT ANALYSIS & RETENTION TRACKING
+
+Column Details:
+{json.dumps(column_info, indent=2)}
+
+Please analyze this dataset and provide Cohort Analysis recommendations in the following JSON format:
+{{
+    "data_suitability": "Excellent/Good/Fair/Poor",
+    "suitability_reasoning": "Detailed explanation specific to cohort analysis",
+    "alternative_suggestions": ["List of suggestions if data is Poor - DO NOT suggest other modules"],
+    "performance_risk": "Low/Medium/High",
+    "performance_warnings": ["List of performance concerns for Streamlit Cloud"],
+    "optimization_suggestions": ["List of specific suggestions to improve cohort analysis"],
+    "recommended_cohort_period": "Monthly/Weekly/Daily",
+    "cohort_period_reasoning": "Why this period is best based on data timespan and activity frequency",
+    "date_range_analysis": "Analysis of temporal coverage (months/years of data)",
+    "activity_frequency_analysis": "How often users are active (daily/weekly/monthly)",
+    "user_count_assessment": "Assessment of number of unique users for cohort formation",
+    "cohort_recommendations": [
+        {{"title": "Recommendation 1", "description": "explanation"}},
+        {{"title": "Recommendation 2", "description": "explanation"}}
+    ]
+}}
+
+Guidelines for Cohort Analysis:
+1. DATA SUITABILITY: Assess if dataset is appropriate for cohort analysis
+   - Excellent: 100+ users, 6+ months data, clear signup and activity dates
+   - Good: 50+ users, 3+ months data, identifiable cohort dates
+   - Fair: 20+ users, usable temporal data but limited timespan
+   - Poor: <20 users OR <1 month data OR missing date columns
+2. USER COUNT: Number of unique users for cohort formation
+   - Minimum: 20 users (for meaningful cohorts)
+   - Good: 50+ users (5+ cohorts with 10+ users each)
+   - Excellent: 200+ users (robust cohort comparison)
+3. DATE RANGE: Temporal coverage for cohort tracking
+   - Minimum: 1 month (very limited insights)
+   - Good: 3-6 months (reasonable retention tracking)
+   - Excellent: 12+ months (long-term retention trends)
+4. COHORT PERIOD RECOMMENDATION:
+   - Daily: If 1-2 months data AND high daily activity frequency
+   - Weekly: If 3-6 months data AND moderate activity frequency
+   - Monthly: If 6+ months data OR sparse activity patterns
+   - Consider: Data timespan, activity frequency, cohort sizes
+5. ACTIVITY FREQUENCY: How often users typically interact
+   - High frequency (daily): Consider daily or weekly cohorts
+   - Medium frequency (weekly): Consider weekly or monthly cohorts
+   - Low frequency (monthly): Consider monthly cohorts
+6. DATA COLUMNS: Required columns for cohort analysis
+   - User ID: Column identifying unique users (user_id, customer_id)
+   - Cohort Date: First interaction date (signup_date, created_at, first_purchase)
+   - Activity Date: Subsequent interaction dates (activity_date, purchase_date, login_date)
+7. COHORT SIZE DISTRIBUTION: Assess if cohorts will be balanced
+   - Problem: All users in one cohort (no comparison)
+   - Good: 3-10 cohorts with 5+ users each
+   - Excellent: 10+ cohorts with 10+ users each
+8. RETENTION INSIGHTS POTENTIAL: What can be learned
+   - Excellent: Multiple cohorts over long period = trend identification
+   - Good: Few cohorts but clear retention patterns visible
+   - Fair: Limited cohorts but some retention comparison possible
+9. PERFORMANCE CONSTRAINTS: Consider Streamlit Cloud
+   - High Risk: >100,000 activity records (memory intensive)
+   - Medium Risk: 10,000-100,000 records
+   - Low Risk: <10,000 records
+10. DO NOT SUGGEST OTHER MODULES: Analyze THIS module's suitability only
+    - Do not recommend Time Series or RFM Analysis
+    - Focus on making cohort analysis work with this data
+    - If data is Poor, suggest improving data FOR cohort analysis (e.g., add more users, longer tracking period)
+
+Provide ONLY the JSON response, no additional text."""
             else:
                 prompt = f"""You are an expert data scientist analyzing a dataset for machine learning {task_type}.
 
@@ -816,7 +974,7 @@ Provide ONLY the JSON response, no additional text."""
             recommendations = json.loads(ai_response)
             
             # Validate target column exists (skip for modules without target columns)
-            if task_type not in ['anomaly_detection', 'data_cleaning', 'text_mining', 'time_series', 'ab_testing'] and recommendations.get('target_column') not in df.columns:
+            if task_type not in ['anomaly_detection', 'data_cleaning', 'text_mining', 'time_series', 'ab_testing', 'recommendation_system', 'cohort_analysis'] and recommendations.get('target_column') not in df.columns:
                 return AISmartDetection._fallback_detection(df, task_type)
             
             return recommendations
