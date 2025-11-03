@@ -12781,6 +12781,13 @@ def show_cohort_analysis():
         st.info("👆 Select a data source above to continue")
         return
     
+    # Check if data has been processed (from any source)
+    if 'cohort_data' not in st.session_state:
+        st.info("👆 Click 'Validate & Process Data' above to continue with cohort analysis")
+        return
+    
+    user_data = st.session_state.cohort_data
+    
     # Dataset overview
     st.divider()
     st.subheader("📊 Dataset Overview")
@@ -13609,6 +13616,13 @@ def show_recommendation_systems():
     else:
         st.info("👆 Select a data source above to continue")
         return
+    
+    # Check if data has been processed (from any source)
+    if 'rec_ratings' not in st.session_state:
+        st.info("👆 Click 'Process Data' above to continue with recommendation system")
+        return
+    
+    ratings_data = st.session_state.rec_ratings
     
     # Dataset overview
     st.divider()
