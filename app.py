@@ -13127,12 +13127,17 @@ def show_cohort_analysis():
         ai_activity_col = ai_recs.get('recommended_activity_date_column')
         
         if ai_cohort_col and ai_activity_col and ai_cohort_col == ai_activity_col:
-            st.warning("⚠️ **Single Date Column Detected**")
-            st.warning(f"**Issue:** AI detected only ONE date column (`{ai_cohort_col}`) in your dataset. Cohort analysis works best with TWO separate date columns:")
+            st.error("❌ **CRITICAL LIMITATION: Single Date Column Detected**")
+            st.error(f"**Issue:** Your dataset has only ONE date column (`{ai_cohort_col}`). Cohort analysis **requires** TWO separate date columns for meaningful retention tracking:")
             st.write("• **Cohort Date**: When user first joined/purchased (e.g., signup_date, registration_date)")
             st.write("• **Activity Date**: Subsequent user activities (e.g., purchase_date, activity_date)")
-            st.info("**💡 Recommendation:** Use **Sample E-commerce Data** to see proper cohort analysis with separate date columns, or add a signup/registration date column to your data.")
-            st.info("You can still proceed, but retention insights will be limited since we're using the same date for both cohort formation and activity tracking.")
+            st.error("**⚠️ Results will be severely limited:** Using the same date for both cohort formation and activity tracking defeats the purpose of cohort analysis. You won't be able to track true user retention over time.")
+            st.info("**💡 Strong Recommendation:** Use **Sample E-commerce Data** to see proper cohort analysis with separate date columns, or add a signup/registration date column to your data before proceeding.")
+            
+            # Downgrade suitability rating
+            st.divider()
+            st.warning("**📊 Revised Assessment:** ⚠️ Fair for Cohort Analysis (downgraded due to single date column limitation)")
+            st.info("While your dataset has good size and structure, the lack of separate cohort and activity date columns significantly limits the value of cohort analysis.")
     
     # Don't show configuration until AI analysis is complete
     if 'cohort_ai_analysis' not in st.session_state:
