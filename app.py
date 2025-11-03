@@ -16555,24 +16555,35 @@ def show_network_analysis():
                         st.dataframe(data, use_container_width=True)
         
         # Community detection results
-        if result.get('communities'):
+        if result.get('communities') is not None:
             st.subheader("👥 Community Detection Results")
-            communities_df = result['communities']
+            communities_list = result['communities']
             
-            n_communities = communities_df['community'].nunique()
-            st.info(f"🔍 **Detected {n_communities} communities** in the network")
+            # Convert list of sets to DataFrame
+            community_data = []
+            for comm_id, nodes in enumerate(communities_list):
+                for node in nodes:
+                    community_data.append({'node': node, 'community': comm_id})
             
-            # Show community distribution
-            col1, col2 = st.columns(2)
-            with col1:
-                community_sizes = communities_df['community'].value_counts().sort_index()
-                st.write("**Community Sizes:**")
-                st.dataframe(community_sizes.to_frame('Size'), use_container_width=True)
-            
-            with col2:
-                st.write("**Sample Nodes by Community:**")
-                sample_nodes = communities_df.groupby('community').head(3)
-                st.dataframe(sample_nodes, use_container_width=True)
+            if community_data:
+                communities_df = pd.DataFrame(community_data)
+                
+                n_communities = len(communities_list)
+                st.info(f"🔍 **Detected {n_communities} communities** in the network")
+                
+                # Show community distribution
+                col1, col2 = st.columns(2)
+                with col1:
+                    community_sizes = communities_df['community'].value_counts().sort_index()
+                    st.write("**Community Sizes:**")
+                    st.dataframe(community_sizes.to_frame('Nodes').reset_index().rename(columns={'index': 'Community'}), use_container_width=True)
+                
+                with col2:
+                    st.write("**Sample Nodes by Community:**")
+                    sample_nodes = communities_df.groupby('community').head(5)
+                    st.dataframe(sample_nodes.reset_index(drop=True), use_container_width=True)
+            else:
+                st.warning("No communities detected in the network.")
         
         # Network visualization
         st.subheader("🕸️ Network Visualization")
