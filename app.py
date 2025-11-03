@@ -4357,9 +4357,9 @@ def show_rfm_analysis():
     has_loaded_data = st.session_state.data is not None
     
     if has_loaded_data:
-        data_options = ["Use Loaded Dataset", "Upload Custom Data", "Use Sample Data"]
+        data_options = ["Use Loaded Dataset", "Use Sample Data", "Upload Custom Data"]
     else:
-        data_options = ["Upload Custom Data", "Use Sample Data"]
+        data_options = ["Use Sample Data", "Upload Custom Data"]
     
     data_source = st.radio(
         "Choose data source:",
