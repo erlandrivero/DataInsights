@@ -12556,6 +12556,12 @@ def show_cohort_analysis():
         # AI Analysis exists - show results
         ai_recs = st.session_state.cohort_ai_analysis
         
+        # Check if fallback was used
+        using_fallback = ai_recs.get('using_fallback', False)
+        if using_fallback:
+            fallback_reason = ai_recs.get('fallback_reason', 'AI analysis unavailable')
+            st.warning(f"⚠️ **Using Rule-Based Analysis:** {fallback_reason}")
+        
         # Performance Risk Assessment
         performance_risk = ai_recs.get('performance_risk', 'Low')
         risk_emoji = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}.get(performance_risk, '❓')
@@ -13385,6 +13391,12 @@ def show_recommendation_systems():
     else:
         # AI Analysis exists - show results
         ai_recs = st.session_state.rec_ai_analysis
+        
+        # Check if fallback was used
+        using_fallback = ai_recs.get('using_fallback', False)
+        if using_fallback:
+            fallback_reason = ai_recs.get('fallback_reason', 'AI analysis unavailable')
+            st.warning(f"⚠️ **Using Rule-Based Analysis:** {fallback_reason}")
         
         # Performance Risk Assessment
         performance_risk = ai_recs.get('performance_risk', 'Low')
@@ -14378,6 +14390,12 @@ def show_geospatial_analysis():
     else:
         # AI Analysis exists - show results
         ai_recs = st.session_state.geo_ai_analysis
+        
+        # Check if fallback was used
+        using_fallback = ai_recs.get('using_fallback', False)
+        if using_fallback:
+            fallback_reason = ai_recs.get('fallback_reason', 'AI analysis unavailable')
+            st.warning(f"⚠️ **Using Rule-Based Analysis:** {fallback_reason}")
         
         # Performance Risk Assessment
         performance_risk = ai_recs.get('performance_risk', 'Low')
