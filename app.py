@@ -14669,6 +14669,7 @@ def show_geospatial_analysis():
         
     elif data_source == "Sample Store Locations":
         if st.button("📥 Load Sample Store Locations", type="primary"):
+            import pandas as pd
             # Generate sample geographic data (US cities)
             np.random.seed(42)
             
