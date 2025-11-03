@@ -12625,6 +12625,130 @@ def show_cohort_analysis():
     
     user_data = st.session_state.cohort_data
     
+    # ============================================================================
+    # Section 2: AI Cohort Analysis & Recommendations
+    # ============================================================================
+    st.divider()
+    st.subheader("🤖 2. AI Cohort Analysis & Recommendations")
+    
+    # Generate AI Analysis Button - Only show if not already done
+    if 'cohort_ai_analysis' not in st.session_state:
+        if st.button("🔍 Generate AI Cohort Analysis", type="primary", use_container_width=True, key="cohort_ai_btn"):
+            # Immediate feedback
+            processing_placeholder = st.empty()
+            processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
+            
+            with st.status("🤖 Analyzing dataset for Cohort Analysis...", expanded=False) as status:
+                try:
+                    processing_placeholder.empty()
+                    
+                    import time
+                    from utils.ai_smart_detection import get_ai_recommendation
+                    
+                    status.write("Analyzing data structure and quality...")
+                    time.sleep(0.5)
+                    
+                    status.write("Evaluating cohort analysis suitability...")
+                    time.sleep(0.5)
+                    
+                    status.write("Generating AI recommendations...")
+                    status.write(f"Analyzing {len(user_data)} activities from {user_data['user_id'].nunique()} users")
+                    
+                    ai_analysis = get_ai_recommendation(user_data, task_type='cohort_analysis')
+                    st.session_state.cohort_ai_analysis = ai_analysis
+                    
+                    status.update(label="✅ AI analysis complete!", state="complete")
+                    st.rerun()
+                except Exception as e:
+                    status.update(label="❌ Analysis failed", state="error")
+                    st.error(f"Error generating AI analysis: {str(e)}")
+    else:
+        # AI Analysis exists - show results
+        ai_recs = st.session_state.cohort_ai_analysis
+        
+        # Performance Risk Assessment
+        performance_risk = ai_recs.get('performance_risk', 'Low')
+        risk_emoji = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}.get(performance_risk, '❓')
+        
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            st.info(f"**⚡ Performance Risk:** {risk_emoji} {performance_risk} - Dataset suitability for Streamlit Cloud")
+        with col2:
+            if st.button("🔄 Regenerate Analysis", use_container_width=True, key="cohort_regen_btn"):
+                del st.session_state.cohort_ai_analysis
+                st.rerun()
+        
+        # Data Suitability Assessment - AI DECISION POINT
+        data_suitability = ai_recs.get('data_suitability', 'Unknown')
+        suitability_emoji = {'Excellent': '🌟', 'Good': '✅', 'Fair': '⚠️', 'Poor': '❌'}.get(data_suitability, '❓')
+        
+        # AI-DRIVEN BLOCKING LOGIC
+        if data_suitability == 'Poor':
+            st.error(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for Cohort Analysis")
+            
+            # Show AI reasoning for why it's not suitable
+            suitability_reasoning = ai_recs.get('suitability_reasoning', 'AI determined this data is not suitable for Cohort Analysis')
+            st.error(f"**🤖 AI Recommendation:** {suitability_reasoning}")
+            
+            # Show AI suggestions
+            ai_suggestions = ai_recs.get('alternative_suggestions', [])
+            if ai_suggestions:
+                st.info("**💡 AI Suggestions:**")
+                for suggestion in ai_suggestions:
+                    st.write(f"- {suggestion}")
+            else:
+                st.info("**💡 AI Suggestions:**")
+                st.write("- Use Sample E-commerce Data (perfect for cohort analysis)")
+                st.write("- Ensure data has user IDs, signup dates, and activity dates")
+                st.write("- Need at least 50+ users for meaningful cohort analysis")
+            
+            st.warning("**⚠️ Module not available for this dataset based on AI analysis.**")
+            st.stop()  # AI-DRIVEN STOP - Only stop if AI says data is Poor
+        else:
+            # AI approves - show positive assessment
+            st.success(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for Cohort Analysis")
+            
+            # Suitability reasoning
+            suitability_reasoning = ai_recs.get('suitability_reasoning', 'AI determined this data is suitable for Cohort Analysis')
+            with st.expander("💡 Why this suitability rating?", expanded=False):
+                st.info(suitability_reasoning)
+        
+        # Performance Warnings (only shown if AI approves)
+        if performance_risk in ['Medium', 'High']:
+            perf_warnings = ai_recs.get('performance_warnings', [])
+            if perf_warnings:
+                st.warning("⚠️ **Performance Warnings:**")
+                for warning in perf_warnings:
+                    st.write(f"• {warning}")
+        
+        # Optimization Suggestions
+        optimization_suggestions = ai_recs.get('optimization_suggestions', [])
+        if optimization_suggestions:
+            with st.expander("🚀 AI Optimization Suggestions", expanded=True):
+                for suggestion in optimization_suggestions:
+                    st.write(f"• {suggestion}")
+        
+        # Cohort-specific recommendations
+        cohort_recommendations = ai_recs.get('cohort_recommendations', [])
+        if cohort_recommendations:
+            with st.expander("👥 Cohort-Specific Recommendations", expanded=False):
+                st.info("Based on your data characteristics:")
+                for rec in cohort_recommendations:
+                    if isinstance(rec, dict):
+                        st.write(f"• **{rec.get('title', 'Recommendation')}**: {rec.get('description', '')}")
+                    else:
+                        st.write(f"• {rec}")
+    
+    # Don't show configuration until AI analysis is complete
+    if 'cohort_ai_analysis' not in st.session_state:
+        st.info("🤖 **Generate AI Analysis above to determine if this dataset is suitable for Cohort Analysis and get intelligent recommendations.**")
+        return  # Stop here until AI analysis is done
+    
+    # Only proceed if AI approved the data
+    ai_recs = st.session_state.get('cohort_ai_analysis', {})
+    if ai_recs.get('data_suitability', 'Unknown') == 'Poor':
+        return  # Already stopped above, but double-check
+    
     # Dataset overview
     st.divider()
     st.subheader("📊 Dataset Overview")
@@ -12645,7 +12769,7 @@ def show_cohort_analysis():
     
     # Run cohort analysis
     st.divider()
-    st.subheader("📊 2. Cohort Analysis")
+    st.subheader("📊 3. Run Cohort Analysis")
     
     cohort_period = st.radio("Cohort Period", ["Monthly", "Weekly", "Daily"], horizontal=True, key="cohort_period")
     period_map = {"Monthly": "M", "Weekly": "W", "Daily": "D"}
