@@ -12761,16 +12761,32 @@ def show_cohort_analysis():
         key="cohort_data_source"
     )
     
+    # Import dataset tracker
+    from utils.dataset_tracker import DatasetTracker
+    
     user_data = None
     
     if data_source == "Use Loaded Dataset" and has_loaded_data:
         df = st.session_state.data
         st.success("✅ Using dataset from Data Upload section")
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
+        
+        # Track dataset change
+        dataset_name = "loaded_dataset"
+        current_dataset_id = DatasetTracker.generate_dataset_id(df, dataset_name)
+        stored_id = st.session_state.get('cohort_dataset_id')
+        
+        if DatasetTracker.check_dataset_changed(df, dataset_name, stored_id):
+            DatasetTracker.clear_module_ai_cache(st.session_state, 'cohort')
+            if stored_id is not None:
+                st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+        
+        st.session_state.cohort_dataset_id = current_dataset_id
         st.session_state.cohort_source_df = df  # Store for AI analysis
     
     elif data_source == "Sample E-commerce Data":
         if st.button("📥 Load Sample User Activity", type="primary"):
+            import pandas as pd
             # Generate sample cohort data
             np.random.seed(42)
             
@@ -12806,6 +12822,18 @@ def show_cohort_analysis():
                                 })
             
             user_data = pd.DataFrame(activities)
+            
+            # Track dataset change
+            dataset_name = "sample_ecommerce_data"
+            current_dataset_id = DatasetTracker.generate_dataset_id(user_data, dataset_name)
+            stored_id = st.session_state.get('cohort_dataset_id')
+            
+            if DatasetTracker.check_dataset_changed(user_data, dataset_name, stored_id):
+                DatasetTracker.clear_module_ai_cache(st.session_state, 'cohort')
+                if stored_id is not None:
+                    st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+            
+            st.session_state.cohort_dataset_id = current_dataset_id
             st.session_state.cohort_data = user_data
             
             st.success(f"✅ Loaded {len(user_data)} activities from {n_users} users!")
@@ -12815,6 +12843,7 @@ def show_cohort_analysis():
         uploaded_file = st.file_uploader("Upload user activity CSV", type=['csv'], key="cohort_upload")
         
         if uploaded_file:
+            import pandas as pd
             df = pd.read_csv(uploaded_file)
             st.dataframe(df.head(), use_container_width=True)
             
@@ -12829,6 +12858,18 @@ def show_cohort_analysis():
             if st.button("Process Data", type="primary", key="process_upload"):
                 user_data = df[[user_col, cohort_col, activity_col]].copy()
                 user_data.columns = ['user_id', 'signup_date', 'activity_date']
+                
+                # Track dataset change
+                dataset_name = f"uploaded_{uploaded_file.name}"
+                current_dataset_id = DatasetTracker.generate_dataset_id(user_data, dataset_name)
+                stored_id = st.session_state.get('cohort_dataset_id')
+                
+                if DatasetTracker.check_dataset_changed(user_data, dataset_name, stored_id):
+                    DatasetTracker.clear_module_ai_cache(st.session_state, 'cohort')
+                    if stored_id is not None:
+                        st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+                
+                st.session_state.cohort_dataset_id = current_dataset_id
                 st.session_state.cohort_data = user_data
                 st.success("✅ Data processed!")
     
@@ -12874,7 +12915,14 @@ def show_cohort_analysis():
                     status.write("Generating AI recommendations...")
                     status.write(f"Analyzing {len(analysis_data)} rows with {len(analysis_data.columns)} columns")
                     
+                    import pandas as pd
                     ai_analysis = get_ai_recommendation(analysis_data, task_type='cohort_analysis')
+                    
+                    # Add dataset metadata
+                    ai_analysis['dataset_id'] = st.session_state.get('cohort_dataset_id', 'unknown')
+                    ai_analysis['dataset_shape'] = analysis_data.shape
+                    ai_analysis['generated_at'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
+                    
                     st.session_state.cohort_ai_analysis = ai_analysis
                     
                     status.update(label="✅ AI analysis complete!", state="complete")
@@ -12885,6 +12933,14 @@ def show_cohort_analysis():
     else:
         # AI Analysis exists - show results
         ai_recs = st.session_state.cohort_ai_analysis
+        
+        # Check for dataset mismatch
+        current_dataset_id = st.session_state.get('cohort_dataset_id', 'unknown')
+        stored_dataset_id = ai_recs.get('dataset_id', 'unknown')
+        
+        if current_dataset_id != stored_dataset_id and stored_dataset_id != 'unknown':
+            st.warning("⚠️ **Dataset Mismatch Detected!**")
+            st.info(f"AI recommendations were generated for a different dataset. Click 'Regenerate Analysis' below.")
         
         # Check if fallback was used
         using_fallback = ai_recs.get('using_fallback', False)
