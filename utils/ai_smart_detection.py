@@ -837,6 +837,10 @@ Please analyze this dataset and provide Cohort Analysis recommendations in the f
     "performance_risk": "Low/Medium/High",
     "performance_warnings": ["List of performance concerns for Streamlit Cloud"],
     "optimization_suggestions": ["List of specific suggestions to improve cohort analysis"],
+    "recommended_user_column": "column_name",
+    "recommended_cohort_date_column": "column_name",
+    "recommended_activity_date_column": "column_name",
+    "column_reasoning": "Why these columns are recommended for cohort analysis",
     "recommended_cohort_period": "Monthly/Weekly/Daily",
     "cohort_period_reasoning": "Why this period is best based on data timespan and activity frequency",
     "date_range_analysis": "Analysis of temporal coverage (months/years of data)",
@@ -854,27 +858,36 @@ Guidelines for Cohort Analysis:
    - Good: 50+ users, 3+ months data, identifiable cohort dates
    - Fair: 20+ users, usable temporal data but limited timespan
    - Poor: <20 users OR <1 month data OR missing date columns
-2. USER COUNT: Number of unique users for cohort formation
+2. COLUMN SELECTION: Identify user, cohort date, and activity date columns
+   - USER COLUMN: Should identify unique users (look for: user_id, customer_id, user, userId)
+     - Column should have repeated values (same user has multiple activities)
+     - Avoid transaction IDs where every row is unique
+   - COHORT DATE COLUMN: First interaction date (look for: signup_date, created_at, first_purchase_date, registration_date)
+     - Should be a date/datetime column
+     - Represents when user joined/first interacted
+     - Usually one date per user (or earliest date)
+   - ACTIVITY DATE COLUMN: Subsequent interaction dates (look for: activity_date, purchase_date, order_date, transaction_date)
+     - Should be a date/datetime column
+     - Represents user's activities over time
+     - Multiple dates per user expected
+   - Provide reasoning for why each column was chosen
+3. USER COUNT: Number of unique users for cohort formation
    - Minimum: 20 users (for meaningful cohorts)
    - Good: 50+ users (5+ cohorts with 10+ users each)
    - Excellent: 200+ users (robust cohort comparison)
-3. DATE RANGE: Temporal coverage for cohort tracking
+4. DATE RANGE: Temporal coverage for cohort tracking
    - Minimum: 1 month (very limited insights)
    - Good: 3-6 months (reasonable retention tracking)
    - Excellent: 12+ months (long-term retention trends)
-4. COHORT PERIOD RECOMMENDATION:
+5. COHORT PERIOD RECOMMENDATION:
    - Daily: If 1-2 months data AND high daily activity frequency
    - Weekly: If 3-6 months data AND moderate activity frequency
    - Monthly: If 6+ months data OR sparse activity patterns
    - Consider: Data timespan, activity frequency, cohort sizes
-5. ACTIVITY FREQUENCY: How often users typically interact
+6. ACTIVITY FREQUENCY: How often users typically interact
    - High frequency (daily): Consider daily or weekly cohorts
    - Medium frequency (weekly): Consider weekly or monthly cohorts
    - Low frequency (monthly): Consider monthly cohorts
-6. DATA COLUMNS: Required columns for cohort analysis
-   - User ID: Column identifying unique users (user_id, customer_id)
-   - Cohort Date: First interaction date (signup_date, created_at, first_purchase)
-   - Activity Date: Subsequent interaction dates (activity_date, purchase_date, login_date)
 7. COHORT SIZE DISTRIBUTION: Assess if cohorts will be balanced
    - Problem: All users in one cohort (no comparison)
    - Good: 3-10 cohorts with 5+ users each
