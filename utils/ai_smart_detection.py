@@ -1240,6 +1240,114 @@ IMPORTANT GUIDELINES:
 12. BE SPECIFIC: If data is Poor/Fair, explain WHY (technical AND business logic) and what would make it suitable
 
 Provide ONLY the JSON response, no additional text."""
+            elif task_type == 'churn_prediction':
+                prompt = f"""You are an expert in Customer Churn Prediction analyzing a dataset for predictive churn modeling.
+
+Dataset Overview:
+- Total Rows: {len(df)}
+- Total Columns: {len(df.columns)}
+- Task: Churn Prediction (ML-based Customer Retention)
+
+Column Details:
+{json.dumps(column_info, indent=2)}
+
+Analyze this dataset for Churn Prediction and provide recommendations in the following JSON format:
+{{
+    "data_suitability": "Excellent/Good/Fair/Poor",
+    "suitability_reasoning": "Detailed explanation of why this rating was given (2-3 sentences)",
+    "alternative_suggestions": ["List of suggestions if data is Poor/Fair"],
+    "performance_risk": "Low/Medium/High",
+    "performance_warnings": ["List of warnings if Medium/High risk"],
+    "customer_id_column": "recommended_customer_identifier_column",
+    "date_column": "recommended_transaction_date_column",
+    "amount_column": "recommended_transaction_amount_column",
+    "churn_indicator_column": "recommended_churn_flag_column_or_null",
+    "column_reasoning": "Why these columns were selected (2-3 sentences)",
+    "data_format": "transactional/customer_level",
+    "estimated_customers": "approximate_number_of_customers",
+    "time_period": "estimated_data_timespan",
+    "recommended_model": "Random Forest/Gradient Boosting/Logistic Regression",
+    "recommended_model_reasoning": "Why this model is best for this dataset",
+    "feature_engineering_needed": true/false,
+    "feature_engineering_suggestions": ["list", "of", "features", "to", "create"],
+    "min_transactions_per_customer": "recommended_minimum",
+    "churn_definition": "suggested_churn_criteria",
+    "sample_size_assessment": "Excellent/Good/Fair/Poor",
+    "sample_size_reasoning": "Why customer count is/isn't suitable for modeling",
+    "business_applications": ["list", "of", "3-4", "business", "use", "cases"],
+    "key_insights": ["3-5 data-driven insights about churn patterns"],
+    "preprocessing_needed": ["list", "of", "required", "preprocessing", "steps"]
+}}
+
+IMPORTANT GUIDELINES:
+1. DATA SUITABILITY: Assess if dataset is appropriate for churn prediction
+   - Excellent: Transactional data with customer IDs, dates, amounts; sufficient history (6+ months)
+   - Good: Customer-level data with behavior features or transactional with some issues
+   - Fair: Limited transaction history, small customer base, or data quality issues
+   - Poor: No customer identifiers, no temporal data, or fundamentally unsuitable (<20 customers)
+
+2. CUSTOMER ID COLUMN: Unique customer identifier
+   - Look for: 'customer', 'user', 'client', 'account', 'member', 'subscriber', 'id'
+   - Must have multiple unique values
+   - Examples: customer_id, user_id, account_number
+
+3. DATE COLUMN: Transaction or activity date
+   - Look for: 'date', 'time', 'timestamp', 'day', 'created', 'order_date', 'purchase_date'
+   - Should be datetime or parseable as date
+   - Needed to calculate recency, frequency patterns
+   - Examples: transaction_date, order_date, activity_date
+
+4. AMOUNT COLUMN: Transaction value or engagement metric
+   - Look for: 'amount', 'value', 'revenue', 'price', 'total', 'spend', 'payment'
+   - Must be numeric
+   - Used for monetary value in RFM-style features
+   - Examples: transaction_amount, order_value, spend
+
+5. CHURN INDICATOR COLUMN: Existing churn flag (optional)
+   - Look for: 'churn', 'churned', 'canceled', 'active', 'status', 'retained'
+   - Binary indicator (1/0, True/False, Yes/No, Churned/Active)
+   - If present, can be used for supervised learning
+   - If absent, will need to define churn based on recency
+
+6. DATA FORMAT:
+   - Transactional: One row per transaction (preferred for feature engineering)
+   - Customer-level: One row per customer with aggregated features
+
+7. SAMPLE SIZE: Critical for reliable churn models
+   - Excellent: >500 customers with 6+ months history
+   - Good: 200-500 customers with 3+ months history
+   - Fair: 50-200 customers with limited history
+   - Poor: <50 customers (insufficient for reliable patterns)
+
+8. RECOMMENDED MODEL: Choose based on dataset characteristics
+   - Random Forest: Good for mixed data types, handles missing values, feature importance
+   - Gradient Boosting: Best performance, good for imbalanced data, slower training
+   - Logistic Regression: Simple, interpretable, fast, good baseline
+
+9. FEATURE ENGINEERING: Most churn models need engineered features
+   - Recency: Days since last transaction
+   - Frequency: Transaction count in period
+   - Monetary: Total/average transaction value
+   - Engagement: Activity trends, declining patterns
+   - Temporal: Day of week, seasonality patterns
+
+10. PERFORMANCE RISK: Consider Streamlit Cloud 1GB RAM limit
+    - High: >10,000 customers or >100,000 transactions
+    - Medium: 1,000-10,000 customers or 10,000-100,000 transactions
+    - Low: <1,000 customers and <10,000 transactions
+
+11. BUSINESS APPLICATIONS: Suggest 3-4 concrete use cases:
+    - SaaS subscription cancellation prevention
+    - E-commerce re-engagement campaigns
+    - Telecom service retention programs
+    - Banking product cross-sell to at-risk customers
+    - Streaming content recommendation to prevent churn
+
+12. KEY INSIGHTS: Provide 3-5 actionable insights about churn patterns
+
+13. BE SPECIFIC: If data is Poor/Fair, explain WHY (technical AND business logic) and what would make it suitable
+
+Provide ONLY the JSON response, no additional text."""
             else:
                 prompt = f"""You are an expert data scientist analyzing a dataset for machine learning {task_type}.
 
@@ -2846,6 +2954,98 @@ Provide ONLY the JSON response, no additional text."""
                 'business_applications': ['Social network analysis', 'Organizational structure', 'Network optimization'],
                 'key_insights': ['Rule-based fallback - limited insights available'],
                 'preprocessing_needed': ['Verify source and target columns are distinct', 'Remove missing values']
+            }
+        
+        elif task_type == 'churn_prediction':
+            # Rule-based churn prediction recommendations
+            n_samples = len(df)
+            all_cols = df.columns.tolist()
+            
+            # Performance risk
+            if n_samples > 100000:
+                performance_risk = 'High'
+                performance_warnings = ['Large dataset - training may take time', 'Consider sampling for faster iteration']
+            elif n_samples > 10000:
+                performance_risk = 'Medium'
+                performance_warnings = ['Medium dataset - monitor memory usage']
+            else:
+                performance_risk = 'Low'
+                performance_warnings = []
+            
+            # Detect customer ID column
+            customer_col = None
+            customer_suggestions = [col for col in all_cols if any(k in col.lower() for k in ['customer', 'user', 'client', 'account', 'member', 'id'])]
+            customer_col = customer_suggestions[0] if customer_suggestions else (all_cols[0] if all_cols else None)
+            
+            # Detect date column
+            date_col = None
+            date_cols = df.select_dtypes(include=['datetime64']).columns.tolist()
+            if date_cols:
+                date_col = date_cols[0]
+            else:
+                date_suggestions = [col for col in all_cols if any(k in col.lower() for k in ['date', 'time', 'day', 'created', 'order'])]
+                date_col = date_suggestions[0] if date_suggestions else None
+            
+            # Detect amount column
+            numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+            amount_col = None
+            amount_suggestions = [col for col in numeric_cols if any(k in col.lower() for k in ['amount', 'value', 'revenue', 'price', 'total', 'spend'])]
+            amount_col = amount_suggestions[0] if amount_suggestions else (numeric_cols[0] if numeric_cols else None)
+            
+            # Detect churn indicator column
+            churn_col = None
+            churn_suggestions = [col for col in all_cols if any(k in col.lower() for k in ['churn', 'cancel', 'active', 'status', 'retain'])]
+            churn_col = churn_suggestions[0] if churn_suggestions else None
+            
+            # Estimate number of customers
+            if customer_col and customer_col in df.columns:
+                n_customers = df[customer_col].nunique()
+            else:
+                n_customers = len(df)  # Assume customer-level data
+            
+            # Assess suitability
+            if n_customers < 20:
+                data_suitability = 'Poor'
+                suitability_reasoning = f'Very few customers ({n_customers}) - need at least 20 for reliable churn modeling'
+                alternative_suggestions = ['Need more customer data for reliable churn predictions']
+            elif n_customers < 50:
+                data_suitability = 'Fair'
+                suitability_reasoning = f'Small customer base ({n_customers}) - limited modeling accuracy expected'
+                alternative_suggestions = []
+            elif n_customers < 200:
+                data_suitability = 'Good'
+                suitability_reasoning = f'Adequate customer base ({n_customers}) for churn modeling'
+                alternative_suggestions = []
+            else:
+                data_suitability = 'Excellent'
+                suitability_reasoning = f'Strong customer base ({n_customers}) - excellent for comprehensive churn analysis'
+                alternative_suggestions = []
+            
+            return {
+                'data_suitability': data_suitability,
+                'suitability_reasoning': suitability_reasoning,
+                'alternative_suggestions': alternative_suggestions,
+                'performance_risk': performance_risk,
+                'performance_warnings': performance_warnings,
+                'customer_id_column': customer_col,
+                'date_column': date_col,
+                'amount_column': amount_col,
+                'churn_indicator_column': churn_col,
+                'column_reasoning': f'Rule-based detection: {customer_col} for customer, {date_col} for date, {amount_col} for amount',
+                'data_format': 'transactional' if date_col else 'customer_level',
+                'estimated_customers': n_customers,
+                'time_period': 'Unknown',
+                'recommended_model': 'Random Forest',
+                'recommended_model_reasoning': 'Good general-purpose model for churn prediction',
+                'feature_engineering_needed': True,
+                'feature_engineering_suggestions': ['Recency', 'Frequency', 'Monetary value', 'Engagement trends'],
+                'min_transactions_per_customer': '3+',
+                'churn_definition': 'No activity in last 90 days',
+                'sample_size_assessment': data_suitability,
+                'sample_size_reasoning': suitability_reasoning,
+                'business_applications': ['Customer retention', 'Proactive engagement', 'Targeted marketing'],
+                'key_insights': ['Rule-based fallback - limited insights available'],
+                'preprocessing_needed': ['Verify customer IDs are unique', 'Parse date columns', 'Handle missing values']
             }
         
         # Return format for ML tasks

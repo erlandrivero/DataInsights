@@ -17155,11 +17155,128 @@ def show_churn_prediction():
         with st.expander("👀 Preview Data"):
             st.dataframe(churn_data.head(20), use_container_width=True)
             st.caption(f"Showing first 20 rows of {len(churn_data):,} total")
+        
+        # Store churn data for AI analysis
+        st.session_state.churn_source_data = churn_data
+    
+    # AI Analysis Section
+    if churn_data is not None:
+        st.divider()
+        st.subheader("🤖 2. AI Churn Prediction Recommendations")
+        
+        has_ai_analysis = 'churn_ai_recommendations' in st.session_state
+        
+        # Check if AI recommendations already exist
+        if 'churn_ai_recommendations' not in st.session_state:
+            if st.button("🤖 Generate AI Churn Analysis", type="primary", use_container_width=True, key="churn_ai_button"):
+                with st.spinner("🔍 AI is analyzing your dataset for churn prediction..."):
+                    from utils.ai_smart_detection import AISmartDetection
+                    
+                    # Get AI recommendations
+                    recommendations = AISmartDetection.analyze_dataset_for_ml(
+                        df=churn_data.copy(),
+                        task_type='churn_prediction'
+                    )
+                    
+                    # Store in session state
+                    st.session_state.churn_ai_recommendations = recommendations
+                    st.rerun()
+        
+        # Display AI recommendations if available
+        if has_ai_analysis:
+            ai_recs = st.session_state.churn_ai_recommendations
+            data_suitability = ai_recs.get('data_suitability', 'Unknown')
+            
+            # AI Assessment card
+            suitability_colors = {
+                'Excellent': '🟢',
+                'Good': '🟢',
+                'Fair': '🟡',
+                'Poor': '🔴',
+                'Unknown': '❓'
+            }
+            suitability_emoji = suitability_colors.get(data_suitability, '❓')
+            
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                st.success(f"{suitability_emoji} **AI Assessment:** {data_suitability} for Churn Prediction")
+            with col2:
+                perf_risk = ai_recs.get('performance_risk', 'Unknown')
+                risk_emoji = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}.get(perf_risk, '❓')
+                st.info(f"{risk_emoji} **Performance Risk:** {perf_risk}")
+            
+            # AI-DRIVEN BLOCKING LOGIC
+            if data_suitability == 'Poor':
+                st.error("**🚨 MODULE NOT AVAILABLE**")
+                st.error(f"**AI Reasoning:** {ai_recs.get('suitability_reasoning', 'Data unsuitable for churn prediction')}")
+                
+                if ai_recs.get('alternative_suggestions'):
+                    st.warning("**💡 Suggestions to make data suitable:**")
+                    for suggestion in ai_recs['alternative_suggestions']:
+                        st.write(f"- {suggestion}")
+                
+                st.stop()  # ONLY AI can block module
+            
+            # Show AI recommendations
+            with st.expander("📋 AI Column Recommendations", expanded=True):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write("**👤 Customer ID Column:**")
+                    st.code(ai_recs.get('customer_id_column', 'Unknown'))
+                    st.write("**📅 Date Column:**")
+                    st.code(ai_recs.get('date_column', 'Unknown'))
+                with col2:
+                    st.write("**💰 Amount Column:**")
+                    st.code(ai_recs.get('amount_column', 'Unknown'))
+                    st.write("**🎯 Churn Indicator:**")
+                    st.code(ai_recs.get('churn_indicator_column') or 'None (will be engineered)')
+                
+                st.info(f"💡 **Reasoning:** {ai_recs.get('column_reasoning', 'N/A')}")
+            
+            with st.expander("🔍 AI Data Quality Assessment", expanded=False):
+                st.write(f"**Suitability Reasoning:** {ai_recs.get('suitability_reasoning', 'N/A')}")
+                st.write(f"**Data Format:** {ai_recs.get('data_format', 'Unknown')}")
+                st.write(f"**Estimated Customers:** {ai_recs.get('estimated_customers', 'Unknown')}")
+                st.write(f"**Time Period:** {ai_recs.get('time_period', 'Unknown')}")
+                st.write(f"**Sample Size Assessment:** {ai_recs.get('sample_size_assessment', 'Unknown')}")
+            
+            with st.expander("🤖 AI Model Recommendations", expanded=False):
+                st.write(f"**Recommended Model:** {ai_recs.get('recommended_model', 'Unknown')}")
+                st.write(f"**Model Reasoning:** {ai_recs.get('recommended_model_reasoning', 'N/A')}")
+                st.write(f"\n**Feature Engineering Needed:** {'✅ Yes' if ai_recs.get('feature_engineering_needed') else '❌ No'}")
+                
+                if ai_recs.get('feature_engineering_suggestions'):
+                    st.write("\n**Suggested Features:**")
+                    for feat in ai_recs['feature_engineering_suggestions']:
+                        st.write(f"- {feat}")
+                
+                st.write(f"\n**Min Transactions/Customer:** {ai_recs.get('min_transactions_per_customer', 'Unknown')}")
+                st.write(f"**Churn Definition:** {ai_recs.get('churn_definition', 'Unknown')}")
+            
+            with st.expander("💼 Business Applications", expanded=False):
+                for app in ai_recs.get('business_applications', []):
+                    st.write(f"- {app}")
+            
+            with st.expander("💡 Key Insights", expanded=False):
+                for insight in ai_recs.get('key_insights', []):
+                    st.write(f"- {insight}")
+            
+            if ai_recs.get('performance_warnings'):
+                with st.expander("⚠️ Performance Warnings", expanded=False):
+                    for warning in ai_recs['performance_warnings']:
+                        st.warning(warning)
+            
+            # Button to regenerate
+            if st.button("🔄 Regenerate Analysis", key="churn_regen"):
+                del st.session_state.churn_ai_recommendations
+                st.rerun()
+        else:
+            st.info("👆 Click 'Generate AI Churn Analysis' to get intelligent recommendations for your churn prediction model.")
     
     # Feature Engineering Section
     if churn_data is not None:
         st.divider()
-        st.subheader("🔧 2. Configure Feature Engineering")
+        st.subheader("🔧 3. Configure Feature Engineering")
         
         with st.expander("ℹ️ What is Feature Engineering?"):
             st.markdown("""
@@ -17178,18 +17295,28 @@ def show_churn_prediction():
             These features capture customer behavior patterns that predict churn better than raw transactions.
             """)
         
-        # Smart column detection
-        from utils.column_detector import ColumnDetector
-        suggestions = ColumnDetector.get_churn_column_suggestions(churn_data)
-        
-        st.info("💡 **Smart Detection:** Automatically detected relevant columns based on naming patterns")
+        # Use AI recommendations if available, otherwise use rule-based detection
+        if 'churn_ai_recommendations' in st.session_state:
+            rec = st.session_state.churn_ai_recommendations
+            suggestions = {
+                'customer_id': rec.get('customer_id_column'),
+                'date': rec.get('date_column'),
+                'value': rec.get('amount_column'),
+                'churn': rec.get('churn_indicator_column')
+            }
+            st.info("🤖 **AI has analyzed your data and preset the columns below.** You can change them if needed.")
+        else:
+            # Fallback to rule-based detection
+            from utils.column_detector import ColumnDetector
+            suggestions = ColumnDetector.get_churn_column_suggestions(churn_data)
+            st.info("💡 **Smart Detection:** Automatically detected relevant columns based on naming patterns")
         
         # Column selection
         col1, col2 = st.columns(2)
         
         with col1:
             customer_default = suggestions['customer_id']
-            customer_idx = list(churn_data.columns).index(customer_default) if customer_default in churn_data.columns else 0
+            customer_idx = list(churn_data.columns).index(customer_default) if customer_default and customer_default in churn_data.columns else 0
             customer_col = st.selectbox(
                 "Customer ID Column:",
                 churn_data.columns.tolist(),
@@ -17199,7 +17326,7 @@ def show_churn_prediction():
         
         with col2:
             date_default = suggestions['date']
-            date_idx = list(churn_data.columns).index(date_default) if date_default in churn_data.columns else (1 if len(churn_data.columns) > 1 else 0)
+            date_idx = list(churn_data.columns).index(date_default) if date_default and date_default in churn_data.columns else (1 if len(churn_data.columns) > 1 else 0)
             date_col = st.selectbox(
                 "Transaction Date Column:",
                 churn_data.columns.tolist(),
