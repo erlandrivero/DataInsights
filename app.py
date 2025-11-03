@@ -12823,6 +12823,10 @@ def show_cohort_analysis():
     user_data = None
     
     if data_source == "Use Loaded Dataset" and has_loaded_data:
+        # Clear sample/uploaded data if switching from another source
+        if 'cohort_data' in st.session_state:
+            del st.session_state['cohort_data']
+        
         df = st.session_state.data
         st.success("✅ Using dataset from Data Upload section")
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
@@ -12842,6 +12846,10 @@ def show_cohort_analysis():
     
     elif data_source == "Sample E-commerce Data":
         if st.button("📥 Load Sample User Activity", type="primary"):
+            # Clear loaded dataset if switching from another source
+            if 'cohort_source_df' in st.session_state:
+                del st.session_state['cohort_source_df']
+            
             import pandas as pd
             # Generate sample cohort data
             np.random.seed(42)
@@ -12899,6 +12907,10 @@ def show_cohort_analysis():
         uploaded_file = st.file_uploader("Upload user activity CSV", type=['csv'], key="cohort_upload")
         
         if uploaded_file:
+            # Clear loaded dataset if switching from another source
+            if 'cohort_source_df' in st.session_state:
+                del st.session_state['cohort_source_df']
+            
             import pandas as pd
             df = pd.read_csv(uploaded_file)
             st.dataframe(df.head(), use_container_width=True)
