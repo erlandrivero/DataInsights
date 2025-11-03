@@ -61,7 +61,13 @@ class AISmartDetection:
         """
         try:
             # Check if Google AI API key is available
-            api_key = os.getenv('GOOGLE_API_KEY')
+            # Try Streamlit secrets first (for Streamlit Cloud), then environment variable (for local)
+            try:
+                import streamlit as st
+                api_key = st.secrets.get('GOOGLE_API_KEY')
+            except:
+                api_key = os.getenv('GOOGLE_API_KEY')
+            
             if not api_key:
                 print(f"⚠️ No GOOGLE_API_KEY found - using rule-based fallback for {task_type}")
                 fallback_result = AISmartDetection._fallback_detection(df, task_type)
