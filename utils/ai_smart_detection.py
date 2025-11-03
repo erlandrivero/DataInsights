@@ -909,10 +909,14 @@ Please analyze this dataset and provide Cohort Analysis recommendations in the f
 
 Guidelines for Cohort Analysis:
 1. DATA SUITABILITY: Assess if dataset is appropriate for cohort analysis
-   - Excellent: 100+ users, 6+ months data, clear signup and activity dates
-   - Good: 50+ users, 3+ months data, identifiable cohort dates
-   - Fair: 20+ users, usable temporal data but limited timespan
-   - Poor: <20 users OR <1 month data OR missing date columns
+   - Excellent: 100+ users, 6+ months data, TWO SEPARATE date columns (cohort + activity)
+   - Good: 50+ users, 3+ months data, TWO date columns available
+   - Fair: 20+ users, usable temporal data but ONLY ONE date column (suboptimal)
+   - Poor: <20 users OR <1 month data OR missing date columns OR no temporal data
+   - CRITICAL: Cohort analysis REQUIRES two date columns for proper retention tracking
+     * One for cohort formation (signup/first purchase)
+     * One for activity tracking (subsequent interactions)
+     * If only ONE date column exists, mark as "Fair" and warn user
 2. COLUMN SELECTION: Identify user, cohort date, and activity date columns
    - USER COLUMN: Should identify unique users (look for: user_id, customer_id, user, userId)
      - Column should have repeated values (same user has multiple activities)
@@ -2684,6 +2688,11 @@ Provide ONLY the JSON response, no additional text."""
             elif not activity_date_col and date_cols:
                 activity_date_col = date_cols[0]
             
+            # Check if we have TWO SEPARATE date columns (critical for cohort analysis)
+            has_separate_date_columns = (cohort_date_col and activity_date_col and 
+                                        cohort_date_col != activity_date_col and 
+                                        len(date_cols) >= 2)
+            
             # Performance risk assessment
             if n_samples > 100000:
                 performance_risk = 'High'
@@ -2706,6 +2715,16 @@ Provide ONLY the JSON response, no additional text."""
                     'Ensure data has user_id, signup_date, and activity_date columns',
                     'Use Sample E-commerce Data to see an example',
                     'Check column names - should contain user, date, and activity information'
+                ]
+            elif not has_separate_date_columns:
+                # CRITICAL: Only one date column exists
+                data_suitability = 'Fair'
+                suitability_reasoning = f'Dataset has only ONE date column ({cohort_date_col}). Cohort analysis works best with TWO separate date columns: one for cohort formation (signup/first purchase) and one for activity tracking (subsequent interactions). Using the same column for both will limit retention insights.'
+                alternative_suggestions = [
+                    'Add a separate signup_date or registration_date column for cohort formation',
+                    'Use Sample E-commerce Data to see proper two-column structure',
+                    'Consider creating a derived cohort date (e.g., first purchase date per user)',
+                    'Results will show activity patterns but not true cohort retention'
                 ]
             elif n_samples < 100:
                 data_suitability = 'Poor'
