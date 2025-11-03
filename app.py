@@ -16316,11 +16316,113 @@ def show_network_analysis():
     else:
         st.info("👆 Click 'Generate AI Network Analysis' to get intelligent recommendations for your network data.")
     
+    # Configuration Section
+    st.divider()
+    st.subheader("⚙️ 3. Configure Network Analysis")
+    
+    # Get AI recommendations if available
+    ai_recs = st.session_state.get('network_ai_recommendations', {})
+    
+    # Network Type Selection
+    st.write("**Network Type:**")
+    ai_network_type = ai_recs.get('network_type', 'directed')
+    network_type_index = 0 if ai_network_type == 'directed' else 1
+    
+    if ai_recs:
+        st.info(f"🤖 **AI Recommendation:** {ai_network_type.capitalize()} network")
+    
+    network_type = st.radio(
+        "Select network type:",
+        ["Directed", "Undirected"],
+        index=network_type_index,
+        key="network_type_radio",
+        help="Directed: edges have direction (A→B). Undirected: edges are bidirectional (A↔B)"
+    )
+    
+    # Centrality Measures Selection
+    st.write("**Centrality Measures to Compute:**")
+    
+    # Get AI recommendations
+    ai_centrality = ai_recs.get('recommended_centrality_measures', ['Degree Centrality', 'Betweenness Centrality'])
+    
+    if ai_recs:
+        st.info(f"🤖 **AI Recommends:** {', '.join(ai_centrality)}")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        degree_selected = st.checkbox(
+            "Degree Centrality",
+            value='Degree Centrality' in ai_centrality or not ai_recs,
+            help="Number of connections per node"
+        )
+        betweenness_selected = st.checkbox(
+            "Betweenness Centrality",
+            value='Betweenness Centrality' in ai_centrality or not ai_recs,
+            help="Nodes that act as bridges between other nodes"
+        )
+    with col2:
+        closeness_selected = st.checkbox(
+            "Closeness Centrality",
+            value='Closeness Centrality' in ai_centrality,
+            help="Average distance to all other nodes"
+        )
+        pagerank_selected = st.checkbox(
+            "PageRank",
+            value='PageRank' in ai_centrality,
+            help="Importance based on incoming connections"
+        )
+    
+    # Community Detection
+    st.write("**Community Detection:**")
+    ai_community = ai_recs.get('community_detection_suitable', True)
+    
+    if ai_recs:
+        community_msg = "✅ Suitable" if ai_community else "❌ Not Recommended"
+        st.info(f"🤖 **AI Assessment:** {community_msg}")
+        if ai_recs.get('community_detection_reasoning'):
+            st.caption(f"Reasoning: {ai_recs['community_detection_reasoning']}")
+    
+    community_detection = st.checkbox(
+        "Enable Community Detection",
+        value=ai_community,
+        help="Identify groups of densely connected nodes"
+    )
+    
+    # Visualization Options
+    st.write("**Visualization Style:**")
+    ai_viz = ai_recs.get('recommended_visualization', 'force_directed')
+    
+    viz_options = {
+        'force_directed': 'Force-Directed (Spring Layout)',
+        'circular': 'Circular Layout',
+        'hierarchical': 'Hierarchical Layout'
+    }
+    
+    viz_display = [viz_options[key] for key in viz_options.keys()]
+    viz_keys = list(viz_options.keys())
+    viz_index = viz_keys.index(ai_viz) if ai_viz in viz_keys else 0
+    
+    if ai_recs:
+        st.info(f"🤖 **AI Recommends:** {viz_options[ai_viz]}")
+    
+    viz_style = st.selectbox(
+        "Select visualization layout:",
+        viz_display,
+        index=viz_index,
+        key="viz_style_select",
+        help="Layout algorithm for network visualization"
+    )
+    
+    # Validation
+    centrality_count = sum([degree_selected, betweenness_selected, closeness_selected, pagerank_selected])
+    if centrality_count == 0:
+        st.warning("⚠️ Please select at least one centrality measure to compute.")
+    
     # Run analysis
     st.divider()
-    st.subheader("📊 3. Run Network Analysis")
+    st.subheader("📊 4. Run Network Analysis")
     
-    if st.button("🕸️ Analyze Network", type="primary"):
+    if st.button("🕸️ Analyze Network", type="primary", disabled=centrality_count == 0):
         from utils.process_manager import ProcessManager
         
         # Create process manager
@@ -16340,16 +16442,45 @@ def show_network_analysis():
                 # Get analyzer from session state
                 analyzer = st.session_state.network_analyzer
                 
-                # Build graph
-                analyzer.build_graph(edge_data, source_col='source', target_col='target')
+                # Build graph with selected type
+                is_directed = (network_type == "Directed")
+                status.write(f"Building {network_type.lower()} graph...")
+                analyzer.build_graph(edge_data, source_col='source', target_col='target', directed=is_directed)
                 
                 # Get network statistics
+                status.write("Computing network statistics...")
                 stats = analyzer.get_network_stats()
                 
-                # Calculate centrality measures
-                degree_cent = analyzer.calculate_centrality('degree')
-                between_cent = analyzer.calculate_centrality('betweenness')
-                close_cent = analyzer.calculate_centrality('closeness')
+                # Calculate selected centrality measures
+                centrality_results = {}
+                
+                if degree_selected:
+                    status.write("Calculating degree centrality...")
+                    centrality_results['degree'] = analyzer.calculate_centrality('degree')
+                
+                if betweenness_selected:
+                    status.write("Calculating betweenness centrality...")
+                    centrality_results['betweenness'] = analyzer.calculate_centrality('betweenness')
+                
+                if closeness_selected:
+                    status.write("Calculating closeness centrality...")
+                    centrality_results['closeness'] = analyzer.calculate_centrality('closeness')
+                
+                if pagerank_selected:
+                    status.write("Calculating PageRank...")
+                    try:
+                        centrality_results['pagerank'] = analyzer.calculate_centrality('pagerank')
+                    except Exception as e:
+                        st.warning(f"PageRank calculation failed: {str(e)}")
+                
+                # Community detection if enabled
+                communities = None
+                if community_detection:
+                    status.write("Detecting communities...")
+                    try:
+                        communities = analyzer.detect_communities()
+                    except Exception as e:
+                        st.warning(f"Community detection failed: {str(e)}")
                 
                 # Package results
                 result = {
@@ -16359,9 +16490,10 @@ def show_network_analysis():
                     'avg_clustering': stats.get('avg_clustering', 0),
                     'n_components': stats['num_components'],
                     'diameter': stats.get('diameter'),
-                    'top_degree': degree_cent.head(10),
-                    'top_betweenness': between_cent.head(10),
-                    'top_closeness': close_cent.head(10)
+                    'centrality_results': centrality_results,
+                    'communities': communities,
+                    'network_type': network_type,
+                    'viz_style': viz_style
                 }
                 
                 st.session_state.net_results = result
@@ -16393,17 +16525,54 @@ def show_network_analysis():
             if 'diameter' in result:
                 st.metric("Diameter", result['diameter'])
         
-        # Top nodes by centrality
-        st.subheader("🌟 Top 10 Most Central Nodes")
+        # Top nodes by centrality - only show computed measures
+        centrality_results = result.get('centrality_results', {})
         
-        tab1, tab2, tab3 = st.tabs(["Degree Centrality", "Betweenness", "Closeness"])
+        if centrality_results:
+            st.subheader("🌟 Top 10 Most Central Nodes")
+            
+            # Create tabs only for computed centrality measures
+            tab_names = []
+            tab_data = []
+            
+            if 'degree' in centrality_results:
+                tab_names.append("Degree Centrality")
+                tab_data.append(centrality_results['degree'].head(10))
+            if 'betweenness' in centrality_results:
+                tab_names.append("Betweenness Centrality")
+                tab_data.append(centrality_results['betweenness'].head(10))
+            if 'closeness' in centrality_results:
+                tab_names.append("Closeness Centrality")
+                tab_data.append(centrality_results['closeness'].head(10))
+            if 'pagerank' in centrality_results:
+                tab_names.append("PageRank")
+                tab_data.append(centrality_results['pagerank'].head(10))
+            
+            if tab_names:
+                tabs = st.tabs(tab_names)
+                for tab, data in zip(tabs, tab_data):
+                    with tab:
+                        st.dataframe(data, use_container_width=True)
         
-        with tab1:
-            st.dataframe(result['top_degree'], use_container_width=True)
-        with tab2:
-            st.dataframe(result['top_betweenness'], use_container_width=True)
-        with tab3:
-            st.dataframe(result['top_closeness'], use_container_width=True)
+        # Community detection results
+        if result.get('communities'):
+            st.subheader("👥 Community Detection Results")
+            communities_df = result['communities']
+            
+            n_communities = communities_df['community'].nunique()
+            st.info(f"🔍 **Detected {n_communities} communities** in the network")
+            
+            # Show community distribution
+            col1, col2 = st.columns(2)
+            with col1:
+                community_sizes = communities_df['community'].value_counts().sort_index()
+                st.write("**Community Sizes:**")
+                st.dataframe(community_sizes.to_frame('Size'), use_container_width=True)
+            
+            with col2:
+                st.write("**Sample Nodes by Community:**")
+                sample_nodes = communities_df.groupby('community').head(3)
+                st.dataframe(sample_nodes, use_container_width=True)
         
         # Network visualization
         st.subheader("🕸️ Network Visualization")
