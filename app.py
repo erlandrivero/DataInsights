@@ -15178,20 +15178,29 @@ def show_survival_analysis():
         st.success("✅ Using dataset from Data Upload section")
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
         
-        # Smart column detection using ColumnDetector
-        from utils.column_detector import ColumnDetector
-        suggestions = ColumnDetector.get_survival_column_suggestions(df)
-        
-        st.info("💡 **Smart Detection:** Select time (duration), event, and optional group columns")
+        # Use AI recommendations if available, otherwise use rule-based detection
+        if 'survival_ai_recommendations' in st.session_state:
+            rec = st.session_state.survival_ai_recommendations
+            suggestions = {
+                'time': rec.get('time_column'),
+                'event': rec.get('event_column'),
+                'group': rec.get('group_column')
+            }
+            st.info("🤖 **AI has analyzed your data and preset the columns below.** You can change them if needed.")
+        else:
+            # Fallback to rule-based detection
+            from utils.column_detector import ColumnDetector
+            suggestions = ColumnDetector.get_survival_column_suggestions(df)
+            st.info("💡 **Smart Detection:** Select time (duration), event, and optional group columns")
         
         col1, col2, col3 = st.columns(3)
         with col1:
             time_default = suggestions['time']
-            time_idx = list(df.columns).index(time_default)
+            time_idx = list(df.columns).index(time_default) if time_default and time_default in df.columns else 0
             time_col = st.selectbox("Time/Duration Column", df.columns, index=time_idx, key="surv_time")
         with col2:
             event_default = suggestions['event']
-            event_idx = list(df.columns).index(event_default)
+            event_idx = list(df.columns).index(event_default) if event_default and event_default in df.columns else 0
             event_col = st.selectbox("Event Column (1=event occurred, 0=censored)", df.columns, index=event_idx, key="surv_event")
         with col3:
             group_default = suggestions['group']
@@ -15510,6 +15519,11 @@ def show_survival_analysis():
             with st.expander("⚠️ Performance Warnings", expanded=False):
                 for warning in ai_recs['performance_warnings']:
                     st.warning(warning)
+        
+        # Button to regenerate
+        if st.button("🔄 Regenerate Analysis", key="survival_regen"):
+            del st.session_state.survival_ai_recommendations
+            st.rerun()
     else:
         st.info("👆 Click 'Generate AI Survival Analysis' to get intelligent recommendations for your survival data.")
     
