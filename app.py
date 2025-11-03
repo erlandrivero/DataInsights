@@ -16002,20 +16002,28 @@ def show_network_analysis():
         st.success("✅ Using dataset from Data Upload section")
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
         
-        # Smart column detection using ColumnDetector
-        from utils.column_detector import ColumnDetector
-        suggestions = ColumnDetector.get_network_column_suggestions(df)
-        
-        st.info("💡 **Smart Detection:** Select source (from) and target (to) columns for network edges")
+        # Use AI recommendations if available, otherwise use rule-based detection
+        if 'network_ai_recommendations' in st.session_state:
+            rec = st.session_state.network_ai_recommendations
+            suggestions = {
+                'source': rec.get('source_column'),
+                'target': rec.get('target_column')
+            }
+            st.info("🤖 **AI has analyzed your data and preset the columns below.** You can change them if needed.")
+        else:
+            # Fallback to rule-based detection
+            from utils.column_detector import ColumnDetector
+            suggestions = ColumnDetector.get_network_column_suggestions(df)
+            st.info("💡 **Smart Detection:** Select source (from) and target (to) columns for network edges")
         
         col1, col2 = st.columns(2)
         with col1:
             source_default = suggestions['source']
-            source_idx = list(df.columns).index(source_default)
+            source_idx = list(df.columns).index(source_default) if source_default and source_default in df.columns else 0
             source_col = st.selectbox("Source (From) Column", df.columns, index=source_idx, key="net_source")
         with col2:
             target_default = suggestions['target']
-            target_idx = list(df.columns).index(target_default)
+            target_idx = list(df.columns).index(target_default) if target_default and target_default in df.columns else 0
             target_col = st.selectbox("Target (To) Column", df.columns, index=target_idx, key="net_target")
         
         # Real-time validation
@@ -16199,7 +16207,119 @@ def show_network_analysis():
         avg_degree = len(edge_data) / n_nodes
         st.metric("Avg Degree", f"{avg_degree:.2f}")
     
+    # AI Analysis Section
+    st.divider()
+    st.subheader("🤖 2. AI Network Analysis Recommendations")
+    
+    has_ai_analysis = 'network_ai_recommendations' in st.session_state
+    
+    # Check if AI recommendations already exist
+    if 'network_ai_recommendations' not in st.session_state:
+        if st.button("🤖 Generate AI Network Analysis", type="primary", use_container_width=True, key="network_ai_button"):
+            with st.spinner("🔍 AI is analyzing your dataset for network analysis..."):
+                from utils.ai_smart_detection import AISmartDetection
+                
+                # Get AI recommendations
+                recommendations = AISmartDetection.analyze_dataset_for_ml(
+                    df=edge_data.copy(),
+                    task_type='network_analysis'
+                )
+                
+                # Store in session state
+                st.session_state.network_ai_recommendations = recommendations
+                st.rerun()
+    
+    # Display AI recommendations if available
+    if has_ai_analysis:
+        ai_recs = st.session_state.network_ai_recommendations
+        data_suitability = ai_recs.get('data_suitability', 'Unknown')
+        
+        # AI Assessment card
+        suitability_colors = {
+            'Excellent': '🟢',
+            'Good': '🟢',
+            'Fair': '🟡',
+            'Poor': '🔴',
+            'Unknown': '❓'
+        }
+        suitability_emoji = suitability_colors.get(data_suitability, '❓')
+        
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            st.success(f"{suitability_emoji} **AI Assessment:** {data_suitability} for Network Analysis")
+        with col2:
+            perf_risk = ai_recs.get('performance_risk', 'Unknown')
+            risk_emoji = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}.get(perf_risk, '❓')
+            st.info(f"{risk_emoji} **Performance Risk:** {perf_risk}")
+        
+        # AI-DRIVEN BLOCKING LOGIC
+        if data_suitability == 'Poor':
+            st.error("**🚨 MODULE NOT AVAILABLE**")
+            st.error(f"**AI Reasoning:** {ai_recs.get('suitability_reasoning', 'Data unsuitable for network analysis')}")
+            
+            if ai_recs.get('alternative_suggestions'):
+                st.warning("**💡 Suggestions to make data suitable:**")
+                for suggestion in ai_recs['alternative_suggestions']:
+                    st.write(f"- {suggestion}")
+            
+            st.stop()  # ONLY AI can block module
+        
+        # Show AI recommendations
+        with st.expander("📋 AI Column Recommendations", expanded=True):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.write("**🎯 Source Column:**")
+                st.code(ai_recs.get('source_column', 'Unknown'))
+            with col2:
+                st.write("**🎯 Target Column:**")
+                st.code(ai_recs.get('target_column', 'Unknown'))
+            with col3:
+                st.write("**⚖️ Weight Column:**")
+                st.code(ai_recs.get('weight_column') or 'None')
+            
+            st.info(f"💡 **Reasoning:** {ai_recs.get('column_reasoning', 'N/A')}")
+        
+        with st.expander("🔍 AI Network Quality Assessment", expanded=False):
+            st.write(f"**Suitability Reasoning:** {ai_recs.get('suitability_reasoning', 'N/A')}")
+            st.write(f"**Network Type:** {ai_recs.get('network_type', 'Unknown')}")
+            st.write(f"**Estimated Nodes:** {ai_recs.get('estimated_nodes', 'Unknown')}")
+            st.write(f"**Estimated Edges:** {ai_recs.get('estimated_edges', 'Unknown')}")
+            st.write(f"**Network Density:** {ai_recs.get('network_density', 'Unknown')}")
+            st.write(f"**Sample Size Assessment:** {ai_recs.get('sample_size_assessment', 'Unknown')}")
+        
+        with st.expander("📊 Recommended Metrics", expanded=False):
+            st.write("**Centrality Measures:**")
+            for measure in ai_recs.get('recommended_centrality_measures', []):
+                st.write(f"- {measure}")
+            
+            st.write(f"\n**Community Detection:** {'✅ Suitable' if ai_recs.get('community_detection_suitable') else '❌ Not Suitable'}")
+            st.write(f"**Reasoning:** {ai_recs.get('community_detection_reasoning', 'N/A')}")
+            st.write(f"\n**Recommended Visualization:** {ai_recs.get('recommended_visualization', 'Unknown')}")
+        
+        with st.expander("💼 Business Applications", expanded=False):
+            for app in ai_recs.get('business_applications', []):
+                st.write(f"- {app}")
+        
+        with st.expander("💡 Key Insights", expanded=False):
+            for insight in ai_recs.get('key_insights', []):
+                st.write(f"- {insight}")
+        
+        if ai_recs.get('performance_warnings'):
+            with st.expander("⚠️ Performance Warnings", expanded=False):
+                for warning in ai_recs['performance_warnings']:
+                    st.warning(warning)
+        
+        # Button to regenerate
+        if st.button("🔄 Regenerate Analysis", key="network_regen"):
+            del st.session_state.network_ai_recommendations
+            st.rerun()
+    else:
+        st.info("👆 Click 'Generate AI Network Analysis' to get intelligent recommendations for your network data.")
+    
     # Run analysis
+    st.divider()
+    st.subheader("📊 3. Run Network Analysis")
+    
     if st.button("🕸️ Analyze Network", type="primary"):
         from utils.process_manager import ProcessManager
         

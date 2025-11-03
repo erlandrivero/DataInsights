@@ -1142,6 +1142,104 @@ IMPORTANT GUIDELINES:
 11. BE SPECIFIC: If data is Poor/Fair, explain WHY (technical AND business logic) and what would make it suitable
 
 Provide ONLY the JSON response, no additional text."""
+            elif task_type == 'network_analysis':
+                prompt = f"""You are an expert in Network Analysis and Graph Theory analyzing a dataset for network/graph analysis.
+
+Dataset Overview:
+- Total Rows: {len(df)}
+- Total Columns: {len(df.columns)}
+- Task: Network Analysis (Centrality, Community Detection, Graph Metrics)
+
+Column Details:
+{json.dumps(column_info, indent=2)}
+
+Analyze this dataset for Network Analysis and provide recommendations in the following JSON format:
+{{
+    "data_suitability": "Excellent/Good/Fair/Poor",
+    "suitability_reasoning": "Detailed explanation of why this rating was given (2-3 sentences)",
+    "alternative_suggestions": ["List of suggestions if data is Poor/Fair"],
+    "performance_risk": "Low/Medium/High",
+    "performance_warnings": ["List of warnings if Medium/High risk"],
+    "source_column": "recommended_source_from_column",
+    "target_column": "recommended_target_to_column",
+    "weight_column": "recommended_optional_weight_column_or_null",
+    "column_reasoning": "Why these columns were selected for source/target/weight (2-3 sentences)",
+    "network_type": "directed/undirected/unknown",
+    "estimated_nodes": "approximate_number_of_nodes",
+    "estimated_edges": "approximate_number_of_edges",
+    "network_density": "sparse/medium/dense",
+    "recommended_centrality_measures": ["list", "of", "centrality", "measures", "to", "compute"],
+    "community_detection_suitable": true/false,
+    "community_detection_reasoning": "Why community detection is/isn't suitable",
+    "recommended_visualization": "force_directed/circular/hierarchical",
+    "sample_size_assessment": "Excellent/Good/Fair/Poor",
+    "sample_size_reasoning": "Why network size is/isn't suitable for analysis",
+    "business_applications": ["list", "of", "3-4", "business", "use", "cases"],
+    "key_insights": ["3-5 data-driven insights about network structure"],
+    "preprocessing_needed": ["list", "of", "required", "preprocessing", "steps"]
+}}
+
+IMPORTANT GUIDELINES:
+1. DATA SUITABILITY: Assess if dataset is appropriate for network analysis
+   - Excellent: Clear source/target columns, sufficient edges, good network structure
+   - Good: Identifiable source/target, reasonable network size
+   - Fair: Possible source/target but issues (too small, disconnected, data quality)
+   - Poor: No clear edges, too few nodes (<3), or fundamentally unsuitable
+
+2. SOURCE COLUMN: Represents "from" node in network edge
+   - Look for: 'from', 'source', 'sender', 'user', 'node1', 'follower'
+   - Should have multiple unique values (nodes)
+   - Examples: user_id, person_a, sender_id
+
+3. TARGET COLUMN: Represents "to" node in network edge
+   - Look for: 'to', 'target', 'receiver', 'friend', 'node2', 'following'
+   - Should have multiple unique values (nodes)
+   - Examples: friend_id, person_b, receiver_id
+
+4. WEIGHT COLUMN: Optional edge weight/strength
+   - Look for: 'weight', 'strength', 'count', 'value', 'interaction'
+   - Must be numeric if present
+   - Examples: interaction_count, relationship_strength
+
+5. NETWORK SIZE: Critical for visualization and analysis
+   - Excellent: 10-1000 nodes, 20-5000 edges (optimal for visualization)
+   - Good: 5-10 nodes or 1000-10000 nodes
+   - Fair: 3-5 nodes (too small) or >10000 nodes (too large for viz)
+   - Poor: <3 nodes (not a network)
+
+6. NETWORK DENSITY: Ratio of actual to possible edges
+   - Sparse: <10% density (typical for social networks)
+   - Medium: 10-50% density
+   - Dense: >50% density (may indicate complete or near-complete graph)
+
+7. CENTRALITY MEASURES: Recommend appropriate measures
+   - Degree Centrality: Basic connectivity measure
+   - Betweenness Centrality: Identifies bridges/gatekeepers
+   - Closeness Centrality: Measures average distance to other nodes
+   - PageRank: Importance based on incoming connections
+
+8. COMMUNITY DETECTION: Assess if communities exist
+   - Suitable: Networks with natural clusters (social, organizational)
+   - Not suitable: Complete graphs, star graphs, very small networks
+
+9. PERFORMANCE RISK: Consider Streamlit Cloud 1GB RAM limit
+   - High: >5000 nodes or >20000 edges
+   - Medium: 1000-5000 nodes or 5000-20000 edges
+   - Low: <1000 nodes and <5000 edges
+
+10. BUSINESS APPLICATIONS: Suggest 3-4 concrete use cases:
+   - Social network influencer identification
+   - Fraud detection through unusual patterns
+   - Organizational structure analysis
+   - Supply chain optimization
+   - Information flow analysis
+   - Recommendation systems
+
+11. KEY INSIGHTS: Provide 3-5 actionable insights about network structure
+
+12. BE SPECIFIC: If data is Poor/Fair, explain WHY (technical AND business logic) and what would make it suitable
+
+Provide ONLY the JSON response, no additional text."""
             else:
                 prompt = f"""You are an expert data scientist analyzing a dataset for machine learning {task_type}.
 
@@ -2673,6 +2771,81 @@ Provide ONLY the JSON response, no additional text."""
                 'business_applications': ['Customer churn prediction', 'Equipment failure forecasting', 'Subscription analysis'],
                 'key_insights': ['Rule-based fallback - limited insights available'],
                 'preprocessing_needed': ['Verify time column is numeric and positive', 'Verify event column is binary']
+            }
+        
+        elif task_type == 'network_analysis':
+            # Rule-based network analysis recommendations
+            n_samples = len(df)
+            all_cols = df.columns.tolist()
+            
+            # Performance risk
+            if n_samples > 20000:
+                performance_risk = 'High'
+                performance_warnings = ['Large network - analysis may take time', 'Consider sampling for visualization']
+            elif n_samples > 5000:
+                performance_risk = 'Medium'
+                performance_warnings = ['Medium network - monitor performance']
+            else:
+                performance_risk = 'Low'
+                performance_warnings = []
+            
+            # Detect source column
+            source_col = None
+            source_suggestions = [col for col in all_cols if any(k in col.lower() for k in ['from', 'source', 'sender', 'user', 'node1'])]
+            source_col = source_suggestions[0] if source_suggestions else (all_cols[0] if all_cols else None)
+            
+            # Detect target column
+            target_col = None
+            target_suggestions = [col for col in all_cols if any(k in col.lower() for k in ['to', 'target', 'receiver', 'friend', 'node2'])]
+            target_col = target_suggestions[0] if target_suggestions else (all_cols[1] if len(all_cols) > 1 else all_cols[0])
+            
+            # Detect weight column
+            numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+            weight_col = None
+            weight_suggestions = [col for col in numeric_cols if any(k in col.lower() for k in ['weight', 'strength', 'count', 'value'])]
+            weight_col = weight_suggestions[0] if weight_suggestions else None
+            
+            # Assess suitability
+            if n_samples < 3:
+                data_suitability = 'Poor'
+                suitability_reasoning = f'Very small network ({n_samples} edges) - need at least 3 edges'
+                alternative_suggestions = ['Need at least 3 edges to form a network']
+            elif n_samples < 10:
+                data_suitability = 'Fair'
+                suitability_reasoning = f'Small network ({n_samples} edges) - limited analysis possible'
+                alternative_suggestions = []
+            elif n_samples < 100:
+                data_suitability = 'Good'
+                suitability_reasoning = f'Adequate network ({n_samples} edges) for basic analysis'
+                alternative_suggestions = []
+            else:
+                data_suitability = 'Excellent'
+                suitability_reasoning = f'Strong network ({n_samples} edges) - excellent for comprehensive analysis'
+                alternative_suggestions = []
+            
+            return {
+                'data_suitability': data_suitability,
+                'suitability_reasoning': suitability_reasoning,
+                'alternative_suggestions': alternative_suggestions,
+                'performance_risk': performance_risk,
+                'performance_warnings': performance_warnings,
+                'source_column': source_col,
+                'target_column': target_col,
+                'weight_column': weight_col,
+                'column_reasoning': f'Rule-based detection: {source_col} for source, {target_col} for target',
+                'network_type': 'directed',
+                'estimated_nodes': 'Unknown',
+                'estimated_edges': n_samples,
+                'network_density': 'Unknown',
+                'recommended_centrality_measures': ['Degree Centrality', 'Betweenness Centrality'],
+                'community_detection_suitable': True if n_samples >= 10 else False,
+                'community_detection_reasoning': 'Community detection works better with larger networks',
+                'recommended_visualization': 'force_directed',
+                'sample_size_assessment': data_suitability,
+                'sample_size_reasoning': suitability_reasoning,
+                'business_applications': ['Social network analysis', 'Organizational structure', 'Network optimization'],
+                'key_insights': ['Rule-based fallback - limited insights available'],
+                'preprocessing_needed': ['Verify source and target columns are distinct', 'Remove missing values']
             }
         
         # Return format for ML tasks
