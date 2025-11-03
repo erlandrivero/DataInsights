@@ -15424,19 +15424,21 @@ def show_survival_analysis():
     
     has_ai_analysis = 'survival_ai_recommendations' in st.session_state
     
-    if st.button("🔍 Generate AI Survival Analysis", type="primary", key="survival_ai_btn"):
-        from utils.ai_smart_detection import AISmartDetection
-        
-        with st.status("Analyzing survival data...", expanded=True) as status:
-            st.write("📊 Preparing survival data analysis...")
-            st.write("🤖 Analyzing time-to-event patterns and data quality...")
-            st.write("⚡ Generating AI recommendations...")
-            
-            ai_recommendations = AISmartDetection.get_ai_recommendation(surv_data, task_type='survival_analysis')
-            st.session_state.survival_ai_recommendations = ai_recommendations
-            
-            status.update(label="✅ AI analysis complete!", state="complete")
-            st.rerun()
+    # Check if AI recommendations already exist
+    if 'survival_ai_recommendations' not in st.session_state:
+        if st.button("🤖 Generate AI Survival Analysis", type="primary", use_container_width=True, key="survival_ai_button"):
+            with st.spinner("🔍 AI is analyzing your dataset for survival analysis..."):
+                from utils.ai_smart_detection import AISmartDetection
+                
+                # Get AI recommendations
+                recommendations = AISmartDetection.analyze_dataset_for_ml(
+                    df=surv_data.copy(),
+                    task_type='survival_analysis'
+                )
+                
+                # Store in session state
+                st.session_state.survival_ai_recommendations = recommendations
+                st.rerun()
     
     # Display AI recommendations if available
     if has_ai_analysis:
