@@ -14599,11 +14599,26 @@ def show_geospatial_analysis():
         key="geo_data_source"
     )
     
+    # Import dataset tracker
+    from utils.dataset_tracker import DatasetTracker
+    
     # Use Loaded Dataset
     if data_source == "Use Loaded Dataset" and has_loaded_data:
         df = st.session_state.data
         st.success("✅ Using dataset from Data Upload section")
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
+        
+        # Track dataset change
+        dataset_name = "loaded_dataset"
+        current_dataset_id = DatasetTracker.generate_dataset_id(df, dataset_name)
+        stored_id = st.session_state.get('geo_dataset_id')
+        
+        if DatasetTracker.check_dataset_changed(df, dataset_name, stored_id):
+            DatasetTracker.clear_module_ai_cache(st.session_state, 'geo')
+            if stored_id is not None:
+                st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+        
+        st.session_state.geo_dataset_id = current_dataset_id
         st.session_state.geo_source_df = df  # Store for AI analysis
         
     elif data_source == "Sample Store Locations":
@@ -14636,6 +14651,18 @@ def show_geospatial_analysis():
                     })
             
             geo_data = pd.DataFrame(locations)
+            
+            # Track dataset change
+            dataset_name = "sample_store_locations"
+            current_dataset_id = DatasetTracker.generate_dataset_id(geo_data, dataset_name)
+            stored_id = st.session_state.get('geo_dataset_id')
+            
+            if DatasetTracker.check_dataset_changed(geo_data, dataset_name, stored_id):
+                DatasetTracker.clear_module_ai_cache(st.session_state, 'geo')
+                if stored_id is not None:
+                    st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+            
+            st.session_state.geo_dataset_id = current_dataset_id
             st.session_state.geo_data = geo_data
             
             st.success(f"✅ Loaded {len(geo_data)} store locations across {len(cities)} cities!")
@@ -14657,6 +14684,18 @@ def show_geospatial_analysis():
             if st.button("Process Data", type="primary", key="geo_process_upload"):
                 geo_data = df[[lat_col, lon_col]].copy()
                 geo_data.columns = ['latitude', 'longitude']
+                
+                # Track dataset change
+                dataset_name = f"uploaded_{uploaded_file.name}"
+                current_dataset_id = DatasetTracker.generate_dataset_id(geo_data, dataset_name)
+                stored_id = st.session_state.get('geo_dataset_id')
+                
+                if DatasetTracker.check_dataset_changed(geo_data, dataset_name, stored_id):
+                    DatasetTracker.clear_module_ai_cache(st.session_state, 'geo')
+                    if stored_id is not None:
+                        st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+                
+                st.session_state.geo_dataset_id = current_dataset_id
                 st.session_state.geo_data = geo_data
                 st.success("✅ Data processed!")
     
@@ -14691,6 +14730,7 @@ def show_geospatial_analysis():
                     processing_placeholder.empty()
                     
                     import time
+                    import pandas as pd
                     from utils.ai_smart_detection import get_ai_recommendation
                     
                     status.write("Analyzing data structure and quality...")
@@ -14703,6 +14743,12 @@ def show_geospatial_analysis():
                     status.write(f"Analyzing {len(analysis_data)} rows with {len(analysis_data.columns)} columns")
                     
                     ai_analysis = get_ai_recommendation(analysis_data, task_type='geospatial_analysis')
+                    
+                    # Add dataset metadata
+                    ai_analysis['dataset_id'] = st.session_state.get('geo_dataset_id', 'unknown')
+                    ai_analysis['dataset_shape'] = analysis_data.shape
+                    ai_analysis['generated_at'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
+                    
                     st.session_state.geo_ai_analysis = ai_analysis
                     
                     status.update(label="✅ AI analysis complete!", state="complete")
@@ -14713,6 +14759,14 @@ def show_geospatial_analysis():
     else:
         # AI Analysis exists - show results
         ai_recs = st.session_state.geo_ai_analysis
+        
+        # Check for dataset mismatch
+        current_dataset_id = st.session_state.get('geo_dataset_id', 'unknown')
+        stored_dataset_id = ai_recs.get('dataset_id', 'unknown')
+        
+        if current_dataset_id != stored_dataset_id and stored_dataset_id != 'unknown':
+            st.warning("⚠️ **Dataset Mismatch Detected!**")
+            st.info(f"AI recommendations were generated for a different dataset. Click 'Regenerate Analysis' below.")
         
         # Check if fallback was used
         using_fallback = ai_recs.get('using_fallback', False)
