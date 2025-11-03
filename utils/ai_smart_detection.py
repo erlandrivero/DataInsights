@@ -2037,6 +2037,119 @@ Provide ONLY the JSON response, no additional text."""
                     data_suitability = 'Good'
                     suitability_reasoning = f'Target column "{target}" appears suitable for classification ({n_unique} classes, {n_samples} samples).'
         
+        elif task_type == 'geospatial_analysis':
+            # Rule-based geospatial analysis recommendations
+            n_samples = len(df)
+            n_features = len(df.columns)
+            
+            # Find latitude and longitude columns
+            lat_col = None
+            lon_col = None
+            
+            # First try by name
+            for col in df.columns:
+                col_lower = col.lower()
+                if any(pattern in col_lower for pattern in ['lat', 'latitude']):
+                    if pd.api.types.is_numeric_dtype(df[col]):
+                        lat_col = col
+                if any(pattern in col_lower for pattern in ['lon', 'long', 'longitude', 'lng']):
+                    if pd.api.types.is_numeric_dtype(df[col]):
+                        lon_col = col
+            
+            # Fallback: look for numeric columns in valid ranges
+            if not lat_col or not lon_col:
+                numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+                for col in numeric_cols:
+                    if not lat_col:
+                        lat_min, lat_max = df[col].min(), df[col].max()
+                        if -90 <= lat_min and lat_max <= 90:
+                            lat_col = col
+                            continue
+                    if not lon_col and col != lat_col:
+                        lon_min, lon_max = df[col].min(), df[col].max()
+                        if -180 <= lon_min and lon_max <= 180:
+                            lon_col = col
+            
+            # Performance risk assessment
+            if n_samples > 50000:
+                performance_risk = 'High'
+                performance_warnings = [
+                    f'Large dataset ({n_samples:,} locations) - spatial calculations may be slow',
+                    'Consider filtering to a specific region for better performance'
+                ]
+            elif n_samples > 10000:
+                performance_risk = 'Medium'
+                performance_warnings = [f'Medium dataset ({n_samples:,} locations) - monitor clustering performance']
+            else:
+                performance_risk = 'Low'
+                performance_warnings = []
+            
+            # Data suitability assessment
+            if not lat_col or not lon_col:
+                data_suitability = 'Poor'
+                suitability_reasoning = 'No valid latitude/longitude columns detected'
+                alternative_suggestions = [
+                    'Ensure data has numeric latitude (-90 to 90) and longitude (-180 to 180) columns',
+                    'Use Sample Store Locations to see an example',
+                    'Check column names - should contain "lat", "latitude", "lon", or "longitude"'
+                ]
+            elif n_samples < 20:
+                data_suitability = 'Poor'
+                suitability_reasoning = f'Too few locations ({n_samples}) - need at least 20 for meaningful spatial analysis'
+                alternative_suggestions = [
+                    'Add more location data points',
+                    'Use Sample Store Locations to see an example'
+                ]
+            elif n_samples < 50:
+                data_suitability = 'Fair'
+                suitability_reasoning = f'Limited locations ({n_samples}) - spatial patterns may be less reliable'
+                alternative_suggestions = []
+            elif n_samples < 200:
+                data_suitability = 'Good'
+                suitability_reasoning = f'Good dataset for geospatial analysis - {n_samples} locations'
+                alternative_suggestions = []
+            else:
+                data_suitability = 'Excellent'
+                suitability_reasoning = f'Excellent dataset for geospatial analysis - {n_samples} locations with rich spatial patterns'
+                alternative_suggestions = []
+            
+            # Clustering recommendations
+            if n_samples < 100:
+                recommended_method = 'DBSCAN'
+                clustering_reasoning = 'DBSCAN recommended for small datasets - automatic cluster detection'
+                recommended_eps = 10
+                recommended_min_samples = 3
+            else:
+                recommended_method = 'K-Means'
+                clustering_reasoning = 'K-Means recommended for larger datasets - fast and interpretable'
+                recommended_eps = 20
+                recommended_min_samples = 5
+            
+            return {
+                'data_suitability': data_suitability,
+                'suitability_reasoning': suitability_reasoning,
+                'alternative_suggestions': alternative_suggestions,
+                'performance_risk': performance_risk,
+                'performance_warnings': performance_warnings,
+                'optimization_suggestions': [
+                    'Filter to specific regions for better performance',
+                    'Remove duplicate or very close coordinates',
+                    'Consider data aggregation for large datasets'
+                ],
+                'recommended_latitude_column': lat_col or 'N/A',
+                'recommended_longitude_column': lon_col or 'N/A',
+                'column_reasoning': f'Rule-based detection: {lat_col} for latitude, {lon_col} for longitude',
+                'recommended_clustering_method': recommended_method,
+                'clustering_method_reasoning': clustering_reasoning,
+                'recommended_eps': recommended_eps,
+                'eps_reasoning': f'{recommended_eps}km distance threshold based on dataset size',
+                'recommended_min_samples': recommended_min_samples,
+                'min_samples_reasoning': f'{recommended_min_samples} minimum samples for cluster formation',
+                'geographic_coverage_analysis': f'{n_samples} locations detected - spatial clustering available',
+                'spatial_patterns_detected': 'Rule-based analysis - run AI analysis for detailed pattern detection',
+                'coordinate_validation': 'Basic coordinate validation completed'
+            }
+        
         else:  # regression
             # Rule-based regression target detection with suitability check
             numeric_cols = df.select_dtypes(include=['number']).columns

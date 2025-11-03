@@ -14452,12 +14452,12 @@ def show_geospatial_analysis():
     if ai_recs.get('data_suitability', 'Unknown') == 'Poor':
         return  # Already stopped above, but double-check
     
-    # Column Selection Section (AFTER AI Analysis)
-    st.divider()
-    st.subheader("📋 Select Columns for Geospatial Analysis")
-    
-    # Get source dataframe
+    # Column Selection Section (AFTER AI Analysis) - Only for "Use Loaded Dataset"
     if 'geo_source_df' in st.session_state:
+        st.divider()
+        st.subheader("📋 Select Columns for Geospatial Analysis")
+        
+        # Get source dataframe
         df = st.session_state.geo_source_df
         
         # Show data preview
@@ -14583,9 +14583,6 @@ def show_geospatial_analysis():
             st.success("✅ Data processed!")
             st.info(f"📍 {len(geo_data)} locations ready for spatial analysis")
             st.rerun()
-    else:
-        st.info("👆 Select a data source above to continue")
-        return
     
     # Check if data has been processed (from any source)
     if 'geo_data' not in st.session_state:
