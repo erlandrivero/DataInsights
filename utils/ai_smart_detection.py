@@ -906,6 +906,96 @@ Guidelines for Cohort Analysis:
     - If data is Poor, suggest improving data FOR cohort analysis (e.g., add more users, longer tracking period)
 
 Provide ONLY the JSON response, no additional text."""
+            elif task_type == 'geospatial_analysis':
+                prompt = f"""You are an expert in Geospatial Analysis and Location Intelligence analyzing a dataset for spatial clustering and mapping.
+
+Dataset Overview:
+- Total Rows: {len(df)}
+- Total Columns: {len(df.columns)}
+
+Column Details:
+{json.dumps(column_info, indent=2)}
+
+Please analyze this dataset and provide Geospatial Analysis recommendations in the following JSON format:
+{{
+    "data_suitability": "Excellent/Good/Fair/Poor",
+    "suitability_reasoning": "Detailed explanation specific to geospatial analysis",
+    "alternative_suggestions": ["List of suggestions if data is Poor - DO NOT suggest other modules"],
+    "performance_risk": "Low/Medium/High",
+    "performance_warnings": ["List of performance concerns for Streamlit Cloud"],
+    "optimization_suggestions": ["List of specific suggestions to improve spatial analysis"],
+    "recommended_latitude_column": "column_name",
+    "recommended_longitude_column": "column_name",
+    "column_reasoning": "Why these columns are recommended for geospatial analysis",
+    "recommended_clustering_method": "DBSCAN/K-Means",
+    "clustering_method_reasoning": "Why this clustering method is best for this data",
+    "recommended_eps": 10,
+    "eps_reasoning": "Why this distance threshold (km) is appropriate",
+    "recommended_min_samples": 3,
+    "min_samples_reasoning": "Why this minimum cluster size is appropriate",
+    "geographic_coverage_analysis": "Assessment of spatial distribution and coverage",
+    "spatial_patterns_detected": "Preliminary assessment of clustering potential",
+    "coordinate_validation": "Analysis of coordinate ranges and data quality"
+}}
+
+Guidelines for Geospatial Analysis:
+1. DATA SUITABILITY: Assess if dataset is appropriate for spatial analysis
+   - Excellent: 100+ locations, valid lat/lon ranges, good geographic spread
+   - Good: 50+ locations, valid coordinates, reasonable distribution
+   - Fair: 20+ locations, some coordinate issues but workable
+   - Poor: <20 locations OR invalid coordinates OR no numeric lat/lon columns
+2. COLUMN SELECTION: Identify latitude and longitude columns
+   - LATITUDE COLUMN: Should contain latitude values (look for: latitude, lat, Latitude, LAT, y)
+     - Must be numeric type (float or int)
+     - Valid range: -90 to 90 degrees
+     - Represents North-South position
+   - LONGITUDE COLUMN: Should contain longitude values (look for: longitude, lon, lng, Longitude, LONG, x)
+     - Must be numeric type (float or int)
+     - Valid range: -180 to 180 degrees
+     - Represents East-West position
+   - Provide reasoning for why each column was chosen
+3. COORDINATE VALIDATION: Check if lat/lon values are valid
+   - Latitude must be between -90 and 90
+   - Longitude must be between -180 and 180
+   - No all-zero coordinates (0, 0 = Gulf of Guinea, likely error)
+   - Reasonable precision (2-6 decimal places typical)
+4. LOCATION COUNT: Number of valid coordinate pairs
+   - Minimum: 20 locations (for meaningful clustering)
+   - Good: 50+ locations (robust spatial patterns)
+   - Excellent: 200+ locations (rich spatial analysis)
+5. GEOGRAPHIC SPREAD: Assess spatial distribution
+   - Problem: All locations in same spot (no clustering possible)
+   - Fair: Limited geographic area (city-level)
+   - Good: Regional spread (state/province-level)
+   - Excellent: Wide distribution (country/continent-level)
+6. CLUSTERING METHOD RECOMMENDATION:
+   - DBSCAN (Density-Based): Better for irregular shapes, automatic cluster detection, handles noise
+     - Use when: Unknown number of clusters, variable density, noise points expected
+   - K-Means: Better for roughly equal-sized spherical clusters, requires cluster count
+     - Use when: Known cluster count, evenly distributed data, simple interpretation needed
+7. EPS (EPSILON) RECOMMENDATION: Maximum distance for DBSCAN clustering
+   - City-level data (< 50km spread): recommend 1-5 km
+   - Regional data (50-500km spread): recommend 10-50 km
+   - Country-level data (> 500km spread): recommend 50-200 km
+   - Base on: average distance between nearest neighbors
+8. MIN_SAMPLES RECOMMENDATION: Minimum points to form cluster
+   - Small dataset (<100 locations): recommend 2-3
+   - Medium dataset (100-1000 locations): recommend 3-5
+   - Large dataset (>1000 locations): recommend 5-10
+9. PERFORMANCE CONSTRAINTS: Consider Streamlit Cloud (1GB RAM, CPU timeout)
+   - High Risk: >50,000 locations (large distance calculations)
+   - Medium Risk: 10,000-50,000 locations
+   - Low Risk: <10,000 locations
+10. SPATIAL PATTERNS: Preliminary assessment
+    - Check for obvious clusters (multiple locations in same city)
+    - Identify potential outliers (isolated locations)
+    - Assess data density and distribution
+11. DO NOT SUGGEST OTHER MODULES: Analyze THIS module's suitability only
+    - Do not recommend other analysis types
+    - Focus on making geospatial analysis work with this data
+    - If data is Poor, suggest improving data FOR spatial analysis (e.g., add more locations, fix coordinates)
+
+Provide ONLY the JSON response, no additional text."""
             else:
                 prompt = f"""You are an expert data scientist analyzing a dataset for machine learning {task_type}.
 

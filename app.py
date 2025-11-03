@@ -14269,27 +14269,233 @@ def show_geospatial_analysis():
         df = st.session_state.data
         st.success("✅ Using dataset from Data Upload section")
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
+        st.session_state.geo_source_df = df  # Store for AI analysis
         
-        # Smart column detection using ColumnDetector
-        from utils.column_detector import ColumnDetector
-        suggestions = ColumnDetector.get_geospatial_column_suggestions(df)
+    elif data_source == "Sample Store Locations":
+        if st.button("📥 Load Sample Store Locations", type="primary"):
+            # Generate sample geographic data (US cities)
+            np.random.seed(42)
+            
+            cities = [
+                (40.7128, -74.0060, "New York"),
+                (34.0522, -118.2437, "Los Angeles"),
+                (41.8781, -87.6298, "Chicago"),
+                (29.7604, -95.3698, "Houston"),
+                (33.4484, -112.0740, "Phoenix"),
+                (39.7392, -104.9903, "Denver"),
+                (47.6062, -122.3321, "Seattle"),
+                (37.7749, -122.4194, "San Francisco"),
+                (42.3601, -71.0589, "Boston"),
+                (25.7617, -80.1918, "Miami")
+            ]
+            
+            # Add some noise to create multiple stores per city
+            locations = []
+            for lat, lon, city in cities:
+                for i in range(5):  # 5 stores per city
+                    locations.append({
+                        'latitude': lat + np.random.normal(0, 0.1),
+                        'longitude': lon + np.random.normal(0, 0.1),
+                        'city': city,
+                        'store_id': f"{city[:3].upper()}-{i+1}"
+                    })
+            
+            geo_data = pd.DataFrame(locations)
+            st.session_state.geo_data = geo_data
+            
+            st.success(f"✅ Loaded {len(geo_data)} store locations across {len(cities)} cities!")
+            st.dataframe(geo_data.head(10), use_container_width=True)
+    
+    else:  # Upload
+        uploaded_file = st.file_uploader("Upload geographic data CSV", type=['csv'], key="geo_upload")
         
-        st.info("💡 **Smart Detection:** Select latitude and longitude columns")
+        if uploaded_file:
+            df = pd.read_csv(uploaded_file)
+            st.dataframe(df.head(), use_container_width=True)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                lat_col = st.selectbox("Latitude Column", df.select_dtypes(include=[np.number]).columns, key="geo_lat_upload")
+            with col2:
+                lon_col = st.selectbox("Longitude Column", df.select_dtypes(include=[np.number]).columns, key="geo_lon_upload")
+            
+            if st.button("Process Data", type="primary", key="geo_process_upload"):
+                geo_data = df[[lat_col, lon_col]].copy()
+                geo_data.columns = ['latitude', 'longitude']
+                st.session_state.geo_data = geo_data
+                st.success("✅ Data processed!")
+    
+    # Analysis section - Check if we have source data OR processed geo data
+    if 'geo_source_df' not in st.session_state and 'geo_data' not in st.session_state:
+        st.info("👆 Load geographic data to begin spatial analysis")
+        return
+    
+    # Determine which data to use for AI analysis
+    if 'geo_source_df' in st.session_state:
+        # Use source dataframe for AI analysis (before column selection)
+        analysis_data = st.session_state.geo_source_df
+    else:
+        # Use processed geo data (for Sample/Upload data)
+        analysis_data = st.session_state.geo_data
+    
+    # ============================================================================
+    # Section 2: AI Geospatial Analysis & Recommendations
+    # ============================================================================
+    st.divider()
+    st.subheader("🤖 2. AI Geospatial Analysis & Recommendations")
+    
+    # Generate AI Analysis Button - Only show if not already done
+    if 'geo_ai_analysis' not in st.session_state:
+        if st.button("🔍 Generate AI Geospatial Analysis", type="primary", use_container_width=True, key="geo_ai_btn"):
+            # Immediate feedback
+            processing_placeholder = st.empty()
+            processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
+            
+            with st.status("🤖 Analyzing dataset for Geospatial Analysis...", expanded=False) as status:
+                try:
+                    processing_placeholder.empty()
+                    
+                    import time
+                    from utils.ai_smart_detection import get_ai_recommendation
+                    
+                    status.write("Analyzing data structure and quality...")
+                    time.sleep(0.5)
+                    
+                    status.write("Evaluating geospatial analysis suitability...")
+                    time.sleep(0.5)
+                    
+                    status.write("Generating AI recommendations...")
+                    status.write(f"Analyzing {len(analysis_data)} rows with {len(analysis_data.columns)} columns")
+                    
+                    ai_analysis = get_ai_recommendation(analysis_data, task_type='geospatial_analysis')
+                    st.session_state.geo_ai_analysis = ai_analysis
+                    
+                    status.update(label="✅ AI analysis complete!", state="complete")
+                    st.rerun()
+                except Exception as e:
+                    status.update(label="❌ Analysis failed", state="error")
+                    st.error(f"Error generating AI analysis: {str(e)}")
+    else:
+        # AI Analysis exists - show results
+        ai_recs = st.session_state.geo_ai_analysis
+        
+        # Performance Risk Assessment
+        performance_risk = ai_recs.get('performance_risk', 'Low')
+        risk_emoji = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}.get(performance_risk, '❓')
+        
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            st.info(f"**⚡ Performance Risk:** {risk_emoji} {performance_risk} - Dataset suitability for Streamlit Cloud")
+        with col2:
+            if st.button("🔄 Regenerate Analysis", use_container_width=True, key="geo_regen_btn"):
+                del st.session_state.geo_ai_analysis
+                st.rerun()
+        
+        # Data Suitability Assessment - AI DECISION POINT
+        data_suitability = ai_recs.get('data_suitability', 'Unknown')
+        suitability_emoji = {'Excellent': '🌟', 'Good': '✅', 'Fair': '⚠️', 'Poor': '❌'}.get(data_suitability, '❓')
+        
+        # AI-DRIVEN BLOCKING LOGIC
+        if data_suitability == 'Poor':
+            st.error(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for Geospatial Analysis")
+            
+            # Show AI reasoning for why it's not suitable
+            suitability_reasoning = ai_recs.get('suitability_reasoning', 'AI determined this data is not suitable for Geospatial Analysis')
+            st.error(f"**🤖 AI Recommendation:** {suitability_reasoning}")
+            
+            # Show AI suggestions
+            ai_suggestions = ai_recs.get('alternative_suggestions', [])
+            if ai_suggestions:
+                st.info("**💡 AI Suggestions:**")
+                for suggestion in ai_suggestions:
+                    st.write(f"- {suggestion}")
+            else:
+                st.info("**💡 AI Suggestions:**")
+                st.write("- Use Sample Store Locations (perfect for spatial clustering)")
+                st.write("- Ensure data has numeric latitude and longitude columns")
+                st.write("- Latitude must be between -90 and 90")
+                st.write("- Longitude must be between -180 and 180")
+            
+            st.warning("**⚠️ Module not available for this dataset based on AI analysis.**")
+            st.stop()  # AI-DRIVEN STOP - Only stop if AI says data is Poor
+        else:
+            # AI approves - show positive assessment
+            st.success(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for Geospatial Analysis")
+            
+            # Suitability reasoning
+            suitability_reasoning = ai_recs.get('suitability_reasoning', 'AI determined this data is suitable for Geospatial Analysis')
+            with st.expander("💡 Why this suitability rating?", expanded=False):
+                st.info(suitability_reasoning)
+        
+        # Performance Warnings (only shown if AI approves)
+        if performance_risk in ['Medium', 'High']:
+            perf_warnings = ai_recs.get('performance_warnings', [])
+            if perf_warnings:
+                st.warning("⚠️ **Performance Warnings:**")
+                for warning in perf_warnings:
+                    st.write(f"• {warning}")
+        
+        # Optimization Suggestions
+        optimization_suggestions = ai_recs.get('optimization_suggestions', [])
+        if optimization_suggestions:
+            with st.expander("🚀 AI Optimization Suggestions", expanded=True):
+                for suggestion in optimization_suggestions:
+                    st.write(f"• {suggestion}")
+    
+    # Don't show configuration until AI analysis is complete
+    if 'geo_ai_analysis' not in st.session_state:
+        st.info("🤖 **Generate AI Analysis above to determine if this dataset is suitable for Geospatial Analysis and get intelligent recommendations.**")
+        return  # Stop here until AI analysis is done
+    
+    # Only proceed if AI approved the data
+    ai_recs = st.session_state.get('geo_ai_analysis', {})
+    if ai_recs.get('data_suitability', 'Unknown') == 'Poor':
+        return  # Already stopped above, but double-check
+    
+    # Column Selection Section (AFTER AI Analysis)
+    st.divider()
+    st.subheader("📋 Select Columns for Geospatial Analysis")
+    
+    # Get source dataframe
+    if 'geo_source_df' in st.session_state:
+        df = st.session_state.geo_source_df
+        
+        # Show data preview
+        with st.expander("👁️ Preview Dataset", expanded=False):
+            st.dataframe(df.head(20), use_container_width=True)
+        
+        # Use AI recommendations FIRST, fallback to smart detection if AI failed
+        ai_recs = st.session_state.get('geo_ai_analysis', {})
+        
+        # Try AI recommendations first
+        ai_lat_col = ai_recs.get('recommended_latitude_column')
+        ai_lon_col = ai_recs.get('recommended_longitude_column')
+        
+        # Fallback to smart detection only if AI didn't provide recommendations
+        if not ai_lat_col or not ai_lon_col:
+            from utils.column_detector import ColumnDetector
+            suggestions = ColumnDetector.get_geospatial_column_suggestions(df)
+            lat_default = suggestions['latitude']
+            lon_default = suggestions['longitude']
+            st.info("💡 **Using Smart Detection:** AI recommendations not available, using rule-based column detection")
+        else:
+            lat_default = ai_lat_col
+            lon_default = ai_lon_col
+            st.info("🤖 **AI has analyzed your data and preset the columns below.** You can change them if needed.")
         
         # Pre-filter numeric columns for lat/lon
         numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
         
+        # Column selection dropdowns
         col1, col2 = st.columns(2)
         with col1:
-            lat_default = suggestions['latitude'] if suggestions['latitude'] in numeric_cols else (numeric_cols[0] if numeric_cols else df.columns[0])
             lat_idx = list(df.columns).index(lat_default) if lat_default in df.columns else 0
             lat_col = st.selectbox("Latitude Column", df.columns, index=lat_idx, key="geo_lat")
         with col2:
-            lon_default = suggestions['longitude'] if suggestions['longitude'] in numeric_cols else (numeric_cols[1] if len(numeric_cols) > 1 else df.columns[1] if len(df.columns) > 1 else df.columns[0])
             lon_idx = list(df.columns).index(lon_default) if lon_default in df.columns else 0
             lon_col = st.selectbox("Longitude Column", df.columns, index=lon_idx, key="geo_lon")
         
-        # Real-time validation (similar to A/B Testing)
+        # Real-time validation
         issues = []
         warnings = []
         recommendations = []
@@ -14377,64 +14583,13 @@ def show_geospatial_analysis():
             st.success("✅ Data processed!")
             st.info(f"📍 {len(geo_data)} locations ready for spatial analysis")
             st.rerun()
+    else:
+        st.info("👆 Select a data source above to continue")
+        return
     
-    elif data_source == "Sample Store Locations":
-        if st.button("📥 Load Sample Store Locations", type="primary"):
-            # Generate sample geographic data (US cities)
-            np.random.seed(42)
-            
-            cities = [
-                (40.7128, -74.0060, "New York"),
-                (34.0522, -118.2437, "Los Angeles"),
-                (41.8781, -87.6298, "Chicago"),
-                (29.7604, -95.3698, "Houston"),
-                (33.4484, -112.0740, "Phoenix"),
-                (39.7392, -104.9903, "Denver"),
-                (47.6062, -122.3321, "Seattle"),
-                (37.7749, -122.4194, "San Francisco"),
-                (42.3601, -71.0589, "Boston"),
-                (25.7617, -80.1918, "Miami")
-            ]
-            
-            # Add some noise to create multiple stores per city
-            locations = []
-            for lat, lon, city in cities:
-                for i in range(5):  # 5 stores per city
-                    locations.append({
-                        'latitude': lat + np.random.normal(0, 0.1),
-                        'longitude': lon + np.random.normal(0, 0.1),
-                        'city': city,
-                        'store_id': f"{city[:3].upper()}-{i+1}"
-                    })
-            
-            geo_data = pd.DataFrame(locations)
-            st.session_state.geo_data = geo_data
-            
-            st.success(f"✅ Loaded {len(geo_data)} store locations across {len(cities)} cities!")
-            st.dataframe(geo_data.head(10), use_container_width=True)
-    
-    else:  # Upload
-        uploaded_file = st.file_uploader("Upload geographic data CSV", type=['csv'], key="geo_upload")
-        
-        if uploaded_file:
-            df = pd.read_csv(uploaded_file)
-            st.dataframe(df.head(), use_container_width=True)
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                lat_col = st.selectbox("Latitude Column", df.select_dtypes(include=[np.number]).columns, key="geo_lat_upload")
-            with col2:
-                lon_col = st.selectbox("Longitude Column", df.select_dtypes(include=[np.number]).columns, key="geo_lon_upload")
-            
-            if st.button("Process Data", type="primary", key="geo_process_upload"):
-                geo_data = df[[lat_col, lon_col]].copy()
-                geo_data.columns = ['latitude', 'longitude']
-                st.session_state.geo_data = geo_data
-                st.success("✅ Data processed!")
-    
-    # Analysis section
+    # Check if data has been processed (from any source)
     if 'geo_data' not in st.session_state:
-        st.info("👆 Load geographic data to begin spatial analysis")
+        st.info("👆 Click 'Process Data' above to continue with geospatial analysis")
         return
     
     geo_data = st.session_state.geo_data
