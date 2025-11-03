@@ -17454,12 +17454,27 @@ def show_churn_prediction():
         help="Sample data includes synthetic customer transaction history"
     )
     
+    # Import dataset tracker
+    from utils.dataset_tracker import DatasetTracker
+    
     churn_data = None
     
     if data_source == "Use Loaded Dataset":
         if has_loaded_data:
             churn_data = st.session_state.data.copy()
             st.success(f"✅ Using loaded dataset ({len(churn_data):,} rows)")
+            
+            # Track dataset change
+            dataset_name = "loaded_dataset"
+            current_dataset_id = DatasetTracker.generate_dataset_id(churn_data, dataset_name)
+            stored_id = st.session_state.get('churn_dataset_id')
+            
+            if DatasetTracker.check_dataset_changed(churn_data, dataset_name, stored_id):
+                DatasetTracker.clear_module_ai_cache(st.session_state, 'churn')
+                if stored_id is not None:
+                    st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+            
+            st.session_state.churn_dataset_id = current_dataset_id
         else:
             st.warning("⚠️ No data loaded. Please upload data first or use sample data.")
         
@@ -17497,6 +17512,18 @@ def show_churn_prediction():
         churn_map = churn_labels.astype(int).to_dict()
         churn_data['churned'] = churn_data['customer_id'].map(churn_map)
         
+        # Track dataset change for sample data
+        dataset_name = "sample_churn_data"
+        current_dataset_id = DatasetTracker.generate_dataset_id(churn_data, dataset_name)
+        stored_id = st.session_state.get('churn_dataset_id')
+        
+        if DatasetTracker.check_dataset_changed(churn_data, dataset_name, stored_id):
+            DatasetTracker.clear_module_ai_cache(st.session_state, 'churn')
+            if stored_id is not None:
+                st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+        
+        st.session_state.churn_dataset_id = current_dataset_id
+        
         st.success(f"✅ Sample data loaded ({len(churn_data):,} transactions, {n_customers} customers)")
         st.info("💡 This dataset contains synthetic customer transactions with churn labels for demonstration")
         
@@ -17505,6 +17532,18 @@ def show_churn_prediction():
         if uploaded:
             churn_data = pd.read_csv(uploaded)
             st.success(f"✅ File uploaded ({len(churn_data):,} rows)")
+            
+            # Track dataset change for uploaded data
+            dataset_name = f"uploaded_{uploaded.name}"
+            current_dataset_id = DatasetTracker.generate_dataset_id(churn_data, dataset_name)
+            stored_id = st.session_state.get('churn_dataset_id')
+            
+            if DatasetTracker.check_dataset_changed(churn_data, dataset_name, stored_id):
+                DatasetTracker.clear_module_ai_cache(st.session_state, 'churn')
+                if stored_id is not None:
+                    st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+            
+            st.session_state.churn_dataset_id = current_dataset_id
     
     # Display dataset preview
     if churn_data is not None:
@@ -17534,6 +17573,11 @@ def show_churn_prediction():
                         task_type='churn_prediction'
                     )
                     
+                    # Add dataset metadata to AI recommendations
+                    recommendations['dataset_id'] = st.session_state.get('churn_dataset_id', 'unknown')
+                    recommendations['dataset_shape'] = churn_data.shape
+                    recommendations['generated_at'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
+                    
                     # Store in session state
                     st.session_state.churn_ai_recommendations = recommendations
                     st.rerun()
@@ -17541,6 +17585,19 @@ def show_churn_prediction():
         # Display AI recommendations if available
         if has_ai_analysis:
             ai_recs = st.session_state.churn_ai_recommendations
+            
+            # Validate AI recommendations match current dataset
+            stored_ai_dataset_id = ai_recs.get('dataset_id')
+            current_dataset_id = st.session_state.get('churn_dataset_id')
+            
+            if stored_ai_dataset_id and current_dataset_id and stored_ai_dataset_id != current_dataset_id:
+                st.warning("⚠️ **Dataset Mismatch Detected!** The AI recommendations below were generated for a different dataset. Please regenerate the analysis.")
+                with st.expander("📋 AI Recommendation Details"):
+                    st.write(f"**Generated for dataset:** `{stored_ai_dataset_id}`")
+                    st.write(f"**Current dataset:** `{current_dataset_id}`")
+                    st.write(f"**Generated at:** {ai_recs.get('generated_at', 'Unknown')}")
+                    st.write(f"**Dataset shape:** {ai_recs.get('dataset_shape', 'Unknown')}")
+            
             data_suitability = ai_recs.get('data_suitability', 'Unknown')
             
             # AI Assessment card
