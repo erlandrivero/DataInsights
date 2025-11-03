@@ -15418,7 +15418,103 @@ def show_survival_analysis():
         event_rate = surv_data['event'].mean() * 100
         st.metric("Event Rate", f"{event_rate:.1f}%")
     
+    # AI Analysis Section
+    st.divider()
+    st.subheader("🤖 2. AI Survival Analysis Recommendations")
+    
+    has_ai_analysis = 'survival_ai_recommendations' in st.session_state
+    
+    if st.button("🔍 Generate AI Survival Analysis", type="primary", key="survival_ai_btn"):
+        from utils.ai_smart_detection import AISmartDetection
+        
+        with st.status("Analyzing survival data...", expanded=True) as status:
+            st.write("📊 Preparing survival data analysis...")
+            st.write("🤖 Analyzing time-to-event patterns and data quality...")
+            st.write("⚡ Generating AI recommendations...")
+            
+            ai_recommendations = AISmartDetection.get_ai_recommendation(surv_data, task_type='survival_analysis')
+            st.session_state.survival_ai_recommendations = ai_recommendations
+            
+            status.update(label="✅ AI analysis complete!", state="complete")
+            st.rerun()
+    
+    # Display AI recommendations if available
+    if has_ai_analysis:
+        ai_recs = st.session_state.survival_ai_recommendations
+        data_suitability = ai_recs.get('data_suitability', 'Unknown')
+        
+        # AI Assessment card
+        suitability_colors = {
+            'Excellent': '🟢',
+            'Good': '🟢',
+            'Fair': '🟡',
+            'Poor': '🔴',
+            'Unknown': '❓'
+        }
+        suitability_emoji = suitability_colors.get(data_suitability, '❓')
+        
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            st.success(f"{suitability_emoji} **AI Assessment:** {data_suitability} for Survival Analysis")
+        with col2:
+            perf_risk = ai_recs.get('performance_risk', 'Unknown')
+            risk_emoji = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}.get(perf_risk, '❓')
+            st.info(f"{risk_emoji} **Performance Risk:** {perf_risk}")
+        
+        # AI-DRIVEN BLOCKING LOGIC
+        if data_suitability == 'Poor':
+            st.error("**🚨 MODULE NOT AVAILABLE**")
+            st.error(f"**AI Reasoning:** {ai_recs.get('suitability_reasoning', 'Data unsuitable for survival analysis')}")
+            
+            if ai_recs.get('alternative_suggestions'):
+                st.warning("**💡 Suggestions to make data suitable:**")
+                for suggestion in ai_recs['alternative_suggestions']:
+                    st.write(f"- {suggestion}")
+            
+            st.stop()  # ONLY AI can block module
+        
+        # Show AI recommendations
+        with st.expander("📋 AI Column Recommendations", expanded=True):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.write("**⏱️ Time Column:**")
+                st.code(ai_recs.get('time_column', 'Unknown'))
+            with col2:
+                st.write("**🎯 Event Column:**")
+                st.code(ai_recs.get('event_column', 'Unknown'))
+            with col3:
+                st.write("**👥 Group Column:**")
+                st.code(ai_recs.get('group_column') or 'None')
+            
+            st.info(f"💡 **Reasoning:** {ai_recs.get('column_reasoning', 'N/A')}")
+        
+        with st.expander("🔍 AI Data Quality Assessment", expanded=False):
+            st.write(f"**Suitability Reasoning:** {ai_recs.get('suitability_reasoning', 'N/A')}")
+            st.write(f"**Time Unit:** {ai_recs.get('time_unit', 'Unknown')}")
+            st.write(f"**Event Rate:** {ai_recs.get('event_rate', 'Unknown')}")
+            st.write(f"**Event Rate Assessment:** {ai_recs.get('event_rate_assessment', 'Unknown')}")
+            st.write(f"**Censoring Assessment:** {ai_recs.get('censoring_assessment', 'Unknown')}")
+            st.write(f"**Sample Size Assessment:** {ai_recs.get('sample_size_assessment', 'Unknown')}")
+        
+        with st.expander("💼 Business Applications", expanded=False):
+            for app in ai_recs.get('business_applications', []):
+                st.write(f"- {app}")
+        
+        with st.expander("💡 Key Insights", expanded=False):
+            for insight in ai_recs.get('key_insights', []):
+                st.write(f"- {insight}")
+        
+        if ai_recs.get('performance_warnings'):
+            with st.expander("⚠️ Performance Warnings", expanded=False):
+                for warning in ai_recs['performance_warnings']:
+                    st.warning(warning)
+    else:
+        st.info("👆 Click 'Generate AI Survival Analysis' to get intelligent recommendations for your survival data.")
+    
     # Run analysis
+    st.divider()
+    st.subheader("📊 3. Run Survival Analysis")
+    
     if st.button("⏱️ Run Survival Analysis", type="primary"):
         from utils.process_manager import ProcessManager
         

@@ -1051,6 +1051,97 @@ Guidelines for Geospatial Analysis:
     - If data is Poor, suggest improving data FOR spatial analysis (e.g., add more locations, fix coordinates)
 
 Provide ONLY the JSON response, no additional text."""
+            elif task_type == 'survival_analysis':
+                prompt = f"""You are an expert in Survival Analysis and Time-to-Event Modeling analyzing a dataset for survival curve estimation and event prediction.
+
+Dataset Overview:
+- Total Rows: {len(df)}
+- Total Columns: {len(df.columns)}
+- Task: Survival Analysis (Kaplan-Meier, Log-Rank Test, Median Survival Time)
+
+Column Details:
+{json.dumps(column_info, indent=2)}
+
+Analyze this dataset for Survival Analysis and provide recommendations in the following JSON format:
+{{
+    "data_suitability": "Excellent/Good/Fair/Poor",
+    "suitability_reasoning": "Detailed explanation of why this rating was given (2-3 sentences)",
+    "alternative_suggestions": ["List of suggestions if data is Poor/Fair"],
+    "performance_risk": "Low/Medium/High",
+    "performance_warnings": ["List of warnings if Medium/High risk"],
+    "time_column": "recommended_time_duration_column",
+    "event_column": "recommended_event_indicator_column",
+    "group_column": "recommended_optional_group_column_or_null",
+    "column_reasoning": "Why these columns were selected for time/event/group (2-3 sentences)",
+    "time_unit": "estimated_time_unit (days/months/years/hours)",
+    "event_rate": "estimated_percentage_of_events_vs_censored",
+    "event_rate_assessment": "Good/Fair/Poor based on event rate balance",
+    "median_survival_estimate": "rough_estimate_or_unknown",
+    "recommended_groups_to_compare": ["list", "of", "group", "values", "to", "compare"],
+    "censoring_assessment": "Good/Fair/Poor - assessment of censored data quality",
+    "sample_size_assessment": "Excellent/Good/Fair/Poor",
+    "sample_size_reasoning": "Why sample size is/isn't sufficient for reliable survival curves",
+    "business_applications": ["list", "of", "3-4", "business", "use", "cases"],
+    "key_insights": ["3-5 data-driven insights about survival patterns"],
+    "preprocessing_needed": ["list", "of", "required", "preprocessing", "steps"]
+}}
+
+IMPORTANT GUIDELINES:
+1. DATA SUITABILITY: Assess if dataset is appropriate for survival analysis
+   - Excellent: Clear time/event columns, balanced event/censoring, sufficient samples, good for groups
+   - Good: Adequate time/event columns, reasonable event rate, sufficient samples
+   - Fair: Identifiable time/event but issues (imbalance, small sample, data quality)
+   - Poor: No clear time/event columns, too few samples (<10), or fundamentally unsuitable
+
+2. TIME COLUMN: Must be numeric, positive, representing duration until event or censoring
+   - Look for: 'time', 'duration', 'days', 'months', 'tenure', 'survival_time'
+   - Must be > 0 for all observations
+   - Should have variation (not all same value)
+
+3. EVENT COLUMN: Must be binary indicator (1=event occurred, 0=censored)
+   - Look for: 'event', 'churn', 'died', 'failed', 'status', 'outcome', 'censored'
+   - Should be binary: 1/0, True/False, Yes/No
+   - Ideally 20-80% event rate (not all events or all censored)
+
+4. GROUP COLUMN: Optional categorical for comparing survival between groups
+   - Look for: 'treatment', 'group', 'category', 'cohort', 'segment'
+   - Should have 2-10 groups (optimal for comparison)
+   - Examples: treatment groups, customer segments, product types
+
+5. SAMPLE SIZE: Critical for reliable survival curves
+   - Excellent: 500+ observations
+   - Good: 100-500 observations
+   - Fair: 30-100 observations
+   - Poor: <30 observations (curves unreliable)
+
+6. EVENT RATE: Balance between events and censoring
+   - Good: 20-80% event rate (balanced)
+   - Fair: 10-20% or 80-90% (imbalanced but workable)
+   - Poor: <10% or >90% (too imbalanced)
+
+7. PERFORMANCE RISK: Consider Streamlit Cloud 1GB RAM limit
+   - High: >50k observations or complex group comparisons
+   - Medium: 10k-50k observations
+   - Low: <10k observations
+
+8. CENSORING ASSESSMENT: Quality of censored data
+   - Good: Informative censoring, clear censoring reason
+   - Fair: Some censoring but unclear reason
+   - Poor: Heavy censoring (>80%) or non-informative
+
+9. BUSINESS APPLICATIONS: Suggest 3-4 concrete use cases:
+   - Customer churn prediction
+   - Equipment failure forecasting
+   - Subscription cancellation modeling
+   - Time-to-conversion analysis
+   - Patient survival estimation
+   - Product lifetime analysis
+
+10. KEY INSIGHTS: Provide 3-5 actionable insights about survival patterns in the data
+
+11. BE SPECIFIC: If data is Poor/Fair, explain WHY (technical AND business logic) and what would make it suitable
+
+Provide ONLY the JSON response, no additional text."""
             else:
                 prompt = f"""You are an expert data scientist analyzing a dataset for machine learning {task_type}.
 
@@ -2509,6 +2600,80 @@ Provide ONLY the JSON response, no additional text."""
                 else:
                     data_suitability = 'Good'
                     suitability_reasoning = f'Target column "{target}" appears suitable for regression (continuous numeric with {n_unique} unique values).'
+        
+        elif task_type == 'survival_analysis':
+            # Rule-based survival analysis recommendations
+            n_samples = len(df)
+            numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+            all_cols = df.columns.tolist()
+            
+            # Performance risk
+            if n_samples > 50000:
+                performance_risk = 'High'
+                performance_warnings = ['Large dataset - survival analysis may take time', 'Consider sampling']
+            elif n_samples > 10000:
+                performance_risk = 'Medium'
+                performance_warnings = ['Medium dataset - monitor performance']
+            else:
+                performance_risk = 'Low'
+                performance_warnings = []
+            
+            # Detect time column
+            time_col = None
+            time_suggestions = [col for col in numeric_cols if any(k in col.lower() for k in ['time', 'duration', 'days', 'months', 'tenure'])]
+            time_col = time_suggestions[0] if time_suggestions else (numeric_cols[0] if numeric_cols else all_cols[0])
+            
+            # Detect event column
+            event_col = None
+            event_suggestions = [col for col in all_cols if any(k in col.lower() for k in ['event', 'churn', 'status', 'outcome', 'censored'])]
+            event_col = event_suggestions[0] if event_suggestions else (all_cols[1] if len(all_cols) > 1 else all_cols[0])
+            
+            # Detect group column
+            group_col = None
+            categorical_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
+            group_suggestions = [col for col in categorical_cols if any(k in col.lower() for k in ['group', 'treatment', 'category'])]
+            group_col = group_suggestions[0] if group_suggestions else None
+            
+            # Assess suitability
+            if n_samples < 10:
+                data_suitability = 'Poor'
+                suitability_reasoning = f'Very small dataset ({n_samples} observations) - survival curves unreliable'
+                alternative_suggestions = ['Need at least 30 observations for reliable survival analysis']
+            elif n_samples < 30:
+                data_suitability = 'Fair'
+                suitability_reasoning = f'Small dataset ({n_samples} observations) - survival estimates may be unstable'
+                alternative_suggestions = []
+            elif n_samples < 100:
+                data_suitability = 'Good'
+                suitability_reasoning = f'Adequate dataset ({n_samples} observations) for survival analysis'
+                alternative_suggestions = []
+            else:
+                data_suitability = 'Excellent'
+                suitability_reasoning = f'Strong dataset ({n_samples} observations) - excellent for survival analysis'
+                alternative_suggestions = []
+            
+            return {
+                'data_suitability': data_suitability,
+                'suitability_reasoning': suitability_reasoning,
+                'alternative_suggestions': alternative_suggestions,
+                'performance_risk': performance_risk,
+                'performance_warnings': performance_warnings,
+                'time_column': time_col,
+                'event_column': event_col,
+                'group_column': group_col,
+                'column_reasoning': f'Rule-based detection: {time_col} for time, {event_col} for event',
+                'time_unit': 'days',
+                'event_rate': '50%',
+                'event_rate_assessment': 'Unknown',
+                'median_survival_estimate': 'Unknown',
+                'recommended_groups_to_compare': [],
+                'censoring_assessment': 'Unknown',
+                'sample_size_assessment': data_suitability,
+                'sample_size_reasoning': suitability_reasoning,
+                'business_applications': ['Customer churn prediction', 'Equipment failure forecasting', 'Subscription analysis'],
+                'key_insights': ['Rule-based fallback - limited insights available'],
+                'preprocessing_needed': ['Verify time column is numeric and positive', 'Verify event column is binary']
+            }
         
         # Return format for ML tasks
         return {
