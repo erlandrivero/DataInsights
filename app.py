@@ -3068,9 +3068,24 @@ def show_market_basket_analysis():
     
     transactions = None
     
+    # Import dataset tracker
+    from utils.dataset_tracker import DatasetTracker
+    
     if data_source == "Use Loaded Dataset":
         st.success("✅ Using dataset from Data Upload section")
         df = st.session_state.data
+        
+        # Track dataset change
+        dataset_name = "loaded_dataset"
+        current_dataset_id = DatasetTracker.generate_dataset_id(df, dataset_name)
+        stored_id = st.session_state.get('mba_dataset_id')
+        
+        if DatasetTracker.check_dataset_changed(df, dataset_name, stored_id):
+            DatasetTracker.clear_module_ai_cache(st.session_state, 'mba')
+            if stored_id is not None:
+                st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+        
+        st.session_state.mba_dataset_id = current_dataset_id
         
         # Check if data has been cleaned
         has_been_cleaned = 'cleaning_stats' in st.session_state
@@ -3291,6 +3306,22 @@ def show_market_basket_analysis():
             with st.status("Loading groceries dataset...", expanded=True) as status:
                 try:
                     transactions = mba.load_groceries_data()
+                    
+                    # Track dataset change
+                    # Create a dummy df for tracking (since transactions is a list)
+                    import pandas as pd
+                    tracking_df = pd.DataFrame({'transaction': range(len(transactions))})
+                    dataset_name = "sample_groceries_data"
+                    current_dataset_id = DatasetTracker.generate_dataset_id(tracking_df, dataset_name)
+                    stored_id = st.session_state.get('mba_dataset_id')
+                    
+                    if DatasetTracker.check_dataset_changed(tracking_df, dataset_name, stored_id):
+                        DatasetTracker.clear_module_ai_cache(st.session_state, 'mba')
+                        if stored_id is not None:
+                            st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+                    
+                    st.session_state.mba_dataset_id = current_dataset_id
+                    
                     st.session_state.mba_transactions = transactions
                     st.success(f"✅ Loaded {len(transactions)} transactions!")
                     
@@ -3326,6 +3357,18 @@ def show_market_basket_analysis():
         if uploaded_file is not None:
             try:
                 df = pd.read_csv(uploaded_file)
+                
+                # Track dataset change
+                dataset_name = f"uploaded_{uploaded_file.name}"
+                current_dataset_id = DatasetTracker.generate_dataset_id(df, dataset_name)
+                stored_id = st.session_state.get('mba_dataset_id')
+                
+                if DatasetTracker.check_dataset_changed(df, dataset_name, stored_id):
+                    DatasetTracker.clear_module_ai_cache(st.session_state, 'mba')
+                    if stored_id is not None:
+                        st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+                
+                st.session_state.mba_dataset_id = current_dataset_id
                 
                 # Let user select columns
                 col1, col2 = st.columns(2)
