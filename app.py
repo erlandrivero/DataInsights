@@ -14642,19 +14642,53 @@ def show_geospatial_analysis():
         lon_range = geo_data['longitude'].max() - geo_data['longitude'].min()
         st.metric("Longitude Range", f"{lon_range:.2f}°")
     
+    # Get AI recommendations for smart defaults
+    ai_recs = st.session_state.get('geo_ai_analysis', {})
+    has_ai_analysis = 'geo_ai_analysis' in st.session_state
+    
+    # Determine default clustering method from AI
+    if has_ai_analysis:
+        recommended_method = ai_recs.get('recommended_clustering_method', 'DBSCAN')
+        # Normalize method name
+        if 'DBSCAN' in recommended_method or 'Density' in recommended_method:
+            default_method_index = 0  # DBSCAN
+        else:
+            default_method_index = 1  # K-Means
+    else:
+        default_method_index = 0
+    
     # Clustering
     cluster_method = st.radio(
         "Clustering Method:",
         ["DBSCAN (Density-Based)", "K-Means"],
+        index=default_method_index,
         horizontal=True,
-        key="geo_cluster"
+        key="geo_cluster",
+        help="🤖 AI has recommended the best clustering method for your data" if has_ai_analysis else None
     )
     
     if cluster_method == "DBSCAN (Density-Based)":
-        eps = st.slider("Max Distance (km)", 1, 100, 10, key="geo_eps")
-        min_samples = st.slider("Min Points per Cluster", 2, 10, 3, key="geo_min_samples")
+        # Get AI-recommended DBSCAN parameters
+        if has_ai_analysis:
+            default_eps = ai_recs.get('recommended_eps', 10)
+            default_min_samples = ai_recs.get('recommended_min_samples', 3)
+            st.info(f"🤖 **AI Recommended:** eps={default_eps} km, min_samples={default_min_samples}")
+        else:
+            default_eps = 10
+            default_min_samples = 3
+        
+        eps = st.slider("Max Distance (km)", 1, 100, int(default_eps), key="geo_eps")
+        min_samples = st.slider("Min Points per Cluster", 2, 10, int(default_min_samples), key="geo_min_samples")
     else:
-        n_clusters = st.slider("Number of Clusters", 2, 10, 3, key="geo_n_clusters")
+        # For K-Means, estimate reasonable number of clusters
+        if has_ai_analysis:
+            # AI might suggest a number based on data distribution
+            default_k = 3  # Safe default for K-Means
+            st.info(f"🤖 **AI Note:** K-Means requires you to specify the number of clusters. Start with 3-5 and adjust based on results.")
+        else:
+            default_k = 3
+        
+        n_clusters = st.slider("Number of Clusters", 2, 10, default_k, key="geo_n_clusters")
     
     if st.button("🗺️ Run Spatial Analysis", type="primary"):
         from utils.process_manager import ProcessManager
@@ -14681,7 +14715,7 @@ def show_geospatial_analysis():
                 
                 # Perform clustering
                 if cluster_method == "DBSCAN (Density-Based)":
-                    clusters = analyzer.perform_clustering(method='dbscan')
+                    clusters = analyzer.perform_clustering(method='dbscan', eps_km=eps, min_samples=min_samples)
                 else:
                     clusters = analyzer.perform_clustering(n_clusters=n_clusters, method='kmeans')
                 

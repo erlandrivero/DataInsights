@@ -112,18 +112,21 @@ class GeospatialAnalyzer:
         return distance_matrix
     
     @st.cache_data(ttl=1800)
-    def perform_clustering(_self, n_clusters: int = 5, method: str = 'kmeans') -> np.ndarray:
+    def perform_clustering(_self, n_clusters: int = 5, method: str = 'kmeans', eps_km: float = 10, min_samples: int = 3) -> np.ndarray:
         """Perform spatial clustering.
         
         Args:
             n_clusters: Number of clusters (for K-Means).
             method: Clustering method - 'kmeans' or 'dbscan'.
+            eps_km: Maximum distance in kilometers for DBSCAN (default: 10).
+            min_samples: Minimum samples per cluster for DBSCAN (default: 3).
         
         Returns:
             Array of cluster assignments.
         
         Examples:
             >>> clusters = analyzer.perform_clustering(n_clusters=5, method='kmeans')
+            >>> clusters = analyzer.perform_clustering(method='dbscan', eps_km=5, min_samples=3)
         """
         X = _self.data[[_self.lat_col, _self.lon_col]].values
         
@@ -133,8 +136,10 @@ class GeospatialAnalyzer:
         else:  # DBSCAN
             # Convert lat/lon to radians for DBSCAN
             X_rad = np.radians(X)
-            # eps is in radians, roughly 0.1 km = 0.0001 radians
-            clusterer = DBSCAN(eps=0.01, min_samples=5, metric='haversine')
+            # Convert km to radians: eps_radians = eps_km / Earth_radius_km
+            # Earth radius ~= 6371 km
+            eps_radians = eps_km / 6371.0
+            clusterer = DBSCAN(eps=eps_radians, min_samples=min_samples, metric='haversine')
             _self.clusters = clusterer.fit_predict(X_rad)
         
         return _self.clusters
