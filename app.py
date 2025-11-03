@@ -3106,6 +3106,7 @@ def show_market_basket_analysis():
                 with st.status("🤖 Analyzing dataset with AI...", expanded=True) as status:
                     try:
                         import time
+                        import pandas as pd
                         from utils.ai_smart_detection import get_ai_recommendation
                         
                         # Step 1: Preparing data
@@ -3452,6 +3453,7 @@ def show_market_basket_analysis():
             with st.status("🤖 Analyzing dataset with AI...", expanded=True) as status:
                 try:
                     import time
+                    import pandas as pd
                     from utils.ai_smart_detection import get_ai_recommendation
                     
                     # Step 1: Preparing data
