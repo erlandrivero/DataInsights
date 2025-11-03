@@ -4301,6 +4301,9 @@ def show_rfm_analysis():
         key="rfm_data_source"
     )
     
+    # Import dataset tracker
+    from utils.dataset_tracker import DatasetTracker
+    
     transactions_df = None
     
     if data_source == "Use Loaded Dataset":
@@ -4308,6 +4311,18 @@ def show_rfm_analysis():
         df = st.session_state.data
         
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
+        
+        # Track dataset change
+        dataset_name = "loaded_dataset"
+        current_dataset_id = DatasetTracker.generate_dataset_id(df, dataset_name)
+        stored_id = st.session_state.get('rfm_dataset_id')
+        
+        if DatasetTracker.check_dataset_changed(df, dataset_name, stored_id):
+            DatasetTracker.clear_module_ai_cache(st.session_state, 'rfm')
+            if stored_id is not None:
+                st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+        
+        st.session_state.rfm_dataset_id = current_dataset_id
         
         # Section 2: AI RFM Analysis Recommendations
         st.subheader("📊 2. AI RFM Analysis Recommendations")
@@ -4566,6 +4581,18 @@ def show_rfm_analysis():
             try:
                 transactions_df = pd.read_csv(uploaded_file)
                 
+                # Track dataset change
+                dataset_name = f"uploaded_{uploaded_file.name}"
+                current_dataset_id = DatasetTracker.generate_dataset_id(transactions_df, dataset_name)
+                stored_id = st.session_state.get('rfm_dataset_id')
+                
+                if DatasetTracker.check_dataset_changed(transactions_df, dataset_name, stored_id):
+                    DatasetTracker.clear_module_ai_cache(st.session_state, 'rfm')
+                    if stored_id is not None:
+                        st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+                
+                st.session_state.rfm_dataset_id = current_dataset_id
+                
                 # Let user select columns
                 col1, col2, col3 = st.columns(3)
                 with col1:
@@ -4616,6 +4643,18 @@ def show_rfm_analysis():
                 })
             
             transactions_df = pd.DataFrame(sample_transactions)
+            
+            # Track dataset change
+            dataset_name = "sample_ecommerce_data"
+            current_dataset_id = DatasetTracker.generate_dataset_id(transactions_df, dataset_name)
+            stored_id = st.session_state.get('rfm_dataset_id')
+            
+            if DatasetTracker.check_dataset_changed(transactions_df, dataset_name, stored_id):
+                DatasetTracker.clear_module_ai_cache(st.session_state, 'rfm')
+                if stored_id is not None:
+                    st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+            
+            st.session_state.rfm_dataset_id = current_dataset_id
             
             st.session_state.rfm_transactions = transactions_df
             st.session_state.rfm_columns = {
