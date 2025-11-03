@@ -76,28 +76,31 @@ class AISmartDetection:
                 fallback_result['fallback_reason'] = 'No GOOGLE_API_KEY configured - using rule-based detection'
                 return fallback_result
             
-            # Prepare dataset summary for GPT-4
+            # Prepare dataset summary for AI (limit to first 1000 rows for large datasets)
+            # This prevents token limit issues with Google Gemini
+            sample_df = df.head(1000) if len(df) > 1000 else df
+            
             column_info = []
-            for col in df.columns:
+            for col in sample_df.columns:
                 info = {
                     'name': col,
-                    'dtype': str(df[col].dtype),
-                    'unique_values': int(df[col].nunique()),
-                    'missing_count': int(df[col].isna().sum()),
-                    'missing_pct': round((df[col].isna().sum() / len(df) * 100), 2)
+                    'dtype': str(sample_df[col].dtype),
+                    'unique_values': int(sample_df[col].nunique()),
+                    'missing_count': int(sample_df[col].isna().sum()),
+                    'missing_pct': round((sample_df[col].isna().sum() / len(sample_df) * 100), 2)
                 }
                 
                 # Add sample values (first 3 non-null)
-                sample_values = df[col].dropna().head(3).tolist()
+                sample_values = sample_df[col].dropna().head(3).tolist()
                 # Convert to JSON-serializable format
                 info['sample_values'] = [str(v) for v in sample_values]
                 
                 # Add statistics for numeric columns
-                if pd.api.types.is_numeric_dtype(df[col]):
-                    info['mean'] = round(float(df[col].mean()), 2) if not df[col].isna().all() else None
-                    info['std'] = round(float(df[col].std()), 2) if not df[col].isna().all() else None
-                    info['min'] = round(float(df[col].min()), 2) if not df[col].isna().all() else None
-                    info['max'] = round(float(df[col].max()), 2) if not df[col].isna().all() else None
+                if pd.api.types.is_numeric_dtype(sample_df[col]):
+                    info['mean'] = round(float(sample_df[col].mean()), 2) if not sample_df[col].isna().all() else None
+                    info['std'] = round(float(sample_df[col].std()), 2) if not sample_df[col].isna().all() else None
+                    info['min'] = round(float(sample_df[col].min()), 2) if not sample_df[col].isna().all() else None
+                    info['max'] = round(float(sample_df[col].max()), 2) if not sample_df[col].isna().all() else None
                 
                 column_info.append(info)
             
@@ -108,7 +111,8 @@ class AISmartDetection:
 Dataset Overview:
 - Total Rows: {len(df)}
 - Total Columns: {len(df.columns)}
-- Task Type: DATA CLEANING (General Purpose)
+- Task Type: DATA CLEANING (General Purpose){f'''
+- Note: Statistics based on first 1000 rows sample''' if len(df) > 1000 else ''}
 
 Column Details:
 {json.dumps(column_info, indent=2)}
