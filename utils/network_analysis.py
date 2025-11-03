@@ -605,8 +605,12 @@ class NetworkAnalyzer:
         if self.graph is None:
             return pd.DataFrame()
         
+        # Convert to undirected graph for link prediction
+        # Most link prediction algorithms are designed for undirected graphs
+        G = self.graph.to_undirected() if self.graph.is_directed() else self.graph
+        
         # Get non-edges (node pairs without connections)
-        non_edges = list(nx.non_edges(self.graph))
+        non_edges = list(nx.non_edges(G))
         
         # Sample if too many (for performance)
         if len(non_edges) > 10000:
@@ -615,17 +619,17 @@ class NetworkAnalyzer:
         
         predictions = []
         
-        # Apply selected method
+        # Apply selected method (use undirected graph G)
         if method == 'common_neighbors':
-            scores = nx.common_neighbor_centrality(self.graph, ebunch=non_edges)
+            scores = nx.common_neighbor_centrality(G, ebunch=non_edges)
         elif method == 'adamic_adar':
-            scores = nx.adamic_adar_index(self.graph, ebunch=non_edges)
+            scores = nx.adamic_adar_index(G, ebunch=non_edges)
         elif method == 'jaccard':
-            scores = nx.jaccard_coefficient(self.graph, ebunch=non_edges)
+            scores = nx.jaccard_coefficient(G, ebunch=non_edges)
         elif method == 'preferential_attachment':
-            scores = nx.preferential_attachment(self.graph, ebunch=non_edges)
+            scores = nx.preferential_attachment(G, ebunch=non_edges)
         elif method == 'resource_allocation':
-            scores = nx.resource_allocation_index(self.graph, ebunch=non_edges)
+            scores = nx.resource_allocation_index(G, ebunch=non_edges)
         else:
             raise ValueError(f"Unknown method: {method}")
         
