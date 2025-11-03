@@ -4324,94 +4324,8 @@ def show_rfm_analysis():
         
         st.session_state.rfm_dataset_id = current_dataset_id
         
-        # Section 2: AI RFM Analysis Recommendations
-        st.subheader("📊 2. AI RFM Analysis Recommendations")
-        
-        # Check if AI recommendations already exist
-        if 'rfm_ai_recommendations' not in st.session_state:
-            if st.button("🤖 Generate AI RFM Analysis", type="primary", use_container_width=True, key="rfm_ai_button"):
-                with st.spinner("🔍 AI is analyzing your dataset for RFM suitability..."):
-                    from utils.ai_smart_detection import AISmartDetection
-                    
-                    # Get AI recommendations
-                    recommendations = AISmartDetection.analyze_dataset_for_ml(
-                        df=df.copy(),
-                        task_type='rfm_analysis'
-                    )
-                    
-                    # Store in session state
-                    st.session_state.rfm_ai_recommendations = recommendations
-                    st.rerun()
-        
-        # Display AI recommendations if available
-        if 'rfm_ai_recommendations' in st.session_state:
-            rec = st.session_state.rfm_ai_recommendations
-            
-            # Performance Risk Badge
-            risk_colors = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}
-            risk_color = risk_colors.get(rec.get('performance_risk', 'Medium'), '⚪')
-            
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                suitability = rec.get('data_suitability', 'Unknown')
-                if suitability == 'Excellent' or suitability == 'Good':
-                    st.success(f"✅ **Data Suitability:** {suitability} for RFM Analysis")
-                elif suitability == 'Fair':
-                    st.warning(f"⚠️ **Data Suitability:** {suitability} for RFM Analysis")
-                else:
-                    st.error(f"❌ **Data Suitability:** {suitability} for RFM Analysis")
-            
-            with col2:
-                st.info(f"{risk_color} **Performance Risk:** {rec.get('performance_risk', 'Unknown')}")
-            
-            # Expandable reasoning
-            with st.expander("💡 Why this suitability rating?", expanded=False):
-                st.write(rec.get('suitability_reasoning', 'No reasoning provided'))
-                
-                if rec.get('alternative_suggestions'):
-                    st.write("**📌 Suggestions:**")
-                    for suggestion in rec['alternative_suggestions']:
-                        st.write(f"- {suggestion}")
-            
-            # AI Column Selection Reasoning
-            with st.expander("🤖 AI Column Selection Reasoning", expanded=True):
-                st.info(f"**🎯 Why these columns?** {rec.get('column_reasoning', 'Rule-based detection')}")
-                
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.write("**Customer Column:**")
-                    st.code(rec.get('recommended_customer_column', 'N/A'))
-                with col2:
-                    st.write("**Date Column:**")
-                    st.code(rec.get('recommended_date_column', 'N/A'))
-                with col3:
-                    st.write("**Amount Column:**")
-                    st.code(rec.get('recommended_amount_column', 'N/A'))
-                
-                if rec.get('date_format_detected'):
-                    st.write(f"**📅 Date Format:** {rec['date_format_detected']}")
-            
-            # Performance warnings if any
-            if rec.get('performance_warnings'):
-                with st.expander("⚠️ Performance Warnings", expanded=False):
-                    for warning in rec['performance_warnings']:
-                        st.warning(warning)
-            
-            # Optimization suggestions
-            if rec.get('optimization_suggestions'):
-                with st.expander("🚀 Optimization Suggestions", expanded=False):
-                    for suggestion in rec['optimization_suggestions']:
-                        st.info(f"💡 {suggestion}")
-            
-            # Button to regenerate
-            if st.button("🔄 Regenerate Analysis", key="rfm_regen"):
-                del st.session_state.rfm_ai_recommendations
-                st.rerun()
-            
-            st.divider()
-        
-        # Section 3: Dataset Validation (make it informational only)
-        st.subheader("📋 3. Dataset Validation")
+        # Section 2: Dataset Validation (make it informational only)
+        st.subheader("📋 2. Dataset Validation")
         
         # Get smart column suggestions for validation
         from utils.column_detector import ColumnDetector
@@ -4444,8 +4358,8 @@ def show_rfm_analysis():
         else:
             st.success(f"✅ **Dataset looks suitable for RFM** (Confidence: {validation['confidence']})")
         
-        # Section 4: Let user select columns for RFM analysis
-        st.subheader("📋 4. Select Columns for Analysis")
+        # Section 3: Let user select columns for RFM analysis
+        st.subheader("📋 3. Select Columns for Analysis")
         
         # Use AI recommendations if available, otherwise use rule-based detection
         if 'rfm_ai_recommendations' in st.session_state:
@@ -4676,7 +4590,7 @@ def show_rfm_analysis():
     
     # Display dataset info
     st.divider()
-    st.subheader("📊 Dataset Overview")
+    st.subheader("📊 2. Dataset Overview")
     
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -4690,9 +4604,116 @@ def show_rfm_analysis():
         avg_transaction = transactions_df[cols['amount']].mean()
         st.metric("Avg Transaction", f"${avg_transaction:.2f}")
     
+    # Section 3: AI RFM Analysis Recommendations
+    st.divider()
+    st.subheader("🤖 3. AI RFM Analysis Recommendations")
+    
+    # Check if AI recommendations already exist
+    if 'rfm_ai_recommendations' not in st.session_state:
+        if st.button("🤖 Generate AI RFM Analysis", type="primary", use_container_width=True, key="rfm_ai_button_main"):
+            with st.status("🔍 AI is analyzing your dataset for RFM suitability...", expanded=True) as status:
+                from utils.ai_smart_detection import AISmartDetection
+                
+                st.write("Step 1: Preparing RFM data...")
+                
+                # Get AI recommendations
+                st.write("Step 2: Analyzing data structure and patterns...")
+                recommendations = AISmartDetection.analyze_dataset_for_ml(
+                    df=transactions_df.copy(),
+                    task_type='rfm_analysis'
+                )
+                
+                # Add dataset metadata
+                recommendations['dataset_id'] = st.session_state.get('rfm_dataset_id', 'unknown')
+                recommendations['dataset_shape'] = transactions_df.shape
+                recommendations['generated_at'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
+                
+                st.write("Step 3: Generating recommendations...")
+                
+                # Store in session state
+                st.session_state.rfm_ai_recommendations = recommendations
+                
+                status.update(label="✅ AI analysis complete!", state="complete", expanded=False)
+            st.rerun()
+    
+    # Display AI recommendations if available
+    if 'rfm_ai_recommendations' in st.session_state:
+        rec = st.session_state.rfm_ai_recommendations
+        
+        # Check for dataset mismatch
+        current_dataset_id = st.session_state.get('rfm_dataset_id', 'unknown')
+        stored_dataset_id = rec.get('dataset_id', 'unknown')
+        
+        if current_dataset_id != stored_dataset_id and stored_dataset_id != 'unknown':
+            st.warning("⚠️ **Dataset Mismatch Detected!**")
+            st.info(f"AI recommendations were generated for a different dataset. Click 'Regenerate Analysis' below.")
+        
+        # Performance Risk Badge
+        risk_colors = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}
+        risk_color = risk_colors.get(rec.get('performance_risk', 'Medium'), '⚪')
+        
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            suitability = rec.get('data_suitability', 'Unknown')
+            if suitability == 'Excellent' or suitability == 'Good':
+                st.success(f"✅ **Data Suitability:** {suitability} for RFM Analysis")
+            elif suitability == 'Fair':
+                st.warning(f"⚠️ **Data Suitability:** {suitability} for RFM Analysis")
+            else:
+                st.error(f"❌ **Data Suitability:** {suitability} for RFM Analysis")
+        
+        with col2:
+            st.info(f"{risk_color} **Performance Risk:** {rec.get('performance_risk', 'Unknown')}")
+        
+        # Expandable reasoning
+        with st.expander("💡 Why this suitability rating?", expanded=False):
+            st.write(rec.get('suitability_reasoning', 'No reasoning provided'))
+            
+            if rec.get('alternative_suggestions'):
+                st.write("**📌 Suggestions:**")
+                for suggestion in rec['alternative_suggestions']:
+                    st.write(f"- {suggestion}")
+        
+        # AI Column Detection
+        with st.expander("🤖 AI Column Detection", expanded=True):
+            st.info(f"**🎯 Column Reasoning:** {rec.get('column_reasoning', 'Rule-based detection')}")
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.write("**Customer Column:**")
+                st.code(rec.get('recommended_customer_column', 'N/A'))
+            with col2:
+                st.write("**Date Column:**")
+                st.code(rec.get('recommended_date_column', 'N/A'))
+            with col3:
+                st.write("**Amount Column:**")
+                st.code(rec.get('recommended_amount_column', 'N/A'))
+            
+            if rec.get('date_format_detected'):
+                st.write(f"**📅 Date Format:** {rec['date_format_detected']}")
+        
+        # Performance warnings if any
+        if rec.get('performance_warnings'):
+            with st.expander("⚠️ Performance Warnings", expanded=False):
+                for warning in rec['performance_warnings']:
+                    st.warning(warning)
+        
+        # Optimization suggestions
+        if rec.get('optimization_suggestions'):
+            with st.expander("🚀 Optimization Suggestions", expanded=False):
+                for suggestion in rec['optimization_suggestions']:
+                    st.info(f"💡 {suggestion}")
+        
+        # Button to regenerate
+        if st.button("🔄 Regenerate Analysis", key="rfm_regen_main"):
+            del st.session_state.rfm_ai_recommendations
+            st.rerun()
+    else:
+        st.info("💡 Click the button above to get AI-powered recommendations for your RFM analysis.")
+    
     # Calculate RFM button
     st.divider()
-    st.subheader("🔢 2. Calculate RFM Metrics")
+    st.subheader("🔢 4. Calculate RFM Metrics")
     
     if st.button("📊 Calculate RFM", type="primary", use_container_width=True):
         from utils.process_manager import ProcessManager
