@@ -13121,6 +13121,18 @@ def show_cohort_analysis():
                         st.write(f"• **{rec.get('title', 'Recommendation')}**: {rec.get('description', '')}")
                     else:
                         st.write(f"• {rec}")
+        
+        # CRITICAL CHECK: Verify AI recommended DIFFERENT date columns
+        ai_cohort_col = ai_recs.get('recommended_cohort_date_column')
+        ai_activity_col = ai_recs.get('recommended_activity_date_column')
+        
+        if ai_cohort_col and ai_activity_col and ai_cohort_col == ai_activity_col:
+            st.warning("⚠️ **Single Date Column Detected**")
+            st.warning(f"**Issue:** AI detected only ONE date column (`{ai_cohort_col}`) in your dataset. Cohort analysis works best with TWO separate date columns:")
+            st.write("• **Cohort Date**: When user first joined/purchased (e.g., signup_date, registration_date)")
+            st.write("• **Activity Date**: Subsequent user activities (e.g., purchase_date, activity_date)")
+            st.info("**💡 Recommendation:** Use **Sample E-commerce Data** to see proper cohort analysis with separate date columns, or add a signup/registration date column to your data.")
+            st.info("You can still proceed, but retention insights will be limited since we're using the same date for both cohort formation and activity tracking.")
     
     # Don't show configuration until AI analysis is complete
     if 'cohort_ai_analysis' not in st.session_state:
