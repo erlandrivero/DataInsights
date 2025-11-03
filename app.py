@@ -8058,7 +8058,7 @@ def show_ml_regression():
             return [''] * len(row)
         
         styled_df = results_df.style.apply(highlight_best, axis=1)
-        st.dataframe(styled_df, use_container_width=True)
+        st.dataframe(styled_df)
         
         # Visualizations
         st.divider()
