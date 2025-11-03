@@ -803,10 +803,16 @@ Please analyze this dataset and provide Recommendation System recommendations in
 
 Guidelines for Recommendation Systems:
 1. DATA SUITABILITY: Assess if dataset is appropriate for collaborative filtering
-   - Excellent: 50+ users, 50+ items, <99% sparsity, diverse ratings
-   - Good: 20+ users, 20+ items, reasonable sparsity
-   - Fair: 10-20 users/items, very sparse but workable
-   - Poor: <10 users OR <10 items OR all same ratings
+   - Excellent: 50+ users, 50+ items, <99% sparsity, diverse ratings, HAS RATING COLUMN
+   - Good: 20+ users, 20+ items, reasonable sparsity, HAS RATING COLUMN
+   - Fair: 10-20 users/items, very sparse but workable, OR transactional data without ratings (can use implicit feedback)
+   - Poor: <10 users OR <10 items OR all same ratings OR **MISSING RATING COLUMN AND NOT TRANSACTIONAL**
+   
+   **CRITICAL: Check for Rating Column First:**
+   - If NO numeric rating column found → Check if transactional data (has user, item, quantity/purchase)
+   - Transactional without ratings → Mark as "Fair" and suggest: "Transform purchases into implicit feedback"
+   - No ratings AND not transactional → Mark as "Poor"
+
 2. COLUMN SELECTION: Identify user, item, and rating columns
    - USER COLUMN: Should identify unique users (look for: user_id, customer_id, user, userId)
      - Column should have repeated values (same user rates multiple items)
@@ -855,10 +861,16 @@ Guidelines for Recommendation Systems:
 11. RATING ANALYSIS: Check if ratings have variance and meaningful scale
     - Problem: All same rating (no preferences to learn)
     - Good: Ratings use full scale with reasonable distribution
-12. DO NOT SUGGEST OTHER MODULES: Analyze THIS module's suitability only
-    - Do not recommend ML Classification or ML Regression
-    - Focus on making collaborative filtering work with this data
-    - If data is Poor, suggest improving the data FOR recommendation systems
+12. ALTERNATIVE SUGGESTIONS (If data is Poor/Fair):
+    - If MISSING RATING COLUMN:
+      → "Add a rating column (1-5 stars, thumbs up/down, etc.) to enable collaborative filtering"
+      → "If transactional data: Transform into implicit feedback (purchase count, binary purchased/not)"
+      → "Try Market Basket Analysis for purchase associations instead"
+    - If TOO FEW USERS/ITEMS:
+      → "Collect more user interactions (need 10+ users and 10+ items minimum)"
+      → "Use content-based recommendations until more data is collected"
+    - DO NOT suggest other modules like ML Classification or ML Regression
+    - Focus on improving THIS data FOR recommendation systems
 
 Provide ONLY the JSON response, no additional text."""
             elif task_type == 'cohort_analysis':
