@@ -15180,6 +15180,7 @@ def show_geospatial_analysis():
         st.plotly_chart(fig, use_container_width=True)
         
         # Market Expansion Analysis
+        import pandas as pd
         st.divider()
         st.subheader("📈 Market Expansion Analysis")
         st.markdown("Identify high-potential areas for business expansion based on current presence and value metrics.")
