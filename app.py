@@ -13253,6 +13253,7 @@ def show_recommendation_systems():
             
             ratings_data = pd.DataFrame(ratings)
             st.session_state.rec_ratings = ratings_data
+            st.session_state.rec_source_df = ratings_data  # Also set this for column selection
             
             st.success(f"✅ Loaded {len(ratings_data)} ratings from {len(users)} users on {len(movies)} movies!")
             st.dataframe(ratings_data.head(10), use_container_width=True)
