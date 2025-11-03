@@ -12502,12 +12502,18 @@ def show_cohort_analysis():
                 st.session_state.cohort_data = user_data
                 st.success("✅ Data processed!")
     
-    # Analysis section
-    if 'cohort_data' not in st.session_state:
+    # Analysis section - Check if we have source data OR processed cohort data
+    if 'cohort_source_df' not in st.session_state and 'cohort_data' not in st.session_state:
         st.info("👆 Load user activity data to begin cohort analysis")
         return
     
-    user_data = st.session_state.cohort_data
+    # Determine which data to use for AI analysis
+    if 'cohort_source_df' in st.session_state:
+        # Use source dataframe for AI analysis (before column selection)
+        analysis_data = st.session_state.cohort_source_df
+    else:
+        # Use processed cohort data (for Sample/Upload data)
+        analysis_data = st.session_state.cohort_data
     
     # ============================================================================
     # Section 2: AI Cohort Analysis & Recommendations
@@ -12536,9 +12542,9 @@ def show_cohort_analysis():
                     time.sleep(0.5)
                     
                     status.write("Generating AI recommendations...")
-                    status.write(f"Analyzing {len(user_data)} activities from {user_data['user_id'].nunique()} users")
+                    status.write(f"Analyzing {len(analysis_data)} rows with {len(analysis_data.columns)} columns")
                     
-                    ai_analysis = get_ai_recommendation(user_data, task_type='cohort_analysis')
+                    ai_analysis = get_ai_recommendation(analysis_data, task_type='cohort_analysis')
                     st.session_state.cohort_ai_analysis = ai_analysis
                     
                     status.update(label="✅ AI analysis complete!", state="complete")
@@ -13319,12 +13325,18 @@ def show_recommendation_systems():
                 st.session_state.rec_ratings = ratings_data
                 st.success("✅ Data processed!")
     
-    # Analysis section
-    if 'rec_ratings' not in st.session_state:
+    # Analysis section - Check if we have source data OR processed ratings
+    if 'rec_source_df' not in st.session_state and 'rec_ratings' not in st.session_state:
         st.info("👆 Load ratings data to begin building recommendations")
         return
     
-    ratings_data = st.session_state.rec_ratings
+    # Determine which data to use for AI analysis
+    if 'rec_source_df' in st.session_state:
+        # Use source dataframe for AI analysis (before column selection)
+        analysis_data = st.session_state.rec_source_df
+    else:
+        # Use processed ratings (for Sample/Upload data)
+        analysis_data = st.session_state.rec_ratings
     
     # ============================================================================
     # Section 2: AI Recommendation System Analysis
@@ -13353,11 +13365,9 @@ def show_recommendation_systems():
                     time.sleep(0.5)
                     
                     status.write("Generating AI recommendations...")
-                    n_users = ratings_data['user_id'].nunique()
-                    n_items = ratings_data['item_id'].nunique()
-                    status.write(f"Analyzing {len(ratings_data)} ratings from {n_users} users for {n_items} items")
+                    status.write(f"Analyzing {len(analysis_data)} rows with {len(analysis_data.columns)} columns")
                     
-                    ai_analysis = get_ai_recommendation(ratings_data, task_type='recommendation_system')
+                    ai_analysis = get_ai_recommendation(analysis_data, task_type='recommendation_system')
                     st.session_state.rec_ai_analysis = ai_analysis
                     
                     status.update(label="✅ AI analysis complete!", state="complete")
