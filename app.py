@@ -12771,7 +12771,18 @@ def show_cohort_analysis():
     st.divider()
     st.subheader("📊 3. Run Cohort Analysis")
     
-    cohort_period = st.radio("Cohort Period", ["Monthly", "Weekly", "Daily"], horizontal=True, key="cohort_period")
+    # Use AI recommendation for cohort period if available
+    ai_recs = st.session_state.get('cohort_ai_analysis', {})
+    recommended_period = ai_recs.get('recommended_cohort_period', 'Monthly')
+    
+    # Map recommended period to index
+    period_options = ["Monthly", "Weekly", "Daily"]
+    default_period_idx = period_options.index(recommended_period) if recommended_period in period_options else 0
+    
+    if ai_recs:
+        st.info(f"🤖 **AI recommends {recommended_period} cohort period** for your data based on activity frequency and date range.")
+    
+    cohort_period = st.radio("Cohort Period", period_options, index=default_period_idx, horizontal=True, key="cohort_period")
     period_map = {"Monthly": "M", "Weekly": "W", "Daily": "D"}
     
     if st.button("📊 Run Cohort Analysis", type="primary"):
