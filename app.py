@@ -13422,6 +13422,132 @@ def show_recommendation_systems():
     
     ratings_data = st.session_state.rec_ratings
     
+    # ============================================================================
+    # Section 2: AI Recommendation System Analysis
+    # ============================================================================
+    st.divider()
+    st.subheader("🤖 2. AI Recommendation System Analysis")
+    
+    # Generate AI Analysis Button - Only show if not already done
+    if 'rec_ai_analysis' not in st.session_state:
+        if st.button("🔍 Generate AI Recommendation Analysis", type="primary", use_container_width=True, key="rec_ai_btn"):
+            # Immediate feedback
+            processing_placeholder = st.empty()
+            processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
+            
+            with st.status("🤖 Analyzing dataset for Recommendation Systems...", expanded=False) as status:
+                try:
+                    processing_placeholder.empty()
+                    
+                    import time
+                    from utils.ai_smart_detection import get_ai_recommendation
+                    
+                    status.write("Analyzing data structure and quality...")
+                    time.sleep(0.5)
+                    
+                    status.write("Evaluating recommendation system suitability...")
+                    time.sleep(0.5)
+                    
+                    status.write("Generating AI recommendations...")
+                    n_users = ratings_data['user_id'].nunique()
+                    n_items = ratings_data['item_id'].nunique()
+                    status.write(f"Analyzing {len(ratings_data)} ratings from {n_users} users for {n_items} items")
+                    
+                    ai_analysis = get_ai_recommendation(ratings_data, task_type='recommendation_system')
+                    st.session_state.rec_ai_analysis = ai_analysis
+                    
+                    status.update(label="✅ AI analysis complete!", state="complete")
+                    st.rerun()
+                except Exception as e:
+                    status.update(label="❌ Analysis failed", state="error")
+                    st.error(f"Error generating AI analysis: {str(e)}")
+    else:
+        # AI Analysis exists - show results
+        ai_recs = st.session_state.rec_ai_analysis
+        
+        # Performance Risk Assessment
+        performance_risk = ai_recs.get('performance_risk', 'Low')
+        risk_emoji = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}.get(performance_risk, '❓')
+        
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            st.info(f"**⚡ Performance Risk:** {risk_emoji} {performance_risk} - Dataset suitability for Streamlit Cloud")
+        with col2:
+            if st.button("🔄 Regenerate Analysis", use_container_width=True, key="rec_regen_btn"):
+                del st.session_state.rec_ai_analysis
+                st.rerun()
+        
+        # Data Suitability Assessment - AI DECISION POINT
+        data_suitability = ai_recs.get('data_suitability', 'Unknown')
+        suitability_emoji = {'Excellent': '🌟', 'Good': '✅', 'Fair': '⚠️', 'Poor': '❌'}.get(data_suitability, '❓')
+        
+        # AI-DRIVEN BLOCKING LOGIC
+        if data_suitability == 'Poor':
+            st.error(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for Recommendation Systems")
+            
+            # Show AI reasoning for why it's not suitable
+            suitability_reasoning = ai_recs.get('suitability_reasoning', 'AI determined this data is not suitable for Recommendation Systems')
+            st.error(f"**🤖 AI Recommendation:** {suitability_reasoning}")
+            
+            # Show AI suggestions
+            ai_suggestions = ai_recs.get('alternative_suggestions', [])
+            if ai_suggestions:
+                st.info("**💡 AI Suggestions:**")
+                for suggestion in ai_suggestions:
+                    st.write(f"- {suggestion}")
+            else:
+                st.info("**💡 AI Suggestions:**")
+                st.write("- Use Sample Movie Ratings (perfect for collaborative filtering)")
+                st.write("- Ensure data has multiple users, items, and ratings")
+                st.write("- Need at least 10+ users and 10+ items for meaningful recommendations")
+            
+            st.warning("**⚠️ Module not available for this dataset based on AI analysis.**")
+            st.stop()  # AI-DRIVEN STOP - Only stop if AI says data is Poor
+        else:
+            # AI approves - show positive assessment
+            st.success(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for Recommendation Systems")
+            
+            # Suitability reasoning
+            suitability_reasoning = ai_recs.get('suitability_reasoning', 'AI determined this data is suitable for Recommendation Systems')
+            with st.expander("💡 Why this suitability rating?", expanded=False):
+                st.info(suitability_reasoning)
+        
+        # Performance Warnings (only shown if AI approves)
+        if performance_risk in ['Medium', 'High']:
+            perf_warnings = ai_recs.get('performance_warnings', [])
+            if perf_warnings:
+                st.warning("⚠️ **Performance Warnings:**")
+                for warning in perf_warnings:
+                    st.write(f"• {warning}")
+        
+        # Optimization Suggestions
+        optimization_suggestions = ai_recs.get('optimization_suggestions', [])
+        if optimization_suggestions:
+            with st.expander("🚀 AI Optimization Suggestions", expanded=True):
+                for suggestion in optimization_suggestions:
+                    st.write(f"• {suggestion}")
+        
+        # Recommendation-specific suggestions
+        rec_recommendations = ai_recs.get('recommendation_method_suggestions', [])
+        if rec_recommendations:
+            with st.expander("🎯 Recommendation Method Suggestions", expanded=False):
+                st.info("Based on your data characteristics:")
+                for rec in rec_recommendations:
+                    if isinstance(rec, dict):
+                        st.write(f"• **{rec.get('method', 'Method')}**: {rec.get('reason', '')}")
+                    else:
+                        st.write(f"• {rec}")
+    
+    # Don't show configuration until AI analysis is complete
+    if 'rec_ai_analysis' not in st.session_state:
+        st.info("🤖 **Generate AI Analysis above to determine if this dataset is suitable for Recommendation Systems and get intelligent recommendations.**")
+        return  # Stop here until AI analysis is done
+    
+    # Only proceed if AI approved the data
+    ai_recs = st.session_state.get('rec_ai_analysis', {})
+    if ai_recs.get('data_suitability', 'Unknown') == 'Poor':
+        return  # Already stopped above, but double-check
+    
     # Dataset overview
     st.divider()
     st.subheader("📊 Dataset Overview")
@@ -13444,16 +13570,29 @@ def show_recommendation_systems():
     
     # Build recommendation system
     st.divider()
-    st.subheader("📊 2. Build Recommendation System")
+    st.subheader("📊 3. Build Recommendation System")
+    
+    # Use AI recommendation for method if available
+    ai_recs = st.session_state.get('rec_ai_analysis', {})
+    recommended_method = ai_recs.get('recommended_method', 'User-Based Collaborative Filtering')
+    recommended_min_support = ai_recs.get('recommended_min_support', 3)
+    
+    # Map recommended method to index
+    method_options = ["User-Based Collaborative Filtering", "Item-Based Collaborative Filtering"]
+    default_method_idx = method_options.index(recommended_method) if recommended_method in method_options else 0
+    
+    if ai_recs:
+        st.info(f"🤖 **AI recommends {recommended_method}** with minimum support of {recommended_min_support} based on your data characteristics.")
     
     method = st.radio(
         "Recommendation Method:",
-        ["User-Based Collaborative Filtering", "Item-Based Collaborative Filtering"],
+        method_options,
+        index=default_method_idx,
         horizontal=True,
         key="rec_method"
     )
     
-    min_support = st.slider("Minimum Support (min ratings required)", 1, 10, 3, key="rec_support")
+    min_support = st.slider("Minimum Support (min ratings required)", 1, 10, recommended_min_support, key="rec_support")
     
     if st.button("🎯 Build Recommendations", type="primary"):
         from utils.process_manager import ProcessManager
