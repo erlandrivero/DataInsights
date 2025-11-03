@@ -3096,9 +3096,100 @@ def show_market_basket_analysis():
         
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
         
+        # AI MBA Recommendations for Loaded Dataset
+        st.divider()
+        st.subheader("🤖 2. AI Market Basket Analysis Recommendations")
+        
+        # Check if AI recommendations already exist
+        if 'mba_ai_recommendations' not in st.session_state:
+            if st.button("🤖 Generate AI MBA Analysis", type="primary", use_container_width=True, key="mba_ai_btn_loaded"):
+                with st.status("🤖 Analyzing dataset with AI...", expanded=True) as status:
+                    try:
+                        import time
+                        from utils.ai_smart_detection import get_ai_recommendation
+                        
+                        # Step 1: Preparing data
+                        status.write("Step 1: Preparing dataset for analysis...")
+                        time.sleep(0.3)
+                        
+                        # Step 2: Analyzing structure
+                        status.write("Step 2: Analyzing data structure and patterns...")
+                        time.sleep(0.3)
+                        
+                        # Step 3: Generating AI analysis
+                        status.write("Step 3: Generating AI recommendations...")
+                        status.write(f"Analyzing {len(df)} rows, {len(df.columns)} columns: {list(df.columns)}")
+                        
+                        # Get AI recommendations using raw dataframe
+                        ai_recommendations = get_ai_recommendation(df, task_type='market_basket_analysis')
+                        
+                        # Add dataset metadata
+                        ai_recommendations['dataset_id'] = st.session_state.get('mba_dataset_id', 'unknown')
+                        ai_recommendations['dataset_shape'] = df.shape
+                        ai_recommendations['generated_at'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
+                        
+                        st.session_state.mba_ai_recommendations = ai_recommendations
+                        
+                        status.update(label="✅ AI analysis complete!", state="complete", expanded=False)
+                        st.rerun()
+                    except Exception as e:
+                        status.update(label="❌ Analysis failed", state="error")
+                        st.error(f"Error generating AI recommendations: {str(e)}")
+        
+        # Display AI recommendations if available
+        if 'mba_ai_recommendations' in st.session_state:
+            ai_recs = st.session_state.mba_ai_recommendations
+            
+            # Check for dataset mismatch
+            current_dataset_id = st.session_state.get('mba_dataset_id', 'unknown')
+            stored_dataset_id = ai_recs.get('dataset_id', 'unknown')
+            
+            if current_dataset_id != stored_dataset_id and stored_dataset_id != 'unknown':
+                st.warning("⚠️ **Dataset Mismatch Detected!**")
+                st.info(f"AI recommendations were generated for a different dataset. Click 'Regenerate Analysis' below.")
+            
+            # Performance Risk Assessment
+            performance_risk = ai_recs.get('performance_risk', 'Low')
+            risk_emoji = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}.get(performance_risk, '❓')
+            
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                st.info(f"**⚡ Performance Risk:** {risk_emoji} {performance_risk} - Dataset suitability for Streamlit Cloud")
+            with col2:
+                if st.button("🔄 Regenerate Analysis", use_container_width=True, key="mba_regen_btn_loaded"):
+                    del st.session_state.mba_ai_recommendations
+                    st.rerun()
+            
+            # Data Suitability Assessment
+            data_suitability = ai_recs.get('data_suitability', 'Unknown')
+            suitability_emoji = {'Excellent': '🌟', 'Good': '✅', 'Fair': '⚠️', 'Poor': '❌'}.get(data_suitability, '❓')
+            st.success(f"**📊 Data Suitability:** {suitability_emoji} {data_suitability} for Market Basket Analysis")
+            
+            # Suitability reasoning
+            suitability_reasoning = ai_recs.get('suitability_reasoning', 'No reasoning provided')
+            with st.expander("💡 Why this suitability rating?", expanded=False):
+                st.info(suitability_reasoning)
+            
+            # Column recommendations
+            if ai_recs.get('recommended_transaction_column'):
+                with st.expander("🤖 AI Column Recommendations", expanded=True):
+                    st.info(f"**🎯 AI Recommended Columns:**")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write("**Transaction Column:**")
+                        st.code(ai_recs.get('recommended_transaction_column', 'N/A'))
+                    with col2:
+                        st.write("**Item Column:**")
+                        st.code(ai_recs.get('recommended_item_column', 'N/A'))
+                    
+                    if ai_recs.get('column_reasoning'):
+                        st.write(f"**Reasoning:** {ai_recs['column_reasoning']}")
+        else:
+            st.info("💡 Click the button above to get AI-powered recommendations for your Market Basket Analysis.")
+        
         # Data validation (informational only)
         st.divider()
-        st.subheader("📊 2. Dataset Validation")
+        st.subheader("📊 3. Dataset Validation")
         
         # Get smart column suggestions
         from utils.column_detector import ColumnDetector
@@ -3135,7 +3226,7 @@ def show_market_basket_analysis():
         
         # Column selection (now informed by AI recommendations)
         st.divider()
-        st.subheader("📋 3. Select Columns for Analysis")
+        st.subheader("📋 4. Select Columns for Analysis")
         
         # Get AI recommendations for smart defaults
         ai_recs = st.session_state.get('mba_ai_recommendations', {})
