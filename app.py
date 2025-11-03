@@ -11191,6 +11191,7 @@ def show_ab_testing():
                 st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
         
         st.session_state.ab_dataset_id = current_dataset_id
+        st.session_state.ab_source_df = df  # Store for AI analysis before column selection
         
         # Smart column detection using ColumnDetector
         from utils.column_detector import ColumnDetector
@@ -11710,7 +11711,10 @@ def show_ab_testing():
                         st.metric("Effect Size", f"{result['effect_size']:.3f}")
     
     # Section 2: AI A/B Testing Recommendations (for loaded/sample/upload data)
-    if 'ab_test_data' in st.session_state and data_source != "Manual Calculator":
+    # Check if we have source data OR processed test data
+    has_ab_data = ('ab_source_df' in st.session_state or 'ab_test_data' in st.session_state)
+    
+    if has_ab_data and data_source != "Manual Calculator":
         st.divider()
         st.subheader("📊 2. AI A/B Testing Analysis")
         
@@ -11722,7 +11726,12 @@ def show_ab_testing():
                     
                     # Get AI recommendations
                     import pandas as pd
-                    test_data = st.session_state.ab_test_data
+                    # Use source df if available (for loaded dataset before validation), otherwise use processed data
+                    if 'ab_source_df' in st.session_state:
+                        test_data = st.session_state.ab_source_df
+                    else:
+                        test_data = st.session_state.ab_test_data
+                    
                     recommendations = AISmartDetection.analyze_dataset_for_ml(
                         df=test_data.copy(),
                         task_type='ab_testing'
