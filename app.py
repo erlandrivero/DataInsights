@@ -10204,12 +10204,27 @@ def show_text_mining():
         key="text_data_source"
     )
     
+    # Import dataset tracker
+    from utils.dataset_tracker import DatasetTracker
+    
     df = None
     
     if data_source == "Use Loaded Dataset":
         st.success("✅ Using dataset from Data Upload section")
         df = st.session_state.data
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
+        
+        # Track dataset change
+        dataset_name = "loaded_dataset"
+        current_dataset_id = DatasetTracker.generate_dataset_id(df, dataset_name)
+        stored_id = st.session_state.get('text_dataset_id')
+        
+        if DatasetTracker.check_dataset_changed(df, dataset_name, stored_id):
+            DatasetTracker.clear_module_ai_cache(st.session_state, 'text')
+            if stored_id is not None:
+                st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+        
+        st.session_state.text_dataset_id = current_dataset_id
     
     elif data_source == "Use Sample Data":
         st.info("📊 Using sample product reviews dataset")
@@ -10272,6 +10287,18 @@ def show_text_mining():
             'ReviewID': range(1, len(sample_reviews) + 1)
         })
         
+        # Track dataset change for sample data
+        dataset_name = "sample_product_reviews"
+        current_dataset_id = DatasetTracker.generate_dataset_id(df, dataset_name)
+        stored_id = st.session_state.get('text_dataset_id')
+        
+        if DatasetTracker.check_dataset_changed(df, dataset_name, stored_id):
+            DatasetTracker.clear_module_ai_cache(st.session_state, 'text')
+            if stored_id is not None:
+                st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+        
+        st.session_state.text_dataset_id = current_dataset_id
+        
         st.success(f"✅ Loaded sample dataset: {len(df)} product reviews")
         st.write("**Sample Data Preview:**")
         st.dataframe(df.head(10), use_container_width=True)
@@ -10297,6 +10324,18 @@ def show_text_mining():
                     df = pd.read_csv(uploaded_file)
                 else:
                     df = pd.read_excel(uploaded_file)
+                
+                # Track dataset change for uploaded data
+                dataset_name = f"uploaded_{uploaded_file.name}"
+                current_dataset_id = DatasetTracker.generate_dataset_id(df, dataset_name)
+                stored_id = st.session_state.get('text_dataset_id')
+                
+                if DatasetTracker.check_dataset_changed(df, dataset_name, stored_id):
+                    DatasetTracker.clear_module_ai_cache(st.session_state, 'text')
+                    if stored_id is not None:
+                        st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+                
+                st.session_state.text_dataset_id = current_dataset_id
                 
                 st.success(f"✅ Uploaded {len(df)} rows, {len(df.columns)} columns")
                 st.dataframe(df.head(), use_container_width=True)
@@ -10326,6 +10365,11 @@ def show_text_mining():
                     task_type='text_mining'
                 )
                 
+                # Add dataset metadata to AI recommendations
+                recommendations['dataset_id'] = st.session_state.get('text_dataset_id', 'unknown')
+                recommendations['dataset_shape'] = df.shape
+                recommendations['generated_at'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
+                
                 # Store in session state
                 st.session_state.text_ai_recommendations = recommendations
                 st.rerun()
@@ -10333,6 +10377,18 @@ def show_text_mining():
     # Display AI recommendations if available
     if 'text_ai_recommendations' in st.session_state:
         rec = st.session_state.text_ai_recommendations
+        
+        # Validate AI recommendations match current dataset
+        stored_ai_dataset_id = rec.get('dataset_id')
+        current_dataset_id = st.session_state.get('text_dataset_id')
+        
+        if stored_ai_dataset_id and current_dataset_id and stored_ai_dataset_id != current_dataset_id:
+            st.warning("⚠️ **Dataset Mismatch Detected!** The AI recommendations below were generated for a different dataset. Please regenerate the analysis.")
+            with st.expander("📋 AI Recommendation Details"):
+                st.write(f"**Generated for dataset:** `{stored_ai_dataset_id}`")
+                st.write(f"**Current dataset:** `{current_dataset_id}`")
+                st.write(f"**Generated at:** {rec.get('generated_at', 'Unknown')}")
+                st.write(f"**Dataset shape:** {rec.get('dataset_shape', 'Unknown')}")
         
         # Performance Risk Badge
         risk_colors = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}
