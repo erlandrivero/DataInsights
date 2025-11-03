@@ -13612,23 +13612,30 @@ def show_recommendation_systems():
         key="rec_data_source"
     )
     
+    # Import dataset tracker
+    from utils.dataset_tracker import DatasetTracker
+    
     # Use Loaded Dataset
     if data_source == "Use Loaded Dataset" and has_loaded_data:
-        # Clear AI analysis cache when switching to different dataset
-        if 'rec_ai_analysis' in st.session_state:
-            del st.session_state.rec_ai_analysis
-        
         df = st.session_state.data
         st.success("✅ Using dataset from Data Upload section")
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
+        
+        # Track dataset change
+        dataset_name = "loaded_dataset"
+        current_dataset_id = DatasetTracker.generate_dataset_id(df, dataset_name)
+        stored_id = st.session_state.get('rec_dataset_id')
+        
+        if DatasetTracker.check_dataset_changed(df, dataset_name, stored_id):
+            DatasetTracker.clear_module_ai_cache(st.session_state, 'rec')
+            if stored_id is not None:
+                st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+        
+        st.session_state.rec_dataset_id = current_dataset_id
         st.session_state.rec_source_df = df  # Store for AI analysis
     
     elif data_source == "Sample Movie Ratings":
         if st.button("📥 Load Sample Movie Ratings", type="primary"):
-            # Clear AI analysis cache when loading new data
-            if 'rec_ai_analysis' in st.session_state:
-                del st.session_state.rec_ai_analysis
-            
             # Generate sample movie ratings
             np.random.seed(42)
             
@@ -13650,6 +13657,18 @@ def show_recommendation_systems():
                     })
             
             ratings_data = pd.DataFrame(ratings)
+            
+            # Track dataset change
+            dataset_name = "sample_movie_ratings"
+            current_dataset_id = DatasetTracker.generate_dataset_id(ratings_data, dataset_name)
+            stored_id = st.session_state.get('rec_dataset_id')
+            
+            if DatasetTracker.check_dataset_changed(ratings_data, dataset_name, stored_id):
+                DatasetTracker.clear_module_ai_cache(st.session_state, 'rec')
+                if stored_id is not None:
+                    st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+            
+            st.session_state.rec_dataset_id = current_dataset_id
             st.session_state.rec_ratings = ratings_data
             st.session_state.rec_source_df = ratings_data  # Also set this for column selection
             
@@ -13674,6 +13693,18 @@ def show_recommendation_systems():
             if st.button("Process Data", type="primary", key="rec_process_upload"):
                 ratings_data = df[[user_col, item_col, rating_col]].copy()
                 ratings_data.columns = ['user_id', 'item_id', 'rating']
+                
+                # Track dataset change
+                dataset_name = f"uploaded_{uploaded_file.name}"
+                current_dataset_id = DatasetTracker.generate_dataset_id(ratings_data, dataset_name)
+                stored_id = st.session_state.get('rec_dataset_id')
+                
+                if DatasetTracker.check_dataset_changed(ratings_data, dataset_name, stored_id):
+                    DatasetTracker.clear_module_ai_cache(st.session_state, 'rec')
+                    if stored_id is not None:
+                        st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+                
+                st.session_state.rec_dataset_id = current_dataset_id
                 st.session_state.rec_ratings = ratings_data
                 st.success("✅ Data processed!")
     
@@ -13700,6 +13731,7 @@ def show_recommendation_systems():
     if 'rec_ai_analysis' not in st.session_state:
         if st.button("🤖 Generate AI Recommendation Analysis", type="primary", use_container_width=True, key="rec_ai_btn"):
             with st.spinner("🔍 AI is analyzing your dataset for recommendation systems..."):
+                import pandas as pd
                 from utils.ai_smart_detection import AISmartDetection
                 
                 # Get AI recommendations
@@ -13708,12 +13740,25 @@ def show_recommendation_systems():
                     task_type='recommendation_system'
                 )
                 
+                # Add dataset metadata
+                recommendations['dataset_id'] = st.session_state.get('rec_dataset_id', 'unknown')
+                recommendations['dataset_shape'] = analysis_data.shape
+                recommendations['generated_at'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
+                
                 # Store in session state
                 st.session_state.rec_ai_analysis = recommendations
                 st.rerun()
     else:
         # AI Analysis exists - show results
         ai_recs = st.session_state.rec_ai_analysis
+        
+        # Check for dataset mismatch
+        current_dataset_id = st.session_state.get('rec_dataset_id', 'unknown')
+        stored_dataset_id = ai_recs.get('dataset_id', 'unknown')
+        
+        if current_dataset_id != stored_dataset_id and stored_dataset_id != 'unknown':
+            st.warning("⚠️ **Dataset Mismatch Detected!**")
+            st.info(f"AI recommendations were generated for a different dataset. Click 'Regenerate Analysis' below.")
         
         # Check if fallback was used
         using_fallback = ai_recs.get('using_fallback', False)

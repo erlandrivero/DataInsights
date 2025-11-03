@@ -89,7 +89,8 @@ class DatasetTracker:
             'textmining_ai_recommendations',
             'abtesting_ai_recommendations',
             'datacleaning_ai_recommendations',
-            'geo_ai_analysis'
+            'geo_ai_analysis',
+            'rec_ai_analysis'
         ]
         
         for key in ai_cache_keys:
