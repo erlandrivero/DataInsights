@@ -3631,6 +3631,7 @@ def show_market_basket_analysis():
     
     # Run analysis button
     if st.button("🚀 Run Market Basket Analysis", type="primary", use_container_width=True):
+        import pandas as pd
         from utils.process_manager import ProcessManager
         
         # Create process manager
@@ -3817,6 +3818,7 @@ def show_market_basket_analysis():
     
     # Show results if available
     if 'mba_rules' in st.session_state:
+        import pandas as pd
         rules = st.session_state.mba_rules
         
         if len(rules) == 0:
