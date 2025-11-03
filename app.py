@@ -13636,6 +13636,7 @@ def show_recommendation_systems():
     
     elif data_source == "Sample Movie Ratings":
         if st.button("📥 Load Sample Movie Ratings", type="primary"):
+            import pandas as pd
             # Generate sample movie ratings
             np.random.seed(42)
             
