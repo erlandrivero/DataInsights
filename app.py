@@ -3096,76 +3096,9 @@ def show_market_basket_analysis():
         
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
         
-        # AI-Powered MBA Recommendations (MOVED BEFORE validation to prevent blocking)
+        # Data validation (informational only)
         st.divider()
-        st.subheader("🤖 2. AI Market Basket Analysis Recommendations")
-        
-        # Simple AI button without complex conditionals
-        if st.button("🔍 Generate AI MBA Analysis", type="primary", use_container_width=True, key="mba_ai_btn"):
-            with st.status("🤖 Analyzing dataset with AI...", expanded=True) as status:
-                try:
-                    import time
-                    from utils.ai_smart_detection import get_ai_recommendation
-                    
-                    # Step 1: Preparing data
-                    status.write("Preparing dataset for analysis...")
-                    time.sleep(0.5)
-                    
-                    # Step 2: Analyzing structure
-                    status.write("Analyzing data structure and column suitability...")
-                    time.sleep(0.5)
-                    
-                    # Step 3: Generating AI analysis
-                    status.write("Generating AI recommendations...")
-                    status.write(f"Analyzing {len(df)} rows, {len(df.columns)} columns: {list(df.columns)}")
-                    ai_recommendations = get_ai_recommendation(df, task_type='market_basket_analysis')
-                    st.session_state.mba_ai_recommendations = ai_recommendations
-                    
-                    status.update(label="✅ AI analysis complete!", state="complete")
-                    st.rerun()
-                except Exception as e:
-                    status.update(label="❌ Analysis failed", state="error")
-                    st.error(f"Error generating AI recommendations: {str(e)}")
-        
-        # Show AI recommendations if available
-        if 'mba_ai_recommendations' in st.session_state:
-            ai_recs = st.session_state.mba_ai_recommendations
-            
-            # Performance Risk Assessment
-            performance_risk = ai_recs.get('performance_risk', 'Low')
-            risk_emoji = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}.get(performance_risk, '❓')
-            
-            col1, col2 = st.columns([2, 1])
-            with col1:
-                st.info(f"**⚡ Performance Risk:** {risk_emoji} {performance_risk} - Dataset suitability for Streamlit Cloud")
-            with col2:
-                if st.button("🔄 Regenerate Analysis", use_container_width=True, key="mba_regen_btn"):
-                    del st.session_state.mba_ai_recommendations
-                    st.rerun()
-            
-            # Data Suitability Assessment
-            data_suitability = ai_recs.get('data_suitability', 'Unknown')
-            suitability_emoji = {'Excellent': '🌟', 'Good': '✅', 'Fair': '⚠️', 'Poor': '❌'}.get(data_suitability, '❓')
-            st.success(f"**📊 Data Suitability:** {suitability_emoji} {data_suitability} for Market Basket Analysis")
-            
-            # Suitability reasoning
-            suitability_reasoning = ai_recs.get('suitability_reasoning', 'No reasoning provided')
-            with st.expander("💡 Why this suitability rating?", expanded=False):
-                st.info(suitability_reasoning)
-            
-            # Column recommendations
-            recommended_trans_col = ai_recs.get('recommended_transaction_column', df.columns[0])
-            recommended_item_col = ai_recs.get('recommended_item_column', df.columns[1] if len(df.columns) > 1 else df.columns[0])
-            column_reasoning = ai_recs.get('column_reasoning', 'AI analysis of column characteristics')
-            
-            with st.expander("🧠 AI Column Selection Reasoning", expanded=False):
-                st.info(f"**🤖 Why these columns?** {column_reasoning}")
-                st.write(f"**Transaction Column:** {recommended_trans_col}")
-                st.write(f"**Item Column:** {recommended_item_col}")
-        
-        # Data validation (MOVED AFTER AI analysis, non-blocking)
-        st.divider()
-        st.subheader("📊 3. Dataset Validation")
+        st.subheader("📊 2. Dataset Validation")
         
         # Get smart column suggestions
         from utils.column_detector import ColumnDetector
@@ -3202,7 +3135,7 @@ def show_market_basket_analysis():
         
         # Column selection (now informed by AI recommendations)
         st.divider()
-        st.subheader("📋 4. Select Columns for Analysis")
+        st.subheader("📋 3. Select Columns for Analysis")
         
         # Get AI recommendations for smart defaults
         ai_recs = st.session_state.get('mba_ai_recommendations', {})
@@ -3407,7 +3340,7 @@ def show_market_basket_analysis():
     
     # Display dataset info
     st.divider()
-    st.subheader("📊 Dataset Overview")
+    st.subheader("📊 2. Dataset Overview")
     
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -3417,6 +3350,97 @@ def show_market_basket_analysis():
     with col3:
         avg_basket = sum(len(t) for t in transactions) / len(transactions)
         st.metric("Avg Basket Size", f"{avg_basket:.1f}")
+    
+    # Section 3: AI MBA Recommendations (available for all data sources)
+    st.divider()
+    st.subheader("🤖 3. AI Market Basket Analysis Recommendations")
+    
+    # Check if AI recommendations already exist
+    if 'mba_ai_recommendations' not in st.session_state:
+        if st.button("🤖 Generate AI MBA Analysis", type="primary", use_container_width=True, key="mba_ai_btn_main"):
+            with st.status("🤖 Analyzing dataset with AI...", expanded=True) as status:
+                try:
+                    import time
+                    from utils.ai_smart_detection import get_ai_recommendation
+                    
+                    # Step 1: Preparing data
+                    status.write("Step 1: Preparing dataset for analysis...")
+                    time.sleep(0.3)
+                    
+                    # Step 2: Analyzing structure
+                    status.write("Step 2: Analyzing data structure and patterns...")
+                    time.sleep(0.3)
+                    
+                    # Step 3: Generating AI analysis
+                    status.write("Step 3: Generating AI recommendations...")
+                    status.write(f"Analyzing {len(transactions)} transactions, {len(df_encoded.columns)} unique items")
+                    
+                    # Get AI recommendations using encoded dataframe
+                    ai_recommendations = get_ai_recommendation(df_encoded, task_type='market_basket_analysis')
+                    
+                    # Add dataset metadata
+                    ai_recommendations['dataset_id'] = st.session_state.get('mba_dataset_id', 'unknown')
+                    ai_recommendations['dataset_shape'] = df_encoded.shape
+                    ai_recommendations['generated_at'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
+                    
+                    st.session_state.mba_ai_recommendations = ai_recommendations
+                    
+                    status.update(label="✅ AI analysis complete!", state="complete", expanded=False)
+                    st.rerun()
+                except Exception as e:
+                    status.update(label="❌ Analysis failed", state="error")
+                    st.error(f"Error generating AI recommendations: {str(e)}")
+    
+    # Display AI recommendations if available
+    if 'mba_ai_recommendations' in st.session_state:
+        ai_recs = st.session_state.mba_ai_recommendations
+        
+        # Check for dataset mismatch
+        current_dataset_id = st.session_state.get('mba_dataset_id', 'unknown')
+        stored_dataset_id = ai_recs.get('dataset_id', 'unknown')
+        
+        if current_dataset_id != stored_dataset_id and stored_dataset_id != 'unknown':
+            st.warning("⚠️ **Dataset Mismatch Detected!**")
+            st.info(f"AI recommendations were generated for a different dataset. Click 'Regenerate Analysis' below.")
+        
+        # Performance Risk Assessment
+        performance_risk = ai_recs.get('performance_risk', 'Low')
+        risk_emoji = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}.get(performance_risk, '❓')
+        
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            st.info(f"**⚡ Performance Risk:** {risk_emoji} {performance_risk} - Dataset suitability for Streamlit Cloud")
+        with col2:
+            if st.button("🔄 Regenerate Analysis", use_container_width=True, key="mba_regen_btn_main"):
+                del st.session_state.mba_ai_recommendations
+                st.rerun()
+        
+        # Data Suitability Assessment
+        data_suitability = ai_recs.get('data_suitability', 'Unknown')
+        suitability_emoji = {'Excellent': '🌟', 'Good': '✅', 'Fair': '⚠️', 'Poor': '❌'}.get(data_suitability, '❓')
+        st.success(f"**📊 Data Suitability:** {suitability_emoji} {data_suitability} for Market Basket Analysis")
+        
+        # Suitability reasoning
+        suitability_reasoning = ai_recs.get('suitability_reasoning', 'No reasoning provided')
+        with st.expander("💡 Why this suitability rating?", expanded=False):
+            st.info(suitability_reasoning)
+        
+        # Threshold recommendations
+        if ai_recs.get('recommended_min_support'):
+            with st.expander("🎯 AI Threshold Recommendations", expanded=True):
+                st.info(f"**🤖 AI Recommended Thresholds:**")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Min Support", f"{ai_recs.get('recommended_min_support', 0.01):.3f}")
+                with col2:
+                    st.metric("Min Confidence", f"{ai_recs.get('recommended_min_confidence', 0.5):.2f}")
+                with col3:
+                    st.metric("Min Lift", f"{ai_recs.get('recommended_min_lift', 1.0):.1f}")
+                
+                if ai_recs.get('threshold_reasoning'):
+                    st.write(f"**Reasoning:** {ai_recs['threshold_reasoning']}")
+    else:
+        st.info("💡 Click the button above to get AI-powered recommendations for your Market Basket Analysis.")
     
     # Debug info
     with st.expander("🔍 Debug Info"):
