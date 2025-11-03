@@ -15270,11 +15270,26 @@ def show_survival_analysis():
         key="surv_data_source"
     )
     
+    # Import dataset tracker
+    from utils.dataset_tracker import DatasetTracker
+    
     # Use Loaded Dataset
     if data_source == "Use Loaded Dataset" and has_loaded_data:
         df = st.session_state.data
         st.success("✅ Using dataset from Data Upload section")
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
+        
+        # Track dataset change
+        dataset_name = "loaded_dataset"
+        current_dataset_id = DatasetTracker.generate_dataset_id(df, dataset_name)
+        stored_id = st.session_state.get('survival_dataset_id')
+        
+        if DatasetTracker.check_dataset_changed(df, dataset_name, stored_id):
+            DatasetTracker.clear_module_ai_cache(st.session_state, 'survival')
+            if stored_id is not None:
+                st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+        
+        st.session_state.survival_dataset_id = current_dataset_id
         
         # Use AI recommendations if available, otherwise use rule-based detection
         if 'survival_ai_recommendations' in st.session_state:
@@ -15472,6 +15487,18 @@ def show_survival_analysis():
             surv_data['group'] = surv_data['segment']
             st.session_state.surv_data = surv_data
             
+            # Track dataset change for sample data
+            dataset_name = "sample_customer_churn"
+            current_dataset_id = DatasetTracker.generate_dataset_id(surv_data, dataset_name)
+            stored_id = st.session_state.get('survival_dataset_id')
+            
+            if DatasetTracker.check_dataset_changed(surv_data, dataset_name, stored_id):
+                DatasetTracker.clear_module_ai_cache(st.session_state, 'survival')
+                if stored_id is not None:
+                    st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+            
+            st.session_state.survival_dataset_id = current_dataset_id
+            
             st.success(f"✅ Loaded {len(surv_data)} customer records!")
             st.dataframe(surv_data.head(10), use_container_width=True)
     
@@ -15496,6 +15523,19 @@ def show_survival_analysis():
                 if group_col != "None":
                     surv_data['group'] = df[group_col]
                 st.session_state.surv_data = surv_data
+                
+                # Track dataset change for uploaded data
+                dataset_name = f"uploaded_{uploaded_file.name}"
+                current_dataset_id = DatasetTracker.generate_dataset_id(surv_data, dataset_name)
+                stored_id = st.session_state.get('survival_dataset_id')
+                
+                if DatasetTracker.check_dataset_changed(surv_data, dataset_name, stored_id):
+                    DatasetTracker.clear_module_ai_cache(st.session_state, 'survival')
+                    if stored_id is not None:
+                        st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+                
+                st.session_state.survival_dataset_id = current_dataset_id
+                
                 st.success("✅ Data processed!")
     
     # Analysis section
@@ -15543,6 +15583,11 @@ def show_survival_analysis():
                     task_type='survival_analysis'
                 )
                 
+                # Add dataset metadata to AI recommendations
+                recommendations['dataset_id'] = st.session_state.get('survival_dataset_id', 'unknown')
+                recommendations['dataset_shape'] = surv_data.shape
+                recommendations['generated_at'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
+                
                 # Store in session state
                 st.session_state.survival_ai_recommendations = recommendations
                 st.rerun()
@@ -15550,6 +15595,19 @@ def show_survival_analysis():
     # Display AI recommendations if available
     if has_ai_analysis:
         ai_recs = st.session_state.survival_ai_recommendations
+        
+        # Validate AI recommendations match current dataset
+        stored_ai_dataset_id = ai_recs.get('dataset_id')
+        current_dataset_id = st.session_state.get('survival_dataset_id')
+        
+        if stored_ai_dataset_id and current_dataset_id and stored_ai_dataset_id != current_dataset_id:
+            st.warning("⚠️ **Dataset Mismatch Detected!** The AI recommendations below were generated for a different dataset. Please regenerate the analysis.")
+            with st.expander("📋 AI Recommendation Details"):
+                st.write(f"**Generated for dataset:** `{stored_ai_dataset_id}`")
+                st.write(f"**Current dataset:** `{current_dataset_id}`")
+                st.write(f"**Generated at:** {ai_recs.get('generated_at', 'Unknown')}")
+                st.write(f"**Dataset shape:** {ai_recs.get('dataset_shape', 'Unknown')}")
+        
         data_suitability = ai_recs.get('data_suitability', 'Unknown')
         
         # AI Assessment card
