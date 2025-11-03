@@ -721,32 +721,36 @@ class NetworkAnalyzer:
         if self.graph is None:
             return {}
         
+        # Convert to undirected for pattern analysis
+        # Link formation patterns are typically analyzed on undirected networks
+        G = self.graph.to_undirected() if self.graph.is_directed() else self.graph
+        
         # Calculate various network properties
-        clustering_coef = nx.average_clustering(self.graph)
+        clustering_coef = nx.average_clustering(G)
         
         # Degree assortativity (homophily)
         try:
-            assortativity = nx.degree_assortativity_coefficient(self.graph)
+            assortativity = nx.degree_assortativity_coefficient(G)
         except:
             assortativity = 0.0
         
         # Transitivity (global clustering)
-        transitivity = nx.transitivity(self.graph)
+        transitivity = nx.transitivity(G)
         
         # Average path length (if connected)
         try:
-            if nx.is_connected(self.graph):
-                avg_path_length = nx.average_shortest_path_length(self.graph)
+            if nx.is_connected(G):
+                avg_path_length = nx.average_shortest_path_length(G)
             else:
                 # Use largest component
-                largest_cc = max(nx.connected_components(self.graph), key=len)
-                subgraph = self.graph.subgraph(largest_cc)
+                largest_cc = max(nx.connected_components(G), key=len)
+                subgraph = G.subgraph(largest_cc)
                 avg_path_length = nx.average_shortest_path_length(subgraph)
         except:
             avg_path_length = None
         
         # Degree distribution stats
-        degrees = [self.graph.degree(n) for n in self.graph.nodes()]
+        degrees = [G.degree(n) for n in G.nodes()]
         avg_degree = np.mean(degrees)
         degree_variance = np.var(degrees)
         
@@ -757,9 +761,9 @@ class NetworkAnalyzer:
             'avg_path_length': avg_path_length,
             'avg_degree': avg_degree,
             'degree_variance': degree_variance,
-            'num_nodes': self.graph.number_of_nodes(),
-            'num_edges': self.graph.number_of_edges(),
-            'density': nx.density(self.graph)
+            'num_nodes': G.number_of_nodes(),
+            'num_edges': G.number_of_edges(),
+            'density': nx.density(G)
         }
     
     @staticmethod
