@@ -13851,6 +13851,7 @@ def show_recommendation_systems():
         return  # Already stopped above, but double-check
     
     # Column Selection Section (AFTER AI Analysis)
+    import pandas as pd
     st.divider()
     st.subheader("📋 Select Columns for Recommendation System")
     
