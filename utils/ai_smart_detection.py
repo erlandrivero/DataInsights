@@ -60,10 +60,14 @@ class AISmartDetection:
             }
         """
         try:
-            # Check if OpenAI API key is available
-            api_key = os.getenv('OPENAI_API_KEY')
+            # Check if Google AI API key is available
+            api_key = os.getenv('GOOGLE_API_KEY')
             if not api_key:
-                return AISmartDetection._fallback_detection(df, task_type)
+                print(f"⚠️ No GOOGLE_API_KEY found - using rule-based fallback for {task_type}")
+                fallback_result = AISmartDetection._fallback_detection(df, task_type)
+                fallback_result['using_fallback'] = True
+                fallback_result['fallback_reason'] = 'No GOOGLE_API_KEY configured - using rule-based detection'
+                return fallback_result
             
             # Prepare dataset summary for GPT-4
             column_info = []
@@ -1098,8 +1102,16 @@ Provide ONLY the JSON response, no additional text."""
             
         except Exception as e:
             # Fallback to rule-based detection on any error
-            print(f"AI detection error: {str(e)}")
-            return AISmartDetection._fallback_detection(df, task_type)
+            error_msg = str(e)
+            print(f"⚠️ AI detection error for {task_type}: {error_msg}")
+            
+            # Add error info to fallback results so UI can display it
+            fallback_result = AISmartDetection._fallback_detection(df, task_type)
+            fallback_result['ai_error'] = error_msg
+            fallback_result['using_fallback'] = True
+            fallback_result['fallback_reason'] = 'AI API call failed - using rule-based detection'
+            
+            return fallback_result
     
     @staticmethod
     def _fallback_detection(df: pd.DataFrame, task_type: str) -> Dict:
@@ -2150,7 +2162,240 @@ Provide ONLY the JSON response, no additional text."""
                 'coordinate_validation': 'Basic coordinate validation completed'
             }
         
-        else:  # regression
+        elif task_type == 'recommendation_system':
+            # Rule-based recommendation system recommendations
+            n_samples = len(df)
+            n_features = len(df.columns)
+            
+            # Find user, item, and rating columns
+            user_col = None
+            item_col = None
+            rating_col = None
+            
+            # Look for user column
+            for col in df.columns:
+                col_lower = col.lower()
+                if any(pattern in col_lower for pattern in ['user', 'customer', 'client']):
+                    user_col = col
+                    break
+            
+            # Look for item column
+            for col in df.columns:
+                col_lower = col.lower()
+                if any(pattern in col_lower for pattern in ['item', 'product', 'movie', 'book', 'song']):
+                    item_col = col
+                    break
+            
+            # Look for rating column
+            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+            for col in numeric_cols:
+                col_lower = col.lower()
+                if any(pattern in col_lower for pattern in ['rating', 'score', 'stars']):
+                    rating_col = col
+                    break
+            
+            # Fallback: use first numeric column
+            if not rating_col and numeric_cols:
+                rating_col = numeric_cols[0]
+            
+            # Performance risk assessment
+            if n_samples > 100000:
+                performance_risk = 'High'
+                performance_warnings = [
+                    f'Large dataset ({n_samples:,} ratings) - collaborative filtering may be slow',
+                    'Consider filtering to active users only'
+                ]
+            elif n_samples > 10000:
+                performance_risk = 'Medium'
+                performance_warnings = [f'Medium dataset ({n_samples:,} ratings) - monitor performance']
+            else:
+                performance_risk = 'Low'
+                performance_warnings = []
+            
+            # Data suitability assessment
+            if not user_col or not item_col or not rating_col:
+                data_suitability = 'Poor'
+                suitability_reasoning = 'Missing required columns (user, item, rating) for recommendation system'
+                alternative_suggestions = [
+                    'Ensure data has user_id, item_id, and rating columns',
+                    'Use Sample Movie Ratings to see an example',
+                    'Check column names - should contain "user", "item", and "rating"'
+                ]
+            elif n_samples < 100:
+                data_suitability = 'Poor'
+                suitability_reasoning = f'Too few ratings ({n_samples}) - need at least 100 for collaborative filtering'
+                alternative_suggestions = [
+                    'Add more user-item-rating data',
+                    'Use Sample Movie Ratings to see an example'
+                ]
+            elif n_samples < 500:
+                data_suitability = 'Fair'
+                suitability_reasoning = f'Limited ratings ({n_samples}) - recommendations may be less accurate'
+                alternative_suggestions = []
+            elif n_samples < 5000:
+                data_suitability = 'Good'
+                suitability_reasoning = f'Good dataset for recommendation system - {n_samples} ratings'
+                alternative_suggestions = []
+            else:
+                data_suitability = 'Excellent'
+                suitability_reasoning = f'Excellent dataset for recommendation system - {n_samples} ratings with rich interaction data'
+                alternative_suggestions = []
+            
+            # Method recommendations
+            if n_samples < 1000:
+                recommended_method = 'User-Based Collaborative Filtering'
+                method_reasoning = 'User-based recommended for smaller datasets - simpler and more interpretable'
+                recommended_min_support = 2
+            else:
+                recommended_method = 'Item-Based Collaborative Filtering'
+                method_reasoning = 'Item-based recommended for larger datasets - more scalable and stable'
+                recommended_min_support = 3
+            
+            return {
+                'data_suitability': data_suitability,
+                'suitability_reasoning': suitability_reasoning,
+                'alternative_suggestions': alternative_suggestions,
+                'performance_risk': performance_risk,
+                'performance_warnings': performance_warnings,
+                'optimization_suggestions': [
+                    'Filter to active users and popular items',
+                    'Remove single-rating users',
+                    'Consider matrix factorization for large datasets'
+                ],
+                'recommended_user_column': user_col or 'N/A',
+                'recommended_item_column': item_col or 'N/A',
+                'recommended_rating_column': rating_col or 'N/A',
+                'column_reasoning': f'Rule-based detection: {user_col} for users, {item_col} for items, {rating_col} for ratings',
+                'recommended_method': recommended_method,
+                'method_reasoning': method_reasoning,
+                'recommended_min_support': recommended_min_support,
+                'sparsity_analysis': f'{n_samples} ratings detected - collaborative filtering available',
+                'recommendation_method_suggestions': [
+                    {'method': recommended_method, 'reason': method_reasoning}
+                ]
+            }
+        
+        elif task_type == 'cohort_analysis':
+            # Rule-based cohort analysis recommendations
+            n_samples = len(df)
+            n_features = len(df.columns)
+            
+            # Find user, cohort date, and activity date columns
+            user_col = None
+            cohort_date_col = None
+            activity_date_col = None
+            
+            # Look for user column
+            for col in df.columns:
+                col_lower = col.lower()
+                if any(pattern in col_lower for pattern in ['user', 'customer', 'client']):
+                    user_col = col
+                    break
+            
+            # Look for date columns
+            date_cols = df.select_dtypes(include=['datetime']).columns.tolist()
+            
+            # Try to find date patterns in column names
+            if not date_cols:
+                for col in df.columns:
+                    col_lower = col.lower()
+                    if any(pattern in col_lower for pattern in ['date', 'time', 'created', 'signup', 'registered']):
+                        date_cols.append(col)
+            
+            # Assign cohort date (signup/registration) and activity date
+            for col in date_cols:
+                col_lower = col.lower()
+                if any(pattern in col_lower for pattern in ['signup', 'registration', 'created', 'first']):
+                    cohort_date_col = col
+                elif any(pattern in col_lower for pattern in ['activity', 'purchase', 'order', 'transaction']):
+                    activity_date_col = col
+            
+            # Fallback: use first two date columns
+            if not cohort_date_col and date_cols:
+                cohort_date_col = date_cols[0]
+            if not activity_date_col and len(date_cols) > 1:
+                activity_date_col = date_cols[1]
+            elif not activity_date_col and date_cols:
+                activity_date_col = date_cols[0]
+            
+            # Performance risk assessment
+            if n_samples > 100000:
+                performance_risk = 'High'
+                performance_warnings = [
+                    f'Large dataset ({n_samples:,} activities) - cohort calculation may be slow',
+                    'Consider filtering to recent cohorts only'
+                ]
+            elif n_samples > 10000:
+                performance_risk = 'Medium'
+                performance_warnings = [f'Medium dataset ({n_samples:,} activities) - monitor performance']
+            else:
+                performance_risk = 'Low'
+                performance_warnings = []
+            
+            # Data suitability assessment
+            if not user_col or not cohort_date_col or not activity_date_col:
+                data_suitability = 'Poor'
+                suitability_reasoning = 'Missing required columns (user, cohort date, activity date) for cohort analysis'
+                alternative_suggestions = [
+                    'Ensure data has user_id, signup_date, and activity_date columns',
+                    'Use Sample E-commerce Data to see an example',
+                    'Check column names - should contain user, date, and activity information'
+                ]
+            elif n_samples < 100:
+                data_suitability = 'Poor'
+                suitability_reasoning = f'Too few activities ({n_samples}) - need at least 100 for cohort analysis'
+                alternative_suggestions = [
+                    'Add more user activity data',
+                    'Track users over longer time period'
+                ]
+            elif n_samples < 500:
+                data_suitability = 'Fair'
+                suitability_reasoning = f'Limited activities ({n_samples}) - cohorts may be small'
+                alternative_suggestions = []
+            elif n_samples < 5000:
+                data_suitability = 'Good'
+                suitability_reasoning = f'Good dataset for cohort analysis - {n_samples} activities'
+                alternative_suggestions = []
+            else:
+                data_suitability = 'Excellent'
+                suitability_reasoning = f'Excellent dataset for cohort analysis - {n_samples} activities with rich retention data'
+                alternative_suggestions = []
+            
+            # Cohort period recommendations
+            if n_samples < 1000:
+                recommended_cohort_period = 'Weekly'
+                period_reasoning = 'Weekly cohorts recommended for smaller datasets - more granular tracking'
+            else:
+                recommended_cohort_period = 'Monthly'
+                period_reasoning = 'Monthly cohorts recommended for larger datasets - stable cohort sizes'
+            
+            return {
+                'data_suitability': data_suitability,
+                'suitability_reasoning': suitability_reasoning,
+                'alternative_suggestions': alternative_suggestions,
+                'performance_risk': performance_risk,
+                'performance_warnings': performance_warnings,
+                'optimization_suggestions': [
+                    'Filter to recent cohorts (last 12 months)',
+                    'Remove inactive users',
+                    'Aggregate by cohort period for faster processing'
+                ],
+                'recommended_user_column': user_col or 'N/A',
+                'recommended_cohort_date_column': cohort_date_col or 'N/A',
+                'recommended_activity_date_column': activity_date_col or 'N/A',
+                'column_reasoning': f'Rule-based detection: {user_col} for users, {cohort_date_col} for cohort, {activity_date_col} for activity',
+                'recommended_cohort_period': recommended_cohort_period,
+                'cohort_period_reasoning': period_reasoning,
+                'date_range_analysis': f'{n_samples} activities detected - cohort tracking available',
+                'activity_frequency_analysis': 'Rule-based analysis - run AI analysis for detailed frequency patterns',
+                'user_count_assessment': 'Rule-based analysis - run AI analysis for user count assessment',
+                'cohort_recommendations': [
+                    {'title': 'Cohort Period', 'description': f'Use {recommended_cohort_period} cohorts based on data size'},
+                    {'title': 'Retention Tracking', 'description': 'Track cohort retention over time periods'}
+                ]
+            }
+        
+        elif task_type == 'regression':
             # Rule-based regression target detection with suitability check
             numeric_cols = df.select_dtypes(include=['number']).columns
             target = None
