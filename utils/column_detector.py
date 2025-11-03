@@ -509,18 +509,34 @@ class ColumnDetector:
         user_col = id_suggestions[0] if id_suggestions else df.columns[0]
         
         # Detect Cohort Date (signup, registration, first purchase)
-        cohort_suggestions = [col for col in date_cols if any(keyword in col.lower() 
-                             for keyword in ['signup', 'register', 'created', 'first', 'join', 'date', 'invoice', 'order'])]
-        cohort_suggestions = [col for col in cohort_suggestions if not any(exclude in col.lower() 
-                             for exclude in ['description', 'name', 'country', 'status'])]
-        cohort_col = cohort_suggestions[0] if cohort_suggestions else (date_cols[0] if date_cols else df.columns[0])
+        # Priority 1: Explicit cohort keywords
+        cohort_priority = [col for col in date_cols if any(keyword in col.lower() 
+                          for keyword in ['signup', 'register', 'created', 'first', 'join'])]
+        cohort_priority = [col for col in cohort_priority if not any(exclude in col.lower() 
+                          for exclude in ['description', 'name', 'country', 'status'])]
         
-        # Detect Activity Date
-        activity_suggestions = [col for col in date_cols if any(keyword in col.lower() 
-                               for keyword in ['activity', 'purchase', 'order', 'transaction', 'date', 'time', 'invoice'])]
-        activity_suggestions = [col for col in activity_suggestions if not any(exclude in col.lower() 
-                               for exclude in ['description', 'name', 'country', 'status'])]
-        activity_col = activity_suggestions[0] if activity_suggestions else (date_cols[1] if len(date_cols) > 1 else (date_cols[0] if date_cols else df.columns[0]))
+        # Priority 2: General date keywords
+        if not cohort_priority:
+            cohort_priority = [col for col in date_cols if any(keyword in col.lower() 
+                              for keyword in ['date', 'invoice', 'order'])]
+            cohort_priority = [col for col in cohort_priority if not any(exclude in col.lower() 
+                              for exclude in ['description', 'name', 'country', 'status'])]
+        
+        cohort_col = cohort_priority[0] if cohort_priority else (date_cols[0] if date_cols else df.columns[0])
+        
+        # Detect Activity Date - MUST BE DIFFERENT from cohort_col
+        # Priority 1: Explicit activity keywords
+        activity_priority = [col for col in date_cols if col != cohort_col and any(keyword in col.lower() 
+                            for keyword in ['activity', 'purchase', 'transaction', 'event'])]
+        activity_priority = [col for col in activity_priority if not any(exclude in col.lower() 
+                            for exclude in ['description', 'name', 'country', 'status'])]
+        
+        # Priority 2: Any other date column that's different
+        if not activity_priority:
+            activity_priority = [col for col in date_cols if col != cohort_col]
+        
+        # Priority 3: If only one date column exists, use it for both (but warn user)
+        activity_col = activity_priority[0] if activity_priority else cohort_col
         
         return {
             'user_id': user_col,
