@@ -13242,129 +13242,7 @@ def show_recommendation_systems():
         df = st.session_state.data
         st.success("✅ Using dataset from Data Upload section")
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
-        
-        # Smart column detection using ColumnDetector
-        from utils.column_detector import ColumnDetector
-        suggestions = ColumnDetector.get_recommendation_column_suggestions(df)
-        
-        st.info("💡 **Smart Detection:** Select user, item, and rating columns")
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            user_default = suggestions['user']
-            user_idx = list(df.columns).index(user_default)
-            user_col = st.selectbox("User Column", df.columns, index=user_idx, key="rec_user")
-        with col2:
-            item_default = suggestions['item']
-            item_idx = list(df.columns).index(item_default)
-            item_col = st.selectbox("Item Column", df.columns, index=item_idx, key="rec_item")
-        with col3:
-            rating_default = suggestions['rating']
-            rating_idx = list(df.columns).index(rating_default)
-            rating_col = st.selectbox("Rating Column", df.columns, index=rating_idx, key="rec_rating")
-        
-        # Real-time validation
-        issues = []
-        warnings = []
-        recommendations = []
-        
-        # Validate rating column is numeric
-        if not pd.api.types.is_numeric_dtype(df[rating_col]):
-            issues.append(f"Rating column '{rating_col}' is not numeric (type: {df[rating_col].dtype})")
-            recommendations.append("Select a numeric column containing rating values")
-        else:
-            # Check rating range
-            rating_min, rating_max = df[rating_col].min(), df[rating_col].max()
-            rating_missing = df[rating_col].isnull().sum()
-            
-            if rating_missing > 0:
-                warnings.append(f"Rating column has {rating_missing} missing values ({rating_missing/len(df)*100:.1f}%)")
-            
-            # Check if all same values
-            if df[rating_col].nunique() == 1:
-                issues.append(f"All ratings are the same value ({rating_min})")
-                recommendations.append("Ratings need variation to build meaningful recommendations")
-        
-        # Check if user/item/rating columns are different
-        if user_col == item_col or user_col == rating_col or item_col == rating_col:
-            issues.append("User, Item, and Rating columns must all be different")
-            recommendations.append("Select three distinct columns for user, item, and rating")
-        
-        # Data quality checks (if rating is numeric)
-        if pd.api.types.is_numeric_dtype(df[rating_col]):
-            n_users = df[user_col].nunique()
-            n_items = df[item_col].nunique()
-            n_ratings = len(df)
-            
-            # Check minimum requirements
-            if n_users < 3:
-                issues.append(f"Only {n_users} unique users (need at least 3 for collaborative filtering)")
-                recommendations.append("Recommendation systems require multiple users to find similarities")
-            elif n_users < 10:
-                warnings.append(f"Only {n_users} users - recommendations may not be very diverse")
-            
-            if n_items < 3:
-                issues.append(f"Only {n_items} unique items (need at least 3 for recommendations)")
-                recommendations.append("Need multiple items to recommend")
-            elif n_items < 10:
-                warnings.append(f"Only {n_items} items - limited recommendation choices")
-            
-            if n_ratings < 10:
-                issues.append(f"Only {n_ratings} ratings (need at least 10)")
-                recommendations.append("More ratings improve recommendation quality")
-            
-            # Check sparsity
-            if n_users >= 3 and n_items >= 3:
-                total_possible = n_users * n_items
-                sparsity = 100 * (1 - n_ratings / total_possible)
-                
-                if sparsity > 99:
-                    warnings.append(f"Very sparse data: {sparsity:.1f}% empty (only {n_ratings} of {total_possible:,} possible ratings)")
-                    recommendations.append("Collaborative filtering works better with denser rating matrices")
-                
-                # Check average ratings per user/item
-                avg_ratings_per_user = n_ratings / n_users
-                avg_ratings_per_item = n_ratings / n_items
-                
-                if avg_ratings_per_user < 2:
-                    warnings.append(f"Average {avg_ratings_per_user:.1f} ratings per user (recommend 5+ for quality)")
-                if avg_ratings_per_item < 2:
-                    warnings.append(f"Average {avg_ratings_per_item:.1f} ratings per item (recommend 5+ for quality)")
-        
-        # Display validation results
-        st.divider()
-        if len(issues) > 0:
-            st.error("**🚨 NOT SUITABLE FOR RECOMMENDATION SYSTEMS**")
-            for issue in issues:
-                st.write(f"❌ {issue}")
-            if recommendations:
-                with st.expander("💡 Recommendations"):
-                    for rec in recommendations:
-                        st.write(f"• {rec}")
-        elif len(warnings) > 0:
-            st.warning("**⚠️ RECOMMENDATION SYSTEM POSSIBLE (with warnings)**")
-            for warning in warnings:
-                st.write(f"⚠️ {warning}")
-            if recommendations:
-                with st.expander("💡 Recommendations"):
-                    for rec in recommendations:
-                        st.write(f"• {rec}")
-        else:
-            st.success("**✅ EXCELLENT FOR RECOMMENDATION SYSTEMS**")
-            st.write("✅ Numeric rating column")
-            st.write("✅ Sufficient users and items")
-            st.write("✅ Good data quality")
-        
-        # Only show button if no critical issues
-        if len(issues) == 0 and st.button("📊 Process Data", type="primary"):
-            ratings_data = df[[user_col, item_col, rating_col]].copy()
-            ratings_data.columns = ['user_id', 'item_id', 'rating']
-            ratings_data = ratings_data.dropna()  # Remove any rows with missing values
-            st.session_state.rec_ratings = ratings_data
-            
-            st.success("✅ Data processed!")
-            st.info(f"📊 {ratings_data['user_id'].nunique()} users, {ratings_data['item_id'].nunique()} items, {len(ratings_data)} ratings")
-            st.rerun()
+        st.session_state.rec_source_df = df  # Store for AI analysis
     
     elif data_source == "Sample Movie Ratings":
         if st.button("📥 Load Sample Movie Ratings", type="primary"):
@@ -13547,6 +13425,154 @@ def show_recommendation_systems():
     ai_recs = st.session_state.get('rec_ai_analysis', {})
     if ai_recs.get('data_suitability', 'Unknown') == 'Poor':
         return  # Already stopped above, but double-check
+    
+    # Column Selection Section (AFTER AI Analysis)
+    st.divider()
+    st.subheader("📋 Select Columns for Recommendation System")
+    
+    # Get source dataframe
+    if 'rec_source_df' in st.session_state:
+        df = st.session_state.rec_source_df
+        
+        # Use AI recommendations FIRST, fallback to smart detection if AI failed
+        ai_recs = st.session_state.get('rec_ai_analysis', {})
+        
+        # Try AI recommendations first
+        ai_user_col = ai_recs.get('recommended_user_column')
+        ai_item_col = ai_recs.get('recommended_item_column')
+        ai_rating_col = ai_recs.get('recommended_rating_column')
+        
+        # Fallback to smart detection only if AI didn't provide recommendations
+        if not ai_user_col or not ai_item_col or not ai_rating_col:
+            from utils.column_detector import ColumnDetector
+            suggestions = ColumnDetector.get_recommendation_column_suggestions(df)
+            user_default = suggestions['user']
+            item_default = suggestions['item']
+            rating_default = suggestions['rating']
+            st.info("💡 **Using Smart Detection:** AI recommendations not available, using rule-based column detection")
+        else:
+            user_default = ai_user_col
+            item_default = ai_item_col
+            rating_default = ai_rating_col
+            st.info("🤖 **AI has analyzed your data and preset the columns below.** You can change them if needed.")
+        
+        # Column selection dropdowns
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            user_idx = list(df.columns).index(user_default) if user_default in df.columns else 0
+            user_col = st.selectbox("User Column", df.columns, index=user_idx, key="rec_user")
+        with col2:
+            item_idx = list(df.columns).index(item_default) if item_default in df.columns else 0
+            item_col = st.selectbox("Item Column", df.columns, index=item_idx, key="rec_item")
+        with col3:
+            rating_idx = list(df.columns).index(rating_default) if rating_default in df.columns else 0
+            rating_col = st.selectbox("Rating Column", df.columns, index=rating_idx, key="rec_rating")
+        
+        # Real-time validation
+        issues = []
+        warnings = []
+        recommendations = []
+        
+        # Validate rating column is numeric
+        if not pd.api.types.is_numeric_dtype(df[rating_col]):
+            issues.append(f"Rating column '{rating_col}' is not numeric (type: {df[rating_col].dtype})")
+            recommendations.append("Select a numeric column containing rating values")
+        else:
+            # Check rating range
+            rating_min, rating_max = df[rating_col].min(), df[rating_col].max()
+            rating_missing = df[rating_col].isnull().sum()
+            
+            if rating_missing > 0:
+                warnings.append(f"Rating column has {rating_missing} missing values ({rating_missing/len(df)*100:.1f}%)")
+            
+            # Check if all same values
+            if df[rating_col].nunique() == 1:
+                issues.append(f"All ratings are the same value ({rating_min})")
+                recommendations.append("Ratings need variation to build meaningful recommendations")
+        
+        # Check if user/item/rating columns are different
+        if user_col == item_col or user_col == rating_col or item_col == rating_col:
+            issues.append("User, Item, and Rating columns must all be different")
+            recommendations.append("Select three distinct columns for user, item, and rating")
+        
+        # Data quality checks (if rating is numeric)
+        if pd.api.types.is_numeric_dtype(df[rating_col]):
+            n_users = df[user_col].nunique()
+            n_items = df[item_col].nunique()
+            n_ratings = len(df)
+            
+            # Check minimum requirements
+            if n_users < 3:
+                issues.append(f"Only {n_users} unique users (need at least 3 for collaborative filtering)")
+                recommendations.append("Recommendation systems require multiple users to find similarities")
+            elif n_users < 10:
+                warnings.append(f"Only {n_users} users - recommendations may not be very diverse")
+            
+            if n_items < 3:
+                issues.append(f"Only {n_items} unique items (need at least 3 for recommendations)")
+                recommendations.append("Need multiple items to recommend")
+            elif n_items < 10:
+                warnings.append(f"Only {n_items} items - limited recommendation choices")
+            
+            if n_ratings < 10:
+                issues.append(f"Only {n_ratings} ratings (need at least 10)")
+                recommendations.append("More ratings improve recommendation quality")
+            
+            # Check sparsity
+            if n_users >= 3 and n_items >= 3:
+                total_possible = n_users * n_items
+                sparsity = 100 * (1 - n_ratings / total_possible)
+                
+                if sparsity > 99:
+                    warnings.append(f"Very sparse data: {sparsity:.1f}% empty (only {n_ratings} of {total_possible:,} possible ratings)")
+                    recommendations.append("Collaborative filtering works better with denser rating matrices")
+                
+                # Check average ratings per user/item
+                avg_ratings_per_user = n_ratings / n_users
+                avg_ratings_per_item = n_ratings / n_items
+                
+                if avg_ratings_per_user < 2:
+                    warnings.append(f"Average {avg_ratings_per_user:.1f} ratings per user (recommend 5+ for quality)")
+                if avg_ratings_per_item < 2:
+                    warnings.append(f"Average {avg_ratings_per_item:.1f} ratings per item (recommend 5+ for quality)")
+        
+        # Display validation results
+        st.divider()
+        if len(issues) > 0:
+            st.error("**🚨 NOT SUITABLE FOR RECOMMENDATION SYSTEMS**")
+            for issue in issues:
+                st.write(f"❌ {issue}")
+            if recommendations:
+                with st.expander("💡 Recommendations"):
+                    for rec in recommendations:
+                        st.write(f"• {rec}")
+        elif len(warnings) > 0:
+            st.warning("**⚠️ RECOMMENDATION SYSTEM POSSIBLE (with warnings)**")
+            for warning in warnings:
+                st.write(f"⚠️ {warning}")
+            if recommendations:
+                with st.expander("💡 Recommendations"):
+                    for rec in recommendations:
+                        st.write(f"• {rec}")
+        else:
+            st.success("**✅ EXCELLENT FOR RECOMMENDATION SYSTEMS**")
+            st.write("✅ Numeric rating column")
+            st.write("✅ Sufficient users and items")
+            st.write("✅ Good data quality")
+        
+        # Only show button if no critical issues
+        if len(issues) == 0 and st.button("📊 Process Data", type="primary"):
+            ratings_data = df[[user_col, item_col, rating_col]].copy()
+            ratings_data.columns = ['user_id', 'item_id', 'rating']
+            ratings_data = ratings_data.dropna()  # Remove any rows with missing values
+            st.session_state.rec_ratings = ratings_data
+            
+            st.success("✅ Data processed!")
+            st.info(f"📊 {ratings_data['user_id'].nunique()} users, {ratings_data['item_id'].nunique()} items, {len(ratings_data)} ratings")
+            st.rerun()
+    else:
+        st.info("👆 Select a data source above to continue")
+        return
     
     # Dataset overview
     st.divider()

@@ -740,6 +740,10 @@ Please analyze this dataset and provide Recommendation System recommendations in
     "performance_risk": "Low/Medium/High",
     "performance_warnings": ["List of performance concerns for Streamlit Cloud"],
     "optimization_suggestions": ["List of specific suggestions to improve recommendations"],
+    "recommended_user_column": "column_name",
+    "recommended_item_column": "column_name",
+    "recommended_rating_column": "column_name",
+    "column_reasoning": "Why these columns are recommended for recommendation systems",
     "recommended_method": "User-Based Collaborative Filtering/Item-Based Collaborative Filtering",
     "method_reasoning": "Why this method is best for this data (user/item ratio, sparsity, etc.)",
     "recommended_min_support": 3,
@@ -760,45 +764,55 @@ Guidelines for Recommendation Systems:
    - Good: 20+ users, 20+ items, reasonable sparsity
    - Fair: 10-20 users/items, very sparse but workable
    - Poor: <10 users OR <10 items OR all same ratings
-2. RATING VALUES: DISCRETE RATINGS (1-5, 1-10) ARE NORMAL AND CORRECT for recommendation systems
+2. COLUMN SELECTION: Identify user, item, and rating columns
+   - USER COLUMN: Should identify unique users (look for: user_id, customer_id, user, userId)
+     - Column should have repeated values (same user rates multiple items)
+     - Avoid transaction IDs (every row unique)
+   - ITEM COLUMN: Should identify unique items (look for: item_id, product_id, movie_id, item, movieId)
+     - Column should have repeated values (same item rated by multiple users)
+   - RATING COLUMN: Should contain numeric rating values (look for: rating, score, stars)
+     - Must be numeric type (int or float)
+     - Typically on a scale (1-5, 1-10, 0-1, etc.)
+   - Provide reasoning for why each column was chosen
+3. RATING VALUES: DISCRETE RATINGS (1-5, 1-10) ARE NORMAL AND CORRECT for recommendation systems
    - Rating scales like 1-5 stars or 1-10 points are EXPECTED and IDEAL
    - DO NOT penalize datasets for having discrete rating values
    - DO NOT suggest using regression or classification - this is a RECOMMENDATION SYSTEM task
    - Focus on: whether ratings have variance (not all same), reasonable scale
-3. USER COUNT: Number of unique users
+4. USER COUNT: Number of unique users
    - Minimum: 3 users (to find similarities)
    - Good: 20+ users
    - Excellent: 100+ users
-4. ITEM COUNT: Number of unique items
+5. ITEM COUNT: Number of unique items
    - Minimum: 3 items (to recommend)
    - Good: 20+ items
    - Excellent: 100+ items
-5. SPARSITY: Percentage of missing ratings in user-item matrix
+6. SPARSITY: Percentage of missing ratings in user-item matrix
    - Calculate: sparsity = 100 * (1 - n_ratings / (n_users * n_items))
    - Dense: <95% (excellent for collaborative filtering)
    - Moderate: 95-98% (good, typical for real systems)
    - Sparse: 98-99.5% (fair, common challenge)
    - Very Sparse: >99.5% (poor, very challenging)
-6. METHOD RECOMMENDATION:
+7. METHOD RECOMMENDATION:
    - User-Based: Better when many items, fewer users, or users have similar preferences
    - Item-Based: Better when many users, fewer items, or more stable item catalog
    - Consider: computational cost (user-based scales with users, item-based with items)
-7. MINIMUM SUPPORT: Min ratings required to compute similarity
+8. MINIMUM SUPPORT: Min ratings required to compute similarity
    - Very sparse data (>99%): recommend 2-3 (need enough data)
    - Moderate sparse (95-99%): recommend 3-5 (balance quality/coverage)
    - Dense data (<95%): recommend 5-10 (can be more selective)
-8. COLD START PROBLEM: Assess severity
+9. COLD START PROBLEM: Assess severity
    - High: Many users/items with <2 ratings (hard to recommend)
    - Medium: Some users/items with few ratings
    - Low: Most users/items have 5+ ratings
-9. PERFORMANCE CONSTRAINTS: Consider Streamlit Cloud (1GB RAM, CPU timeout)
+10. PERFORMANCE CONSTRAINTS: Consider Streamlit Cloud (1GB RAM, CPU timeout)
    - High Risk: >10,000 users × >10,000 items (similarity matrix too large)
    - Medium Risk: >1,000 users or items
    - Low Risk: <1,000 users and items
-10. RATING ANALYSIS: Check if ratings have variance and meaningful scale
+11. RATING ANALYSIS: Check if ratings have variance and meaningful scale
     - Problem: All same rating (no preferences to learn)
     - Good: Ratings use full scale with reasonable distribution
-11. DO NOT SUGGEST OTHER MODULES: Analyze THIS module's suitability only
+12. DO NOT SUGGEST OTHER MODULES: Analyze THIS module's suitability only
     - Do not recommend ML Classification or ML Regression
     - Focus on making collaborative filtering work with this data
     - If data is Poor, suggest improving the data FOR recommendation systems
