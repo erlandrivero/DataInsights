@@ -18379,9 +18379,11 @@ def show_churn_prediction():
             # Validate AI recommendations match current dataset
             stored_ai_dataset_id = ai_recs.get('dataset_id')
             current_dataset_id = st.session_state.get('churn_dataset_id')
+            dataset_mismatch = (stored_ai_dataset_id and current_dataset_id and stored_ai_dataset_id != current_dataset_id)
             
-            if stored_ai_dataset_id and current_dataset_id and stored_ai_dataset_id != current_dataset_id:
+            if dataset_mismatch:
                 st.warning("⚠️ **Dataset Mismatch Detected!** The AI recommendations below were generated for a different dataset. Please regenerate the analysis.")
+                st.info("🚨 **AI blocking is disabled due to dataset mismatch.** Please regenerate analysis for accurate recommendations.")
                 with st.expander("📋 AI Recommendation Details"):
                     st.write(f"**Generated for dataset:** `{stored_ai_dataset_id}`")
                     st.write(f"**Current dataset:** `{current_dataset_id}`")
@@ -18408,8 +18410,8 @@ def show_churn_prediction():
                 risk_emoji = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}.get(perf_risk, '❓')
                 st.info(f"{risk_emoji} **Performance Risk:** {perf_risk}")
             
-            # AI-DRIVEN BLOCKING LOGIC
-            if data_suitability == 'Poor':
+            # AI-DRIVEN BLOCKING LOGIC (skip if dataset mismatch)
+            if data_suitability == 'Poor' and not dataset_mismatch:
                 st.error("**🚨 MODULE NOT AVAILABLE**")
                 st.error(f"**AI Reasoning:** {ai_recs.get('suitability_reasoning', 'Data unsuitable for churn prediction')}")
                 
