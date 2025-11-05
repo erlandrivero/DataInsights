@@ -3103,8 +3103,14 @@ def show_market_basket_analysis():
         # Check if AI recommendations already exist
         if 'mba_ai_recommendations' not in st.session_state:
             if st.button("🤖 Generate AI MBA Analysis", type="primary", use_container_width=True, key="mba_ai_btn_loaded"):
+                # Immediate feedback
+                processing_placeholder = st.empty()
+                processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
+                
                 with st.status("🤖 Analyzing dataset with AI...", expanded=True) as status:
                     try:
+                        processing_placeholder.empty()
+                        
                         import time
                         import pandas as pd
                         from utils.ai_smart_detection import get_ai_recommendation
@@ -3477,8 +3483,14 @@ def show_market_basket_analysis():
     # Check if AI recommendations already exist
     if 'mba_ai_recommendations' not in st.session_state:
         if st.button("🤖 Generate AI MBA Analysis", type="primary", use_container_width=True, key="mba_ai_btn_main"):
+            # Immediate feedback
+            processing_placeholder = st.empty()
+            processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
+            
             with st.status("🤖 Analyzing dataset with AI...", expanded=True) as status:
                 try:
+                    processing_placeholder.empty()
+                    
                     import time
                     import pandas as pd
                     from utils.ai_smart_detection import get_ai_recommendation
@@ -9742,7 +9754,13 @@ def show_time_series_forecasting():
     # Check if AI recommendations already exist
     if 'ts_ai_recommendations' not in st.session_state:
         if st.button("🤖 Generate AI Time Series Analysis", type="primary", use_container_width=True, key="ts_ai_button"):
+            # Immediate feedback
+            processing_placeholder = st.empty()
+            processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
+            
             with st.spinner("🔍 AI is analyzing your dataset for time series forecasting..."):
+                processing_placeholder.empty()
+                
                 from utils.ai_smart_detection import AISmartDetection
                 
                 # Get AI recommendations
@@ -10630,7 +10648,13 @@ def show_text_mining():
     # Check if AI recommendations already exist
     if 'text_ai_recommendations' not in st.session_state:
         if st.button("🤖 Generate AI Text Mining Analysis", type="primary", use_container_width=True, key="text_ai_button"):
+            # Immediate feedback
+            processing_placeholder = st.empty()
+            processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
+            
             with st.spinner("🔍 AI is analyzing your dataset for text mining..."):
+                processing_placeholder.empty()
+                
                 from utils.ai_smart_detection import AISmartDetection
                 
                 # Get AI recommendations
@@ -11620,7 +11644,13 @@ def show_ab_testing():
         # Check if AI recommendations already exist
         if 'ab_ai_recommendations' not in st.session_state:
             if st.button("🤖 Generate AI A/B Testing Analysis", type="primary", use_container_width=True, key="ab_ai_button"):
+                # Immediate feedback
+                processing_placeholder = st.empty()
+                processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
+                
                 with st.spinner("🔍 AI is analyzing your dataset for A/B testing..."):
+                    processing_placeholder.empty()
+                    
                     from utils.ai_smart_detection import AISmartDetection
                     
                     # Get AI recommendations
@@ -18354,7 +18384,13 @@ def show_churn_prediction():
         # Check if AI recommendations already exist
         if 'churn_ai_recommendations' not in st.session_state:
             if st.button("🤖 Generate AI Churn Analysis", type="primary", use_container_width=True, key="churn_ai_button"):
+                # Immediate feedback
+                processing_placeholder = st.empty()
+                processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
+                
                 with st.spinner("🔍 AI is analyzing your dataset for churn prediction..."):
+                    processing_placeholder.empty()
+                    
                     from utils.ai_smart_detection import AISmartDetection
                     
                     # Get AI recommendations
