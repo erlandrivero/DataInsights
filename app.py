@@ -19058,7 +19058,141 @@ Be data-driven, specific, and focus on actionable strategies that directly addre
         st.divider()
         st.subheader("📥 7. Export Results")
         
-        col1, col2 = st.columns(2)
+        # Generate comprehensive Markdown report
+        total_customers = len(predictions)
+        high_risk = len(predictions[predictions['risk_category'] == 'High Risk'])
+        medium_risk = len(predictions[predictions['risk_category'] == 'Medium Risk'])
+        low_risk = len(predictions[predictions['risk_category'] == 'Low Risk'])
+        
+        high_risk_pct = (high_risk / total_customers) * 100
+        medium_risk_pct = (medium_risk / total_customers) * 100
+        low_risk_pct = (low_risk / total_customers) * 100
+        
+        avg_churn_prob = predictions['churn_probability'].mean()
+        
+        report = f"""# Churn Prediction Analysis Report
+**Generated:** {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+## Executive Summary
+
+This report presents the results of predictive churn modeling analysis, identifying customers at risk of leaving and providing data-driven retention strategies.
+
+## Model Performance
+
+- **Algorithm:** {results.get('model_type', 'N/A')}
+- **Accuracy:** {results['accuracy']:.1%}
+- **Precision:** {results['precision']:.1%} (correctness of churn predictions)
+- **Recall:** {results['recall']:.1%} (coverage of actual churners)
+- **F1 Score:** {results['f1_score']:.3f} (balance of precision and recall)
+- **ROC-AUC:** {results['roc_auc']:.3f} (model discrimination power)
+
+## Customer Risk Distribution
+
+- **Total Customers Analyzed:** {total_customers:,}
+- **🔴 High Risk:** {high_risk:,} customers ({high_risk_pct:.1f}%)
+  - Churn probability >60%
+  - Immediate intervention required
+- **🟠 Medium Risk:** {medium_risk:,} customers ({medium_risk_pct:.1f}%)
+  - Churn probability 30-60%
+  - Proactive engagement recommended
+- **🟢 Low Risk:** {low_risk:,} customers ({low_risk_pct:.1f}%)
+  - Churn probability <30%
+  - Maintain current engagement
+- **Average Churn Probability:** {avg_churn_prob:.1%}
+
+## Top Churn Drivers (Feature Importance)
+
+"""
+        
+        # Add feature importance if available
+        if results.get('feature_importance') is not None and len(results['feature_importance']) > 0:
+            top_features = results['feature_importance'].head(10)
+            for idx, row in top_features.iterrows():
+                report += f"{idx + 1}. **{row['feature']}**: {row['importance']:.3f}\n"
+        else:
+            report += "*Feature importance not available for this model type*\n"
+        
+        # Add customer behavior patterns
+        features = st.session_state.churn_features
+        avg_recency = features['recency_days'].mean()
+        avg_frequency = features['frequency'].mean()
+        pct_dormant = (features['is_dormant'].sum() / len(features)) * 100
+        pct_declining = (features['is_declining'].sum() / len(features)) * 100
+        
+        report += f"""
+## Customer Behavior Patterns
+
+- **Average Recency:** {avg_recency:.1f} days since last transaction
+- **Average Frequency:** {avg_frequency:.1f} transactions per customer
+- **Dormant Customers:** {pct_dormant:.1f}% (>90 days inactive)
+- **Declining Engagement:** {pct_declining:.1f}% (recent activity < historical average)
+
+## Risk Segment Characteristics
+
+### High Risk Segment ({high_risk:,} customers)
+"""
+        
+        # Add segment characteristics if available
+        if 'retention_strategies' in st.session_state:
+            strategies = st.session_state.retention_strategies
+            
+            for risk_level in ['High Risk', 'Medium Risk', 'Low Risk']:
+                if risk_level in strategies:
+                    strategy = strategies[risk_level]
+                    chars = strategy['characteristics']
+                    
+                    report += f"""
+### {risk_level} Segment
+- **Size:** {strategy['segment_size']:,} customers ({strategy['segment_pct']:.1f}%)
+- **Average Recency:** {chars['avg_recency_days']:.0f} days
+- **Average Frequency:** {chars['avg_frequency']:.1f} transactions
+- **Dormant Rate:** {chars['pct_dormant']:.0f}%
+- **Declining Rate:** {chars['pct_declining']:.0f}%
+
+**Recommended Actions:**
+"""
+                    for action in strategy['recommended_actions']:
+                        report += f"\n**{action['action']}**\n"
+                        report += f"*Why:* {action['reason']}\n\n"
+                        report += "*Tactics:*\n"
+                        for tactic in action['tactics']:
+                            report += f"- {tactic}\n"
+                        report += "\n"
+        
+        # Add AI insights if available
+        if 'churn_ai_insights' in st.session_state:
+            report += f"\n## AI-Powered Strategic Insights\n\n{st.session_state.churn_ai_insights}\n"
+        
+        report += """
+## Business Impact & Next Steps
+
+### Immediate Actions (Next 7 Days)
+1. **High-Risk Intervention:** Contact all high-risk customers with personalized retention offers
+2. **Win-Back Campaign:** Launch targeted campaigns for dormant customers
+3. **Engagement Boost:** Increase touchpoints with medium-risk customers
+
+### Short-Term Strategy (Next 30 Days)
+1. **Retention Program:** Implement loyalty rewards for at-risk segments
+2. **Product Optimization:** Address pain points identified in churn drivers
+3. **Customer Success:** Assign dedicated support to high-value at-risk customers
+
+### Long-Term Optimization (Next 90 Days)
+1. **Predictive Monitoring:** Set up automated churn alerts
+2. **Feedback Loop:** Collect exit surveys from churned customers
+3. **Model Refinement:** Retrain model with new data monthly
+
+### Expected Outcomes
+- **Churn Reduction:** 15-30% decrease in customer attrition
+- **Revenue Protection:** Retain $XXX,XXX in annual recurring revenue
+- **CLV Improvement:** Increase customer lifetime value by 20-40%
+- **ROI:** 3-5x return on retention investment
+
+---
+*Report generated by DataInsights - Churn Prediction Module*
+"""
+        
+        # 3-column layout for exports
+        col1, col2, col3 = st.columns(3)
         
         with col1:
             # Export predictions
@@ -19079,6 +19213,16 @@ Be data-driven, specific, and focus on actionable strategies that directly addre
                 data=features_csv,
                 file_name=f"churn_features_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
                 mime="text/csv",
+                use_container_width=True
+            )
+        
+        with col3:
+            # Export Markdown report
+            st.download_button(
+                label="📥 Download Report (Markdown)",
+                data=report,
+                file_name=f"churn_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.md",
+                mime="text/markdown",
                 use_container_width=True
             )
 
