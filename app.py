@@ -4812,7 +4812,13 @@ def show_rfm_analysis():
     # Check if AI recommendations already exist
     if 'rfm_ai_recommendations' not in st.session_state:
         if st.button("🤖 Generate AI RFM Analysis", type="primary", use_container_width=True, key="rfm_ai_button_main"):
+            # Immediate feedback
+            processing_placeholder = st.empty()
+            processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
+            
             with st.status("🔍 AI is analyzing your dataset for RFM suitability...", expanded=True) as status:
+                processing_placeholder.empty()
+                
                 from utils.ai_smart_detection import AISmartDetection
                 
                 st.write("Step 1: Preparing RFM data...")
@@ -5796,11 +5802,16 @@ def show_monte_carlo_simulation():
             st.info("✅ AI insights saved! These will be included in your report downloads.")
         
         if st.button("🤖 Generate AI Analysis", key="mc_ai_analysis_btn", type="primary", use_container_width=True):
+            # Immediate feedback
+            processing_placeholder = st.empty()
+            processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
+            
             try:
                 from utils.ai_helper import AIHelper
                 ai = AIHelper()
                 
                 with st.status("Analyzing Monte Carlo simulation results with AI...", expanded=True) as status:
+                    processing_placeholder.empty()
                     # Get data from session state
                     mc_ticker_data = st.session_state.get('mc_ticker', 'Unknown')
                     mc_stock_data = st.session_state.get('mc_stock_data', pd.DataFrame())
@@ -14047,7 +14058,13 @@ def show_recommendation_systems():
     # Generate AI Analysis Button - Only show if not already done
     if 'rec_ai_analysis' not in st.session_state:
         if st.button("🤖 Generate AI Recommendation Analysis", type="primary", use_container_width=True, key="rec_ai_btn"):
+            # Immediate feedback
+            processing_placeholder = st.empty()
+            processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
+            
             with st.spinner("🔍 AI is analyzing your dataset for recommendation systems..."):
+                processing_placeholder.empty()
+                
                 import pandas as pd
                 from utils.ai_smart_detection import AISmartDetection
                 
@@ -16280,7 +16297,13 @@ def show_survival_analysis():
     # Check if AI recommendations already exist
     if 'survival_ai_recommendations' not in st.session_state:
         if st.button("🤖 Generate AI Survival Analysis", type="primary", use_container_width=True, key="survival_ai_button"):
+            # Immediate feedback
+            processing_placeholder = st.empty()
+            processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
+            
             with st.spinner("🔍 AI is analyzing your dataset for survival analysis..."):
+                processing_placeholder.empty()
+                
                 from utils.ai_smart_detection import AISmartDetection
                 
                 # Get AI recommendations
@@ -17140,7 +17163,13 @@ def show_network_analysis():
     # Check if AI recommendations already exist
     if 'network_ai_recommendations' not in st.session_state:
         if st.button("🤖 Generate AI Network Analysis", type="primary", use_container_width=True, key="network_ai_button"):
+            # Immediate feedback
+            processing_placeholder = st.empty()
+            processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
+            
             with st.spinner("🔍 AI is analyzing your dataset for network analysis..."):
+                processing_placeholder.empty()
+                
                 from utils.ai_smart_detection import AISmartDetection
                 
                 # Get AI recommendations
