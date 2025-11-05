@@ -3144,10 +3144,12 @@ def show_market_basket_analysis():
             # Check for dataset mismatch
             current_dataset_id = st.session_state.get('mba_dataset_id', 'unknown')
             stored_dataset_id = ai_recs.get('dataset_id', 'unknown')
+            dataset_mismatch = (current_dataset_id != stored_dataset_id and stored_dataset_id != 'unknown')
             
-            if current_dataset_id != stored_dataset_id and stored_dataset_id != 'unknown':
+            if dataset_mismatch:
                 st.warning("⚠️ **Dataset Mismatch Detected!**")
                 st.info(f"AI recommendations were generated for a different dataset. Click 'Regenerate Analysis' below.")
+                st.info("🚨 **AI blocking is disabled due to dataset mismatch.** Please regenerate analysis for accurate recommendations.")
             
             # Performance Risk Assessment
             performance_risk = ai_recs.get('performance_risk', 'Low')
@@ -3165,8 +3167,8 @@ def show_market_basket_analysis():
             data_suitability = ai_recs.get('data_suitability', 'Unknown')
             suitability_emoji = {'Excellent': '🌟', 'Good': '✅', 'Fair': '⚠️', 'Poor': '❌'}.get(data_suitability, '❓')
             
-            # AI-DRIVEN BLOCKING LOGIC
-            if data_suitability == 'Poor':
+            # AI-DRIVEN BLOCKING LOGIC (skip if dataset mismatch)
+            if data_suitability == 'Poor' and not dataset_mismatch:
                 st.error(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for Market Basket Analysis")
                 
                 # Show AI reasoning for why it's not suitable
@@ -9765,9 +9767,11 @@ def show_time_series_forecasting():
         # Validate AI recommendations match current dataset
         stored_ai_dataset_id = rec.get('dataset_id')
         current_dataset_id = st.session_state.get('ts_dataset_id')
+        dataset_mismatch = (stored_ai_dataset_id and current_dataset_id and stored_ai_dataset_id != current_dataset_id)
         
-        if stored_ai_dataset_id and current_dataset_id and stored_ai_dataset_id != current_dataset_id:
+        if dataset_mismatch:
             st.warning("⚠️ **Dataset Mismatch Detected!** The AI recommendations below were generated for a different dataset. Please regenerate the analysis.")
+            st.info("🚨 **AI blocking is disabled due to dataset mismatch.** Please regenerate analysis for accurate recommendations.")
             with st.expander("📋 AI Recommendation Details"):
                 st.write(f"**Generated for dataset:** `{stored_ai_dataset_id}`")
                 st.write(f"**Current dataset:** `{current_dataset_id}`")
@@ -9787,8 +9791,8 @@ def show_time_series_forecasting():
         with col2:
             st.info(f"{risk_color} **Performance Risk:** {rec.get('performance_risk', 'Unknown')}")
         
-        # AI-DRIVEN BLOCKING LOGIC
-        if data_suitability == 'Poor':
+        # AI-DRIVEN BLOCKING LOGIC (skip if dataset mismatch)
+        if data_suitability == 'Poor' and not dataset_mismatch:
             st.error(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for Time Series Forecasting")
             
             # Show AI reasoning for why it's not suitable
@@ -10651,9 +10655,11 @@ def show_text_mining():
         # Validate AI recommendations match current dataset
         stored_ai_dataset_id = rec.get('dataset_id')
         current_dataset_id = st.session_state.get('text_dataset_id')
+        dataset_mismatch = (stored_ai_dataset_id and current_dataset_id and stored_ai_dataset_id != current_dataset_id)
         
-        if stored_ai_dataset_id and current_dataset_id and stored_ai_dataset_id != current_dataset_id:
+        if dataset_mismatch:
             st.warning("⚠️ **Dataset Mismatch Detected!** The AI recommendations below were generated for a different dataset. Please regenerate the analysis.")
+            st.info("🚨 **AI blocking is disabled due to dataset mismatch.** Please regenerate analysis for accurate recommendations.")
             with st.expander("📋 AI Recommendation Details"):
                 st.write(f"**Generated for dataset:** `{stored_ai_dataset_id}`")
                 st.write(f"**Current dataset:** `{current_dataset_id}`")
@@ -10673,8 +10679,8 @@ def show_text_mining():
         with col2:
             st.info(f"{risk_color} **Performance Risk:** {rec.get('performance_risk', 'Unknown')}")
         
-        # AI-DRIVEN BLOCKING LOGIC
-        if data_suitability == 'Poor':
+        # AI-DRIVEN BLOCKING LOGIC (skip if dataset mismatch)
+        if data_suitability == 'Poor' and not dataset_mismatch:
             st.error(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for Text Mining")
             
             # Show AI reasoning for why it's not suitable
@@ -11638,10 +11644,12 @@ def show_ab_testing():
             # Check for dataset mismatch
             current_dataset_id = st.session_state.get('ab_dataset_id', 'unknown')
             stored_dataset_id = rec.get('dataset_id', 'unknown')
+            dataset_mismatch = (current_dataset_id != stored_dataset_id and stored_dataset_id != 'unknown')
             
-            if current_dataset_id != stored_dataset_id and stored_dataset_id != 'unknown':
+            if dataset_mismatch:
                 st.warning("⚠️ **Dataset Mismatch Detected!**")
                 st.info(f"AI recommendations were generated for a different dataset. Click 'Regenerate Analysis' below.")
+                st.info("🚨 **AI blocking is disabled due to dataset mismatch.** Please regenerate analysis for accurate recommendations.")
             
             # Performance Risk Badge
             risk_colors = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}
@@ -11656,8 +11664,8 @@ def show_ab_testing():
             with col2:
                 st.info(f"{risk_color} **Performance Risk:** {rec.get('performance_risk', 'Unknown')}")
             
-            # AI-DRIVEN BLOCKING LOGIC
-            if data_suitability == 'Poor':
+            # AI-DRIVEN BLOCKING LOGIC (skip if dataset mismatch)
+            if data_suitability == 'Poor' and not dataset_mismatch:
                 st.error(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for A/B Testing")
                 
                 # Show AI reasoning for why it's not suitable
