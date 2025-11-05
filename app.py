@@ -14996,6 +14996,10 @@ def show_geospatial_analysis():
                 if stored_id is not None:
                     st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
             
+            # Clear geo_source_df to prevent AI from analyzing wrong dataset
+            if 'geo_source_df' in st.session_state:
+                del st.session_state.geo_source_df
+            
             st.session_state.geo_dataset_id = current_dataset_id
             st.session_state.geo_data = geo_data
             
@@ -15028,6 +15032,10 @@ def show_geospatial_analysis():
                     DatasetTracker.clear_module_ai_cache(st.session_state, 'geo')
                     if stored_id is not None:
                         st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+                
+                # Clear geo_source_df to prevent AI from analyzing wrong dataset
+                if 'geo_source_df' in st.session_state:
+                    del st.session_state.geo_source_df
                 
                 st.session_state.geo_dataset_id = current_dataset_id
                 st.session_state.geo_data = geo_data
