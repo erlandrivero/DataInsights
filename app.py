@@ -9780,25 +9780,48 @@ def show_time_series_forecasting():
         
         col1, col2 = st.columns([3, 1])
         with col1:
-            suitability = rec.get('data_suitability', 'Unknown')
-            if suitability == 'Excellent' or suitability == 'Good':
-                st.success(f"✅ **Data Suitability:** {suitability} for Time Series Forecasting")
-            elif suitability == 'Fair':
-                st.warning(f"⚠️ **Data Suitability:** {suitability} for Time Series Forecasting")
-            else:
-                st.error(f"❌ **Data Suitability:** {suitability} for Time Series Forecasting")
+            # Data Suitability Assessment - AI DECISION POINT
+            data_suitability = rec.get('data_suitability', 'Unknown')
+            suitability_emoji = {'Excellent': '🌟', 'Good': '✅', 'Fair': '⚠️', 'Poor': '❌'}.get(data_suitability, '❓')
         
         with col2:
             st.info(f"{risk_color} **Performance Risk:** {rec.get('performance_risk', 'Unknown')}")
         
-        # Expandable reasoning
-        with st.expander("💡 Why this suitability rating?", expanded=False):
-            st.write(rec.get('suitability_reasoning', 'No reasoning provided'))
+        # AI-DRIVEN BLOCKING LOGIC
+        if data_suitability == 'Poor':
+            st.error(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for Time Series Forecasting")
             
-            if rec.get('alternative_suggestions'):
-                st.write("**📌 Suggestions:**")
-                for suggestion in rec['alternative_suggestions']:
+            # Show AI reasoning for why it's not suitable
+            suitability_reasoning = rec.get('suitability_reasoning', 'AI determined this data is not suitable for Time Series Forecasting')
+            st.error(f"**🤖 AI Recommendation:** {suitability_reasoning}")
+            
+            # Show AI suggestions
+            ai_suggestions = rec.get('alternative_suggestions', [])
+            if ai_suggestions:
+                st.info("**💡 AI Suggestions:**")
+                for suggestion in ai_suggestions:
                     st.write(f"- {suggestion}")
+            else:
+                st.info("**💡 AI Suggestions:**")
+                st.write("- Use Sample Data (built-in airline passengers dataset)")
+                st.write("- Ensure dataset has date/time column and numeric values")
+                st.write("- Need at least 20 data points, 100+ recommended")
+            
+            st.warning("**⚠️ Module not available for this dataset based on AI analysis.**")
+            st.stop()  # AI-DRIVEN STOP - Only stop if AI says data is Poor
+        else:
+            # AI approves - show positive assessment
+            st.success(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for Time Series Forecasting")
+            
+            # Suitability reasoning
+            suitability_reasoning = rec.get('suitability_reasoning', 'AI determined this data is suitable for Time Series Forecasting')
+            with st.expander("💡 Why this suitability rating?", expanded=False):
+                st.info(suitability_reasoning)
+                
+                if rec.get('alternative_suggestions'):
+                    st.write("**📌 Suggestions for improvement:**")
+                    for suggestion in rec['alternative_suggestions']:
+                        st.write(f"- {suggestion}")
         
         # AI Column Selection and Model Recommendations
         with st.expander("🤖 AI Analysis & Recommendations", expanded=True):
