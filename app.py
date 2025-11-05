@@ -3161,15 +3161,40 @@ def show_market_basket_analysis():
                     del st.session_state.mba_ai_recommendations
                     st.rerun()
             
-            # Data Suitability Assessment
+            # Data Suitability Assessment - AI DECISION POINT
             data_suitability = ai_recs.get('data_suitability', 'Unknown')
             suitability_emoji = {'Excellent': '🌟', 'Good': '✅', 'Fair': '⚠️', 'Poor': '❌'}.get(data_suitability, '❓')
-            st.success(f"**📊 Data Suitability:** {suitability_emoji} {data_suitability} for Market Basket Analysis")
             
-            # Suitability reasoning
-            suitability_reasoning = ai_recs.get('suitability_reasoning', 'No reasoning provided')
-            with st.expander("💡 Why this suitability rating?", expanded=False):
-                st.info(suitability_reasoning)
+            # AI-DRIVEN BLOCKING LOGIC
+            if data_suitability == 'Poor':
+                st.error(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for Market Basket Analysis")
+                
+                # Show AI reasoning for why it's not suitable
+                suitability_reasoning = ai_recs.get('suitability_reasoning', 'AI determined this data is not suitable for Market Basket Analysis')
+                st.error(f"**🤖 AI Recommendation:** {suitability_reasoning}")
+                
+                # Show AI suggestions
+                ai_suggestions = ai_recs.get('alternative_suggestions', [])
+                if ai_suggestions:
+                    st.info("**💡 AI Suggestions:**")
+                    for suggestion in ai_suggestions:
+                        st.write(f"- {suggestion}")
+                else:
+                    st.info("**💡 AI Suggestions:**")
+                    st.write("- Use Sample Groceries Dataset (built-in)")
+                    st.write("- Ensure dataset has transaction IDs and item names")
+                    st.write("- Need at least 50 transactions and 10 unique items")
+                
+                st.warning("**⚠️ Module not available for this dataset based on AI analysis.**")
+                st.stop()  # AI-DRIVEN STOP - Only stop if AI says data is Poor
+            else:
+                # AI approves - show positive assessment
+                st.success(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for Market Basket Analysis")
+                
+                # Suitability reasoning
+                suitability_reasoning = ai_recs.get('suitability_reasoning', 'AI determined this data is suitable for Market Basket Analysis')
+                with st.expander("💡 Why this suitability rating?", expanded=False):
+                    st.info(suitability_reasoning)
             
             # Column recommendations
             if ai_recs.get('recommended_transaction_column'):
@@ -13088,13 +13113,35 @@ def show_cohort_analysis():
             st.warning("**⚠️ Module not available for this dataset based on AI analysis.**")
             st.stop()  # AI-DRIVEN STOP - Only stop if AI says data is Poor
         else:
-            # AI approves - show positive assessment
-            st.success(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for Cohort Analysis")
+            # CRITICAL CHECK FIRST: Verify AI recommended DIFFERENT date columns
+            ai_cohort_col = ai_recs.get('recommended_cohort_date_column')
+            ai_activity_col = ai_recs.get('recommended_activity_date_column')
             
-            # Suitability reasoning
-            suitability_reasoning = ai_recs.get('suitability_reasoning', 'AI determined this data is suitable for Cohort Analysis')
-            with st.expander("💡 Why this suitability rating?", expanded=False):
-                st.info(suitability_reasoning)
+            has_single_date_column = (ai_cohort_col and ai_activity_col and ai_cohort_col == ai_activity_col)
+            
+            if has_single_date_column:
+                # Show downgraded assessment immediately
+                st.warning(f"**📊 AI Assessment:** ⚠️ Fair for Cohort Analysis (Limited by single date column)")
+                
+                # Show critical limitation
+                st.error("❌ **CRITICAL LIMITATION: Single Date Column Detected**")
+                st.error(f"**Issue:** Your dataset has only ONE date column (`{ai_cohort_col}`). Cohort analysis **requires** TWO separate date columns for meaningful retention tracking:")
+                st.write("• **Cohort Date**: When user first joined/purchased (e.g., signup_date, registration_date)")
+                st.write("• **Activity Date**: Subsequent user activities (e.g., purchase_date, activity_date)")
+                st.error("**⚠️ Results will be severely limited:** Using the same date for both cohort formation and activity tracking defeats the purpose of cohort analysis. You won't be able to track true user retention over time.")
+                st.info("**💡 Strong Recommendation:** Use **Sample E-commerce Data** to see proper cohort analysis with separate date columns, or add a signup/registration date column to your data before proceeding.")
+                
+                # Explain the downgrade
+                with st.expander("💡 Why was this downgraded from the AI's initial assessment?", expanded=False):
+                    st.info(f"The AI initially rated your dataset as '{data_suitability}' based on data size and structure. However, post-analysis validation detected that you only have one date column, which is a critical limitation for cohort analysis. The rating has been adjusted to 'Fair' to reflect this constraint.")
+            else:
+                # AI approves - show positive assessment
+                st.success(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for Cohort Analysis")
+                
+                # Suitability reasoning
+                suitability_reasoning = ai_recs.get('suitability_reasoning', 'AI determined this data is suitable for Cohort Analysis')
+                with st.expander("💡 Why this suitability rating?", expanded=False):
+                    st.info(suitability_reasoning)
         
         # Performance Warnings (only shown if AI approves)
         if performance_risk in ['Medium', 'High']:
@@ -13121,23 +13168,6 @@ def show_cohort_analysis():
                         st.write(f"• **{rec.get('title', 'Recommendation')}**: {rec.get('description', '')}")
                     else:
                         st.write(f"• {rec}")
-        
-        # CRITICAL CHECK: Verify AI recommended DIFFERENT date columns
-        ai_cohort_col = ai_recs.get('recommended_cohort_date_column')
-        ai_activity_col = ai_recs.get('recommended_activity_date_column')
-        
-        if ai_cohort_col and ai_activity_col and ai_cohort_col == ai_activity_col:
-            st.error("❌ **CRITICAL LIMITATION: Single Date Column Detected**")
-            st.error(f"**Issue:** Your dataset has only ONE date column (`{ai_cohort_col}`). Cohort analysis **requires** TWO separate date columns for meaningful retention tracking:")
-            st.write("• **Cohort Date**: When user first joined/purchased (e.g., signup_date, registration_date)")
-            st.write("• **Activity Date**: Subsequent user activities (e.g., purchase_date, activity_date)")
-            st.error("**⚠️ Results will be severely limited:** Using the same date for both cohort formation and activity tracking defeats the purpose of cohort analysis. You won't be able to track true user retention over time.")
-            st.info("**💡 Strong Recommendation:** Use **Sample E-commerce Data** to see proper cohort analysis with separate date columns, or add a signup/registration date column to your data before proceeding.")
-            
-            # Downgrade suitability rating
-            st.divider()
-            st.warning("**📊 Revised Assessment:** ⚠️ Fair for Cohort Analysis (downgraded due to single date column limitation)")
-            st.info("While your dataset has good size and structure, the lack of separate cohort and activity date columns significantly limits the value of cohort analysis.")
     
     # Don't show configuration until AI analysis is complete
     if 'cohort_ai_analysis' not in st.session_state:
