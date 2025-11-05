@@ -11317,6 +11317,10 @@ def show_ab_testing():
                 if stored_id is not None:
                     st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
             
+            # Clear ab_source_df to prevent AI from analyzing wrong dataset
+            if 'ab_source_df' in st.session_state:
+                del st.session_state.ab_source_df
+            
             st.session_state.ab_dataset_id = current_dataset_id
             st.session_state.ab_test_data = sample_data
             st.session_state.ab_test_groups = {
@@ -11356,6 +11360,10 @@ def show_ab_testing():
                         DatasetTracker.clear_module_ai_cache(st.session_state, 'ab')
                         if stored_id is not None:
                             st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+                    
+                    # Clear ab_source_df to prevent AI from analyzing wrong dataset
+                    if 'ab_source_df' in st.session_state:
+                        del st.session_state.ab_source_df
                     
                     st.session_state.ab_dataset_id = current_dataset_id
                     st.session_state.ab_test_data = processed_data
