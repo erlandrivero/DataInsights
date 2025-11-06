@@ -8325,9 +8325,10 @@ def show_ml_regression():
         
         results_df = pd.DataFrame(results_data)
         
-        # Sort by R² (best to worst)
-        results_df['_r2_sort'] = results_df['R²'].astype(float)
-        results_df = results_df.sort_values('_r2_sort', ascending=False).drop('_r2_sort', axis=1).reset_index(drop=True)
+        # Sort by R² (best to worst) - ensure proper numeric sorting
+        # Remove any non-numeric characters and convert to float
+        results_df['_r2_numeric'] = pd.to_numeric(results_df['R²'], errors='coerce')
+        results_df = results_df.sort_values('_r2_numeric', ascending=False).drop('_r2_numeric', axis=1).reset_index(drop=True)
         
         st.session_state.mlr_results_df = results_df
         
