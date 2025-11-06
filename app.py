@@ -7350,11 +7350,15 @@ def show_ml_classification():
             st.info("✅ AI insights saved! These will be included in your report downloads.")
         
         if st.button("🤖 Generate AI Insights", key="ml_ai_insights_btn", use_container_width=True):
+            # Immediate feedback - show processing started
+            processing_placeholder = st.empty()
+            processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
+            
             try:
                 from utils.ai_helper import AIHelper
                 ai = AIHelper()
                 
-                with st.status("Analyzing results and generating insights...", expanded=False) as status:
+                with st.status("Analyzing results and generating insights...", expanded=True) as status:
                     # Get data from session state
                     ml_results_data = st.session_state.get('ml_results', [])
                     ml_trainer_data = st.session_state.get('ml_trainer')
@@ -7420,12 +7424,16 @@ def show_ml_classification():
                     st.session_state.ml_ai_insights = insights
                     status.update(label="✅ AI insights generated successfully!", state="complete", expanded=False)
                 
+                # Clear processing message
+                processing_placeholder.empty()
+                
                 # Display results outside status block (no grey overlay)
                 st.success("✅ AI insights generated successfully!")
                 st.markdown(st.session_state.ml_ai_insights)
                 st.info("✅ AI insights saved! These will be included in your report downloads.")
                     
             except Exception as e:
+                processing_placeholder.empty()
                 st.error(f"Error generating insights: {str(e)}")
         
         # Export section
