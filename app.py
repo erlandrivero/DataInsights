@@ -7355,6 +7355,7 @@ def show_ml_classification():
                 ai = AIHelper()
                 
                 with st.status("🤖 Analyzing classification results and generating insights...", expanded=True) as status:
+                    st.write("Preparing analysis data...")
                     # Get data from session state
                     ml_results_data = st.session_state.get('ml_results', [])
                     ml_trainer_data = st.session_state.get('ml_trainer')
@@ -8445,6 +8446,7 @@ def show_ml_regression():
                 ai = AIHelper()
                 
                 with st.status("🤖 Analyzing regression results and generating insights...", expanded=True) as status:
+                    st.write("Preparing analysis data...")
                     # Get data from session state
                     mlr_results_data = st.session_state.get('mlr_results', [])
                     mlr_regressor_data = st.session_state.get('mlr_regressor')
