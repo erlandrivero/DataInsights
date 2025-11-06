@@ -23,32 +23,33 @@ Notes:
 
 import pandas as pd
 import numpy as np
-from statsmodels.tsa.seasonal import seasonal_decompose
-from statsmodels.tsa.stattools import adfuller, acf, pacf
-from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
-
-# pmdarima is optional
-try:
-    import pmdarima as pm
-    PMDARIMA_AVAILABLE = True
-except ImportError:
-    pm = None
-    PMDARIMA_AVAILABLE = False
-
-# Prophet is optional
-try:
-    from prophet import Prophet
-    PROPHET_AVAILABLE = True
-except ImportError:
-    Prophet = None
-    PROPHET_AVAILABLE = False
-
 from typing import Dict, Any, Tuple, List, Optional
 import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta
 import warnings
+import gc
 warnings.filterwarnings('ignore')
+
+# Import LazyModuleLoader for dynamic library loading
+from utils.lazy_loader import LazyModuleLoader
+
+# Check library availability (without importing)
+try:
+    import importlib.util
+    STATSMODELS_AVAILABLE = importlib.util.find_spec("statsmodels") is not None
+except:
+    STATSMODELS_AVAILABLE = False
+
+try:
+    PMDARIMA_AVAILABLE = importlib.util.find_spec("pmdarima") is not None
+except:
+    PMDARIMA_AVAILABLE = False
+
+try:
+    PROPHET_AVAILABLE = importlib.util.find_spec("prophet") is not None
+except:
+    PROPHET_AVAILABLE = False
 
 class TimeSeriesAnalyzer:
     """Handles time series data analysis and forecasting."""
@@ -149,6 +150,13 @@ class TimeSeriesAnalyzer:
                 period = min(12, len(self.ts_data) // 2)
         
         try:
+            # Lazy load statsmodels
+            seasonal_module = LazyModuleLoader.load_module('statsmodels.tsa.seasonal')
+            if seasonal_module is None:
+                raise ImportError("statsmodels is not available")
+            
+            seasonal_decompose = getattr(seasonal_module, 'seasonal_decompose')
+            
             self.decomposition = seasonal_decompose(
                 self.ts_data,
                 model=model,
@@ -156,13 +164,21 @@ class TimeSeriesAnalyzer:
                 extrapolate_trend='freq'
             )
             
-            return {
+            result = {
                 'trend': self.decomposition.trend,
                 'seasonal': self.decomposition.seasonal,
                 'residual': self.decomposition.resid,
                 'observed': self.decomposition.observed
             }
+            
+            # Unload module after use
+            LazyModuleLoader.unload_module('statsmodels.tsa.seasonal')
+            gc.collect()
+            
+            return result
         except Exception as e:
+            LazyModuleLoader.unload_module('statsmodels.tsa.seasonal')
+            gc.collect()
             raise ValueError(f"Decomposition failed: {str(e)}")
     
     def get_stationarity_test(self) -> Dict[str, Any]:
@@ -175,21 +191,39 @@ class TimeSeriesAnalyzer:
         if self.ts_data is None:
             raise ValueError("Time series data must be set first using set_time_column()")
         
-        # Perform ADF test
-        result = adfuller(self.ts_data.dropna(), autolag='AIC')
-        
-        # Interpret results
-        is_stationary = result[1] < 0.05
-        
-        return {
-            'test_statistic': result[0],
-            'p_value': result[1],
-            'used_lag': result[2],
-            'n_observations': result[3],
-            'critical_values': result[4],
-            'is_stationary': is_stationary,
-            'conclusion': 'Stationary' if is_stationary else 'Non-stationary'
-        }
+        try:
+            # Lazy load statsmodels
+            stattools_module = LazyModuleLoader.load_module('statsmodels.tsa.stattools')
+            if stattools_module is None:
+                raise ImportError("statsmodels is not available")
+            
+            adfuller = getattr(stattools_module, 'adfuller')
+            
+            # Perform ADF test
+            result = adfuller(self.ts_data.dropna(), autolag='AIC')
+            
+            # Interpret results
+            is_stationary = result[1] < 0.05
+            
+            output = {
+                'test_statistic': result[0],
+                'p_value': result[1],
+                'used_lag': result[2],
+                'n_observations': result[3],
+                'critical_values': result[4],
+                'is_stationary': is_stationary,
+                'conclusion': 'Stationary' if is_stationary else 'Non-stationary'
+            }
+            
+            # Unload module after use
+            LazyModuleLoader.unload_module('statsmodels.tsa.stattools')
+            gc.collect()
+            
+            return output
+        except Exception as e:
+            LazyModuleLoader.unload_module('statsmodels.tsa.stattools')
+            gc.collect()
+            raise
     
     def get_autocorrelation(self, nlags: int = 40) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -206,10 +240,27 @@ class TimeSeriesAnalyzer:
         
         nlags = min(nlags, len(self.ts_data) // 2 - 1)
         
-        acf_values = acf(self.ts_data.dropna(), nlags=nlags)
-        pacf_values = pacf(self.ts_data.dropna(), nlags=nlags)
-        
-        return acf_values, pacf_values
+        try:
+            # Lazy load statsmodels
+            stattools_module = LazyModuleLoader.load_module('statsmodels.tsa.stattools')
+            if stattools_module is None:
+                raise ImportError("statsmodels is not available")
+            
+            acf = getattr(stattools_module, 'acf')
+            pacf = getattr(stattools_module, 'pacf')
+            
+            acf_values = acf(self.ts_data.dropna(), nlags=nlags)
+            pacf_values = pacf(self.ts_data.dropna(), nlags=nlags)
+            
+            # Unload module after use
+            LazyModuleLoader.unload_module('statsmodels.tsa.stattools')
+            gc.collect()
+            
+            return acf_values, pacf_values
+        except Exception as e:
+            LazyModuleLoader.unload_module('statsmodels.tsa.stattools')
+            gc.collect()
+            raise
     
     def run_auto_arima(self, forecast_periods: int = 30, seasonal: Optional[bool] = None) -> Dict[str, Any]:
         """Run Auto-ARIMA model selection and generate forecasts.
@@ -259,80 +310,96 @@ class TimeSeriesAnalyzer:
         if self.ts_data is None:
             raise ValueError("Time series data must be set first using set_time_column()")
         
-        # Sample large datasets to prevent cloud timeouts
-        ts_to_fit = self.ts_data
-        if len(self.ts_data) > 500:
-            # Use last 500 observations for training to reduce computation
-            ts_to_fit = self.ts_data.iloc[-500:]
-            warnings.warn(f"Dataset has {len(self.ts_data)} observations. Using last 500 for faster training.")
-        
-        # Auto-detect if seasonal model is needed
-        if seasonal is None:
-            # Only use seasonal if dataset is large enough (need at least 2 seasons)
-            inferred_freq = pd.infer_freq(ts_to_fit.index)
-            if inferred_freq and len(ts_to_fit) >= 24:
-                seasonal = True
-                m = 12 if 'M' in str(inferred_freq) else 7 if 'D' in str(inferred_freq) else 12
+        try:
+            # Lazy load pmdarima
+            pm = LazyModuleLoader.load_module('pmdarima')
+            if pm is None:
+                raise ImportError("pmdarima is not available")
+            
+            # Sample large datasets to prevent cloud timeouts
+            ts_to_fit = self.ts_data
+            if len(self.ts_data) > 500:
+                # Use last 500 observations for training to reduce computation
+                ts_to_fit = self.ts_data.iloc[-500:]
+                warnings.warn(f"Dataset has {len(self.ts_data)} observations. Using last 500 for faster training.")
+            
+            # Auto-detect if seasonal model is needed
+            if seasonal is None:
+                # Only use seasonal if dataset is large enough (need at least 2 seasons)
+                inferred_freq = pd.infer_freq(ts_to_fit.index)
+                if inferred_freq and len(ts_to_fit) >= 24:
+                    seasonal = True
+                    m = 12 if 'M' in str(inferred_freq) else 7 if 'D' in str(inferred_freq) else 12
+                else:
+                    seasonal = False
+                    m = 1
             else:
-                seasonal = False
-                m = 1
-        else:
-            m = 12 if seasonal else 1
-        
-        # Fit auto ARIMA with cloud-friendly parameters
-        # Heavily optimized for Streamlit Cloud resource limits
-        self.arima_model = pm.auto_arima(
-            ts_to_fit,
-            start_p=1, start_q=1,  # Start with simple model
-            max_p=2, max_q=2,  # Very conservative limits for cloud
-            max_order=4,  # Strict complexity limit
-            seasonal=seasonal,
-            m=m,
-            d=None,
-            D=None,
-            start_P=0, start_Q=0,  # Seasonal starting points
-            max_P=1, max_Q=1,  # Minimal seasonal terms
-            max_d=2,
-            max_D=1,
-            trace=False,
-            error_action='ignore',
-            suppress_warnings=True,
-            stepwise=True,  # Fast stepwise search
-            n_jobs=1,
-            information_criterion='aic',
-            with_intercept='auto',
-            maxiter=50  # Limit iterations per model
-        )
-        
-        # Generate forecast
-        forecast, conf_int = self.arima_model.predict(
-            n_periods=forecast_periods,
-            return_conf_int=True
-        )
-        
-        # Create forecast index
-        last_date = self.ts_data.index[-1]
-        freq = pd.infer_freq(self.ts_data.index) or 'D'
-        forecast_index = pd.date_range(
-            start=last_date + pd.Timedelta(1, unit='D'),
-            periods=forecast_periods,
-            freq=freq
-        )
-        
-        self.forecast_arima = pd.DataFrame({
-            'forecast': forecast,
-            'lower_bound': conf_int[:, 0],
-            'upper_bound': conf_int[:, 1]
-        }, index=forecast_index)
-        
-        return {
-            'model_order': self.arima_model.order,
-            'seasonal_order': self.arima_model.seasonal_order,
-            'aic': self.arima_model.aic(),
-            'bic': self.arima_model.bic(),
-            'forecast': self.forecast_arima,
-            'summary': str(self.arima_model.summary())
-        }
+                m = 12 if seasonal else 1
+            
+            # Fit auto ARIMA with cloud-friendly parameters
+            # Heavily optimized for Streamlit Cloud resource limits
+            self.arima_model = pm.auto_arima(
+                ts_to_fit,
+                start_p=1, start_q=1,  # Start with simple model
+                max_p=2, max_q=2,  # Very conservative limits for cloud
+                max_order=4,  # Strict complexity limit
+                seasonal=seasonal,
+                m=m,
+                d=None,
+                D=None,
+                start_P=0, start_Q=0,  # Seasonal starting points
+                max_P=1, max_Q=1,  # Minimal seasonal terms
+                max_d=2,
+                max_D=1,
+                trace=False,
+                error_action='ignore',
+                suppress_warnings=True,
+                stepwise=True,  # Fast stepwise search
+                n_jobs=1,
+                information_criterion='aic',
+                with_intercept='auto',
+                maxiter=50  # Limit iterations per model
+            )
+            
+            # Generate forecast
+            forecast, conf_int = self.arima_model.predict(
+                n_periods=forecast_periods,
+                return_conf_int=True
+            )
+            
+            # Create forecast index
+            last_date = self.ts_data.index[-1]
+            freq = pd.infer_freq(self.ts_data.index) or 'D'
+            forecast_index = pd.date_range(
+                start=last_date + pd.Timedelta(1, unit='D'),
+                periods=forecast_periods,
+                freq=freq
+            )
+            
+            self.forecast_arima = pd.DataFrame({
+                'forecast': forecast,
+                'lower_bound': conf_int[:, 0],
+                'upper_bound': conf_int[:, 1]
+            }, index=forecast_index)
+            
+            result = {
+                'model_order': self.arima_model.order,
+                'seasonal_order': self.arima_model.seasonal_order,
+                'aic': self.arima_model.aic(),
+                'bic': self.arima_model.bic(),
+                'forecast': self.forecast_arima,
+                'summary': str(self.arima_model.summary())
+            }
+            
+            # Unload module after use
+            LazyModuleLoader.unload_module('pmdarima')
+            gc.collect()
+            
+            return result
+        except Exception as e:
+            LazyModuleLoader.unload_module('pmdarima')
+            gc.collect()
+            raise
     
     def run_prophet(self, forecast_periods: int = 30) -> Dict[str, Any]:
         """Run Facebook Prophet model for time series forecasting.
@@ -377,38 +444,56 @@ class TimeSeriesAnalyzer:
         if self.ts_data is None:
             raise ValueError("Time series data must be set first using set_time_column()")
         
-        # Prepare data for Prophet
-        prophet_df = pd.DataFrame({
-            'ds': self.ts_data.index,
-            'y': self.ts_data.values
-        })
-        
-        # Initialize and fit model
-        self.prophet_model = Prophet(
-            daily_seasonality=False,
-            weekly_seasonality=True,
-            yearly_seasonality=True
-        )
-        self.prophet_model.fit(prophet_df)
-        
-        # Create future dataframe
-        future = self.prophet_model.make_future_dataframe(periods=forecast_periods)
-        
-        # Generate forecast
-        forecast = self.prophet_model.predict(future)
-        
-        # Extract forecast for future periods only
-        self.forecast_prophet = forecast[forecast['ds'] > self.ts_data.index[-1]]
-        
-        return {
-            'forecast': self.forecast_prophet,
-            'full_forecast': forecast,
-            'components': {
-                'trend': forecast[['ds', 'trend']],
-                'weekly': forecast[['ds', 'weekly']] if 'weekly' in forecast.columns else None,
-                'yearly': forecast[['ds', 'yearly']] if 'yearly' in forecast.columns else None
+        try:
+            # Lazy load Prophet
+            prophet_module = LazyModuleLoader.load_module('prophet')
+            if prophet_module is None:
+                raise ImportError("Prophet is not available")
+            
+            Prophet = getattr(prophet_module, 'Prophet')
+            
+            # Prepare data for Prophet
+            prophet_df = pd.DataFrame({
+                'ds': self.ts_data.index,
+                'y': self.ts_data.values
+            })
+            
+            # Initialize and fit model
+            self.prophet_model = Prophet(
+                daily_seasonality=False,
+                weekly_seasonality=True,
+                yearly_seasonality=True
+            )
+            self.prophet_model.fit(prophet_df)
+            
+            # Create future dataframe
+            future = self.prophet_model.make_future_dataframe(periods=forecast_periods)
+            
+            # Generate forecast
+            forecast = self.prophet_model.predict(future)
+            
+            # Extract forecast for future periods only
+            self.forecast_prophet = forecast[forecast['ds'] > self.ts_data.index[-1]]
+            
+            result = {
+                'forecast': self.forecast_prophet,
+                'full_forecast': forecast,
+                'components': {
+                    'trend': forecast[['ds', 'trend']],
+                    'weekly': forecast[['ds', 'weekly']] if 'weekly' in forecast.columns else None,
+                    'yearly': forecast[['ds', 'yearly']] if 'yearly' in forecast.columns else None
+                }
             }
-        }
+            
+            # Unload module after use
+            LazyModuleLoader.unload_module('prophet')
+            gc.collect()
+            
+            return result
+        except Exception as e:
+            LazyModuleLoader.unload_module('prophet')
+            gc.collect()
+            raise
     
     def create_decomposition_plot(self, components: Dict[str, pd.Series]) -> go.Figure:
         """Create decomposition visualization."""
