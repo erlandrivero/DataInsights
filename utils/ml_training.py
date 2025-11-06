@@ -42,6 +42,7 @@ import numpy as np
 from typing import Dict, List, Tuple, Any, Optional, Callable
 import time
 import warnings
+import gc
 warnings.filterwarnings('ignore')
 
 from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
@@ -51,36 +52,24 @@ from sklearn.metrics import (
     roc_auc_score, confusion_matrix, classification_report
 )
 
-# Linear Models
-from sklearn.linear_model import RidgeClassifier, SGDClassifier, Perceptron
+# Import LazyModuleLoader for dynamic model loading
+from utils.lazy_loader import LazyModuleLoader
 
-# Tree-Based Models
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
-
-# Boosting Models
-from sklearn.ensemble import AdaBoostClassifier, GradientBoostingClassifier, HistGradientBoostingClassifier
-
-# Ensemble Models
-from sklearn.ensemble import BaggingClassifier, VotingClassifier, StackingClassifier
-
-# External libraries (with fallbacks)
+# Check external library availability (without importing)
 try:
-    from xgboost import XGBClassifier
-    XGBOOST_AVAILABLE = True
-except ImportError:
+    import importlib.util
+    XGBOOST_AVAILABLE = importlib.util.find_spec("xgboost") is not None
+except:
     XGBOOST_AVAILABLE = False
 
 try:
-    from lightgbm import LGBMClassifier
-    LIGHTGBM_AVAILABLE = True
-except ImportError:
+    LIGHTGBM_AVAILABLE = importlib.util.find_spec("lightgbm") is not None
+except:
     LIGHTGBM_AVAILABLE = False
 
 try:
-    from catboost import CatBoostClassifier
-    CATBOOST_AVAILABLE = True
-except ImportError:
+    CATBOOST_AVAILABLE = importlib.util.find_spec("catboost") is not None
+except:
     CATBOOST_AVAILABLE = False
 
 
@@ -246,16 +235,118 @@ class MLTrainer:
             'class_names': self.class_names
         }
     
-    def get_all_models(self) -> Dict[str, Any]:
-        """Get dictionary of all 15 available classification models.
+    def _lazy_load_model(self, model_name: str) -> Any:
+        """
+        Lazy load a model using LazyModuleLoader.
         
-        Returns a dictionary mapping model names to initialized model instances.
-        Models are configured with default hyperparameters optimized for general use.
+        Args:
+            model_name: Name of the model to load
+            
+        Returns:
+            Instantiated model object
+        """
+        # For ensemble models that need base estimators, we need to load them too
+        if model_name == 'Bagging':
+            # Load RidgeClassifier for Bagging
+            module = LazyModuleLoader.load_module('sklearn.linear_model')
+            RidgeClassifier = getattr(module, 'RidgeClassifier')
+            
+            ensemble_module = LazyModuleLoader.load_module('sklearn.ensemble')
+            BaggingClassifier = getattr(ensemble_module, 'BaggingClassifier')
+            
+            return BaggingClassifier(
+                estimator=RidgeClassifier(random_state=42),
+                random_state=42,
+                n_jobs=-1
+            )
+        
+        elif model_name == 'Voting':
+            # Load base classifiers for Voting
+            linear_module = LazyModuleLoader.load_module('sklearn.linear_model')
+            RidgeClassifier = getattr(linear_module, 'RidgeClassifier')
+            SGDClassifier = getattr(linear_module, 'SGDClassifier')
+            Perceptron = getattr(linear_module, 'Perceptron')
+            
+            ensemble_module = LazyModuleLoader.load_module('sklearn.ensemble')
+            VotingClassifier = getattr(ensemble_module, 'VotingClassifier')
+            
+            return VotingClassifier(
+                estimators=[
+                    ('ridge', RidgeClassifier(random_state=42)),
+                    ('sgd', SGDClassifier(random_state=42, max_iter=500)),
+                    ('perceptron', Perceptron(random_state=42, max_iter=500))
+                ],
+                voting='hard',
+                n_jobs=-1
+            )
+        
+        elif model_name == 'Stacking':
+            # Load base and final estimators for Stacking
+            ensemble_module = LazyModuleLoader.load_module('sklearn.ensemble')
+            ExtraTreesClassifier = getattr(ensemble_module, 'ExtraTreesClassifier')
+            StackingClassifier = getattr(ensemble_module, 'StackingClassifier')
+            
+            linear_module = LazyModuleLoader.load_module('sklearn.linear_model')
+            SGDClassifier = getattr(linear_module, 'SGDClassifier')
+            RidgeClassifier = getattr(linear_module, 'RidgeClassifier')
+            
+            return StackingClassifier(
+                estimators=[
+                    ('extra', ExtraTreesClassifier(n_estimators=20, max_depth=10, random_state=42)),
+                    ('sgd', SGDClassifier(random_state=42, max_iter=500))
+                ],
+                final_estimator=RidgeClassifier(random_state=42),
+                n_jobs=-1
+            )
+        
+        # Standard models
+        model_configs = {
+            # Linear Models
+            'Ridge Classifier': ('sklearn.linear_model', 'RidgeClassifier', {'random_state': 42}),
+            'SGD Classifier': ('sklearn.linear_model', 'SGDClassifier', {'random_state': 42, 'max_iter': 500, 'n_jobs': 1}),
+            'Perceptron': ('sklearn.linear_model', 'Perceptron', {'random_state': 42, 'max_iter': 500, 'n_jobs': 1}),
+            
+            # Tree-Based Models
+            'Decision Tree': ('sklearn.tree', 'DecisionTreeClassifier', {'random_state': 42}),
+            'Random Forest': ('sklearn.ensemble', 'RandomForestClassifier', {'random_state': 42, 'n_jobs': -1}),
+            'Extra Trees': ('sklearn.ensemble', 'ExtraTreesClassifier', {'random_state': 42, 'n_jobs': -1}),
+            
+            # Boosting Models
+            'AdaBoost': ('sklearn.ensemble', 'AdaBoostClassifier', {'random_state': 42}),
+            'Gradient Boosting': ('sklearn.ensemble', 'GradientBoostingClassifier', {'random_state': 42}),
+            'Histogram Gradient Boosting': ('sklearn.ensemble', 'HistGradientBoostingClassifier', {'random_state': 42, 'max_iter': 500}),
+            
+            # External Models
+            'XGBoost': ('xgboost', 'XGBClassifier', {'random_state': 42, 'eval_metric': 'logloss', 'use_label_encoder': False}),
+            'LightGBM': ('lightgbm', 'LGBMClassifier', {'random_state': 42, 'verbose': -1}),
+            'CatBoost': ('catboost', 'CatBoostClassifier', {'random_state': 42, 'verbose': 0}),
+        }
+        
+        if model_name not in model_configs:
+            raise ValueError(f"Unknown model: {model_name}")
+        
+        module_name, class_name, params = model_configs[model_name]
+        
+        # Lazy load the module
+        module = LazyModuleLoader.load_module(module_name)
+        if module is None:
+            raise ImportError(f"Could not load module: {module_name}")
+        
+        # Get the model class and instantiate
+        model_class = getattr(module, class_name)
+        model = model_class(**params)
+        
+        return model
+    
+    def get_all_models(self) -> Dict[str, Any]:
+        """Get list of all available classification model names.
+        
+        Models are NOT instantiated here - they will be lazy loaded when needed.
+        This reduces memory footprint and improves initial load time.
         
         Returns:
-            Dict[str, Any]: Dictionary with model names as keys and sklearn-compatible
-                model instances as values. Total of 12-15 models depending on optional
-                library availability (XGBoost, LightGBM, CatBoost).
+            Dict[str, Any]: Dictionary with model names as keys and None as values (placeholder).
+                Total of 12-15 models depending on optional library availability.
         
         Examples:
             >>> trainer = MLTrainer(df, 'Target')
@@ -264,63 +355,41 @@ class MLTrainer:
             >>> print(f"Total: {len(models)} models")
         
         Notes:
-            - All models use random_state=42 for reproducibility
+            - Models will be lazy loaded during training
             - XGBoost, LightGBM, CatBoost only included if installed
             - Models grouped by type: Linear (3), Trees (3), Boosting (6), Ensembles (3)
-            - All models are freshly initialized (not fitted)
-            - Use train_single_model() or train_all_models() to train
+            - Use train_single_model() or train_models_sequentially() to train
         """
         models = {}
         
         # Linear Models (3)
-        models['Ridge Classifier'] = RidgeClassifier(random_state=42)
-        models['SGD Classifier'] = SGDClassifier(random_state=42, max_iter=500, n_jobs=1)
-        models['Perceptron'] = Perceptron(random_state=42, max_iter=500, n_jobs=1)
+        models['Ridge Classifier'] = None
+        models['SGD Classifier'] = None
+        models['Perceptron'] = None
         
         # Tree-Based Models (3)
-        models['Decision Tree'] = DecisionTreeClassifier(random_state=42)
-        models['Random Forest'] = RandomForestClassifier(random_state=42, n_jobs=-1)
-        models['Extra Trees'] = ExtraTreesClassifier(random_state=42, n_jobs=-1)
+        models['Decision Tree'] = None
+        models['Random Forest'] = None
+        models['Extra Trees'] = None
         
         # Boosting Models (6)
-        models['AdaBoost'] = AdaBoostClassifier(random_state=42)
-        models['Gradient Boosting'] = GradientBoostingClassifier(random_state=42)
-        models['Histogram Gradient Boosting'] = HistGradientBoostingClassifier(random_state=42, max_iter=500)
+        models['AdaBoost'] = None
+        models['Gradient Boosting'] = None
+        models['Histogram Gradient Boosting'] = None
         
         if XGBOOST_AVAILABLE:
-            models['XGBoost'] = XGBClassifier(random_state=42, eval_metric='logloss', use_label_encoder=False)
+            models['XGBoost'] = None
         
         if LIGHTGBM_AVAILABLE:
-            models['LightGBM'] = LGBMClassifier(random_state=42, verbose=-1)
+            models['LightGBM'] = None
         
         if CATBOOST_AVAILABLE:
-            models['CatBoost'] = CatBoostClassifier(random_state=42, verbose=0)
+            models['CatBoost'] = None
         
         # Ensemble Models (3)
-        models['Bagging'] = BaggingClassifier(
-            estimator=RidgeClassifier(random_state=42),
-            random_state=42,
-            n_jobs=-1
-        )
-        
-        models['Voting'] = VotingClassifier(
-            estimators=[
-                ('ridge', RidgeClassifier(random_state=42)),
-                ('sgd', SGDClassifier(random_state=42, max_iter=500)),
-                ('perceptron', Perceptron(random_state=42, max_iter=500))
-            ],
-            voting='hard',
-            n_jobs=-1
-        )
-        
-        models['Stacking'] = StackingClassifier(
-            estimators=[
-                ('extra', ExtraTreesClassifier(n_estimators=20, max_depth=10, random_state=42)),
-                ('sgd', SGDClassifier(random_state=42, max_iter=500))
-            ],
-            final_estimator=RidgeClassifier(random_state=42),
-            n_jobs=-1
-        )
+        models['Bagging'] = None
+        models['Voting'] = None
+        models['Stacking'] = None
         
         return models
     
@@ -505,10 +574,11 @@ class MLTrainer:
         progress_callback: Optional[Callable] = None
     ) -> Dict[str, Dict[str, Any]]:
         """
-        Train models one at a time to prevent memory overload.
+        Train models one at a time using LazyModuleLoader to prevent memory overload.
         
-        This method trains models sequentially with garbage collection between
-        each model to minimize memory usage. Only essential results are stored.
+        This method trains models sequentially with lazy loading and garbage collection
+        between each model to minimize memory usage. Only essential results are stored.
+        Models are loaded dynamically, trained, and immediately unloaded.
         
         Args:
             model_names: List of model names to train
@@ -518,24 +588,41 @@ class MLTrainer:
         Returns:
             Dict of model results (without full model objects)
         """
-        import gc
-        
         all_models = self.get_all_models()
         results = {}
         total = len(model_names)
         
         for i, model_name in enumerate(model_names):
+            modules_to_unload = []
             try:
                 # Update progress
                 if progress_callback:
                     progress_callback(i + 1, total, model_name)
                 
-                # Get model
+                # Check if model exists
                 if model_name not in all_models:
                     results[model_name] = {'error': f'Unknown model: {model_name}'}
                     continue
                 
-                model = all_models[model_name]
+                # Lazy load model (load module dynamically)
+                model = self._lazy_load_model(model_name)
+                
+                # Determine modules to unload based on model type
+                if model_name in ['Ridge Classifier', 'SGD Classifier', 'Perceptron']:
+                    modules_to_unload = ['sklearn.linear_model']
+                elif model_name == 'Decision Tree':
+                    modules_to_unload = ['sklearn.tree']
+                elif model_name in ['Random Forest', 'Extra Trees', 'AdaBoost', 'Gradient Boosting', 'Histogram Gradient Boosting']:
+                    modules_to_unload = ['sklearn.ensemble']
+                elif model_name == 'XGBoost':
+                    modules_to_unload = ['xgboost']
+                elif model_name == 'LightGBM':
+                    modules_to_unload = ['lightgbm']
+                elif model_name == 'CatBoost':
+                    modules_to_unload = ['catboost']
+                elif model_name in ['Bagging', 'Voting', 'Stacking']:
+                    # Ensemble models load multiple modules
+                    modules_to_unload = ['sklearn.ensemble', 'sklearn.linear_model']
                 
                 # Train single model
                 model_result = self.train_single_model(model_name, model, cv_folds)
@@ -551,7 +638,7 @@ class MLTrainer:
                     'cv_scores': model_result.get('cv_scores'),
                     'cv_mean': model_result.get('cv_mean'),
                     'cv_std': model_result.get('cv_std'),
-                    'training_time': model_result.get('training_time', 0),  # Get correct key name
+                    'training_time': model_result.get('training_time', 0),
                     'feature_importance': model_result.get('feature_importance')
                 }
                 
@@ -560,11 +647,18 @@ class MLTrainer:
                     del model_result['model']
                 del model
                 
+                # Unload modules to free memory
+                for module_name in modules_to_unload:
+                    LazyModuleLoader.unload_module(module_name)
+                
                 # Force garbage collection after each model
                 gc.collect()
                 
             except Exception as e:
                 results[model_name] = {'error': str(e)}
+                # Unload modules even on error
+                for module_name in modules_to_unload:
+                    LazyModuleLoader.unload_module(module_name)
                 gc.collect()
         
         return results
