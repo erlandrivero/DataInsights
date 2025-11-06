@@ -1,6 +1,7 @@
 """
 Comprehensive Machine Learning Regression Module
 Implements 15 regression algorithms with full evaluation pipeline
+Optimized with LazyModuleLoader for reduced memory footprint
 """
 
 import pandas as pd
@@ -8,6 +9,7 @@ import numpy as np
 from typing import Dict, List, Tuple, Any, Optional, Callable
 import time
 import warnings
+import gc
 warnings.filterwarnings('ignore')
 
 from sklearn.model_selection import train_test_split, cross_val_score, KFold
@@ -17,39 +19,24 @@ from sklearn.metrics import (
     mean_absolute_percentage_error
 )
 
-# Linear Models
-from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet, BayesianRidge
+# Import LazyModuleLoader for dynamic model loading
+from utils.lazy_loader import LazyModuleLoader
 
-# Tree-Based Models
-from sklearn.tree import DecisionTreeRegressor
-from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor
-
-# Boosting Models
-from sklearn.ensemble import AdaBoostRegressor, GradientBoostingRegressor, HistGradientBoostingRegressor
-
-# Ensemble Models
-from sklearn.ensemble import BaggingRegressor, VotingRegressor, StackingRegressor
-
-# Support Vector Machines
-from sklearn.svm import SVR
-
-# External libraries (with fallbacks)
+# Check external library availability (without importing)
 try:
-    from xgboost import XGBRegressor
-    XGBOOST_AVAILABLE = True
-except ImportError:
+    import importlib.util
+    XGBOOST_AVAILABLE = importlib.util.find_spec("xgboost") is not None
+except:
     XGBOOST_AVAILABLE = False
 
 try:
-    from lightgbm import LGBMRegressor
-    LIGHTGBM_AVAILABLE = True
-except ImportError:
+    LIGHTGBM_AVAILABLE = importlib.util.find_spec("lightgbm") is not None
+except:
     LIGHTGBM_AVAILABLE = False
 
 try:
-    from catboost import CatBoostRegressor
-    CATBOOST_AVAILABLE = True
-except ImportError:
+    CATBOOST_AVAILABLE = importlib.util.find_spec("catboost") is not None
+except:
     CATBOOST_AVAILABLE = False
 
 
@@ -160,42 +147,104 @@ class MLRegressor:
             'sampled': self.sampled
         }
     
-    def get_all_models(self) -> Dict[str, Any]:
-        """Get dictionary of all available regression models."""
-        models = {
+    def _lazy_load_model(self, model_name: str) -> Any:
+        """
+        Lazy load a model using LazyModuleLoader.
+        
+        Args:
+            model_name: Name of the model to load
+            
+        Returns:
+            Instantiated model object
+        """
+        model_configs = {
             # Linear Models
-            'Linear Regression': LinearRegression(),
-            'Ridge': Ridge(alpha=1.0),
-            'Lasso': Lasso(alpha=1.0),
-            'ElasticNet': ElasticNet(alpha=1.0),
-            'Bayesian Ridge': BayesianRidge(),
+            'Linear Regression': ('sklearn.linear_model', 'LinearRegression', {}),
+            'Ridge': ('sklearn.linear_model', 'Ridge', {'alpha': 1.0}),
+            'Lasso': ('sklearn.linear_model', 'Lasso', {'alpha': 1.0}),
+            'ElasticNet': ('sklearn.linear_model', 'ElasticNet', {'alpha': 1.0}),
+            'Bayesian Ridge': ('sklearn.linear_model', 'BayesianRidge', {}),
             
             # Support Vector Machines
-            'SVR': SVR(kernel='rbf'),
+            'SVR': ('sklearn.svm', 'SVR', {'kernel': 'rbf'}),
             
             # Tree-Based Models
-            'Decision Tree': DecisionTreeRegressor(max_depth=10, random_state=42),
-            'Random Forest': RandomForestRegressor(n_estimators=100, max_depth=10, n_jobs=-1, random_state=42),
-            'Extra Trees': ExtraTreesRegressor(n_estimators=100, max_depth=10, n_jobs=-1, random_state=42),
+            'Decision Tree': ('sklearn.tree', 'DecisionTreeRegressor', {'max_depth': 10, 'random_state': 42}),
+            'Random Forest': ('sklearn.ensemble', 'RandomForestRegressor', {'n_estimators': 100, 'max_depth': 10, 'n_jobs': -1, 'random_state': 42}),
+            'Extra Trees': ('sklearn.ensemble', 'ExtraTreesRegressor', {'n_estimators': 100, 'max_depth': 10, 'n_jobs': -1, 'random_state': 42}),
             
             # Boosting Models
-            'AdaBoost': AdaBoostRegressor(n_estimators=50, random_state=42),
-            'Gradient Boosting': GradientBoostingRegressor(n_estimators=100, max_depth=5, random_state=42),
-            'Hist Gradient Boosting': HistGradientBoostingRegressor(max_iter=100, random_state=42),
+            'AdaBoost': ('sklearn.ensemble', 'AdaBoostRegressor', {'n_estimators': 50, 'random_state': 42}),
+            'Gradient Boosting': ('sklearn.ensemble', 'GradientBoostingRegressor', {'n_estimators': 100, 'max_depth': 5, 'random_state': 42}),
+            'Hist Gradient Boosting': ('sklearn.ensemble', 'HistGradientBoostingRegressor', {'max_iter': 100, 'random_state': 42}),
             
             # Ensemble Models
-            'Bagging': BaggingRegressor(n_estimators=10, n_jobs=-1, random_state=42),
+            'Bagging': ('sklearn.ensemble', 'BaggingRegressor', {'n_estimators': 10, 'n_jobs': -1, 'random_state': 42}),
+            
+            # External Models
+            'XGBoost': ('xgboost', 'XGBRegressor', {'n_estimators': 100, 'max_depth': 5, 'random_state': 42, 'verbosity': 0}),
+            'LightGBM': ('lightgbm', 'LGBMRegressor', {'n_estimators': 100, 'max_depth': 5, 'random_state': 42, 'verbose': -1}),
+            'CatBoost': ('catboost', 'CatBoostRegressor', {'iterations': 100, 'depth': 5, 'random_state': 42, 'verbose': 0}),
+        }
+        
+        if model_name not in model_configs:
+            raise ValueError(f"Unknown model: {model_name}")
+        
+        module_name, class_name, params = model_configs[model_name]
+        
+        # Lazy load the module
+        module = LazyModuleLoader.load_module(module_name)
+        if module is None:
+            raise ImportError(f"Could not load module: {module_name}")
+        
+        # Get the model class and instantiate
+        model_class = getattr(module, class_name)
+        model = model_class(**params)
+        
+        return model
+    
+    def get_all_models(self) -> Dict[str, Any]:
+        """
+        Get list of all available regression model names.
+        Models are NOT instantiated here - they will be lazy loaded when needed.
+        
+        Returns:
+            Dict with model names as keys and None as values (placeholder)
+        """
+        models = {
+            # Linear Models
+            'Linear Regression': None,
+            'Ridge': None,
+            'Lasso': None,
+            'ElasticNet': None,
+            'Bayesian Ridge': None,
+            
+            # Support Vector Machines
+            'SVR': None,
+            
+            # Tree-Based Models
+            'Decision Tree': None,
+            'Random Forest': None,
+            'Extra Trees': None,
+            
+            # Boosting Models
+            'AdaBoost': None,
+            'Gradient Boosting': None,
+            'Hist Gradient Boosting': None,
+            
+            # Ensemble Models
+            'Bagging': None,
         }
         
         # Add external models if available
         if XGBOOST_AVAILABLE:
-            models['XGBoost'] = XGBRegressor(n_estimators=100, max_depth=5, random_state=42, verbosity=0)
+            models['XGBoost'] = None
         
         if LIGHTGBM_AVAILABLE:
-            models['LightGBM'] = LGBMRegressor(n_estimators=100, max_depth=5, random_state=42, verbose=-1)
+            models['LightGBM'] = None
         
         if CATBOOST_AVAILABLE:
-            models['CatBoost'] = CatBoostRegressor(iterations=100, depth=5, random_state=42, verbose=0)
+            models['CatBoost'] = None
         
         return models
     
@@ -320,10 +369,11 @@ class MLRegressor:
         progress_callback: Optional[Callable] = None
     ) -> Dict[str, Dict[str, Any]]:
         """
-        Train models one at a time to prevent memory overload.
+        Train models one at a time using LazyModuleLoader to prevent memory overload.
         
-        This method trains models sequentially with garbage collection between
-        each model to minimize memory usage. Only essential results are stored.
+        This method trains models sequentially with lazy loading and garbage collection
+        between each model to minimize memory usage. Only essential results are stored.
+        Models are loaded dynamically, trained, and immediately unloaded.
         
         Args:
             model_names: List of model names to train
@@ -333,24 +383,45 @@ class MLRegressor:
         Returns:
             Dict of model results (without full model objects)
         """
-        import gc
-        
         all_models = self.get_all_models()
         results = {}
         total = len(model_names)
         
         for i, model_name in enumerate(model_names):
+            module_name = None
             try:
                 # Update progress
                 if progress_callback:
                     progress_callback(i + 1, total, model_name)
                 
-                # Get model
+                # Check if model exists
                 if model_name not in all_models:
                     results[model_name] = {'error': f'Unknown model: {model_name}'}
                     continue
                 
-                model = all_models[model_name]
+                # Lazy load model (load module dynamically)
+                model = self._lazy_load_model(model_name)
+                
+                # Determine module name for cleanup
+                model_configs = {
+                    'Linear Regression': 'sklearn.linear_model',
+                    'Ridge': 'sklearn.linear_model',
+                    'Lasso': 'sklearn.linear_model',
+                    'ElasticNet': 'sklearn.linear_model',
+                    'Bayesian Ridge': 'sklearn.linear_model',
+                    'SVR': 'sklearn.svm',
+                    'Decision Tree': 'sklearn.tree',
+                    'Random Forest': 'sklearn.ensemble',
+                    'Extra Trees': 'sklearn.ensemble',
+                    'AdaBoost': 'sklearn.ensemble',
+                    'Gradient Boosting': 'sklearn.ensemble',
+                    'Hist Gradient Boosting': 'sklearn.ensemble',
+                    'Bagging': 'sklearn.ensemble',
+                    'XGBoost': 'xgboost',
+                    'LightGBM': 'lightgbm',
+                    'CatBoost': 'catboost',
+                }
+                module_name = model_configs.get(model_name)
                 
                 # Train single model
                 model_result = self.train_model(model_name, model, cv_folds)
@@ -375,11 +446,18 @@ class MLRegressor:
                     del model_result['model']
                 del model
                 
+                # Unload the module to free memory
+                if module_name:
+                    LazyModuleLoader.unload_module(module_name)
+                
                 # Force garbage collection after each model
                 gc.collect()
                 
             except Exception as e:
                 results[model_name] = {'error': str(e)}
+                # Unload module even on error
+                if module_name:
+                    LazyModuleLoader.unload_module(module_name)
                 gc.collect()
         
         return results
