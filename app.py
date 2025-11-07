@@ -7589,7 +7589,7 @@ def show_ml_classification():
                     
                     # Display selected visualizations
                     if "Summary Plot" in shap_viz_options:
-                        st.write("**📊 SHAP Summary Plot (Top 10 Features)**")
+                        st.write("**📊 SHAP Summary Plot**")
                         st.write("Shows the impact of each feature on model predictions across all samples.")
                         
                         # After defensive check above, shap_values should always be a 2D numpy array
@@ -7602,17 +7602,17 @@ def show_ml_classification():
                         # Calculate mean absolute SHAP values for each feature
                         mean_abs_shap = np.abs(plot_values).mean(axis=0)
                         
-                        # Get top 10 features
-                        top_indices = np.argsort(mean_abs_shap)[-10:]
-                        top_features = X_sample.columns[top_indices]
-                        top_shap_values = plot_values[:, top_indices]
+                        # Sort features by importance
+                        sorted_indices = np.argsort(mean_abs_shap)
+                        sorted_features = X_sample.columns[sorted_indices]
+                        sorted_shap_values = plot_values[:, sorted_indices]
                         
                         # Create interactive Plotly scatter plot
                         fig = go.Figure()
                         
-                        for i, feature in enumerate(top_features):
-                            feature_values = X_sample.iloc[:, top_indices[i]]
-                            shap_vals = top_shap_values[:, i]
+                        for i, feature in enumerate(sorted_features):
+                            feature_values = X_sample.iloc[:, sorted_indices[i]]
+                            shap_vals = sorted_shap_values[:, i]
                             
                             fig.add_trace(go.Scatter(
                                 x=shap_vals,
@@ -7622,8 +7622,8 @@ def show_ml_classification():
                                     size=4,
                                     color=feature_values,
                                     colorscale='RdBu',
-                                    showscale=(i == len(top_features) - 1),
-                                    colorbar=dict(title="Feature<br>Value", x=1.02) if i == len(top_features) - 1 else None,
+                                    showscale=(i == len(sorted_features) - 1),
+                                    colorbar=dict(title="Feature<br>Value", x=1.02) if i == len(sorted_features) - 1 else None,
                                     line=dict(width=0.5, color='white')
                                 ),
                                 hovertemplate=f'<b>{feature}</b><br>SHAP: %{{x:.3f}}<br>Value: %{{marker.color:.2f}}<extra></extra>',
@@ -7631,18 +7631,18 @@ def show_ml_classification():
                             ))
                         
                         fig.update_layout(
-                            title='SHAP Summary Plot (Top 10 Features)',
+                            title='SHAP Summary Plot',
                             xaxis_title='SHAP Value (impact on model output)',
                             yaxis_title='',
                             height=400,
                             hovermode='closest',
-                            yaxis={'categoryorder': 'array', 'categoryarray': top_features[::-1]}
+                            yaxis={'categoryorder': 'array', 'categoryarray': sorted_features[::-1]}
                         )
                         
                         st.plotly_chart(fig, use_container_width=True)
                     
                     if "Feature Importance" in shap_viz_options:
-                        st.write("**📈 SHAP Feature Importance (Top 10 Features)**")
+                        st.write("**📈 SHAP Feature Importance**")
                         st.write("Global feature importance based on mean absolute SHAP values.")
                         
                         # After defensive check, shap_values is already a 2D numpy array
@@ -7655,30 +7655,23 @@ def show_ml_classification():
                         # Calculate mean absolute SHAP values
                         mean_abs_shap = np.abs(plot_values).mean(axis=0)
                         
-                        # Get top 10 features
-                        top_indices = np.argsort(mean_abs_shap)[-10:]
-                        top_features = X_sample.columns[top_indices]
-                        top_importance = mean_abs_shap[top_indices]
+                        # Get all features sorted by importance
+                        all_features = X_sample.columns
+                        importance_values = mean_abs_shap
                         
                         # Create Plotly bar chart (matching existing feature importance style)
-                        importance_df = pd.DataFrame({
-                            'Feature': top_features,
-                            'Importance': top_importance
-                        }).sort_values('Importance', ascending=True)
-                        
                         fig = px.bar(
-                            importance_df,
-                            x='Importance',
-                            y='Feature',
+                            x=importance_values,
+                            y=all_features,
                             orientation='h',
-                            title='SHAP Feature Importance (Top 10 Features)',
+                            title='SHAP Feature Importance',
                             labels={'Importance': 'Mean |SHAP Value|', 'Feature': ''}
                         )
                         fig.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
                         st.plotly_chart(fig, use_container_width=True)
                     
                     if "Dependence Plots" in shap_viz_options:
-                        st.write("**🔗 SHAP Dependence Plots (Top 3 Features)**")
+                        st.write("**🔗 SHAP Dependence Plots (Top 3)**")
                         st.write("Shows how a single feature impacts predictions across its range.")
                         
                         # After defensive check, shap_values is already a 2D numpy array
@@ -7719,7 +7712,7 @@ def show_ml_classification():
                             st.plotly_chart(fig, use_container_width=True)
                     
                     if "Force Plot (Sample)" in shap_viz_options:
-                        st.write("**⚡ SHAP Waterfall Plot (First Sample)**")
+                        st.write("**⚡ SHAP Waterfall Plot (Sample)**")
                         st.write("Explains a single prediction - shows how each feature pushed the prediction higher or lower.")
                         
                         # After defensive check, shap_values is already a 2D numpy array
@@ -9069,7 +9062,7 @@ def show_ml_regression():
                     
                     # Display selected visualizations
                     if "Summary Plot" in shap_viz_options_mlr:
-                        st.write("**📊 SHAP Summary Plot (Top 10 Features)**")
+                        st.write("**📊 SHAP Summary Plot**")
                         st.write("Shows the impact of each feature on model predictions across all samples.")
                         
                         # Ensure shap_values_mlr is 2D (samples x features)
@@ -9079,17 +9072,17 @@ def show_ml_regression():
                         # Calculate mean absolute SHAP values for each feature
                         mean_abs_shap_mlr = np.abs(shap_values_mlr).mean(axis=0)
                         
-                        # Get top 10 features
-                        top_indices_mlr = np.argsort(mean_abs_shap_mlr)[-10:]
-                        top_features_mlr = X_sample_mlr.columns[top_indices_mlr]
-                        top_shap_values_mlr = shap_values_mlr[:, top_indices_mlr]
+                        # Sort features by importance
+                        sorted_indices_mlr = np.argsort(mean_abs_shap_mlr)
+                        sorted_features_mlr = X_sample_mlr.columns[sorted_indices_mlr]
+                        sorted_shap_values_mlr = shap_values_mlr[:, sorted_indices_mlr]
                         
                         # Create interactive Plotly scatter plot
                         fig = go.Figure()
                         
-                        for i, feature in enumerate(top_features_mlr):
-                            feature_values_mlr = X_sample_mlr.iloc[:, top_indices_mlr[i]]
-                            shap_vals_mlr = top_shap_values_mlr[:, i]
+                        for i, feature in enumerate(sorted_features_mlr):
+                            feature_values_mlr = X_sample_mlr.iloc[:, sorted_indices_mlr[i]]
+                            shap_vals_mlr = sorted_shap_values_mlr[:, i]
                             
                             fig.add_trace(go.Scatter(
                                 x=shap_vals_mlr,
@@ -9099,8 +9092,8 @@ def show_ml_regression():
                                     size=4,
                                     color=feature_values_mlr,
                                     colorscale='RdBu',
-                                    showscale=(i == len(top_features_mlr) - 1),
-                                    colorbar=dict(title="Feature<br>Value", x=1.02) if i == len(top_features_mlr) - 1 else None,
+                                    showscale=(i == len(sorted_features_mlr) - 1),
+                                    colorbar=dict(title="Feature<br>Value", x=1.02) if i == len(sorted_features_mlr) - 1 else None,
                                     line=dict(width=0.5, color='white')
                                 ),
                                 hovertemplate=f'<b>{feature}</b><br>SHAP: %{{x:.3f}}<br>Value: %{{marker.color:.2f}}<extra></extra>',
@@ -9108,18 +9101,18 @@ def show_ml_regression():
                             ))
                         
                         fig.update_layout(
-                            title='SHAP Summary Plot (Top 10 Features)',
+                            title='SHAP Summary Plot',
                             xaxis_title='SHAP Value (impact on model output)',
                             yaxis_title='',
                             height=400,
                             hovermode='closest',
-                            yaxis={'categoryorder': 'array', 'categoryarray': top_features_mlr[::-1]}
+                            yaxis={'categoryorder': 'array', 'categoryarray': sorted_features_mlr[::-1]}
                         )
                         
                         st.plotly_chart(fig, use_container_width=True)
                     
                     if "Feature Importance" in shap_viz_options_mlr:
-                        st.write("**📈 SHAP Feature Importance (Top 10 Features)**")
+                        st.write("**📈 SHAP Feature Importance**")
                         st.write("Global feature importance based on mean absolute SHAP values.")
                         
                         # Ensure shap_values_mlr is 2D (samples x features)
@@ -9129,30 +9122,23 @@ def show_ml_regression():
                         # Calculate mean absolute SHAP values
                         mean_abs_shap_mlr = np.abs(shap_values_mlr).mean(axis=0)
                         
-                        # Get top 10 features
-                        top_indices_mlr = np.argsort(mean_abs_shap_mlr)[-10:]
-                        top_features_mlr = X_sample_mlr.columns[top_indices_mlr]
-                        top_importance_mlr = mean_abs_shap_mlr[top_indices_mlr]
+                        # Get all features sorted by importance
+                        all_features_mlr = X_sample_mlr.columns
+                        importance_values_mlr = mean_abs_shap_mlr
                         
                         # Create Plotly bar chart (matching existing feature importance style)
-                        importance_df_mlr = pd.DataFrame({
-                            'Feature': top_features_mlr,
-                            'Importance': top_importance_mlr
-                        }).sort_values('Importance', ascending=True)
-                        
                         fig = px.bar(
-                            importance_df_mlr,
-                            x='Importance',
-                            y='Feature',
+                            x=importance_values_mlr,
+                            y=all_features_mlr,
                             orientation='h',
-                            title='SHAP Feature Importance (Top 10 Features)',
+                            title='SHAP Feature Importance',
                             labels={'Importance': 'Mean |SHAP Value|', 'Feature': ''}
                         )
                         fig.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
                         st.plotly_chart(fig, use_container_width=True)
                     
                     if "Dependence Plots" in shap_viz_options_mlr:
-                        st.write("**🔗 SHAP Dependence Plots (Top 3 Features)**")
+                        st.write("**🔗 SHAP Dependence Plots (Top 3)**")
                         st.write("Shows how a single feature impacts predictions across its range.")
                         
                         # Get top 3 features
@@ -9191,7 +9177,7 @@ def show_ml_regression():
                             st.plotly_chart(fig, use_container_width=True)
                     
                     if "Waterfall Plot (Sample)" in shap_viz_options_mlr:
-                        st.write("**💧 SHAP Waterfall Plot (First Sample)**")
+                        st.write("**💧 SHAP Waterfall Plot (Sample)**")
                         st.write("Explains a single prediction - shows how each feature contributed to the final prediction.")
                         
                         # Get SHAP values and feature values for first sample
@@ -9220,7 +9206,7 @@ def show_ml_regression():
                         ))
                         
                         fig.update_layout(
-                            title=f'SHAP Waterfall Plot - First Sample (Base value: {expected_val_mlr:.3f})',
+                            title=f'SHAP Waterfall Plot (Base value: {expected_val_mlr:.3f})',
                             xaxis_title='SHAP Value (impact on prediction)',
                             yaxis_title='',
                             height=400,
