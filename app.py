@@ -7424,14 +7424,15 @@ def show_ml_classification():
                         best_model_name = best_model.get('model_name')
                         st.write(f"Retraining {best_model_name} for SHAP analysis...")
                         
-                        # Retrain the best model (session state can't serialize sklearn models)
-                        all_models = trainer.get_all_models()
-                        if best_model_name not in all_models:
-                            st.error(f"Model {best_model_name} not found in available models.")
+                        # Lazy load the best model (session state can't serialize sklearn models)
+                        try:
+                            best_model_obj = trainer._lazy_load_model(best_model_name)
+                        except Exception as e:
+                            st.error(f"Failed to load model '{best_model_name}': {str(e)}")
+                            st.info("💡 **Tip:** This model might not be available in your environment.")
                             st.stop()
                         
-                        # Get fresh model instance and train it
-                        best_model_obj = all_models[best_model_name]
+                        st.write(f"Training {best_model_name} on {len(X_train)} samples...")
                         best_model_obj.fit(X_train, y_train)
                         st.write("✅ Model retrained successfully!")
                         
@@ -8746,14 +8747,15 @@ def show_ml_regression():
                         best_model_name = best_model.get('model_name')
                         st.write(f"Retraining {best_model_name} for SHAP analysis...")
                         
-                        # Retrain the best model (session state can't serialize sklearn models)
-                        all_models = regressor.get_all_models()
-                        if best_model_name not in all_models:
-                            st.error(f"Model {best_model_name} not found in available models.")
+                        # Lazy load the best model (session state can't serialize sklearn models)
+                        try:
+                            best_model_obj = regressor._lazy_load_model(best_model_name)
+                        except Exception as e:
+                            st.error(f"Failed to load model '{best_model_name}': {str(e)}")
+                            st.info("💡 **Tip:** This model might not be available in your environment.")
                             st.stop()
                         
-                        # Get fresh model instance and train it
-                        best_model_obj = all_models[best_model_name]
+                        st.write(f"Training {best_model_name} on {len(X_train)} samples...")
                         best_model_obj.fit(X_train, y_train)
                         st.write("✅ Model retrained successfully!")
                         
