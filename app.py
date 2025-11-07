@@ -7551,8 +7551,14 @@ def show_ml_classification():
                     explainer = st.session_state.ml_shap_explainer
                     shap_viz_options = st.session_state.get('ml_shap_viz_options', ["Summary Plot", "Feature Importance"])
                     
-                    # Defensive check: ensure shap_values is 2D (handles legacy stored values)
-                    if isinstance(shap_values, np.ndarray) and shap_values.ndim == 1:
+                    # Defensive check: ensure shap_values is properly formatted (handles legacy stored values)
+                    if isinstance(shap_values, list):
+                        # If it's a list, convert first element to numpy array and ensure 2D
+                        shap_values = np.array(shap_values[0]) if len(shap_values) > 0 else np.array(shap_values)
+                        if shap_values.ndim == 1:
+                            shap_values = shap_values.reshape(1, -1)
+                        st.session_state.ml_shap_values = shap_values  # Update stored value
+                    elif isinstance(shap_values, np.ndarray) and shap_values.ndim == 1:
                         shap_values = shap_values.reshape(1, -1)
                         st.session_state.ml_shap_values = shap_values  # Update stored value
                     
