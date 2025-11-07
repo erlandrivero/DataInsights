@@ -858,8 +858,7 @@ def show_analysis():
                     ai_recommendations = get_ai_recommendation(df, task_type='data_cleaning')
                     st.session_state.cleaning_ai_recommendations = ai_recommendations
                     
-                    status.update(label="✅ AI analysis complete!", state="complete")
-                    st.rerun()
+                    status.update(label="✅ AI analysis complete!", state="complete", expanded=False)
                 except Exception as e:
                     status.update(label="❌ Analysis failed", state="error")
                     st.error(f"Error generating AI recommendations: {str(e)}")
