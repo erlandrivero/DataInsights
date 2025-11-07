@@ -19494,6 +19494,330 @@ def show_churn_prediction():
             st.markdown("**Insights:**")
             top_feature = predictor.feature_importance.iloc[0]
             st.info(f"💡 **{top_feature['feature']}** is the strongest churn predictor (importance: {top_feature['importance']:.3f})")
+        
+        # SHAP Model Interpretability
+        st.divider()
+        st.subheader("🔍 Model Interpretability (SHAP Analysis)")
+        
+        st.markdown("""
+        **SHAP (SHapley Additive exPlanations)** helps you understand:
+        - Which features are most important for churn predictions
+        - How each feature impacts individual customer predictions
+        - Why the model predicts certain customers will churn
+        """)
+        
+        # AI-Powered Presets with User Controls
+        with st.expander("⚙️ SHAP Analysis Settings", expanded=False):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Get AI recommendation for number of samples
+                from utils.ai_helper import AIHelper
+                ai_helper = AIHelper()
+                
+                dataset_size = len(st.session_state.get('churn_features', pd.DataFrame()))
+                
+                # AI-recommended preset based on dataset size
+                if dataset_size < 100:
+                    ai_recommended_samples_churn = min(50, dataset_size)
+                    ai_reason_churn = "Small dataset - using most samples"
+                elif dataset_size < 1000:
+                    ai_recommended_samples_churn = 100
+                    ai_reason_churn = "Medium dataset - balanced speed/accuracy"
+                else:
+                    ai_recommended_samples_churn = 200
+                    ai_reason_churn = "Large dataset - optimized for performance"
+                
+                st.info(f"🤖 **AI Recommendation:** {ai_recommended_samples_churn} samples\n\n*{ai_reason_churn}*")
+                
+                shap_samples_churn = st.slider(
+                    "Number of samples to analyze",
+                    min_value=10,
+                    max_value=min(500, dataset_size),
+                    value=ai_recommended_samples_churn,
+                    step=10,
+                    key="churn_shap_samples",
+                    help="More samples = more accurate but slower. AI preset optimized for your dataset size."
+                )
+            
+            with col2:
+                # AI-recommended visualization type
+                model_type_churn = model_type
+                
+                if 'Tree' in model_type_churn or 'Forest' in model_type_churn or 'Boost' in model_type_churn:
+                    ai_viz_type_churn = "Tree SHAP (Fast & Accurate)"
+                    ai_viz_reason_churn = "Tree-based model detected"
+                else:
+                    ai_viz_type_churn = "Kernel SHAP (Universal)"
+                    ai_viz_reason_churn = "Works with any model type"
+                
+                st.info(f"🤖 **AI Recommendation:** {ai_viz_type_churn}\n\n*{ai_viz_reason_churn}*")
+                
+                shap_viz_options_churn = st.multiselect(
+                    "Select visualizations to generate",
+                    ["Summary Plot", "Feature Importance", "Dependence Plots", "Waterfall Plot (Sample)"],
+                    default=["Summary Plot", "Feature Importance"],
+                    key="churn_shap_viz",
+                    help="Choose which SHAP visualizations to create"
+                )
+        
+        if st.button("🔍 Generate SHAP Explanations", key="churn_shap_btn", use_container_width=True):
+            try:
+                import shap
+                import matplotlib.pyplot as plt
+                
+                with st.status("🔍 Generating SHAP explanations...", expanded=True) as status:
+                    st.write("Loading model and data...")
+                    
+                    # Get trained model and data
+                    X_train_churn = predictor.X_train
+                    X_test_churn = predictor.X_test
+                    model_churn = predictor.model
+                    
+                    if model_churn is None:
+                        st.error("Model not available. Please train the model first.")
+                        st.stop()
+                    
+                    st.write(f"Analyzing {model_type} for SHAP...")
+                    
+                    # Sample data for SHAP (use user-selected number)
+                    if len(X_train_churn) > shap_samples_churn:
+                        np.random.seed(42)
+                        sample_indices = np.random.choice(len(X_train_churn), size=shap_samples_churn, replace=False)
+                        X_sample_churn = X_train_churn.iloc[sample_indices]
+                    else:
+                        X_sample_churn = X_train_churn
+                    
+                    st.write(f"Creating SHAP explainer for {model_type}...")
+                    
+                    # Create appropriate explainer based on model type
+                    if any(tree_model in model_type for tree_model in ['Tree', 'Forest', 'Boost', 'XGB', 'LightGBM', 'CatBoost']):
+                        # Tree-based models - use TreeExplainer (fast)
+                        explainer_churn = shap.TreeExplainer(model_churn)
+                        shap_values_churn = explainer_churn.shap_values(X_sample_churn)
+                    else:
+                        # Other models - use KernelExplainer (slower but universal)
+                        explainer_churn = shap.KernelExplainer(model_churn.predict_proba, X_sample_churn)
+                        shap_values_churn = explainer_churn.shap_values(X_sample_churn)
+                    
+                    st.write("Generating visualizations...")
+                    
+                    # Store SHAP values and options in session state
+                    st.session_state.churn_shap_values = shap_values_churn
+                    st.session_state.churn_shap_data = X_sample_churn
+                    st.session_state.churn_shap_explainer = explainer_churn
+                    st.session_state.churn_shap_viz_options = shap_viz_options_churn
+                    
+                    status.update(label="✅ SHAP analysis complete!", state="complete", expanded=False)
+                
+                st.success("✅ SHAP explanations generated successfully!")
+                
+            except ImportError:
+                st.error("SHAP library not installed. Please install with: pip install shap")
+            except Exception as e:
+                st.error(f"Error generating SHAP explanations: {str(e)}")
+                import traceback
+                st.code(traceback.format_exc())
+        
+        # Display SHAP visualizations (outside button block so they persist)
+        if 'churn_shap_values' in st.session_state and 'churn_shap_data' in st.session_state:
+            try:
+                import shap
+                import matplotlib.pyplot as plt
+                
+                shap_values_churn = st.session_state.churn_shap_values
+                X_sample_churn = st.session_state.churn_shap_data
+                explainer_churn = st.session_state.churn_shap_explainer
+                shap_viz_options_churn = st.session_state.get('churn_shap_viz_options', ["Summary Plot", "Feature Importance"])
+                
+                st.markdown("---")
+                st.write("### 📊 SHAP Visualizations")
+                
+                # Display selected visualizations
+                if "Summary Plot" in shap_viz_options_churn:
+                    st.write("**📊 SHAP Summary Plot (Top 10 Features)**")
+                    st.write("Shows the impact of each feature on churn predictions across all samples.")
+                    
+                    # Handle multi-class vs binary classification
+                    if isinstance(shap_values_churn, list) and len(shap_values_churn) > 1:
+                        plot_values_churn = shap_values_churn[1]  # Churn class
+                        st.caption("Showing SHAP values for churn class")
+                    else:
+                        plot_values_churn = shap_values_churn[1] if isinstance(shap_values_churn, list) else shap_values_churn
+                    
+                    # Calculate mean absolute SHAP values for each feature
+                    mean_abs_shap_churn = np.abs(plot_values_churn).mean(axis=0)
+                    
+                    # Get top 10 features
+                    top_indices_churn = np.argsort(mean_abs_shap_churn)[-10:]
+                    top_features_churn = X_sample_churn.columns[top_indices_churn]
+                    top_shap_values_churn = plot_values_churn[:, top_indices_churn]
+                    
+                    # Create interactive Plotly scatter plot
+                    fig = go.Figure()
+                    
+                    for i, feature in enumerate(top_features_churn):
+                        feature_values_churn = X_sample_churn.iloc[:, top_indices_churn[i]]
+                        shap_vals_churn = top_shap_values_churn[:, i]
+                        
+                        fig.add_trace(go.Scatter(
+                            x=shap_vals_churn,
+                            y=[feature] * len(shap_vals_churn),
+                            mode='markers',
+                            marker=dict(
+                                size=4,
+                                color=feature_values_churn,
+                                colorscale='RdBu',
+                                showscale=(i == len(top_features_churn) - 1),
+                                colorbar=dict(title="Feature<br>Value", x=1.02) if i == len(top_features_churn) - 1 else None,
+                                line=dict(width=0.5, color='white')
+                            ),
+                            hovertemplate=f'<b>{feature}</b><br>SHAP: %{{x:.3f}}<br>Value: %{{marker.color:.2f}}<extra></extra>',
+                            showlegend=False
+                        ))
+                    
+                    fig.update_layout(
+                        title='SHAP Summary Plot (Top 10 Churn Drivers)',
+                        xaxis_title='SHAP Value (impact on churn prediction)',
+                        yaxis_title='',
+                        height=400,
+                        hovermode='closest',
+                        yaxis={'categoryorder': 'array', 'categoryarray': top_features_churn[::-1]}
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                if "Feature Importance" in shap_viz_options_churn:
+                    st.write("**📈 SHAP Feature Importance (Top 10 Features)**")
+                    st.write("Global feature importance based on mean absolute SHAP values.")
+                    
+                    # Handle multi-class vs binary
+                    if isinstance(shap_values_churn, list) and len(shap_values_churn) > 1:
+                        plot_values_churn = shap_values_churn[1]  # Churn class
+                    else:
+                        plot_values_churn = shap_values_churn[1] if isinstance(shap_values_churn, list) else shap_values_churn
+                    
+                    # Calculate mean absolute SHAP values
+                    mean_abs_shap_churn = np.abs(plot_values_churn).mean(axis=0)
+                    
+                    # Get top 10 features
+                    top_indices_churn = np.argsort(mean_abs_shap_churn)[-10:]
+                    top_features_churn = X_sample_churn.columns[top_indices_churn]
+                    top_importance_churn = mean_abs_shap_churn[top_indices_churn]
+                    
+                    # Create Plotly bar chart (matching existing feature importance style)
+                    importance_df_churn = pd.DataFrame({
+                        'Feature': top_features_churn,
+                        'Importance': top_importance_churn
+                    }).sort_values('Importance', ascending=True)
+                    
+                    fig = px.bar(
+                        importance_df_churn,
+                        x='Importance',
+                        y='Feature',
+                        orientation='h',
+                        title='SHAP Feature Importance (Top 10 Churn Drivers)',
+                        labels={'Importance': 'Mean |SHAP Value|', 'Feature': ''}
+                    )
+                    fig.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                if "Dependence Plots" in shap_viz_options_churn:
+                    st.write("**🔗 SHAP Dependence Plots (Top 3 Features)**")
+                    st.write("Shows how a single feature impacts churn predictions across its range.")
+                    
+                    # Get top 3 features
+                    if isinstance(shap_values_churn, list) and len(shap_values_churn) > 1:
+                        vals_churn = np.abs(shap_values_churn[1]).mean(0)
+                        plot_values_churn = shap_values_churn[1]
+                    else:
+                        plot_values_churn = shap_values_churn[1] if isinstance(shap_values_churn, list) else shap_values_churn
+                        vals_churn = np.abs(plot_values_churn).mean(0)
+                    
+                    top_features_idx_churn = np.argsort(vals_churn)[-3:][::-1]
+                    
+                    for idx in top_features_idx_churn:
+                        feature_name_churn = X_sample_churn.columns[idx]
+                        
+                        # Create Plotly scatter plot for dependence
+                        fig = go.Figure()
+                        
+                        fig.add_trace(go.Scatter(
+                            x=X_sample_churn.iloc[:, idx],
+                            y=plot_values_churn[:, idx],
+                            mode='markers',
+                            marker=dict(
+                                size=5,
+                                color=plot_values_churn[:, idx],
+                                colorscale='RdBu',
+                                showscale=True,
+                                colorbar=dict(title="SHAP<br>Value"),
+                                line=dict(width=0.5, color='white')
+                            ),
+                            hovertemplate=f'<b>{feature_name_churn}</b><br>Value: %{{x:.2f}}<br>SHAP: %{{y:.3f}}<extra></extra>'
+                        ))
+                        
+                        fig.update_layout(
+                            title=f'SHAP Dependence Plot: {feature_name_churn}',
+                            xaxis_title=feature_name_churn,
+                            yaxis_title='SHAP Value',
+                            height=350,
+                            hovermode='closest'
+                        )
+                        
+                        st.plotly_chart(fig, use_container_width=True)
+                
+                if "Waterfall Plot (Sample)" in shap_viz_options_churn:
+                    st.write("**💧 SHAP Waterfall Plot (First Sample)**")
+                    st.write("Explains a single prediction - shows how each feature contributed to churn prediction.")
+                    
+                    # Get values for first sample
+                    if isinstance(shap_values_churn, list) and len(shap_values_churn) > 1:
+                        plot_values_churn = shap_values_churn[1]
+                        expected_val_churn = explainer_churn.expected_value[1] if isinstance(explainer_churn.expected_value, (list, np.ndarray)) else explainer_churn.expected_value
+                    else:
+                        plot_values_churn = shap_values_churn[1] if isinstance(shap_values_churn, list) else shap_values_churn
+                        expected_val_churn = explainer_churn.expected_value[1] if isinstance(explainer_churn.expected_value, (list, np.ndarray)) else explainer_churn.expected_value
+                    
+                    # Get SHAP values and feature values for first sample
+                    sample_shap_churn = plot_values_churn[0]
+                    sample_features_churn = X_sample_churn.iloc[0]
+                    
+                    # Sort by absolute SHAP value and take top 10
+                    sorted_idx_churn = np.argsort(np.abs(sample_shap_churn))[-10:]
+                    sorted_features_churn = sample_features_churn.iloc[sorted_idx_churn].index.tolist()
+                    sorted_shap_churn = sample_shap_churn[sorted_idx_churn]
+                    sorted_values_churn = sample_features_churn.iloc[sorted_idx_churn].values
+                    
+                    # Create waterfall-style bar chart
+                    colors_churn = ['#FF4444' if val > 0 else '#4444FF' for val in sorted_shap_churn]
+                    
+                    fig = go.Figure()
+                    
+                    fig.add_trace(go.Bar(
+                        x=sorted_shap_churn,
+                        y=sorted_features_churn,
+                        orientation='h',
+                        marker=dict(color=colors_churn),
+                        hovertemplate='<b>%{y}</b><br>SHAP: %{x:.3f}<br>Value: %{customdata:.2f}<extra></extra>',
+                        customdata=sorted_values_churn
+                    ))
+                    
+                    fig.update_layout(
+                        title=f'SHAP Waterfall Plot - First Sample (Base value: {expected_val_churn:.3f})',
+                        xaxis_title='SHAP Value (impact on churn prediction)',
+                        yaxis_title='',
+                        height=400,
+                        showlegend=False
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                    st.caption("🔴 Red = increases churn risk | 🔵 Blue = decreases churn risk")
+                
+                st.info("💡 **Tip:** SHAP values help you understand why customers are predicted to churn and build trust in predictions!")
+                
+            except Exception as e:
+                st.error(f"Error displaying SHAP visualizations: {str(e)}")
     
     # Prediction Section
     if 'churn_results' in st.session_state:
