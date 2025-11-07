@@ -6031,19 +6031,14 @@ def show_ml_classification():
                         df['species'] = df['species'].map({0: 'setosa', 1: 'versicolor', 2: 'virginica'})
                         
                         st.session_state.ml_data = df
+                        st.session_state.ml_dataset_info = """**About this dataset:**
+- 🎯 **Target:** species (3 iris flower types: setosa, versicolor, virginica)
+- 📊 **Features:** 4 measurements (sepal length/width, petal length/width)
+- ✅ **Perfect for ML:** 150 samples, perfectly balanced (50-50-50)
+- 🌸 **Classic:** Most famous ML classification benchmark dataset
+- ⚡ **Fast:** Trains in seconds, ideal for testing"""
                         st.success(f"✅ Loaded Iris dataset: {len(df):,} rows and {len(df.columns)} columns")
-                        
-                        st.info("""
-                        **About this dataset:**
-                        - 🎯 **Target:** species (3 iris flower types: setosa, versicolor, virginica)
-                        - 📊 **Features:** 4 measurements (sepal length/width, petal length/width)
-                        - ✅ **Perfect for ML:** 150 samples, perfectly balanced (50-50-50)
-                        - 🌸 **Classic:** Most famous ML classification benchmark dataset
-                        - ⚡ **Fast:** Trains in seconds, ideal for testing
-                        """)
-                        
-                        with st.expander("📋 Data Preview"):
-                            st.dataframe(df.head(10), use_container_width=True)
+                        st.rerun()
                             
                     except Exception as e:
                         st.error(f"Error loading sample data: {str(e)}")
@@ -6091,12 +6086,14 @@ def show_ml_classification():
                         df['species'] = df['species'].map({0: 'setosa', 1: 'versicolor', 2: 'virginica'})
                         
                         st.session_state.ml_data = df
-                        
-                        status.update(label="✅ Dataset loaded!", state="complete")
+                        st.session_state.ml_dataset_info = """**About this dataset:**
+- 🎯 **Target:** species (3 iris flower types: setosa, versicolor, virginica)
+- 📊 **Features:** 4 measurements (sepal length/width, petal length/width)
+- ✅ **Perfect for ML:** 150 samples, perfectly balanced (50-50-50)
+- 🌸 **Classic:** Most famous ML classification benchmark dataset
+- ⚡ **Fast:** Trains in seconds, ideal for testing"""
                         st.success(f"✅ Loaded Iris dataset: {len(df):,} rows and {len(df.columns)} columns")
-                        
-                        with st.expander("📋 Data Preview"):
-                            st.dataframe(df.head(10), use_container_width=True)
+                        st.rerun()
                             
                     except Exception as e:
                         st.error(f"Error loading sample data: {str(e)}")
@@ -6122,6 +6119,12 @@ def show_ml_classification():
     # Configuration and training
     if 'ml_data' in st.session_state:
         df = st.session_state.ml_data
+        
+        # Show dataset info (persists across reruns)
+        if 'ml_dataset_info' in st.session_state:
+            st.info(st.session_state.ml_dataset_info)
+            with st.expander("📋 Data Preview"):
+                st.dataframe(df.head(10), use_container_width=True)
         
         # ============================================================================
         # Section 2: AI Classification Analysis & Recommendations
@@ -8040,18 +8043,13 @@ def show_ml_regression():
                         df['MEDV'] = df['MEDV'].clip(5, 50)  # Realistic range
                         
                         st.session_state.mlr_data = df
+                        st.session_state.mlr_dataset_info = """**About this dataset:**
+- 🎯 **Target:** MEDV (Median home value in $1000s)
+- 📊 **Features:** 7 attributes
+- ✅ **Perfect for Regression**
+- 🏆 **Classic dataset**"""
                         st.success(f"✅ Loaded Boston Housing dataset: {len(df)} rows and {len(df.columns)} columns")
-                        
-                        st.info("""
-                        **About this dataset:**
-                        - 🎯 **Target:** MEDV (Median home value in $1000s)
-                        - 📊 **Features:** 7 attributes
-                        - ✅ **Perfect for Regression**
-                        - 🏆 **Classic dataset**
-                        """)
-                        
-                        with st.expander("📋 Data Preview"):
-                            st.dataframe(df.head(10), use_container_width=True)
+                        st.rerun()
                             
                     except Exception as e:
                         st.error(f"Error loading sample data: {str(e)}")
@@ -8107,18 +8105,13 @@ def show_ml_regression():
                         df['MEDV'] = df['MEDV'].clip(5, 50)
                         
                         st.session_state.mlr_data = df
+                        st.session_state.mlr_dataset_info = """**About this dataset:**
+- 🎯 **Target:** MEDV (Median home value in $1000s)
+- 📊 **Features:** 7 attributes
+- ✅ **Perfect for Regression**
+- 🏆 **Classic dataset**"""
                         st.success(f"✅ Loaded Boston Housing dataset: {len(df)} rows and {len(df.columns)} columns")
-                        
-                        st.info("""
-                        **About this dataset:**
-                        - 🎯 **Target:** MEDV (Median home value in $1000s)
-                        - 📊 **Features:** 7 attributes
-                        - ✅ **Perfect for Regression**
-                        - 🏆 **Classic dataset**
-                        """)
-                        
-                        with st.expander("📋 Data Preview"):
-                            st.dataframe(df.head(10), use_container_width=True)
+                        st.rerun()
                             
                     except Exception as e:
                         st.error(f"Error loading sample data: {str(e)}")
@@ -8144,6 +8137,12 @@ def show_ml_regression():
     # Configuration and training
     if 'mlr_data' in st.session_state:
         df = st.session_state.mlr_data
+        
+        # Show dataset info (persists across reruns)
+        if 'mlr_dataset_info' in st.session_state:
+            st.info(st.session_state.mlr_dataset_info)
+            with st.expander("📋 Data Preview"):
+                st.dataframe(df.head(10), use_container_width=True)
         
         # Check if previous quality check failed and show prominent warning
         if 'mlr_training_suitable' in st.session_state and not st.session_state.mlr_training_suitable:
