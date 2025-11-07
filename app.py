@@ -7461,21 +7461,43 @@ def show_ml_classification():
                         
                         st.write("Generating visualizations...")
                         
-                        # Store SHAP values in session state
+                        # Store SHAP values and options in session state
                         st.session_state.ml_shap_values = shap_values
                         st.session_state.ml_shap_data = X_sample
                         st.session_state.ml_shap_explainer = explainer
+                        st.session_state.ml_shap_viz_options = shap_viz_options
                         
                         status.update(label="✅ SHAP analysis complete!", state="complete", expanded=False)
                     
                     st.success("✅ SHAP explanations generated successfully!")
+                    
+                except ImportError:
+                    st.error("SHAP library not installed. Please install with: pip install shap")
+                except Exception as e:
+                    st.error(f"Error generating SHAP explanations: {str(e)}")
+                    import traceback
+                    st.code(traceback.format_exc())
+            
+            # Display SHAP visualizations (outside button block so they persist)
+            if 'ml_shap_values' in st.session_state and 'ml_shap_data' in st.session_state:
+                try:
+                    import shap
+                    import matplotlib.pyplot as plt
+                    
+                    shap_values = st.session_state.ml_shap_values
+                    X_sample = st.session_state.ml_shap_data
+                    explainer = st.session_state.ml_shap_explainer
+                    shap_viz_options = st.session_state.get('ml_shap_viz_options', ["Summary Plot", "Feature Importance"])
+                    
+                    st.markdown("---")
+                    st.write("### 📊 SHAP Visualizations")
                     
                     # Display selected visualizations
                     if "Summary Plot" in shap_viz_options:
                         st.write("**📊 SHAP Summary Plot**")
                         st.write("Shows the impact of each feature on model predictions across all samples.")
                         
-                        fig, ax = plt.subplots(figsize=(10, 6))
+                        fig, ax = plt.subplots(figsize=(8, 5))
                         
                         # Handle multi-class vs binary classification
                         if isinstance(shap_values, list) and len(shap_values) > 1:
@@ -7494,7 +7516,7 @@ def show_ml_classification():
                         st.write("**📈 SHAP Feature Importance**")
                         st.write("Global feature importance based on mean absolute SHAP values.")
                         
-                        fig, ax = plt.subplots(figsize=(10, 6))
+                        fig, ax = plt.subplots(figsize=(8, 5))
                         
                         # Handle multi-class vs binary
                         if isinstance(shap_values, list) and len(shap_values) > 1:
@@ -7521,7 +7543,7 @@ def show_ml_classification():
                         for idx in top_features_idx:
                             feature_name = X_sample.columns[idx]
                             
-                            fig, ax = plt.subplots(figsize=(10, 4))
+                            fig, ax = plt.subplots(figsize=(8, 3.5))
                             
                             if isinstance(shap_values, list) and len(shap_values) > 1:
                                 shap.dependence_plot(idx, shap_values[0], X_sample, show=False)
@@ -7563,16 +7585,8 @@ def show_ml_classification():
                     
                     st.info("💡 **Tip:** SHAP values help you understand model decisions and build trust in predictions!")
                     
-                except ImportError:
-                    st.error("SHAP library not installed. Please install with: pip install shap")
                 except Exception as e:
-                    st.error(f"Error generating SHAP explanations: {str(e)}")
-                    import traceback
-                    st.code(traceback.format_exc())
-            
-            # Clear any lingering containers from Plotly/tabs to prevent shadow overlay
-            st.markdown("---")
-            st.empty()
+                    st.error(f"Error displaying SHAP visualizations: {str(e)}")
             
             # AI Insights
             st.divider()
@@ -8787,21 +8801,43 @@ def show_ml_regression():
                         
                         st.write("Generating visualizations...")
                         
-                        # Store SHAP values in session state
+                        # Store SHAP values and options in session state
                         st.session_state.mlr_shap_values = shap_values_mlr
                         st.session_state.mlr_shap_data = X_sample_mlr
                         st.session_state.mlr_shap_explainer = explainer_mlr
+                        st.session_state.mlr_shap_viz_options = shap_viz_options_mlr
                         
                         status.update(label="✅ SHAP analysis complete!", state="complete", expanded=False)
                     
                     st.success("✅ SHAP explanations generated successfully!")
+                    
+                except ImportError:
+                    st.error("SHAP library not installed. Please install with: pip install shap")
+                except Exception as e:
+                    st.error(f"Error generating SHAP explanations: {str(e)}")
+                    import traceback
+                    st.code(traceback.format_exc())
+            
+            # Display SHAP visualizations (outside button block so they persist)
+            if 'mlr_shap_values' in st.session_state and 'mlr_shap_data' in st.session_state:
+                try:
+                    import shap
+                    import matplotlib.pyplot as plt
+                    
+                    shap_values_mlr = st.session_state.mlr_shap_values
+                    X_sample_mlr = st.session_state.mlr_shap_data
+                    explainer_mlr = st.session_state.mlr_shap_explainer
+                    shap_viz_options_mlr = st.session_state.get('mlr_shap_viz_options', ["Summary Plot", "Feature Importance"])
+                    
+                    st.markdown("---")
+                    st.write("### 📊 SHAP Visualizations")
                     
                     # Display selected visualizations
                     if "Summary Plot" in shap_viz_options_mlr:
                         st.write("**📊 SHAP Summary Plot**")
                         st.write("Shows the impact of each feature on model predictions across all samples.")
                         
-                        fig, ax = plt.subplots(figsize=(10, 6))
+                        fig, ax = plt.subplots(figsize=(8, 5))
                         shap.summary_plot(shap_values_mlr, X_sample_mlr, show=False)
                         st.pyplot(fig)
                         plt.close()
@@ -8810,7 +8846,7 @@ def show_ml_regression():
                         st.write("**📈 SHAP Feature Importance**")
                         st.write("Global feature importance based on mean absolute SHAP values.")
                         
-                        fig, ax = plt.subplots(figsize=(10, 6))
+                        fig, ax = plt.subplots(figsize=(8, 5))
                         shap.summary_plot(shap_values_mlr, X_sample_mlr, plot_type="bar", show=False)
                         st.pyplot(fig)
                         plt.close()
@@ -8826,7 +8862,7 @@ def show_ml_regression():
                         for idx in top_features_idx_mlr:
                             feature_name_mlr = X_sample_mlr.columns[idx]
                             
-                            fig, ax = plt.subplots(figsize=(10, 4))
+                            fig, ax = plt.subplots(figsize=(8, 3.5))
                             shap.dependence_plot(idx, shap_values_mlr, X_sample_mlr, show=False)
                             st.pyplot(fig)
                             plt.close()
@@ -8836,7 +8872,7 @@ def show_ml_regression():
                         st.write("Explains a single prediction - shows how each feature contributed to the final prediction.")
                         
                         # Show waterfall plot for first sample
-                        fig, ax = plt.subplots(figsize=(10, 6))
+                        fig, ax = plt.subplots(figsize=(8, 5))
                         
                         # Create explanation object for waterfall plot
                         explanation = shap.Explanation(
@@ -8852,16 +8888,8 @@ def show_ml_regression():
                     
                     st.info("💡 **Tip:** SHAP values help you understand model decisions and build trust in predictions!")
                     
-                except ImportError:
-                    st.error("SHAP library not installed. Please install with: pip install shap")
                 except Exception as e:
-                    st.error(f"Error generating SHAP explanations: {str(e)}")
-                    import traceback
-                    st.code(traceback.format_exc())
-            
-            # Clear any lingering containers from Plotly/tabs to prevent shadow overlay
-            st.markdown("---")
-            st.empty()
+                    st.error(f"Error displaying SHAP visualizations: {str(e)}")
             
             # AI-Powered Insights
             st.divider()
