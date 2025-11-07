@@ -7438,7 +7438,10 @@ def show_ml_classification():
                         
                         # Sample data for SHAP (use user-selected number)
                         if len(X_train) > shap_samples:
-                            X_sample = X_train.sample(n=shap_samples, random_state=42)
+                            # X_train is a numpy array, use numpy random sampling
+                            np.random.seed(42)
+                            sample_indices = np.random.choice(len(X_train), size=shap_samples, replace=False)
+                            X_sample = X_train[sample_indices]
                         else:
                             X_sample = X_train
                         
@@ -8761,7 +8764,10 @@ def show_ml_regression():
                         
                         # Sample data for SHAP (use user-selected number)
                         if len(X_train) > shap_samples_mlr:
-                            X_sample_mlr = X_train.sample(n=shap_samples_mlr, random_state=42)
+                            # X_train is a numpy array, use numpy random sampling
+                            np.random.seed(42)
+                            sample_indices = np.random.choice(len(X_train), size=shap_samples_mlr, replace=False)
+                            X_sample_mlr = X_train[sample_indices]
                         else:
                             X_sample_mlr = X_train
                         
