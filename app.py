@@ -7655,8 +7655,13 @@ def show_ml_classification():
                         # Calculate mean absolute SHAP values
                         mean_abs_shap = np.abs(plot_values).mean(axis=0)
                         
-                        # Get all features sorted by importance
-                        all_features = X_sample.columns
+                        # Ensure feature names match SHAP values length
+                        if len(X_sample.columns) != len(mean_abs_shap):
+                            # Use only the features that have SHAP values
+                            all_features = X_sample.columns[:len(mean_abs_shap)]
+                        else:
+                            all_features = X_sample.columns
+                        
                         importance_values = mean_abs_shap
                         
                         # Create Plotly bar chart (matching existing feature importance style)
@@ -7665,7 +7670,7 @@ def show_ml_classification():
                             y=all_features,
                             orientation='h',
                             title='SHAP Feature Importance',
-                            labels={'Importance': 'Mean |SHAP Value|', 'Feature': ''}
+                            labels={'x': 'Mean |SHAP Value|', 'y': ''}
                         )
                         fig.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
                         st.plotly_chart(fig, use_container_width=True)
@@ -9122,8 +9127,13 @@ def show_ml_regression():
                         # Calculate mean absolute SHAP values
                         mean_abs_shap_mlr = np.abs(shap_values_mlr).mean(axis=0)
                         
-                        # Get all features sorted by importance
-                        all_features_mlr = X_sample_mlr.columns
+                        # Ensure feature names match SHAP values length
+                        if len(X_sample_mlr.columns) != len(mean_abs_shap_mlr):
+                            # Use only the features that have SHAP values
+                            all_features_mlr = X_sample_mlr.columns[:len(mean_abs_shap_mlr)]
+                        else:
+                            all_features_mlr = X_sample_mlr.columns
+                        
                         importance_values_mlr = mean_abs_shap_mlr
                         
                         # Create Plotly bar chart (matching existing feature importance style)
@@ -9132,7 +9142,7 @@ def show_ml_regression():
                             y=all_features_mlr,
                             orientation='h',
                             title='SHAP Feature Importance',
-                            labels={'Importance': 'Mean |SHAP Value|', 'Feature': ''}
+                            labels={'x': 'Mean |SHAP Value|', 'y': ''}
                         )
                         fig.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
                         st.plotly_chart(fig, use_container_width=True)
