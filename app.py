@@ -7441,9 +7441,12 @@ def show_ml_classification():
                             # X_train is a numpy array, use numpy random sampling
                             np.random.seed(42)
                             sample_indices = np.random.choice(len(X_train), size=shap_samples, replace=False)
-                            X_sample = X_train[sample_indices]
+                            X_sample_array = X_train[sample_indices]
                         else:
-                            X_sample = X_train
+                            X_sample_array = X_train
+                        
+                        # Convert to DataFrame with feature names for SHAP visualizations
+                        X_sample = pd.DataFrame(X_sample_array, columns=trainer.feature_names)
                         
                         st.write(f"Creating SHAP explainer for {best_model['model_name']}...")
                         
@@ -7497,7 +7500,7 @@ def show_ml_classification():
                         st.write("**📊 SHAP Summary Plot**")
                         st.write("Shows the impact of each feature on model predictions across all samples.")
                         
-                        fig, ax = plt.subplots(figsize=(8, 5))
+                        fig, ax = plt.subplots(figsize=(10, 4))
                         
                         # Handle multi-class vs binary classification
                         if isinstance(shap_values, list) and len(shap_values) > 1:
@@ -7516,7 +7519,7 @@ def show_ml_classification():
                         st.write("**📈 SHAP Feature Importance**")
                         st.write("Global feature importance based on mean absolute SHAP values.")
                         
-                        fig, ax = plt.subplots(figsize=(8, 5))
+                        fig, ax = plt.subplots(figsize=(10, 4))
                         
                         # Handle multi-class vs binary
                         if isinstance(shap_values, list) and len(shap_values) > 1:
@@ -7543,7 +7546,7 @@ def show_ml_classification():
                         for idx in top_features_idx:
                             feature_name = X_sample.columns[idx]
                             
-                            fig, ax = plt.subplots(figsize=(8, 3.5))
+                            fig, ax = plt.subplots(figsize=(10, 3))
                             
                             if isinstance(shap_values, list) and len(shap_values) > 1:
                                 shap.dependence_plot(idx, shap_values[0], X_sample, show=False)
@@ -8781,9 +8784,12 @@ def show_ml_regression():
                             # X_train is a numpy array, use numpy random sampling
                             np.random.seed(42)
                             sample_indices = np.random.choice(len(X_train), size=shap_samples_mlr, replace=False)
-                            X_sample_mlr = X_train[sample_indices]
+                            X_sample_array_mlr = X_train[sample_indices]
                         else:
-                            X_sample_mlr = X_train
+                            X_sample_array_mlr = X_train
+                        
+                        # Convert to DataFrame with feature names for SHAP visualizations
+                        X_sample_mlr = pd.DataFrame(X_sample_array_mlr, columns=regressor.feature_names)
                         
                         st.write(f"Creating SHAP explainer for {best_model['model_name']}...")
                         
@@ -8837,7 +8843,7 @@ def show_ml_regression():
                         st.write("**📊 SHAP Summary Plot**")
                         st.write("Shows the impact of each feature on model predictions across all samples.")
                         
-                        fig, ax = plt.subplots(figsize=(8, 5))
+                        fig, ax = plt.subplots(figsize=(10, 4))
                         shap.summary_plot(shap_values_mlr, X_sample_mlr, show=False)
                         st.pyplot(fig)
                         plt.close()
@@ -8846,7 +8852,7 @@ def show_ml_regression():
                         st.write("**📈 SHAP Feature Importance**")
                         st.write("Global feature importance based on mean absolute SHAP values.")
                         
-                        fig, ax = plt.subplots(figsize=(8, 5))
+                        fig, ax = plt.subplots(figsize=(10, 4))
                         shap.summary_plot(shap_values_mlr, X_sample_mlr, plot_type="bar", show=False)
                         st.pyplot(fig)
                         plt.close()
@@ -8862,7 +8868,7 @@ def show_ml_regression():
                         for idx in top_features_idx_mlr:
                             feature_name_mlr = X_sample_mlr.columns[idx]
                             
-                            fig, ax = plt.subplots(figsize=(8, 3.5))
+                            fig, ax = plt.subplots(figsize=(10, 3))
                             shap.dependence_plot(idx, shap_values_mlr, X_sample_mlr, show=False)
                             st.pyplot(fig)
                             plt.close()
@@ -8872,7 +8878,7 @@ def show_ml_regression():
                         st.write("Explains a single prediction - shows how each feature contributed to the final prediction.")
                         
                         # Show waterfall plot for first sample
-                        fig, ax = plt.subplots(figsize=(8, 5))
+                        fig, ax = plt.subplots(figsize=(10, 4))
                         
                         # Create explanation object for waterfall plot
                         explanation = shap.Explanation(
