@@ -7453,13 +7453,28 @@ def show_ml_classification():
                         # Create appropriate explainer based on model type
                         model_name = best_model['model_name']
                         
-                        if any(tree_model in model_name for tree_model in ['Tree', 'Forest', 'Boost', 'XGB', 'LightGBM', 'CatBoost']):
+                        # Check if model is tree-based
+                        is_tree_based = any(tree_model in model_name for tree_model in ['Tree', 'Forest', 'XGB', 'LightGBM', 'CatBoost'])
+                        is_gradient_boost = 'Gradient Boosting' in model_name
+                        
+                        # Gradient Boosting Classifier has issues with multi-class in TreeExplainer
+                        # Use KernelExplainer for multi-class Gradient Boosting
+                        if is_gradient_boost and len(np.unique(y_train)) > 2:
+                            st.write("Using KernelExplainer for multi-class Gradient Boosting...")
+                            # Use a smaller background dataset for KernelExplainer (it's slow)
+                            background_size = min(50, len(X_sample))
+                            background = shap.sample(X_sample, background_size)
+                            explainer = shap.KernelExplainer(best_model_obj.predict_proba, background)
+                            shap_values = explainer.shap_values(X_sample)
+                        elif is_tree_based:
                             # Tree-based models - use TreeExplainer (fast)
                             explainer = shap.TreeExplainer(best_model_obj)
                             shap_values = explainer.shap_values(X_sample)
                         else:
                             # Other models - use KernelExplainer (slower but universal)
-                            explainer = shap.KernelExplainer(best_model_obj.predict_proba, X_sample)
+                            background_size = min(50, len(X_sample))
+                            background = shap.sample(X_sample, background_size)
+                            explainer = shap.KernelExplainer(best_model_obj.predict_proba, background)
                             shap_values = explainer.shap_values(X_sample)
                         
                         st.write("Generating visualizations...")
@@ -8900,13 +8915,19 @@ def show_ml_regression():
                         # Create appropriate explainer based on model type
                         model_name_mlr = best_model['model_name']
                         
-                        if any(tree_model in model_name_mlr for tree_model in ['Tree', 'Forest', 'Boost', 'XGB', 'LightGBM', 'CatBoost']):
+                        # Check if model is tree-based
+                        is_tree_based_mlr = any(tree_model in model_name_mlr for tree_model in ['Tree', 'Forest', 'XGB', 'LightGBM', 'CatBoost'])
+                        is_gradient_boost_mlr = 'Gradient Boosting' in model_name_mlr
+                        
+                        if is_tree_based_mlr:
                             # Tree-based models - use TreeExplainer (fast)
                             explainer_mlr = shap.TreeExplainer(best_model_obj)
                             shap_values_mlr = explainer_mlr.shap_values(X_sample_mlr)
                         else:
                             # Other models - use KernelExplainer (slower but universal)
-                            explainer_mlr = shap.KernelExplainer(best_model_obj.predict, X_sample_mlr)
+                            background_size_mlr = min(50, len(X_sample_mlr))
+                            background_mlr = shap.sample(X_sample_mlr, background_size_mlr)
+                            explainer_mlr = shap.KernelExplainer(best_model_obj.predict, background_mlr)
                             shap_values_mlr = explainer_mlr.shap_values(X_sample_mlr)
                         
                         st.write("Generating visualizations...")
@@ -19591,13 +19612,18 @@ def show_churn_prediction():
                     st.write(f"Creating SHAP explainer for {model_type}...")
                     
                     # Create appropriate explainer based on model type
-                    if any(tree_model in model_type for tree_model in ['Tree', 'Forest', 'Boost', 'XGB', 'LightGBM', 'CatBoost']):
+                    is_tree_based_churn = any(tree_model in model_type for tree_model in ['Tree', 'Forest', 'XGB', 'LightGBM', 'CatBoost'])
+                    is_gradient_boost_churn = 'gradient_boosting' in model_type
+                    
+                    if is_tree_based_churn:
                         # Tree-based models - use TreeExplainer (fast)
                         explainer_churn = shap.TreeExplainer(model_churn)
                         shap_values_churn = explainer_churn.shap_values(X_sample_churn)
                     else:
                         # Other models - use KernelExplainer (slower but universal)
-                        explainer_churn = shap.KernelExplainer(model_churn.predict_proba, X_sample_churn)
+                        background_size_churn = min(50, len(X_sample_churn))
+                        background_churn = shap.sample(X_sample_churn, background_size_churn)
+                        explainer_churn = shap.KernelExplainer(model_churn.predict_proba, background_churn)
                         shap_values_churn = explainer_churn.shap_values(X_sample_churn)
                     
                     st.write("Generating visualizations...")
