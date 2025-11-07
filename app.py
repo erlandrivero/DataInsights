@@ -7519,6 +7519,10 @@ def show_ml_classification():
                         else:
                             shap_values_to_store = shap_values
                         
+                        # Ensure shap_values_to_store is always 2D (samples x features)
+                        if isinstance(shap_values_to_store, np.ndarray) and shap_values_to_store.ndim == 1:
+                            shap_values_to_store = shap_values_to_store.reshape(1, -1)
+                        
                         # Store SHAP values and options in session state
                         st.session_state.ml_shap_values = shap_values_to_store
                         st.session_state.ml_shap_data = X_sample
@@ -9023,6 +9027,10 @@ def show_ml_regression():
                         else:
                             shap_values_to_store = shap_values_mlr
                         
+                        # Ensure shap_values_to_store is always 2D (samples x features)
+                        if isinstance(shap_values_to_store, np.ndarray) and shap_values_to_store.ndim == 1:
+                            shap_values_to_store = shap_values_to_store.reshape(1, -1)
+                        
                         # Store SHAP values and options in session state
                         st.session_state.mlr_shap_values = shap_values_to_store
                         st.session_state.mlr_shap_data = X_sample_mlr
@@ -10354,6 +10362,10 @@ def show_anomaly_detection():
                             shap_values_to_store = np.array(shap_values_anom[0]) if len(shap_values_anom) > 0 else shap_values_anom
                         else:
                             shap_values_to_store = shap_values_anom
+                        
+                        # Ensure shap_values_to_store is always 2D (samples x features)
+                        if isinstance(shap_values_to_store, np.ndarray) and shap_values_to_store.ndim == 1:
+                            shap_values_to_store = shap_values_to_store.reshape(1, -1)
                         
                         # Store SHAP values and options in session state
                         st.session_state.anom_shap_values = shap_values_to_store
@@ -20032,6 +20044,10 @@ def show_churn_prediction():
                         shap_values_to_store = np.array(shap_values_churn[0]) if len(shap_values_churn) > 0 else shap_values_churn
                     else:
                         shap_values_to_store = shap_values_churn
+                    
+                    # Ensure shap_values_to_store is always 2D (samples x features)
+                    if isinstance(shap_values_to_store, np.ndarray) and shap_values_to_store.ndim == 1:
+                        shap_values_to_store = shap_values_to_store.reshape(1, -1)
                     
                     # Store SHAP values and options in session state
                     st.session_state.churn_shap_values = shap_values_to_store
