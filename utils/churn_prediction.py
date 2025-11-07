@@ -155,6 +155,12 @@ class ChurnPredictor:
             X, y, test_size=test_size, random_state=random_state, stratify=y
         )
         
+        # Store train/test data for SHAP analysis
+        self.X_train = X_train
+        self.X_test = X_test
+        self.y_train = y_train
+        self.y_test = y_test
+        
         # Scale features
         X_train_scaled = self.scaler.fit_transform(X_train)
         X_test_scaled = self.scaler.transform(X_test)
