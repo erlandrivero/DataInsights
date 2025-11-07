@@ -7548,19 +7548,7 @@ def show_ml_classification():
                     shap_viz_options = st.session_state.get('ml_shap_viz_options', ["Summary Plot", "Feature Importance"])
                     
                     st.markdown("---")
-                    
-                    # Add clear button for cached SHAP values
-                    col_title, col_clear = st.columns([4, 1])
-                    with col_title:
-                        st.write("### 📊 SHAP Visualizations")
-                    with col_clear:
-                        if st.button("🔄 Clear Cache", key="ml_clear_shap", help="Clear cached SHAP values and regenerate"):
-                            del st.session_state.ml_shap_values
-                            del st.session_state.ml_shap_data
-                            del st.session_state.ml_shap_explainer
-                            if 'ml_shap_viz_options' in st.session_state:
-                                del st.session_state.ml_shap_viz_options
-                            st.rerun()
+                    st.write("### 📊 SHAP Visualizations")
                     
                     # Set matplotlib font sizes and DPI to match UI (smaller to match Plotly charts)
                     plt.rcParams.update({
@@ -7589,6 +7577,11 @@ def show_ml_classification():
                         else:
                             # Already numpy array
                             plot_values = shap_values
+                        
+                        # Ensure plot_values is 2D (samples x features)
+                        if plot_values.ndim == 1:
+                            # If 1D, reshape to 2D (1 sample x features)
+                            plot_values = plot_values.reshape(1, -1)
                         
                         # Calculate mean absolute SHAP values for each feature
                         mean_abs_shap = np.abs(plot_values).mean(axis=0)
@@ -7643,6 +7636,10 @@ def show_ml_classification():
                             plot_values = np.array(shap_values[0])
                         else:
                             plot_values = shap_values
+                        
+                        # Ensure plot_values is 2D (samples x features)
+                        if plot_values.ndim == 1:
+                            plot_values = plot_values.reshape(1, -1)
                         
                         # Calculate mean absolute SHAP values
                         mean_abs_shap = np.abs(plot_values).mean(axis=0)
@@ -9073,6 +9070,10 @@ def show_ml_regression():
                         st.write("**📊 SHAP Summary Plot (Top 10 Features)**")
                         st.write("Shows the impact of each feature on model predictions across all samples.")
                         
+                        # Ensure shap_values_mlr is 2D (samples x features)
+                        if shap_values_mlr.ndim == 1:
+                            shap_values_mlr = shap_values_mlr.reshape(1, -1)
+                        
                         # Calculate mean absolute SHAP values for each feature
                         mean_abs_shap_mlr = np.abs(shap_values_mlr).mean(axis=0)
                         
@@ -9118,6 +9119,10 @@ def show_ml_regression():
                     if "Feature Importance" in shap_viz_options_mlr:
                         st.write("**📈 SHAP Feature Importance (Top 10 Features)**")
                         st.write("Global feature importance based on mean absolute SHAP values.")
+                        
+                        # Ensure shap_values_mlr is 2D (samples x features)
+                        if shap_values_mlr.ndim == 1:
+                            shap_values_mlr = shap_values_mlr.reshape(1, -1)
                         
                         # Calculate mean absolute SHAP values
                         mean_abs_shap_mlr = np.abs(shap_values_mlr).mean(axis=0)
@@ -10386,6 +10391,10 @@ def show_anomaly_detection():
                         st.write("**📊 SHAP Summary Plot (Top 10 Features)**")
                         st.write("Shows the impact of each feature on anomaly scores across all samples.")
                         
+                        # Ensure shap_values_anom is 2D (samples x features)
+                        if shap_values_anom.ndim == 1:
+                            shap_values_anom = shap_values_anom.reshape(1, -1)
+                        
                         # Calculate mean absolute SHAP values for each feature
                         mean_abs_shap_anom = np.abs(shap_values_anom).mean(axis=0)
                         
@@ -10431,6 +10440,10 @@ def show_anomaly_detection():
                     if "Feature Importance" in shap_viz_options_anom:
                         st.write("**📈 SHAP Feature Importance (Top 10 Features)**")
                         st.write("Global feature importance based on mean absolute SHAP values.")
+                        
+                        # Ensure shap_values_anom is 2D (samples x features)
+                        if shap_values_anom.ndim == 1:
+                            shap_values_anom = shap_values_anom.reshape(1, -1)
                         
                         # Calculate mean absolute SHAP values
                         mean_abs_shap_anom = np.abs(shap_values_anom).mean(axis=0)
@@ -20058,10 +20071,16 @@ def show_churn_prediction():
                     
                     # Handle multi-class vs binary classification
                     if isinstance(shap_values_churn, list) and len(shap_values_churn) > 1:
-                        plot_values_churn = shap_values_churn[1]  # Churn class
+                        plot_values_churn = np.array(shap_values_churn[1])  # Churn class
                         st.caption("Showing SHAP values for churn class")
+                    elif isinstance(shap_values_churn, list):
+                        plot_values_churn = np.array(shap_values_churn[1])
                     else:
-                        plot_values_churn = shap_values_churn[1] if isinstance(shap_values_churn, list) else shap_values_churn
+                        plot_values_churn = shap_values_churn
+                    
+                    # Ensure plot_values_churn is 2D (samples x features)
+                    if plot_values_churn.ndim == 1:
+                        plot_values_churn = plot_values_churn.reshape(1, -1)
                     
                     # Calculate mean absolute SHAP values for each feature
                     mean_abs_shap_churn = np.abs(plot_values_churn).mean(axis=0)
@@ -20111,9 +20130,15 @@ def show_churn_prediction():
                     
                     # Handle multi-class vs binary
                     if isinstance(shap_values_churn, list) and len(shap_values_churn) > 1:
-                        plot_values_churn = shap_values_churn[1]  # Churn class
+                        plot_values_churn = np.array(shap_values_churn[1])  # Churn class
+                    elif isinstance(shap_values_churn, list):
+                        plot_values_churn = np.array(shap_values_churn[1])
                     else:
-                        plot_values_churn = shap_values_churn[1] if isinstance(shap_values_churn, list) else shap_values_churn
+                        plot_values_churn = shap_values_churn
+                    
+                    # Ensure plot_values_churn is 2D (samples x features)
+                    if plot_values_churn.ndim == 1:
+                        plot_values_churn = plot_values_churn.reshape(1, -1)
                     
                     # Calculate mean absolute SHAP values
                     mean_abs_shap_churn = np.abs(plot_values_churn).mean(axis=0)
