@@ -19398,10 +19398,16 @@ def show_churn_prediction():
     # Check if data is already loaded
     has_loaded_data = st.session_state.data is not None
     
+    if has_loaded_data:
+        data_options = ["Use Loaded Dataset", "Use Sample Data", "Upload Custom Data"]
+    else:
+        data_options = ["Use Sample Data", "Upload Custom Data"]
+    
     data_source = st.radio(
         "Choose data source:",
-        ["Use Loaded Dataset", "Use Sample Data", "Upload Custom Data"],
-        disabled=not has_loaded_data and False,  # Always enable for sample
+        data_options,
+        index=0,
+        key="churn_data_source",
         help="Sample data includes synthetic customer transaction history"
     )
     
@@ -20081,16 +20087,10 @@ def show_churn_prediction():
                     st.write("**📊 SHAP Summary Plot (Top 10 Features)**")
                     st.write("Shows the impact of each feature on churn predictions across all samples.")
                     
-                    # Handle multi-class vs binary classification
-                    if isinstance(shap_values_churn, list) and len(shap_values_churn) > 1:
-                        plot_values_churn = np.array(shap_values_churn[1])  # Churn class
-                        st.caption("Showing SHAP values for churn class")
-                    elif isinstance(shap_values_churn, list):
-                        plot_values_churn = np.array(shap_values_churn[1])
-                    else:
-                        plot_values_churn = shap_values_churn
+                    # After defensive check, shap_values_churn is already a 2D numpy array
+                    plot_values_churn = shap_values_churn
                     
-                    # Ensure plot_values_churn is 2D (samples x features)
+                    # Double-check it's 2D (defensive)
                     if plot_values_churn.ndim == 1:
                         plot_values_churn = plot_values_churn.reshape(1, -1)
                     
@@ -20140,13 +20140,8 @@ def show_churn_prediction():
                     st.write("**📈 SHAP Feature Importance (Top 10 Features)**")
                     st.write("Global feature importance based on mean absolute SHAP values.")
                     
-                    # Handle multi-class vs binary
-                    if isinstance(shap_values_churn, list) and len(shap_values_churn) > 1:
-                        plot_values_churn = np.array(shap_values_churn[1])  # Churn class
-                    elif isinstance(shap_values_churn, list):
-                        plot_values_churn = np.array(shap_values_churn[1])
-                    else:
-                        plot_values_churn = shap_values_churn
+                    # After defensive check, shap_values_churn is already a 2D numpy array
+                    plot_values_churn = shap_values_churn
                     
                     # Ensure plot_values_churn is 2D (samples x features)
                     if plot_values_churn.ndim == 1:
@@ -20181,13 +20176,9 @@ def show_churn_prediction():
                     st.write("**🔗 SHAP Dependence Plots (Top 3 Features)**")
                     st.write("Shows how a single feature impacts churn predictions across its range.")
                     
-                    # Get top 3 features
-                    if isinstance(shap_values_churn, list) and len(shap_values_churn) > 1:
-                        vals_churn = np.abs(shap_values_churn[1]).mean(0)
-                        plot_values_churn = shap_values_churn[1]
-                    else:
-                        plot_values_churn = shap_values_churn[1] if isinstance(shap_values_churn, list) else shap_values_churn
-                        vals_churn = np.abs(plot_values_churn).mean(0)
+                    # After defensive check, shap_values_churn is already a 2D numpy array
+                    plot_values_churn = shap_values_churn
+                    vals_churn = np.abs(plot_values_churn).mean(0)
                     
                     top_features_idx_churn = np.argsort(vals_churn)[-3:][::-1]
                     
@@ -20226,13 +20217,9 @@ def show_churn_prediction():
                     st.write("**💧 SHAP Waterfall Plot (First Sample)**")
                     st.write("Explains a single prediction - shows how each feature contributed to churn prediction.")
                     
-                    # Get values for first sample
-                    if isinstance(shap_values_churn, list) and len(shap_values_churn) > 1:
-                        plot_values_churn = shap_values_churn[1]
-                        expected_val_churn = explainer_churn.expected_value[1] if isinstance(explainer_churn.expected_value, (list, np.ndarray)) else explainer_churn.expected_value
-                    else:
-                        plot_values_churn = shap_values_churn[1] if isinstance(shap_values_churn, list) else shap_values_churn
-                        expected_val_churn = explainer_churn.expected_value[1] if isinstance(explainer_churn.expected_value, (list, np.ndarray)) else explainer_churn.expected_value
+                    # After defensive check, shap_values_churn is already a 2D numpy array
+                    plot_values_churn = shap_values_churn
+                    expected_val_churn = explainer_churn.expected_value[0] if isinstance(explainer_churn.expected_value, (list, np.ndarray)) else explainer_churn.expected_value
                     
                     # Get SHAP values and feature values for first sample
                     sample_shap_churn = plot_values_churn[0]
