@@ -7495,6 +7495,16 @@ def show_ml_classification():
                     st.markdown("---")
                     st.write("### 📊 SHAP Visualizations")
                     
+                    # Set matplotlib font sizes to match UI
+                    plt.rcParams.update({
+                        'font.size': 9,
+                        'axes.titlesize': 10,
+                        'axes.labelsize': 9,
+                        'xtick.labelsize': 8,
+                        'ytick.labelsize': 8,
+                        'legend.fontsize': 8
+                    })
+                    
                     # Display selected visualizations
                     if "Summary Plot" in shap_viz_options:
                         st.write("**📊 SHAP Summary Plot**")
@@ -7587,6 +7597,9 @@ def show_ml_classification():
                         plt.close()
                     
                     st.info("💡 **Tip:** SHAP values help you understand model decisions and build trust in predictions!")
+                    
+                    # Reset matplotlib font sizes to default
+                    plt.rcParams.update(plt.rcParamsDefault)
                     
                 except Exception as e:
                     st.error(f"Error displaying SHAP visualizations: {str(e)}")
@@ -8838,6 +8851,16 @@ def show_ml_regression():
                     st.markdown("---")
                     st.write("### 📊 SHAP Visualizations")
                     
+                    # Set matplotlib font sizes to match UI
+                    plt.rcParams.update({
+                        'font.size': 9,
+                        'axes.titlesize': 10,
+                        'axes.labelsize': 9,
+                        'xtick.labelsize': 8,
+                        'ytick.labelsize': 8,
+                        'legend.fontsize': 8
+                    })
+                    
                     # Display selected visualizations
                     if "Summary Plot" in shap_viz_options_mlr:
                         st.write("**📊 SHAP Summary Plot**")
@@ -8893,6 +8916,9 @@ def show_ml_regression():
                         plt.close()
                     
                     st.info("💡 **Tip:** SHAP values help you understand model decisions and build trust in predictions!")
+                    
+                    # Reset matplotlib font sizes to default
+                    plt.rcParams.update(plt.rcParamsDefault)
                     
                 except Exception as e:
                     st.error(f"Error displaying SHAP visualizations: {str(e)}")
