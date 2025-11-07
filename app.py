@@ -7495,14 +7495,14 @@ def show_ml_classification():
                     st.markdown("---")
                     st.write("### 📊 SHAP Visualizations")
                     
-                    # Set matplotlib font sizes to match UI
+                    # Set matplotlib font sizes to match UI (smaller to match Plotly charts)
                     plt.rcParams.update({
-                        'font.size': 9,
-                        'axes.titlesize': 10,
-                        'axes.labelsize': 9,
-                        'xtick.labelsize': 8,
-                        'ytick.labelsize': 8,
-                        'legend.fontsize': 8
+                        'font.size': 7,
+                        'axes.titlesize': 8,
+                        'axes.labelsize': 7,
+                        'xtick.labelsize': 7,
+                        'ytick.labelsize': 7,
+                        'legend.fontsize': 7
                     })
                     
                     # Display selected visualizations
@@ -8851,14 +8851,14 @@ def show_ml_regression():
                     st.markdown("---")
                     st.write("### 📊 SHAP Visualizations")
                     
-                    # Set matplotlib font sizes to match UI
+                    # Set matplotlib font sizes to match UI (smaller to match Plotly charts)
                     plt.rcParams.update({
-                        'font.size': 9,
-                        'axes.titlesize': 10,
-                        'axes.labelsize': 9,
-                        'xtick.labelsize': 8,
-                        'ytick.labelsize': 8,
-                        'legend.fontsize': 8
+                        'font.size': 7,
+                        'axes.titlesize': 8,
+                        'axes.labelsize': 7,
+                        'xtick.labelsize': 7,
+                        'ytick.labelsize': 7,
+                        'legend.fontsize': 7
                     })
                     
                     # Display selected visualizations
