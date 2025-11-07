@@ -7548,7 +7548,19 @@ def show_ml_classification():
                     shap_viz_options = st.session_state.get('ml_shap_viz_options', ["Summary Plot", "Feature Importance"])
                     
                     st.markdown("---")
-                    st.write("### 📊 SHAP Visualizations")
+                    
+                    # Add clear button for cached SHAP values
+                    col_title, col_clear = st.columns([4, 1])
+                    with col_title:
+                        st.write("### 📊 SHAP Visualizations")
+                    with col_clear:
+                        if st.button("🔄 Clear Cache", key="ml_clear_shap", help="Clear cached SHAP values and regenerate"):
+                            del st.session_state.ml_shap_values
+                            del st.session_state.ml_shap_data
+                            del st.session_state.ml_shap_explainer
+                            if 'ml_shap_viz_options' in st.session_state:
+                                del st.session_state.ml_shap_viz_options
+                            st.rerun()
                     
                     # Set matplotlib font sizes and DPI to match UI (smaller to match Plotly charts)
                     plt.rcParams.update({
