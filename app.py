@@ -7551,6 +7551,11 @@ def show_ml_classification():
                     explainer = st.session_state.ml_shap_explainer
                     shap_viz_options = st.session_state.get('ml_shap_viz_options', ["Summary Plot", "Feature Importance"])
                     
+                    # Defensive check: ensure shap_values is 2D (handles legacy stored values)
+                    if isinstance(shap_values, np.ndarray) and shap_values.ndim == 1:
+                        shap_values = shap_values.reshape(1, -1)
+                        st.session_state.ml_shap_values = shap_values  # Update stored value
+                    
                     st.markdown("---")
                     st.write("### 📊 SHAP Visualizations")
                     
@@ -9059,6 +9064,11 @@ def show_ml_regression():
                     explainer_mlr = st.session_state.mlr_shap_explainer
                     shap_viz_options_mlr = st.session_state.get('mlr_shap_viz_options', ["Summary Plot", "Feature Importance"])
                     
+                    # Defensive check: ensure shap_values is 2D (handles legacy stored values)
+                    if isinstance(shap_values_mlr, np.ndarray) and shap_values_mlr.ndim == 1:
+                        shap_values_mlr = shap_values_mlr.reshape(1, -1)
+                        st.session_state.mlr_shap_values = shap_values_mlr  # Update stored value
+                    
                     st.markdown("---")
                     st.write("### 📊 SHAP Visualizations")
                     
@@ -10394,6 +10404,11 @@ def show_anomaly_detection():
                     X_sample_anom = st.session_state.anom_shap_data
                     explainer_anom = st.session_state.anom_shap_explainer
                     shap_viz_options_anom = st.session_state.get('anom_shap_viz_options', ["Summary Plot", "Feature Importance"])
+                    
+                    # Defensive check: ensure shap_values is 2D (handles legacy stored values)
+                    if isinstance(shap_values_anom, np.ndarray) and shap_values_anom.ndim == 1:
+                        shap_values_anom = shap_values_anom.reshape(1, -1)
+                        st.session_state.anom_shap_values = shap_values_anom  # Update stored value
                     
                     st.markdown("---")
                     st.write("### 📊 SHAP Visualizations")
@@ -20076,6 +20091,11 @@ def show_churn_prediction():
                 X_sample_churn = st.session_state.churn_shap_data
                 explainer_churn = st.session_state.churn_shap_explainer
                 shap_viz_options_churn = st.session_state.get('churn_shap_viz_options', ["Summary Plot", "Feature Importance"])
+                
+                # Defensive check: ensure shap_values is 2D (handles legacy stored values)
+                if isinstance(shap_values_churn, np.ndarray) and shap_values_churn.ndim == 1:
+                    shap_values_churn = shap_values_churn.reshape(1, -1)
+                    st.session_state.churn_shap_values = shap_values_churn  # Update stored value
                 
                 st.markdown("---")
                 st.write("### 📊 SHAP Visualizations")
