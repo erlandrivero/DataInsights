@@ -7596,60 +7596,96 @@ def show_ml_classification():
                         st.plotly_chart(fig, use_container_width=True)
                     
                     if "Dependence Plots" in shap_viz_options:
-                        st.write("**🔗 SHAP Dependence Plots**")
+                        st.write("**🔗 SHAP Dependence Plots (Top 3 Features)**")
                         st.write("Shows how a single feature impacts predictions across its range.")
                         
                         # Get top 3 features
                         if isinstance(shap_values, list) and len(shap_values) > 1:
                             vals = np.abs(shap_values[0]).mean(0)
+                            plot_values = shap_values[0]
                         else:
-                            vals = np.abs(shap_values[0] if isinstance(shap_values, list) else shap_values).mean(0)
+                            plot_values = shap_values[0] if isinstance(shap_values, list) else shap_values
+                            vals = np.abs(plot_values).mean(0)
                         
                         top_features_idx = np.argsort(vals)[-3:][::-1]
                         
                         for idx in top_features_idx:
                             feature_name = X_sample.columns[idx]
                             
-                            fig, ax = plt.subplots(figsize=(10, 2.5))
-                            plt.tight_layout()
+                            # Create Plotly scatter plot for dependence
+                            fig = go.Figure()
                             
-                            if isinstance(shap_values, list) and len(shap_values) > 1:
-                                shap.dependence_plot(idx, shap_values[0], X_sample, show=False)
-                            else:
-                                plot_values = shap_values[0] if isinstance(shap_values, list) else shap_values
-                                shap.dependence_plot(idx, plot_values, X_sample, show=False)
+                            fig.add_trace(go.Scatter(
+                                x=X_sample.iloc[:, idx],
+                                y=plot_values[:, idx],
+                                mode='markers',
+                                marker=dict(
+                                    size=5,
+                                    color=plot_values[:, idx],
+                                    colorscale='RdBu',
+                                    showscale=True,
+                                    colorbar=dict(title="SHAP<br>Value"),
+                                    line=dict(width=0.5, color='white')
+                                ),
+                                hovertemplate=f'<b>{feature_name}</b><br>Value: %{{x:.2f}}<br>SHAP: %{{y:.3f}}<extra></extra>'
+                            ))
                             
-                            st.pyplot(fig)
-                            plt.close()
+                            fig.update_layout(
+                                title=f'SHAP Dependence Plot: {feature_name}',
+                                xaxis_title=feature_name,
+                                yaxis_title='SHAP Value',
+                                height=350,
+                                hovermode='closest'
+                            )
+                            
+                            st.plotly_chart(fig, use_container_width=True)
                     
                     if "Force Plot (Sample)" in shap_viz_options:
-                        st.write("**⚡ SHAP Force Plot (First Sample)**")
+                        st.write("**⚡ SHAP Waterfall Plot (First Sample)**")
                         st.write("Explains a single prediction - shows how each feature pushed the prediction higher or lower.")
                         
-                        # Show force plot for first sample
+                        # Get values for first sample
                         if isinstance(shap_values, list) and len(shap_values) > 1:
-                            # Multi-class: show for first class
-                            force_plot = shap.force_plot(
-                                explainer.expected_value[0],
-                                shap_values[0][0],
-                                X_sample.iloc[0],
-                                matplotlib=True,
-                                show=False
-                            )
+                            plot_values = shap_values[0]
+                            expected_val = explainer.expected_value[0] if isinstance(explainer.expected_value, (list, np.ndarray)) else explainer.expected_value
                         else:
                             plot_values = shap_values[0] if isinstance(shap_values, list) else shap_values
                             expected_val = explainer.expected_value[0] if isinstance(explainer.expected_value, (list, np.ndarray)) else explainer.expected_value
-                            
-                            force_plot = shap.force_plot(
-                                expected_val,
-                                plot_values[0],
-                                X_sample.iloc[0],
-                                matplotlib=True,
-                                show=False
-                            )
                         
-                        st.pyplot(force_plot)
-                        plt.close()
+                        # Get SHAP values and feature values for first sample
+                        sample_shap = plot_values[0]
+                        sample_features = X_sample.iloc[0]
+                        
+                        # Sort by absolute SHAP value and take top 10
+                        sorted_idx = np.argsort(np.abs(sample_shap))[-10:]
+                        sorted_features = sample_features.iloc[sorted_idx].index.tolist()
+                        sorted_shap = sample_shap[sorted_idx]
+                        sorted_values = sample_features.iloc[sorted_idx].values
+                        
+                        # Create waterfall-style bar chart
+                        colors = ['#FF4444' if val > 0 else '#4444FF' for val in sorted_shap]
+                        
+                        fig = go.Figure()
+                        
+                        fig.add_trace(go.Bar(
+                            x=sorted_shap,
+                            y=sorted_features,
+                            orientation='h',
+                            marker=dict(color=colors),
+                            hovertemplate='<b>%{y}</b><br>SHAP: %{x:.3f}<br>Value: %{customdata:.2f}<extra></extra>',
+                            customdata=sorted_values
+                        ))
+                        
+                        fig.update_layout(
+                            title=f'SHAP Waterfall Plot - First Sample (Base value: {expected_val:.3f})',
+                            xaxis_title='SHAP Value (impact on prediction)',
+                            yaxis_title='',
+                            height=400,
+                            showlegend=False
+                        )
+                        
+                        st.plotly_chart(fig, use_container_width=True)
+                        st.caption("🔴 Red = pushes prediction higher | 🔵 Blue = pushes prediction lower")
                     
                     st.info("💡 **Tip:** SHAP values help you understand model decisions and build trust in predictions!")
                     
@@ -8994,7 +9030,7 @@ def show_ml_regression():
                         st.plotly_chart(fig, use_container_width=True)
                     
                     if "Dependence Plots" in shap_viz_options_mlr:
-                        st.write("**🔗 SHAP Dependence Plots**")
+                        st.write("**🔗 SHAP Dependence Plots (Top 3 Features)**")
                         st.write("Shows how a single feature impacts predictions across its range.")
                         
                         # Get top 3 features
@@ -9004,33 +9040,73 @@ def show_ml_regression():
                         for idx in top_features_idx_mlr:
                             feature_name_mlr = X_sample_mlr.columns[idx]
                             
-                            fig, ax = plt.subplots(figsize=(10, 2.5))
-                            plt.tight_layout()
-                            shap.dependence_plot(idx, shap_values_mlr, X_sample_mlr, show=False)
-                            plt.tight_layout()
-                            st.pyplot(fig)
-                            plt.close()
+                            # Create Plotly scatter plot for dependence
+                            fig = go.Figure()
+                            
+                            fig.add_trace(go.Scatter(
+                                x=X_sample_mlr.iloc[:, idx],
+                                y=shap_values_mlr[:, idx],
+                                mode='markers',
+                                marker=dict(
+                                    size=5,
+                                    color=shap_values_mlr[:, idx],
+                                    colorscale='RdBu',
+                                    showscale=True,
+                                    colorbar=dict(title="SHAP<br>Value"),
+                                    line=dict(width=0.5, color='white')
+                                ),
+                                hovertemplate=f'<b>{feature_name_mlr}</b><br>Value: %{{x:.2f}}<br>SHAP: %{{y:.3f}}<extra></extra>'
+                            ))
+                            
+                            fig.update_layout(
+                                title=f'SHAP Dependence Plot: {feature_name_mlr}',
+                                xaxis_title=feature_name_mlr,
+                                yaxis_title='SHAP Value',
+                                height=350,
+                                hovermode='closest'
+                            )
+                            
+                            st.plotly_chart(fig, use_container_width=True)
                     
                     if "Waterfall Plot (Sample)" in shap_viz_options_mlr:
                         st.write("**💧 SHAP Waterfall Plot (First Sample)**")
                         st.write("Explains a single prediction - shows how each feature contributed to the final prediction.")
                         
-                        # Show waterfall plot for first sample
-                        fig, ax = plt.subplots(figsize=(10, 3.5))
-                        plt.tight_layout()
+                        # Get SHAP values and feature values for first sample
+                        sample_shap_mlr = shap_values_mlr[0]
+                        sample_features_mlr = X_sample_mlr.iloc[0]
+                        expected_val_mlr = explainer_mlr.expected_value
                         
-                        # Create explanation object for waterfall plot
-                        explanation = shap.Explanation(
-                            values=shap_values_mlr[0],
-                            base_values=explainer_mlr.expected_value,
-                            data=X_sample_mlr.iloc[0],
-                            feature_names=X_sample_mlr.columns.tolist()
+                        # Sort by absolute SHAP value and take top 10
+                        sorted_idx_mlr = np.argsort(np.abs(sample_shap_mlr))[-10:]
+                        sorted_features_mlr = sample_features_mlr.iloc[sorted_idx_mlr].index.tolist()
+                        sorted_shap_mlr = sample_shap_mlr[sorted_idx_mlr]
+                        sorted_values_mlr = sample_features_mlr.iloc[sorted_idx_mlr].values
+                        
+                        # Create waterfall-style bar chart
+                        colors_mlr = ['#FF4444' if val > 0 else '#4444FF' for val in sorted_shap_mlr]
+                        
+                        fig = go.Figure()
+                        
+                        fig.add_trace(go.Bar(
+                            x=sorted_shap_mlr,
+                            y=sorted_features_mlr,
+                            orientation='h',
+                            marker=dict(color=colors_mlr),
+                            hovertemplate='<b>%{y}</b><br>SHAP: %{x:.3f}<br>Value: %{customdata:.2f}<extra></extra>',
+                            customdata=sorted_values_mlr
+                        ))
+                        
+                        fig.update_layout(
+                            title=f'SHAP Waterfall Plot - First Sample (Base value: {expected_val_mlr:.3f})',
+                            xaxis_title='SHAP Value (impact on prediction)',
+                            yaxis_title='',
+                            height=400,
+                            showlegend=False
                         )
                         
-                        shap.waterfall_plot(explanation, show=False)
-                        plt.tight_layout()
-                        st.pyplot(fig)
-                        plt.close()
+                        st.plotly_chart(fig, use_container_width=True)
+                        st.caption("🔴 Red = increases prediction | 🔵 Blue = decreases prediction")
                     
                     st.info("💡 **Tip:** SHAP values help you understand model decisions and build trust in predictions!")
                     
