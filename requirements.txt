@@ -48,6 +48,9 @@ lightgbm
 catboost
 joblib  # For model serialization
 
+# Model Interpretability & Explainability
+shap>=0.42.0  # SHAP values for model explanations
+
 # Survival Analysis
 lifelines  # Kaplan-Meier estimator, log-rank test, survival curves
 

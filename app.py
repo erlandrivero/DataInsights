@@ -7343,6 +7343,218 @@ def show_ml_classification():
                         {model_info['use_cases']}
                         """)
             
+            # SHAP Model Interpretability
+            st.divider()
+            st.subheader("🔍 Model Interpretability (SHAP Analysis)")
+            
+            st.markdown("""
+            **SHAP (SHapley Additive exPlanations)** helps you understand:
+            - Which features are most important for predictions
+            - How each feature impacts individual predictions
+            - Why the model made specific decisions
+            """)
+            
+            # AI-Powered Presets with User Controls
+            with st.expander("⚙️ SHAP Analysis Settings", expanded=False):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    # Get AI recommendation for number of samples
+                    from utils.ai_helper import AIHelper
+                    ai_helper = AIHelper()
+                    
+                    dataset_size = len(st.session_state.get('ml_data', pd.DataFrame()))
+                    
+                    # AI-recommended preset based on dataset size
+                    if dataset_size < 100:
+                        ai_recommended_samples = min(50, dataset_size)
+                        ai_reason = "Small dataset - using most samples"
+                    elif dataset_size < 1000:
+                        ai_recommended_samples = 100
+                        ai_reason = "Medium dataset - balanced speed/accuracy"
+                    else:
+                        ai_recommended_samples = 200
+                        ai_reason = "Large dataset - optimized for performance"
+                    
+                    st.info(f"🤖 **AI Recommendation:** {ai_recommended_samples} samples\n\n*{ai_reason}*")
+                    
+                    shap_samples = st.slider(
+                        "Number of samples to analyze",
+                        min_value=10,
+                        max_value=min(500, dataset_size),
+                        value=ai_recommended_samples,
+                        step=10,
+                        help="More samples = more accurate but slower. AI preset optimized for your dataset size."
+                    )
+                
+                with col2:
+                    # AI-recommended visualization type
+                    model_type = best_model.get('model_name', '')
+                    
+                    if 'Tree' in model_type or 'Forest' in model_type or 'Boost' in model_type:
+                        ai_viz_type = "Tree SHAP (Fast & Accurate)"
+                        ai_viz_reason = "Tree-based model detected"
+                    else:
+                        ai_viz_type = "Kernel SHAP (Universal)"
+                        ai_viz_reason = "Works with any model type"
+                    
+                    st.info(f"🤖 **AI Recommendation:** {ai_viz_type}\n\n*{ai_viz_reason}*")
+                    
+                    shap_viz_options = st.multiselect(
+                        "Select visualizations to generate",
+                        ["Summary Plot", "Feature Importance", "Dependence Plots", "Force Plot (Sample)"],
+                        default=["Summary Plot", "Feature Importance"],
+                        help="Choose which SHAP visualizations to create"
+                    )
+            
+            if st.button("🔍 Generate SHAP Explanations", key="ml_shap_btn", use_container_width=True):
+                try:
+                    import shap
+                    import matplotlib.pyplot as plt
+                    
+                    with st.status("🔍 Generating SHAP explanations...", expanded=True) as status:
+                        st.write("Loading model and data...")
+                        
+                        # Get best model and data
+                        X_train = trainer.X_train
+                        X_test = trainer.X_test
+                        best_model_obj = best_details.get('model')
+                        
+                        if best_model_obj is None:
+                            st.error("Model object not available for SHAP analysis.")
+                            st.stop()
+                        
+                        # Sample data for SHAP (use user-selected number)
+                        if len(X_train) > shap_samples:
+                            X_sample = X_train.sample(n=shap_samples, random_state=42)
+                        else:
+                            X_sample = X_train
+                        
+                        st.write(f"Creating SHAP explainer for {best_model['model_name']}...")
+                        
+                        # Create appropriate explainer based on model type
+                        model_name = best_model['model_name']
+                        
+                        if any(tree_model in model_name for tree_model in ['Tree', 'Forest', 'Boost', 'XGB', 'LightGBM', 'CatBoost']):
+                            # Tree-based models - use TreeExplainer (fast)
+                            explainer = shap.TreeExplainer(best_model_obj)
+                            shap_values = explainer.shap_values(X_sample)
+                        else:
+                            # Other models - use KernelExplainer (slower but universal)
+                            explainer = shap.KernelExplainer(best_model_obj.predict_proba, X_sample)
+                            shap_values = explainer.shap_values(X_sample)
+                        
+                        st.write("Generating visualizations...")
+                        
+                        # Store SHAP values in session state
+                        st.session_state.ml_shap_values = shap_values
+                        st.session_state.ml_shap_data = X_sample
+                        st.session_state.ml_shap_explainer = explainer
+                        
+                        status.update(label="✅ SHAP analysis complete!", state="complete", expanded=False)
+                    
+                    st.success("✅ SHAP explanations generated successfully!")
+                    
+                    # Display selected visualizations
+                    if "Summary Plot" in shap_viz_options:
+                        st.write("**📊 SHAP Summary Plot**")
+                        st.write("Shows the impact of each feature on model predictions across all samples.")
+                        
+                        fig, ax = plt.subplots(figsize=(10, 6))
+                        
+                        # Handle multi-class vs binary classification
+                        if isinstance(shap_values, list) and len(shap_values) > 1:
+                            # Multi-class: show for first class
+                            shap.summary_plot(shap_values[0], X_sample, show=False)
+                            st.caption(f"Showing SHAP values for class: {trainer.class_names[0]}")
+                        else:
+                            # Binary or single output
+                            plot_values = shap_values[0] if isinstance(shap_values, list) else shap_values
+                            shap.summary_plot(plot_values, X_sample, show=False)
+                        
+                        st.pyplot(fig)
+                        plt.close()
+                    
+                    if "Feature Importance" in shap_viz_options:
+                        st.write("**📈 SHAP Feature Importance**")
+                        st.write("Global feature importance based on mean absolute SHAP values.")
+                        
+                        fig, ax = plt.subplots(figsize=(10, 6))
+                        
+                        # Handle multi-class vs binary
+                        if isinstance(shap_values, list) and len(shap_values) > 1:
+                            shap.summary_plot(shap_values[0], X_sample, plot_type="bar", show=False)
+                        else:
+                            plot_values = shap_values[0] if isinstance(shap_values, list) else shap_values
+                            shap.summary_plot(plot_values, X_sample, plot_type="bar", show=False)
+                        
+                        st.pyplot(fig)
+                        plt.close()
+                    
+                    if "Dependence Plots" in shap_viz_options:
+                        st.write("**🔗 SHAP Dependence Plots**")
+                        st.write("Shows how a single feature impacts predictions across its range.")
+                        
+                        # Get top 3 features
+                        if isinstance(shap_values, list) and len(shap_values) > 1:
+                            vals = np.abs(shap_values[0]).mean(0)
+                        else:
+                            vals = np.abs(shap_values[0] if isinstance(shap_values, list) else shap_values).mean(0)
+                        
+                        top_features_idx = np.argsort(vals)[-3:][::-1]
+                        
+                        for idx in top_features_idx:
+                            feature_name = X_sample.columns[idx]
+                            
+                            fig, ax = plt.subplots(figsize=(10, 4))
+                            
+                            if isinstance(shap_values, list) and len(shap_values) > 1:
+                                shap.dependence_plot(idx, shap_values[0], X_sample, show=False)
+                            else:
+                                plot_values = shap_values[0] if isinstance(shap_values, list) else shap_values
+                                shap.dependence_plot(idx, plot_values, X_sample, show=False)
+                            
+                            st.pyplot(fig)
+                            plt.close()
+                    
+                    if "Force Plot (Sample)" in shap_viz_options:
+                        st.write("**⚡ SHAP Force Plot (First Sample)**")
+                        st.write("Explains a single prediction - shows how each feature pushed the prediction higher or lower.")
+                        
+                        # Show force plot for first sample
+                        if isinstance(shap_values, list) and len(shap_values) > 1:
+                            # Multi-class: show for first class
+                            force_plot = shap.force_plot(
+                                explainer.expected_value[0],
+                                shap_values[0][0],
+                                X_sample.iloc[0],
+                                matplotlib=True,
+                                show=False
+                            )
+                        else:
+                            plot_values = shap_values[0] if isinstance(shap_values, list) else shap_values
+                            expected_val = explainer.expected_value[0] if isinstance(explainer.expected_value, (list, np.ndarray)) else explainer.expected_value
+                            
+                            force_plot = shap.force_plot(
+                                expected_val,
+                                plot_values[0],
+                                X_sample.iloc[0],
+                                matplotlib=True,
+                                show=False
+                            )
+                        
+                        st.pyplot(force_plot)
+                        plt.close()
+                    
+                    st.info("💡 **Tip:** SHAP values help you understand model decisions and build trust in predictions!")
+                    
+                except ImportError:
+                    st.error("SHAP library not installed. Please install with: pip install shap")
+                except Exception as e:
+                    st.error(f"Error generating SHAP explanations: {str(e)}")
+                    import traceback
+                    st.code(traceback.format_exc())
+            
             # Clear any lingering containers from Plotly/tabs to prevent shadow overlay
             st.markdown("---")
             st.empty()
@@ -8439,6 +8651,183 @@ def show_ml_regression():
                 )
                 fig_imp.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
                 st.plotly_chart(fig_imp, use_container_width=True)
+            
+            # SHAP Model Interpretability
+            st.divider()
+            st.subheader("🔍 Model Interpretability (SHAP Analysis)")
+            
+            st.markdown("""
+            **SHAP (SHapley Additive exPlanations)** helps you understand:
+            - Which features are most important for predictions
+            - How each feature impacts individual predictions
+            - Why the model made specific decisions
+            """)
+            
+            # AI-Powered Presets with User Controls
+            with st.expander("⚙️ SHAP Analysis Settings", expanded=False):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    # Get AI recommendation for number of samples
+                    from utils.ai_helper import AIHelper
+                    ai_helper = AIHelper()
+                    
+                    dataset_size = len(st.session_state.get('mlr_data', pd.DataFrame()))
+                    
+                    # AI-recommended preset based on dataset size
+                    if dataset_size < 100:
+                        ai_recommended_samples_mlr = min(50, dataset_size)
+                        ai_reason_mlr = "Small dataset - using most samples"
+                    elif dataset_size < 1000:
+                        ai_recommended_samples_mlr = 100
+                        ai_reason_mlr = "Medium dataset - balanced speed/accuracy"
+                    else:
+                        ai_recommended_samples_mlr = 200
+                        ai_reason_mlr = "Large dataset - optimized for performance"
+                    
+                    st.info(f"🤖 **AI Recommendation:** {ai_recommended_samples_mlr} samples\n\n*{ai_reason_mlr}*")
+                    
+                    shap_samples_mlr = st.slider(
+                        "Number of samples to analyze",
+                        min_value=10,
+                        max_value=min(500, dataset_size),
+                        value=ai_recommended_samples_mlr,
+                        step=10,
+                        key="mlr_shap_samples",
+                        help="More samples = more accurate but slower. AI preset optimized for your dataset size."
+                    )
+                
+                with col2:
+                    # AI-recommended visualization type
+                    model_type_mlr = best_model.get('model_name', '')
+                    
+                    if 'Tree' in model_type_mlr or 'Forest' in model_type_mlr or 'Boost' in model_type_mlr:
+                        ai_viz_type_mlr = "Tree SHAP (Fast & Accurate)"
+                        ai_viz_reason_mlr = "Tree-based model detected"
+                    else:
+                        ai_viz_type_mlr = "Kernel SHAP (Universal)"
+                        ai_viz_reason_mlr = "Works with any model type"
+                    
+                    st.info(f"🤖 **AI Recommendation:** {ai_viz_type_mlr}\n\n*{ai_viz_reason_mlr}*")
+                    
+                    shap_viz_options_mlr = st.multiselect(
+                        "Select visualizations to generate",
+                        ["Summary Plot", "Feature Importance", "Dependence Plots", "Waterfall Plot (Sample)"],
+                        default=["Summary Plot", "Feature Importance"],
+                        key="mlr_shap_viz",
+                        help="Choose which SHAP visualizations to create"
+                    )
+            
+            if st.button("🔍 Generate SHAP Explanations", key="mlr_shap_btn", use_container_width=True):
+                try:
+                    import shap
+                    import matplotlib.pyplot as plt
+                    
+                    with st.status("🔍 Generating SHAP explanations...", expanded=True) as status:
+                        st.write("Loading model and data...")
+                        
+                        # Get best model and data
+                        X_train = regressor.X_train
+                        X_test = regressor.X_test
+                        best_model_obj = best_model.get('model')
+                        
+                        if best_model_obj is None:
+                            st.error("Model object not available for SHAP analysis.")
+                            st.stop()
+                        
+                        # Sample data for SHAP (use user-selected number)
+                        if len(X_train) > shap_samples_mlr:
+                            X_sample_mlr = X_train.sample(n=shap_samples_mlr, random_state=42)
+                        else:
+                            X_sample_mlr = X_train
+                        
+                        st.write(f"Creating SHAP explainer for {best_model['model_name']}...")
+                        
+                        # Create appropriate explainer based on model type
+                        model_name_mlr = best_model['model_name']
+                        
+                        if any(tree_model in model_name_mlr for tree_model in ['Tree', 'Forest', 'Boost', 'XGB', 'LightGBM', 'CatBoost']):
+                            # Tree-based models - use TreeExplainer (fast)
+                            explainer_mlr = shap.TreeExplainer(best_model_obj)
+                            shap_values_mlr = explainer_mlr.shap_values(X_sample_mlr)
+                        else:
+                            # Other models - use KernelExplainer (slower but universal)
+                            explainer_mlr = shap.KernelExplainer(best_model_obj.predict, X_sample_mlr)
+                            shap_values_mlr = explainer_mlr.shap_values(X_sample_mlr)
+                        
+                        st.write("Generating visualizations...")
+                        
+                        # Store SHAP values in session state
+                        st.session_state.mlr_shap_values = shap_values_mlr
+                        st.session_state.mlr_shap_data = X_sample_mlr
+                        st.session_state.mlr_shap_explainer = explainer_mlr
+                        
+                        status.update(label="✅ SHAP analysis complete!", state="complete", expanded=False)
+                    
+                    st.success("✅ SHAP explanations generated successfully!")
+                    
+                    # Display selected visualizations
+                    if "Summary Plot" in shap_viz_options_mlr:
+                        st.write("**📊 SHAP Summary Plot**")
+                        st.write("Shows the impact of each feature on model predictions across all samples.")
+                        
+                        fig, ax = plt.subplots(figsize=(10, 6))
+                        shap.summary_plot(shap_values_mlr, X_sample_mlr, show=False)
+                        st.pyplot(fig)
+                        plt.close()
+                    
+                    if "Feature Importance" in shap_viz_options_mlr:
+                        st.write("**📈 SHAP Feature Importance**")
+                        st.write("Global feature importance based on mean absolute SHAP values.")
+                        
+                        fig, ax = plt.subplots(figsize=(10, 6))
+                        shap.summary_plot(shap_values_mlr, X_sample_mlr, plot_type="bar", show=False)
+                        st.pyplot(fig)
+                        plt.close()
+                    
+                    if "Dependence Plots" in shap_viz_options_mlr:
+                        st.write("**🔗 SHAP Dependence Plots**")
+                        st.write("Shows how a single feature impacts predictions across its range.")
+                        
+                        # Get top 3 features
+                        vals_mlr = np.abs(shap_values_mlr).mean(0)
+                        top_features_idx_mlr = np.argsort(vals_mlr)[-3:][::-1]
+                        
+                        for idx in top_features_idx_mlr:
+                            feature_name_mlr = X_sample_mlr.columns[idx]
+                            
+                            fig, ax = plt.subplots(figsize=(10, 4))
+                            shap.dependence_plot(idx, shap_values_mlr, X_sample_mlr, show=False)
+                            st.pyplot(fig)
+                            plt.close()
+                    
+                    if "Waterfall Plot (Sample)" in shap_viz_options_mlr:
+                        st.write("**💧 SHAP Waterfall Plot (First Sample)**")
+                        st.write("Explains a single prediction - shows how each feature contributed to the final prediction.")
+                        
+                        # Show waterfall plot for first sample
+                        fig, ax = plt.subplots(figsize=(10, 6))
+                        
+                        # Create explanation object for waterfall plot
+                        explanation = shap.Explanation(
+                            values=shap_values_mlr[0],
+                            base_values=explainer_mlr.expected_value,
+                            data=X_sample_mlr.iloc[0],
+                            feature_names=X_sample_mlr.columns.tolist()
+                        )
+                        
+                        shap.waterfall_plot(explanation, show=False)
+                        st.pyplot(fig)
+                        plt.close()
+                    
+                    st.info("💡 **Tip:** SHAP values help you understand model decisions and build trust in predictions!")
+                    
+                except ImportError:
+                    st.error("SHAP library not installed. Please install with: pip install shap")
+                except Exception as e:
+                    st.error(f"Error generating SHAP explanations: {str(e)}")
+                    import traceback
+                    st.code(traceback.format_exc())
             
             # Clear any lingering containers from Plotly/tabs to prevent shadow overlay
             st.markdown("---")

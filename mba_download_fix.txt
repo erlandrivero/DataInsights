@@ -1,0 +1,24 @@
+Move MBA download buttons to bottom aligned with Generate Report
+
+Relocated CSV download buttons in Market Basket Analysis module to improve UX layout.
+
+Changes:
+- Moved "Download All Rules (CSV)" button from top of results to bottom
+- Moved "Download Top N Rules (CSV)" button from top of results to bottom
+- Positioned both download buttons on same row as "Generate Full Report" button
+- Changed layout from 2 columns to 3 columns for better alignment
+- All three buttons now appear at the bottom of the MBA analysis
+
+Layout:
+- Column 1: Download All Rules (CSV)
+- Column 2: Download Top N Rules (CSV)  
+- Column 3: Generate Full Report
+
+User Experience:
+- Before: Download buttons appeared right after results table, before visualizations
+- After: Download buttons appear at very bottom, aligned with Generate Report
+- More intuitive workflow: view all results → then download/report
+- Cleaner visual hierarchy
+
+Files Modified:
+- app.py: Moved download buttons from lines 3743-3766 to lines 4120-4147
