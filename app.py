@@ -7418,20 +7418,22 @@ def show_ml_classification():
                         # Get best model and data
                         X_train = trainer.X_train
                         X_test = trainer.X_test
+                        y_train = trainer.y_train
                         
-                        # Debug: Check what's in best_details
-                        st.write(f"Best details keys: {list(best_details.keys()) if best_details else 'None'}")
+                        # Get best model name
+                        best_model_name = best_model.get('model_name')
+                        st.write(f"Retraining {best_model_name} for SHAP analysis...")
                         
-                        best_model_obj = best_details.get('model') if best_details else None
-                        
-                        if best_model_obj is None:
-                            st.error("Model object not available for SHAP analysis.")
-                            st.write("**Debug Info:**")
-                            if best_details:
-                                st.write(f"- Available keys: {list(best_details.keys())}")
-                            st.write("The trained model object was not saved. This might be due to session state limitations.")
-                            st.info("💡 **Tip:** Try retraining the models and immediately generating SHAP explanations.")
+                        # Retrain the best model (session state can't serialize sklearn models)
+                        all_models = trainer.get_all_models()
+                        if best_model_name not in all_models:
+                            st.error(f"Model {best_model_name} not found in available models.")
                             st.stop()
+                        
+                        # Get fresh model instance and train it
+                        best_model_obj = all_models[best_model_name]
+                        best_model_obj.fit(X_train, y_train)
+                        st.write("✅ Model retrained successfully!")
                         
                         # Sample data for SHAP (use user-selected number)
                         if len(X_train) > shap_samples:
@@ -8738,20 +8740,22 @@ def show_ml_regression():
                         # Get best model and data
                         X_train = regressor.X_train
                         X_test = regressor.X_test
+                        y_train = regressor.y_train
                         
-                        # Debug: Check what's in best_model
-                        st.write(f"Best model keys: {list(best_model.keys())}")
+                        # Get best model name
+                        best_model_name = best_model.get('model_name')
+                        st.write(f"Retraining {best_model_name} for SHAP analysis...")
                         
-                        best_model_obj = best_model.get('model')
-                        
-                        if best_model_obj is None:
-                            st.error("Model object not available for SHAP analysis.")
-                            st.write("**Debug Info:**")
-                            st.write(f"- Best model name: {best_model.get('model_name', 'Unknown')}")
-                            st.write(f"- Available keys: {list(best_model.keys())}")
-                            st.write("The trained model object was not saved. This might be due to session state limitations.")
-                            st.info("💡 **Tip:** Try retraining the models and immediately generating SHAP explanations.")
+                        # Retrain the best model (session state can't serialize sklearn models)
+                        all_models = regressor.get_all_models()
+                        if best_model_name not in all_models:
+                            st.error(f"Model {best_model_name} not found in available models.")
                             st.stop()
+                        
+                        # Get fresh model instance and train it
+                        best_model_obj = all_models[best_model_name]
+                        best_model_obj.fit(X_train, y_train)
+                        st.write("✅ Model retrained successfully!")
                         
                         # Sample data for SHAP (use user-selected number)
                         if len(X_train) > shap_samples_mlr:
