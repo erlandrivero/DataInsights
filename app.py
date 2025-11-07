@@ -7418,10 +7418,19 @@ def show_ml_classification():
                         # Get best model and data
                         X_train = trainer.X_train
                         X_test = trainer.X_test
-                        best_model_obj = best_details.get('model')
+                        
+                        # Debug: Check what's in best_details
+                        st.write(f"Best details keys: {list(best_details.keys()) if best_details else 'None'}")
+                        
+                        best_model_obj = best_details.get('model') if best_details else None
                         
                         if best_model_obj is None:
                             st.error("Model object not available for SHAP analysis.")
+                            st.write("**Debug Info:**")
+                            if best_details:
+                                st.write(f"- Available keys: {list(best_details.keys())}")
+                            st.write("The trained model object was not saved. This might be due to session state limitations.")
+                            st.info("💡 **Tip:** Try retraining the models and immediately generating SHAP explanations.")
                             st.stop()
                         
                         # Sample data for SHAP (use user-selected number)
@@ -8729,10 +8738,19 @@ def show_ml_regression():
                         # Get best model and data
                         X_train = regressor.X_train
                         X_test = regressor.X_test
+                        
+                        # Debug: Check what's in best_model
+                        st.write(f"Best model keys: {list(best_model.keys())}")
+                        
                         best_model_obj = best_model.get('model')
                         
                         if best_model_obj is None:
                             st.error("Model object not available for SHAP analysis.")
+                            st.write("**Debug Info:**")
+                            st.write(f"- Best model name: {best_model.get('model_name', 'Unknown')}")
+                            st.write(f"- Available keys: {list(best_model.keys())}")
+                            st.write("The trained model object was not saved. This might be due to session state limitations.")
+                            st.info("💡 **Tip:** Try retraining the models and immediately generating SHAP explanations.")
                             st.stop()
                         
                         # Sample data for SHAP (use user-selected number)
