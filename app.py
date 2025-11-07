@@ -7340,6 +7340,10 @@ def show_ml_classification():
                     {model_info['use_cases']}
                     """)
         
+        # Clear any lingering containers from Plotly/tabs to prevent shadow overlay
+        st.markdown("---")
+        st.empty()
+        
         # AI Insights
         st.divider()
         st.subheader("✨ AI-Powered Insights")
@@ -8429,6 +8433,10 @@ def show_ml_regression():
             )
             fig_imp.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
             st.plotly_chart(fig_imp, use_container_width=True)
+        
+        # Clear any lingering containers from Plotly/tabs to prevent shadow overlay
+        st.markdown("---")
+        st.empty()
         
         # AI-Powered Insights
         st.divider()
