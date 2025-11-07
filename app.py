@@ -7584,21 +7584,11 @@ def show_ml_classification():
                         st.write("**📊 SHAP Summary Plot (Top 10 Features)**")
                         st.write("Shows the impact of each feature on model predictions across all samples.")
                         
-                        # Handle multi-class vs binary classification
-                        if isinstance(shap_values, list) and len(shap_values) > 1:
-                            # Multi-class: convert list to numpy array and use first class
-                            plot_values = np.array(shap_values[0])
-                            st.caption(f"Showing SHAP values for class: {trainer.class_names[0]}")
-                        elif isinstance(shap_values, list):
-                            # Binary with list format
-                            plot_values = np.array(shap_values[0])
-                        else:
-                            # Already numpy array
-                            plot_values = shap_values
+                        # After defensive check above, shap_values should always be a 2D numpy array
+                        plot_values = shap_values
                         
-                        # Ensure plot_values is 2D (samples x features)
+                        # Double-check it's 2D (defensive)
                         if plot_values.ndim == 1:
-                            # If 1D, reshape to 2D (1 sample x features)
                             plot_values = plot_values.reshape(1, -1)
                         
                         # Calculate mean absolute SHAP values for each feature
@@ -7647,13 +7637,8 @@ def show_ml_classification():
                         st.write("**📈 SHAP Feature Importance (Top 10 Features)**")
                         st.write("Global feature importance based on mean absolute SHAP values.")
                         
-                        # Handle multi-class vs binary
-                        if isinstance(shap_values, list) and len(shap_values) > 1:
-                            plot_values = np.array(shap_values[0])
-                        elif isinstance(shap_values, list):
-                            plot_values = np.array(shap_values[0])
-                        else:
-                            plot_values = shap_values
+                        # After defensive check, shap_values is already a 2D numpy array
+                        plot_values = shap_values
                         
                         # Ensure plot_values is 2D (samples x features)
                         if plot_values.ndim == 1:
@@ -7688,16 +7673,9 @@ def show_ml_classification():
                         st.write("**🔗 SHAP Dependence Plots (Top 3 Features)**")
                         st.write("Shows how a single feature impacts predictions across its range.")
                         
-                        # Get top 3 features
-                        if isinstance(shap_values, list) and len(shap_values) > 1:
-                            plot_values = np.array(shap_values[0])
-                            vals = np.abs(plot_values).mean(0)
-                        elif isinstance(shap_values, list):
-                            plot_values = np.array(shap_values[0])
-                            vals = np.abs(plot_values).mean(0)
-                        else:
-                            plot_values = shap_values
-                            vals = np.abs(plot_values).mean(0)
+                        # After defensive check, shap_values is already a 2D numpy array
+                        plot_values = shap_values
+                        vals = np.abs(plot_values).mean(0)
                         
                         top_features_idx = np.argsort(vals)[-3:][::-1]
                         
@@ -7736,16 +7714,9 @@ def show_ml_classification():
                         st.write("**⚡ SHAP Waterfall Plot (First Sample)**")
                         st.write("Explains a single prediction - shows how each feature pushed the prediction higher or lower.")
                         
-                        # Get values for first sample
-                        if isinstance(shap_values, list) and len(shap_values) > 1:
-                            plot_values = np.array(shap_values[0])
-                            expected_val = explainer.expected_value[0] if isinstance(explainer.expected_value, (list, np.ndarray)) else explainer.expected_value
-                        elif isinstance(shap_values, list):
-                            plot_values = np.array(shap_values[0])
-                            expected_val = explainer.expected_value[0] if isinstance(explainer.expected_value, (list, np.ndarray)) else explainer.expected_value
-                        else:
-                            plot_values = shap_values
-                            expected_val = explainer.expected_value[0] if isinstance(explainer.expected_value, (list, np.ndarray)) else explainer.expected_value
+                        # After defensive check, shap_values is already a 2D numpy array
+                        plot_values = shap_values
+                        expected_val = explainer.expected_value[0] if isinstance(explainer.expected_value, (list, np.ndarray)) else explainer.expected_value
                         
                         # Get SHAP values and feature values for first sample
                         sample_shap = plot_values[0]
