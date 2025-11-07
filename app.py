@@ -7488,7 +7488,11 @@ def show_ml_classification():
                             # Use a smaller background dataset for KernelExplainer (it's slow)
                             background_size = min(50, len(X_sample))
                             background = shap.sample(X_sample, background_size)
-                            explainer = shap.KernelExplainer(best_model_obj.predict_proba, background)
+                            # Check if model has predict_proba
+                            if hasattr(best_model_obj, 'predict_proba'):
+                                explainer = shap.KernelExplainer(best_model_obj.predict_proba, background)
+                            else:
+                                explainer = shap.KernelExplainer(best_model_obj.predict, background)
                             shap_values = explainer.shap_values(X_sample)
                         elif is_tree_based:
                             # Tree-based models - use TreeExplainer (fast)
@@ -7498,7 +7502,12 @@ def show_ml_classification():
                             # Other models - use KernelExplainer (slower but universal)
                             background_size = min(50, len(X_sample))
                             background = shap.sample(X_sample, background_size)
-                            explainer = shap.KernelExplainer(best_model_obj.predict_proba, background)
+                            # Check if model has predict_proba (some models like SGD don't)
+                            if hasattr(best_model_obj, 'predict_proba'):
+                                explainer = shap.KernelExplainer(best_model_obj.predict_proba, background)
+                            else:
+                                # Use predict for models without predict_proba (e.g., SGDClassifier, Perceptron)
+                                explainer = shap.KernelExplainer(best_model_obj.predict, background)
                             shap_values = explainer.shap_values(X_sample)
                         
                         st.write("Generating visualizations...")
@@ -19965,7 +19974,11 @@ def show_churn_prediction():
                         # Other models - use KernelExplainer (slower but universal)
                         background_size_churn = min(50, len(X_sample_churn))
                         background_churn = shap.sample(X_sample_churn, background_size_churn)
-                        explainer_churn = shap.KernelExplainer(model_churn.predict_proba, background_churn)
+                        # Check if model has predict_proba (some models like SGD don't)
+                        if hasattr(model_churn, 'predict_proba'):
+                            explainer_churn = shap.KernelExplainer(model_churn.predict_proba, background_churn)
+                        else:
+                            explainer_churn = shap.KernelExplainer(model_churn.predict, background_churn)
                         shap_values_churn = explainer_churn.shap_values(X_sample_churn)
                     
                     st.write("Generating visualizations...")
