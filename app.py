@@ -7497,12 +7497,12 @@ def show_ml_classification():
                     
                     # Set matplotlib font sizes to match UI (smaller to match Plotly charts)
                     plt.rcParams.update({
-                        'font.size': 7,
-                        'axes.titlesize': 8,
-                        'axes.labelsize': 7,
-                        'xtick.labelsize': 7,
-                        'ytick.labelsize': 7,
-                        'legend.fontsize': 7
+                        'font.size': 6,
+                        'axes.titlesize': 7,
+                        'axes.labelsize': 6,
+                        'xtick.labelsize': 6,
+                        'ytick.labelsize': 6,
+                        'legend.fontsize': 6
                     })
                     
                     # Display selected visualizations
@@ -7510,7 +7510,8 @@ def show_ml_classification():
                         st.write("**📊 SHAP Summary Plot**")
                         st.write("Shows the impact of each feature on model predictions across all samples.")
                         
-                        fig, ax = plt.subplots(figsize=(10, 4))
+                        fig, ax = plt.subplots(figsize=(10, 3.5))
+                        plt.tight_layout()
                         
                         # Handle multi-class vs binary classification
                         if isinstance(shap_values, list) and len(shap_values) > 1:
@@ -7522,6 +7523,7 @@ def show_ml_classification():
                             plot_values = shap_values[0] if isinstance(shap_values, list) else shap_values
                             shap.summary_plot(plot_values, X_sample, show=False)
                         
+                        plt.tight_layout()
                         st.pyplot(fig)
                         plt.close()
                     
@@ -7529,7 +7531,8 @@ def show_ml_classification():
                         st.write("**📈 SHAP Feature Importance**")
                         st.write("Global feature importance based on mean absolute SHAP values.")
                         
-                        fig, ax = plt.subplots(figsize=(10, 4))
+                        fig, ax = plt.subplots(figsize=(10, 3.5))
+                        plt.tight_layout()
                         
                         # Handle multi-class vs binary
                         if isinstance(shap_values, list) and len(shap_values) > 1:
@@ -7556,7 +7559,8 @@ def show_ml_classification():
                         for idx in top_features_idx:
                             feature_name = X_sample.columns[idx]
                             
-                            fig, ax = plt.subplots(figsize=(10, 3))
+                            fig, ax = plt.subplots(figsize=(10, 2.5))
+                            plt.tight_layout()
                             
                             if isinstance(shap_values, list) and len(shap_values) > 1:
                                 shap.dependence_plot(idx, shap_values[0], X_sample, show=False)
@@ -8853,12 +8857,12 @@ def show_ml_regression():
                     
                     # Set matplotlib font sizes to match UI (smaller to match Plotly charts)
                     plt.rcParams.update({
-                        'font.size': 7,
-                        'axes.titlesize': 8,
-                        'axes.labelsize': 7,
-                        'xtick.labelsize': 7,
-                        'ytick.labelsize': 7,
-                        'legend.fontsize': 7
+                        'font.size': 6,
+                        'axes.titlesize': 7,
+                        'axes.labelsize': 6,
+                        'xtick.labelsize': 6,
+                        'ytick.labelsize': 6,
+                        'legend.fontsize': 6
                     })
                     
                     # Display selected visualizations
@@ -8866,8 +8870,10 @@ def show_ml_regression():
                         st.write("**📊 SHAP Summary Plot**")
                         st.write("Shows the impact of each feature on model predictions across all samples.")
                         
-                        fig, ax = plt.subplots(figsize=(10, 4))
+                        fig, ax = plt.subplots(figsize=(10, 3.5))
+                        plt.tight_layout()
                         shap.summary_plot(shap_values_mlr, X_sample_mlr, show=False)
+                        plt.tight_layout()
                         st.pyplot(fig)
                         plt.close()
                     
@@ -8875,8 +8881,10 @@ def show_ml_regression():
                         st.write("**📈 SHAP Feature Importance**")
                         st.write("Global feature importance based on mean absolute SHAP values.")
                         
-                        fig, ax = plt.subplots(figsize=(10, 4))
+                        fig, ax = plt.subplots(figsize=(10, 3.5))
+                        plt.tight_layout()
                         shap.summary_plot(shap_values_mlr, X_sample_mlr, plot_type="bar", show=False)
+                        plt.tight_layout()
                         st.pyplot(fig)
                         plt.close()
                     
@@ -8891,8 +8899,10 @@ def show_ml_regression():
                         for idx in top_features_idx_mlr:
                             feature_name_mlr = X_sample_mlr.columns[idx]
                             
-                            fig, ax = plt.subplots(figsize=(10, 3))
+                            fig, ax = plt.subplots(figsize=(10, 2.5))
+                            plt.tight_layout()
                             shap.dependence_plot(idx, shap_values_mlr, X_sample_mlr, show=False)
+                            plt.tight_layout()
                             st.pyplot(fig)
                             plt.close()
                     
@@ -8901,7 +8911,8 @@ def show_ml_regression():
                         st.write("Explains a single prediction - shows how each feature contributed to the final prediction.")
                         
                         # Show waterfall plot for first sample
-                        fig, ax = plt.subplots(figsize=(10, 4))
+                        fig, ax = plt.subplots(figsize=(10, 3.5))
+                        plt.tight_layout()
                         
                         # Create explanation object for waterfall plot
                         explanation = shap.Explanation(
@@ -8912,6 +8923,7 @@ def show_ml_regression():
                         )
                         
                         shap.waterfall_plot(explanation, show=False)
+                        plt.tight_layout()
                         st.pyplot(fig)
                         plt.close()
                     
