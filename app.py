@@ -6478,19 +6478,43 @@ def show_ml_classification():
         
         with col2:
             # Model selection
-            train_all = st.checkbox("Train All Models (15 algorithms)", value=True,
-                                   help="Train all 15 models or select specific ones")
+            train_all = st.checkbox("Train All Models (15 algorithms)", value=False,
+                                   help="Train all 15 models or select specific ones. Unchecked by default to use AI-recommended models.")
             
             if not train_all:
                 from utils.ml_training import MLTrainer
                 temp_trainer = MLTrainer(df, target_col)
                 all_model_names = list(temp_trainer.get_all_models().keys())
                 
+                # AI-recommended models based on dataset characteristics
+                dataset_size = len(df)
+                n_features = len([col for col in df.columns if col != target_col])
+                n_classes = df[target_col].nunique()
+                
+                # Smart defaults based on dataset size and complexity
+                if dataset_size < 200:
+                    # Small dataset - fast, simple models
+                    ai_recommended = ['Random Forest', 'Gradient Boosting', 'Decision Tree', 'Logistic Regression', 'Ridge Classifier']
+                    ai_reason = "Small dataset - selected fast, interpretable models"
+                elif dataset_size < 1000:
+                    # Medium dataset - balanced selection
+                    ai_recommended = ['Random Forest', 'XGBoost', 'Gradient Boosting', 'Logistic Regression', 'SVM (Linear)', 'Extra Trees']
+                    ai_reason = "Medium dataset - balanced speed and accuracy"
+                else:
+                    # Large dataset - scalable models
+                    ai_recommended = ['Random Forest', 'XGBoost', 'LightGBM', 'Histogram Gradient Boosting', 'SGD Classifier', 'Ridge Classifier']
+                    ai_reason = "Large dataset - selected scalable, fast models"
+                
+                # Filter to only available models
+                ai_recommended = [m for m in ai_recommended if m in all_model_names]
+                
+                st.info(f"🤖 **AI Recommendation:** {ai_reason}")
+                
                 selected_models = st.multiselect(
                     "Select Models to Train",
                     all_model_names,
-                    default=all_model_names[:5],
-                    help="Choose which models to train"
+                    default=ai_recommended,
+                    help="AI has pre-selected optimal models for your dataset. You can modify the selection."
                 )
             else:
                 selected_models = None
@@ -8356,19 +8380,42 @@ def show_ml_regression():
         
         with col2:
             # Model selection
-            train_all = st.checkbox("Train All Models (15+ algorithms)", value=True,
-                                   help="Train all models or select specific ones")
+            train_all = st.checkbox("Train All Models (15+ algorithms)", value=False,
+                                   help="Train all models or select specific ones. Unchecked by default to use AI-recommended models.")
             
             if not train_all:
                 from utils.ml_regression import MLRegressor
                 temp_regressor = MLRegressor(df, target_col)
                 all_model_names = list(temp_regressor.get_all_models().keys())
                 
+                # AI-recommended models based on dataset characteristics
+                dataset_size = len(df)
+                n_features = len([col for col in df.columns if col != target_col])
+                
+                # Smart defaults based on dataset size
+                if dataset_size < 200:
+                    # Small dataset - fast, simple models
+                    ai_recommended = ['Random Forest', 'Gradient Boosting', 'Decision Tree', 'Linear Regression', 'Ridge']
+                    ai_reason = "Small dataset - selected fast, interpretable models"
+                elif dataset_size < 1000:
+                    # Medium dataset - balanced selection
+                    ai_recommended = ['Random Forest', 'XGBoost', 'Gradient Boosting', 'Linear Regression', 'Lasso', 'Extra Trees']
+                    ai_reason = "Medium dataset - balanced speed and accuracy"
+                else:
+                    # Large dataset - scalable models
+                    ai_recommended = ['Random Forest', 'XGBoost', 'LightGBM', 'Hist Gradient Boosting', 'SGD', 'Ridge']
+                    ai_reason = "Large dataset - selected scalable, fast models"
+                
+                # Filter to only available models
+                ai_recommended = [m for m in ai_recommended if m in all_model_names]
+                
+                st.info(f"🤖 **AI Recommendation:** {ai_reason}")
+                
                 selected_models = st.multiselect(
                     "Select Models to Train",
                     all_model_names,
-                    default=all_model_names[:5],
-                    help="Choose which models to train"
+                    default=ai_recommended,
+                    help="AI has pre-selected optimal models for your dataset. You can modify the selection."
                 )
             else:
                 selected_models = None
