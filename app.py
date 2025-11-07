@@ -7558,12 +7558,20 @@ def show_ml_classification():
                     if isinstance(shap_values, list):
                         # If it's a list, convert first element to numpy array and ensure 2D
                         shap_values = np.array(shap_values[0]) if len(shap_values) > 0 else np.array(shap_values)
-                        if shap_values.ndim == 1:
-                            shap_values = shap_values.reshape(1, -1)
-                        st.session_state.ml_shap_values = shap_values  # Update stored value
-                    elif isinstance(shap_values, np.ndarray) and shap_values.ndim == 1:
+                    
+                    # Force conversion to numpy array (handles SHAP Explanation objects and other types)
+                    if not isinstance(shap_values, np.ndarray):
+                        shap_values = np.array(shap_values)
+                    
+                    # Ensure 2D shape
+                    if shap_values.ndim == 1:
                         shap_values = shap_values.reshape(1, -1)
-                        st.session_state.ml_shap_values = shap_values  # Update stored value
+                    elif shap_values.ndim > 2:
+                        # If 3D (multi-class), take first class
+                        shap_values = shap_values[0]
+                    
+                    # Update stored value with properly formatted array
+                    st.session_state.ml_shap_values = shap_values
                     
                     st.markdown("---")
                     st.write("### 📊 SHAP Visualizations")
@@ -20074,10 +20082,24 @@ def show_churn_prediction():
                 explainer_churn = st.session_state.churn_shap_explainer
                 shap_viz_options_churn = st.session_state.get('churn_shap_viz_options', ["Summary Plot", "Feature Importance"])
                 
-                # Defensive check: ensure shap_values is 2D (handles legacy stored values)
-                if isinstance(shap_values_churn, np.ndarray) and shap_values_churn.ndim == 1:
+                # Defensive check: ensure shap_values is properly formatted (handles legacy stored values)
+                if isinstance(shap_values_churn, list):
+                    # If it's a list, convert first element to numpy array and ensure 2D
+                    shap_values_churn = np.array(shap_values_churn[0]) if len(shap_values_churn) > 0 else np.array(shap_values_churn)
+                
+                # Force conversion to numpy array (handles SHAP Explanation objects and other types)
+                if not isinstance(shap_values_churn, np.ndarray):
+                    shap_values_churn = np.array(shap_values_churn)
+                
+                # Ensure 2D shape
+                if shap_values_churn.ndim == 1:
                     shap_values_churn = shap_values_churn.reshape(1, -1)
-                    st.session_state.churn_shap_values = shap_values_churn  # Update stored value
+                elif shap_values_churn.ndim > 2:
+                    # If 3D (multi-class), take first class
+                    shap_values_churn = shap_values_churn[0]
+                
+                # Update stored value with properly formatted array
+                st.session_state.churn_shap_values = shap_values_churn
                 
                 st.markdown("---")
                 st.write("### 📊 SHAP Visualizations")
