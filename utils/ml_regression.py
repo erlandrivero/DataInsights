@@ -182,9 +182,28 @@ class MLRegressor:
             'Bagging': ('sklearn.ensemble', 'BaggingRegressor', {'n_estimators': 10, 'n_jobs': -1, 'random_state': 42}),
             
             # External Models
-            'XGBoost': ('xgboost', 'XGBRegressor', {'n_estimators': 100, 'max_depth': 5, 'random_state': 42, 'verbosity': 0}),
-            'LightGBM': ('lightgbm', 'LGBMRegressor', {'n_estimators': 100, 'max_depth': 5, 'random_state': 42, 'verbose': -1}),
-            'CatBoost': ('catboost', 'CatBoostRegressor', {'iterations': 100, 'depth': 5, 'random_state': 42, 'verbose': 0}),
+            'XGBoost': ('xgboost', 'XGBRegressor', {
+                'n_estimators': 100, 
+                'max_depth': 6, 
+                'random_state': 42, 
+                'verbosity': 0,
+                'learning_rate': 0.3,
+                'n_jobs': -1  # Use all CPU cores
+            }),
+            'LightGBM': ('lightgbm', 'LGBMRegressor', {
+                'n_estimators': 100, 
+                'max_depth': 6, 
+                'random_state': 42, 
+                'verbose': -1,
+                'n_jobs': -1  # Use all CPU cores
+            }),
+            'CatBoost': ('catboost', 'CatBoostRegressor', {
+                'iterations': 100, 
+                'depth': 6, 
+                'random_state': 42, 
+                'verbose': 0,
+                'thread_count': -1  # Use all CPU cores
+            }),
         }
         
         if model_name not in model_configs:

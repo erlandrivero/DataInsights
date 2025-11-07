@@ -317,9 +317,30 @@ class MLTrainer:
             'Histogram Gradient Boosting': ('sklearn.ensemble', 'HistGradientBoostingClassifier', {'random_state': 42, 'max_iter': 500}),
             
             # External Models
-            'XGBoost': ('xgboost', 'XGBClassifier', {'random_state': 42, 'eval_metric': 'logloss', 'use_label_encoder': False}),
-            'LightGBM': ('lightgbm', 'LGBMClassifier', {'random_state': 42, 'verbose': -1}),
-            'CatBoost': ('catboost', 'CatBoostClassifier', {'random_state': 42, 'verbose': 0}),
+            'XGBoost': ('xgboost', 'XGBClassifier', {
+                'random_state': 42, 
+                'eval_metric': 'logloss', 
+                'use_label_encoder': False,
+                'n_estimators': 100,
+                'max_depth': 6,
+                'learning_rate': 0.3,
+                'n_jobs': -1,  # Use all CPU cores
+                'verbosity': 0  # Suppress warnings
+            }),
+            'LightGBM': ('lightgbm', 'LGBMClassifier', {
+                'random_state': 42, 
+                'verbose': -1,
+                'n_estimators': 100,
+                'max_depth': 6,
+                'n_jobs': -1
+            }),
+            'CatBoost': ('catboost', 'CatBoostClassifier', {
+                'random_state': 42, 
+                'verbose': 0,
+                'iterations': 100,
+                'depth': 6,
+                'thread_count': -1  # Use all CPU cores
+            }),
         }
         
         if model_name not in model_configs:
