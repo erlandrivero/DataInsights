@@ -10159,6 +10159,288 @@ def show_anomaly_detection():
             else:
                 st.info(f"Feature importance is only available for Isolation Forest. Current algorithm: {algorithm}")
         
+        # SHAP Model Interpretability (only for Isolation Forest)
+        if algorithm == "Isolation Forest":
+            st.divider()
+            st.subheader("🔍 Model Interpretability (SHAP Analysis)")
+            
+            st.markdown("""
+            **SHAP (SHapley Additive exPlanations)** helps you understand:
+            - Which features contribute most to anomaly detection
+            - How each feature impacts individual anomaly scores
+            - Why certain data points are flagged as anomalies
+            """)
+            
+            # AI-Powered Presets with User Controls
+            with st.expander("⚙️ SHAP Analysis Settings", expanded=False):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    # Get AI recommendation for number of samples
+                    from utils.ai_helper import AIHelper
+                    ai_helper = AIHelper()
+                    
+                    dataset_size_anom = len(results)
+                    
+                    # AI-recommended preset based on dataset size
+                    if dataset_size_anom < 100:
+                        ai_recommended_samples_anom = min(50, dataset_size_anom)
+                        ai_reason_anom = "Small dataset - using most samples"
+                    elif dataset_size_anom < 1000:
+                        ai_recommended_samples_anom = 100
+                        ai_reason_anom = "Medium dataset - balanced speed/accuracy"
+                    else:
+                        ai_recommended_samples_anom = 200
+                        ai_reason_anom = "Large dataset - optimized for performance"
+                    
+                    st.info(f"🤖 **AI Recommendation:** {ai_recommended_samples_anom} samples\n\n*{ai_reason_anom}*")
+                    
+                    shap_samples_anom = st.slider(
+                        "Number of samples to analyze",
+                        min_value=10,
+                        max_value=min(500, dataset_size_anom),
+                        value=ai_recommended_samples_anom,
+                        step=10,
+                        key="anom_shap_samples",
+                        help="More samples = more accurate but slower. AI preset optimized for your dataset size."
+                    )
+                
+                with col2:
+                    st.info(f"🤖 **AI Recommendation:** Tree SHAP (Fast & Accurate)\n\n*Isolation Forest is a tree-based model*")
+                    
+                    shap_viz_options_anom = st.multiselect(
+                        "Select visualizations to generate",
+                        ["Summary Plot", "Feature Importance", "Dependence Plots", "Waterfall Plot (Sample)"],
+                        default=["Summary Plot", "Feature Importance"],
+                        key="anom_shap_viz",
+                        help="Choose which SHAP visualizations to create"
+                    )
+            
+            if st.button("🔍 Generate SHAP Explanations", key="anom_shap_btn", use_container_width=True):
+                try:
+                    import shap
+                    import matplotlib.pyplot as plt
+                    
+                    with st.status("🔍 Generating SHAP explanations...", expanded=True) as status:
+                        st.write("Loading model and data...")
+                        
+                        # Get trained model and data
+                        X_data_anom = results[feature_cols]
+                        model_anom = detector.model
+                        
+                        if model_anom is None:
+                            st.error("Model not available. Please run anomaly detection first.")
+                            st.stop()
+                        
+                        st.write(f"Analyzing Isolation Forest for SHAP...")
+                        
+                        # Sample data for SHAP (use user-selected number)
+                        if len(X_data_anom) > shap_samples_anom:
+                            np.random.seed(42)
+                            sample_indices = np.random.choice(len(X_data_anom), size=shap_samples_anom, replace=False)
+                            X_sample_anom = X_data_anom.iloc[sample_indices]
+                        else:
+                            X_sample_anom = X_data_anom
+                        
+                        st.write(f"Creating SHAP explainer for Isolation Forest...")
+                        
+                        # Use TreeExplainer for Isolation Forest
+                        explainer_anom = shap.TreeExplainer(model_anom)
+                        shap_values_anom = explainer_anom.shap_values(X_sample_anom)
+                        
+                        st.write("Generating visualizations...")
+                        
+                        # Store SHAP values and options in session state
+                        st.session_state.anom_shap_values = shap_values_anom
+                        st.session_state.anom_shap_data = X_sample_anom
+                        st.session_state.anom_shap_explainer = explainer_anom
+                        st.session_state.anom_shap_viz_options = shap_viz_options_anom
+                        
+                        status.update(label="✅ SHAP analysis complete!", state="complete", expanded=False)
+                    
+                    st.success("✅ SHAP explanations generated successfully!")
+                    
+                except ImportError:
+                    st.error("SHAP library not installed. Please install with: pip install shap")
+                except Exception as e:
+                    st.error(f"Error generating SHAP explanations: {str(e)}")
+                    import traceback
+                    st.code(traceback.format_exc())
+            
+            # Display SHAP visualizations (outside button block so they persist)
+            if 'anom_shap_values' in st.session_state and 'anom_shap_data' in st.session_state:
+                try:
+                    import shap
+                    import matplotlib.pyplot as plt
+                    
+                    shap_values_anom = st.session_state.anom_shap_values
+                    X_sample_anom = st.session_state.anom_shap_data
+                    explainer_anom = st.session_state.anom_shap_explainer
+                    shap_viz_options_anom = st.session_state.get('anom_shap_viz_options', ["Summary Plot", "Feature Importance"])
+                    
+                    st.markdown("---")
+                    st.write("### 📊 SHAP Visualizations")
+                    
+                    # Display selected visualizations
+                    if "Summary Plot" in shap_viz_options_anom:
+                        st.write("**📊 SHAP Summary Plot (Top 10 Features)**")
+                        st.write("Shows the impact of each feature on anomaly scores across all samples.")
+                        
+                        # Calculate mean absolute SHAP values for each feature
+                        mean_abs_shap_anom = np.abs(shap_values_anom).mean(axis=0)
+                        
+                        # Get top 10 features
+                        top_indices_anom = np.argsort(mean_abs_shap_anom)[-10:]
+                        top_features_anom = X_sample_anom.columns[top_indices_anom]
+                        top_shap_values_anom = shap_values_anom[:, top_indices_anom]
+                        
+                        # Create interactive Plotly scatter plot
+                        fig = go.Figure()
+                        
+                        for i, feature in enumerate(top_features_anom):
+                            feature_values_anom = X_sample_anom.iloc[:, top_indices_anom[i]]
+                            shap_vals_anom = top_shap_values_anom[:, i]
+                            
+                            fig.add_trace(go.Scatter(
+                                x=shap_vals_anom,
+                                y=[feature] * len(shap_vals_anom),
+                                mode='markers',
+                                marker=dict(
+                                    size=4,
+                                    color=feature_values_anom,
+                                    colorscale='RdBu',
+                                    showscale=(i == len(top_features_anom) - 1),
+                                    colorbar=dict(title="Feature<br>Value", x=1.02) if i == len(top_features_anom) - 1 else None,
+                                    line=dict(width=0.5, color='white')
+                                ),
+                                hovertemplate=f'<b>{feature}</b><br>SHAP: %{{x:.3f}}<br>Value: %{{marker.color:.2f}}<extra></extra>',
+                                showlegend=False
+                            ))
+                        
+                        fig.update_layout(
+                            title='SHAP Summary Plot (Top 10 Anomaly Drivers)',
+                            xaxis_title='SHAP Value (impact on anomaly score)',
+                            yaxis_title='',
+                            height=400,
+                            hovermode='closest',
+                            yaxis={'categoryorder': 'array', 'categoryarray': top_features_anom[::-1]}
+                        )
+                        
+                        st.plotly_chart(fig, use_container_width=True)
+                    
+                    if "Feature Importance" in shap_viz_options_anom:
+                        st.write("**📈 SHAP Feature Importance (Top 10 Features)**")
+                        st.write("Global feature importance based on mean absolute SHAP values.")
+                        
+                        # Calculate mean absolute SHAP values
+                        mean_abs_shap_anom = np.abs(shap_values_anom).mean(axis=0)
+                        
+                        # Get top 10 features
+                        top_indices_anom = np.argsort(mean_abs_shap_anom)[-10:]
+                        top_features_anom = X_sample_anom.columns[top_indices_anom]
+                        top_importance_anom = mean_abs_shap_anom[top_indices_anom]
+                        
+                        # Create Plotly bar chart (matching existing feature importance style)
+                        importance_df_anom = pd.DataFrame({
+                            'Feature': top_features_anom,
+                            'Importance': top_importance_anom
+                        }).sort_values('Importance', ascending=True)
+                        
+                        fig = px.bar(
+                            importance_df_anom,
+                            x='Importance',
+                            y='Feature',
+                            orientation='h',
+                            title='SHAP Feature Importance (Top 10 Anomaly Drivers)',
+                            labels={'Importance': 'Mean |SHAP Value|', 'Feature': ''}
+                        )
+                        fig.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
+                        st.plotly_chart(fig, use_container_width=True)
+                    
+                    if "Dependence Plots" in shap_viz_options_anom:
+                        st.write("**🔗 SHAP Dependence Plots (Top 3 Features)**")
+                        st.write("Shows how a single feature impacts anomaly scores across its range.")
+                        
+                        # Get top 3 features
+                        vals_anom = np.abs(shap_values_anom).mean(0)
+                        top_features_idx_anom = np.argsort(vals_anom)[-3:][::-1]
+                        
+                        for idx in top_features_idx_anom:
+                            feature_name_anom = X_sample_anom.columns[idx]
+                            
+                            # Create Plotly scatter plot for dependence
+                            fig = go.Figure()
+                            
+                            fig.add_trace(go.Scatter(
+                                x=X_sample_anom.iloc[:, idx],
+                                y=shap_values_anom[:, idx],
+                                mode='markers',
+                                marker=dict(
+                                    size=5,
+                                    color=shap_values_anom[:, idx],
+                                    colorscale='RdBu',
+                                    showscale=True,
+                                    colorbar=dict(title="SHAP<br>Value"),
+                                    line=dict(width=0.5, color='white')
+                                ),
+                                hovertemplate=f'<b>{feature_name_anom}</b><br>Value: %{{x:.2f}}<br>SHAP: %{{y:.3f}}<extra></extra>'
+                            ))
+                            
+                            fig.update_layout(
+                                title=f'SHAP Dependence Plot: {feature_name_anom}',
+                                xaxis_title=feature_name_anom,
+                                yaxis_title='SHAP Value',
+                                height=350,
+                                hovermode='closest'
+                            )
+                            
+                            st.plotly_chart(fig, use_container_width=True)
+                    
+                    if "Waterfall Plot (Sample)" in shap_viz_options_anom:
+                        st.write("**💧 SHAP Waterfall Plot (First Sample)**")
+                        st.write("Explains a single prediction - shows how each feature contributed to the anomaly score.")
+                        
+                        # Get SHAP values and feature values for first sample
+                        sample_shap_anom = shap_values_anom[0]
+                        sample_features_anom = X_sample_anom.iloc[0]
+                        expected_val_anom = explainer_anom.expected_value
+                        
+                        # Sort by absolute SHAP value and take top 10
+                        sorted_idx_anom = np.argsort(np.abs(sample_shap_anom))[-10:]
+                        sorted_features_anom = sample_features_anom.iloc[sorted_idx_anom].index.tolist()
+                        sorted_shap_anom = sample_shap_anom[sorted_idx_anom]
+                        sorted_values_anom = sample_features_anom.iloc[sorted_idx_anom].values
+                        
+                        # Create waterfall-style bar chart
+                        colors_anom = ['#FF4444' if val > 0 else '#4444FF' for val in sorted_shap_anom]
+                        
+                        fig = go.Figure()
+                        
+                        fig.add_trace(go.Bar(
+                            x=sorted_shap_anom,
+                            y=sorted_features_anom,
+                            orientation='h',
+                            marker=dict(color=colors_anom),
+                            hovertemplate='<b>%{y}</b><br>SHAP: %{x:.3f}<br>Value: %{customdata:.2f}<extra></extra>',
+                            customdata=sorted_values_anom
+                        ))
+                        
+                        fig.update_layout(
+                            title=f'SHAP Waterfall Plot - First Sample (Base value: {expected_val_anom:.3f})',
+                            xaxis_title='SHAP Value (impact on anomaly score)',
+                            yaxis_title='',
+                            height=400,
+                            showlegend=False
+                        )
+                        
+                        st.plotly_chart(fig, use_container_width=True)
+                        st.caption("🔴 Red = increases anomaly score | 🔵 Blue = decreases anomaly score")
+                    
+                    st.info("💡 **Tip:** SHAP values help you understand why data points are flagged as anomalies!")
+                    
+                except Exception as e:
+                    st.error(f"Error displaying SHAP visualizations: {str(e)}")
+        
         # AI Explanation section (outside tabs to prevent tab reset on button click)
         st.divider()
         st.subheader("🤖 9. AI-Powered Anomaly Explanation")
