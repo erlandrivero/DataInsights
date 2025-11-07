@@ -7354,25 +7354,24 @@ def show_ml_classification():
                 from utils.ai_helper import AIHelper
                 ai = AIHelper()
                 
-                with st.status("🤖 Analyzing classification results and generating insights...", expanded=True) as status:
-                    st.write("Preparing analysis data...")
-                    # Get data from session state
-                    ml_results_data = st.session_state.get('ml_results', [])
-                    ml_trainer_data = st.session_state.get('ml_trainer')
-                    ml_data_df = st.session_state.get('ml_data', pd.DataFrame())
-                    
-                    if not ml_results_data or ml_trainer_data is None or ml_data_df.empty:
-                        st.error("No ML results available. Please train models first.")
-                        st.stop()
-                    
-                    # Get successful results and best model
-                    successful_results_data = [r for r in ml_results_data if r.get('accuracy') is not None]
-                    if not successful_results_data:
-                        st.error("No successful model results available.")
-                        st.stop()
-                    
-                    best_model_data = max(successful_results_data, key=lambda x: x.get('f1', 0))
-                    
+                # Get data from session state
+                ml_results_data = st.session_state.get('ml_results', [])
+                ml_trainer_data = st.session_state.get('ml_trainer')
+                ml_data_df = st.session_state.get('ml_data', pd.DataFrame())
+                
+                if not ml_results_data or ml_trainer_data is None or ml_data_df.empty:
+                    st.error("No ML results available. Please train models first.")
+                    st.stop()
+                
+                # Get successful results and best model
+                successful_results_data = [r for r in ml_results_data if r.get('accuracy') is not None]
+                if not successful_results_data:
+                    st.error("No successful model results available.")
+                    st.stop()
+                
+                best_model_data = max(successful_results_data, key=lambda x: x.get('f1', 0))
+                
+                with st.status("🤖 Analyzing classification results...", expanded=True) as status:
                     # Prepare context
                     context = f"""
                     Machine Learning Classification Results:
@@ -7419,8 +7418,9 @@ def show_ml_classification():
                     
                     # Save to session state
                     st.session_state.ml_ai_insights = insights
-                    status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+                    status.update(label="✅ Complete!", state="complete", expanded=False)
                 
+                # Display results outside status box
                 st.success("✅ AI insights generated successfully!")
                 st.markdown(st.session_state.ml_ai_insights)
                 st.info("✅ AI insights saved! These will be included in your report downloads.")
@@ -8445,25 +8445,24 @@ def show_ml_regression():
                 from utils.ai_helper import AIHelper
                 ai = AIHelper()
                 
-                with st.status("🤖 Analyzing regression results and generating insights...", expanded=True) as status:
-                    st.write("Preparing analysis data...")
-                    # Get data from session state
-                    mlr_results_data = st.session_state.get('mlr_results', [])
-                    mlr_regressor_data = st.session_state.get('mlr_regressor')
-                    mlr_data_df = st.session_state.get('mlr_data', pd.DataFrame())
-                    
-                    if not mlr_results_data or mlr_regressor_data is None or mlr_data_df.empty:
-                        st.error("No ML Regression results available. Please train models first.")
-                        st.stop()
-                    
-                    # Get successful results and best model
-                    successful_results_data = [r for r in mlr_results_data if r.get('r2') is not None]
-                    if not successful_results_data:
-                        st.error("No successful model results available.")
-                        st.stop()
-                    
-                    best_model_data = max(successful_results_data, key=lambda x: x.get('r2', -999))
-                    
+                # Get data from session state
+                mlr_results_data = st.session_state.get('mlr_results', [])
+                mlr_regressor_data = st.session_state.get('mlr_regressor')
+                mlr_data_df = st.session_state.get('mlr_data', pd.DataFrame())
+                
+                if not mlr_results_data or mlr_regressor_data is None or mlr_data_df.empty:
+                    st.error("No ML Regression results available. Please train models first.")
+                    st.stop()
+                
+                # Get successful results and best model
+                successful_results_data = [r for r in mlr_results_data if r.get('r2') is not None]
+                if not successful_results_data:
+                    st.error("No successful model results available.")
+                    st.stop()
+                
+                best_model_data = max(successful_results_data, key=lambda x: x.get('r2', -999))
+                
+                with st.status("🤖 Analyzing regression results...", expanded=True) as status:
                     # Prepare context
                     context = f"""
                     Machine Learning Regression Results:
@@ -8511,8 +8510,9 @@ def show_ml_regression():
                     
                     # Save to session state
                     st.session_state.mlr_ai_insights = insights
-                    status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+                    status.update(label="✅ Complete!", state="complete", expanded=False)
                 
+                # Display results outside status box
                 st.success("✅ AI insights generated successfully!")
                 st.markdown(st.session_state.mlr_ai_insights)
                 st.info("✅ AI insights saved! These will be included in your report downloads.")
