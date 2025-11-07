@@ -7512,8 +7512,15 @@ def show_ml_classification():
                         
                         st.write("Generating visualizations...")
                         
+                        # Convert SHAP values to numpy array before storing (fixes multi-dimensional indexing)
+                        if isinstance(shap_values, list):
+                            # Multi-class or binary with list format - convert to numpy array
+                            shap_values_to_store = np.array(shap_values[0]) if len(shap_values) > 0 else shap_values
+                        else:
+                            shap_values_to_store = shap_values
+                        
                         # Store SHAP values and options in session state
-                        st.session_state.ml_shap_values = shap_values
+                        st.session_state.ml_shap_values = shap_values_to_store
                         st.session_state.ml_shap_data = X_sample
                         st.session_state.ml_shap_explainer = explainer
                         st.session_state.ml_shap_viz_options = shap_viz_options
@@ -9001,8 +9008,14 @@ def show_ml_regression():
                         
                         st.write("Generating visualizations...")
                         
+                        # Convert SHAP values to numpy array before storing (fixes multi-dimensional indexing)
+                        if isinstance(shap_values_mlr, list):
+                            shap_values_to_store = np.array(shap_values_mlr[0]) if len(shap_values_mlr) > 0 else shap_values_mlr
+                        else:
+                            shap_values_to_store = shap_values_mlr
+                        
                         # Store SHAP values and options in session state
-                        st.session_state.mlr_shap_values = shap_values_mlr
+                        st.session_state.mlr_shap_values = shap_values_to_store
                         st.session_state.mlr_shap_data = X_sample_mlr
                         st.session_state.mlr_shap_explainer = explainer_mlr
                         st.session_state.mlr_shap_viz_options = shap_viz_options_mlr
@@ -10319,8 +10332,14 @@ def show_anomaly_detection():
                         
                         st.write("Generating visualizations...")
                         
+                        # Convert SHAP values to numpy array before storing (fixes multi-dimensional indexing)
+                        if isinstance(shap_values_anom, list):
+                            shap_values_to_store = np.array(shap_values_anom[0]) if len(shap_values_anom) > 0 else shap_values_anom
+                        else:
+                            shap_values_to_store = shap_values_anom
+                        
                         # Store SHAP values and options in session state
-                        st.session_state.anom_shap_values = shap_values_anom
+                        st.session_state.anom_shap_values = shap_values_to_store
                         st.session_state.anom_shap_data = X_sample_anom
                         st.session_state.anom_shap_explainer = explainer_anom
                         st.session_state.anom_shap_viz_options = shap_viz_options_anom
@@ -19983,8 +20002,14 @@ def show_churn_prediction():
                     
                     st.write("Generating visualizations...")
                     
+                    # Convert SHAP values to numpy array before storing (fixes multi-dimensional indexing)
+                    if isinstance(shap_values_churn, list):
+                        shap_values_to_store = np.array(shap_values_churn[0]) if len(shap_values_churn) > 0 else shap_values_churn
+                    else:
+                        shap_values_to_store = shap_values_churn
+                    
                     # Store SHAP values and options in session state
-                    st.session_state.churn_shap_values = shap_values_churn
+                    st.session_state.churn_shap_values = shap_values_to_store
                     st.session_state.churn_shap_data = X_sample_churn
                     st.session_state.churn_shap_explainer = explainer_churn
                     st.session_state.churn_shap_viz_options = shap_viz_options_churn
