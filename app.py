@@ -7077,441 +7077,444 @@ def show_ml_classification():
         results = st.session_state.ml_results
         trainer = st.session_state.ml_trainer
         
-        st.divider()
-        st.subheader("📊 3. Model Performance Results")
-        
         # Summary metrics
         successful_results = [r for r in results if r['success']]
         # Sort by F1 Score to get the best model
         successful_results = sorted(successful_results, key=lambda x: x['f1'], reverse=True)
         best_model = successful_results[0] if successful_results else None
         
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Models Trained", len(results))
-        with col2:
-            st.metric("Successful", len(successful_results))
-        with col3:
-            if best_model:
-                st.metric("Best F1 Score", f"{best_model['f1']:.4f}")
-        with col4:
-            # Safely sum training times, handling non-numeric values
-            total_time = 0
-            for r in results:
-                time_val = r.get('training_time', 0)
-                try:
-                    if time_val is not None:
-                        total_time += float(time_val)
-                except (ValueError, TypeError):
-                    # Skip non-numeric training times
-                    continue
-            st.metric("Total Time", f"{total_time:.2f}s")
-        
-        # Results table
-        st.write("**Model Comparison Table:**")
-        
-        # Create results dataframe
-        results_data = []
-        for r in successful_results:
-            results_data.append({
-                'Model': r.get('model_name', 'Unknown'),
-                'Accuracy': f"{(r.get('accuracy') or 0):.4f}",
-                'Precision': f"{(r.get('precision') or 0):.4f}",
-                'Recall': f"{(r.get('recall') or 0):.4f}",
-                'F1 Score': f"{(r.get('f1') or 0):.4f}",
-                'ROC-AUC': f"{r['roc_auc']:.4f}" if r.get('roc_auc') else 'N/A',
-                'CV Mean': f"{r['cv_mean']:.4f}" if r.get('cv_mean') else 'N/A',
-                'CV Std': f"{r['cv_std']:.4f}" if r.get('cv_std') else 'N/A',
-                'Time (s)': f"{(r.get('training_time') or 0):.3f}"
-            })
-        
-        results_df = pd.DataFrame(results_data)
-        
-        # Sort by F1 Score (best to worst)
-        results_df['_f1_sort'] = results_df['F1 Score'].astype(float)
-        results_df = results_df.sort_values('_f1_sort', ascending=False).drop('_f1_sort', axis=1).reset_index(drop=True)
-        
-        # Store in session state for export
-        st.session_state.ml_results_df = results_df
-        
-        # Highlight best model
-        def highlight_best(row):
-            if row['Model'] == best_model['model_name']:
-                return ['background-color: #90EE90'] * len(row)
-            return [''] * len(row)
-        
-        styled_df = results_df.style.apply(highlight_best, axis=1)
-        st.dataframe(styled_df, use_container_width=True)
-        
-        # Visualizations
-        st.divider()
-        st.subheader("📈 4. Model Comparison Visualizations")
-        
-        tab1, tab2, tab3, tab4 = st.tabs(["F1 Score Comparison", "Metrics Radar", "Cross-Validation", "Training Time"])
-        
-        with tab1:
-            st.write("**F1 Score Comparison (All Models)**")
-            
-            # Sort by F1 for visualization
-            f1_data = [(r.get('model_name', 'Unknown'), r.get('f1') or 0) for r in successful_results]
-            f1_data.sort(key=lambda x: x[1], reverse=True)
-            
-            models = [d[0] for d in f1_data]
-            f1_scores = [d[1] for d in f1_data]
-            
-            # Color code: top 3 green, rest blue
-            colors = ['green' if i < 3 else 'blue' for i in range(len(models))]
-            
-            fig_f1 = go.Figure(data=[
-                go.Bar(x=models, y=f1_scores, marker_color=colors)
-            ])
-            fig_f1.add_hline(y=np.mean(f1_scores), line_dash="dash", 
-                            annotation_text=f"Mean: {np.mean(f1_scores):.4f}",
-                            line_color="red")
-            fig_f1.update_layout(
-                title="F1 Score by Model",
-                xaxis_title="Model",
-                yaxis_title="F1 Score",
-                height=500
-            )
-            fig_f1.update_xaxes(tickangle=-45)
-            st.plotly_chart(fig_f1, use_container_width=True)
-        
-        with tab2:
-            st.write("**Metrics Radar Chart (Top 3 Models)**")
-            
-            # Get top 3 models
-            top3 = successful_results[:3]
-            
-            fig_radar = go.Figure()
-            
-            for model_result in top3:
-                metrics = ['Accuracy', 'Precision', 'Recall', 'F1', 'ROC-AUC']
-                values = [
-                    model_result.get('accuracy', 0),
-                    model_result.get('precision', 0),
-                    model_result.get('recall', 0),
-                    model_result.get('f1', 0),
-                    model_result.get('roc_auc', 0) or 0
-                ]
-                
-                fig_radar.add_trace(go.Scatterpolar(
-                    r=values,
-                    theta=metrics,
-                    fill='toself',
-                    name=model_result.get('model_name', 'Unknown')
-                ))
-            
-            fig_radar.update_layout(
-                polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
-                showlegend=True,
-                title="Performance Comparison: Top 3 Models",
-                height=500
-            )
-            st.plotly_chart(fig_radar, use_container_width=True)
-        
-        with tab3:
-            st.write("**Cross-Validation Score Distribution**")
-            
-            # Box plot of CV scores
-            cv_data = []
-            for r in successful_results:
-                if r.get('cv_scores') and len(r.get('cv_scores', [])) > 0:
-                    for score in r['cv_scores']:
-                        cv_data.append({
-                            'Model': r.get('model_name', 'Unknown'),
-                            'CV Score': score
-                        })
-            
-            if cv_data:
-                cv_df = pd.DataFrame(cv_data)
-                fig_cv = px.box(cv_df, x='Model', y='CV Score', 
-                               title='Cross-Validation Score Distribution')
-                fig_cv.update_xaxes(tickangle=-45)
-                fig_cv.update_layout(height=500)
-                st.plotly_chart(fig_cv, use_container_width=True)
-            else:
-                st.info("No cross-validation data available")
-        
-        with tab4:
-            st.write("**Training Time Analysis**")
-            
-            # Sort by time
-            time_data = [(r.get('model_name', 'Unknown'), r.get('training_time') or 0) for r in successful_results]
-            time_data.sort(key=lambda x: x[1])
-            
-            models_time = [d[0] for d in time_data]
-            times = [d[1] for d in time_data]
-            
-            # Color code by speed
-            colors_time = []
-            for t in times:
-                if t < 1:
-                    colors_time.append('green')  # Fast
-                elif t < 5:
-                    colors_time.append('yellow')  # Medium
-                else:
-                    colors_time.append('red')  # Slow
-            
-            fig_time = go.Figure(data=[
-                go.Bar(y=models_time, x=times, orientation='h', marker_color=colors_time)
-            ])
-            fig_time.update_layout(
-                title="Training Time by Model (seconds)",
-                xaxis_title="Time (seconds)",
-                yaxis_title="Model",
-                height=600
-            )
-            st.plotly_chart(fig_time, use_container_width=True)
-        
-        # Best model details
-        if best_model:
+        if len(successful_results) == 0:
+            st.warning("⚠️ No successful model results. Please check your data and try again.")
+        else:
             st.divider()
-            st.subheader(f"🏆 Best Model: {best_model['model_name']}")
+            st.subheader("📊 3. Model Performance Results")
+        
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Models Trained", len(results))
+            with col2:
+                st.metric("Successful", len(successful_results))
+            with col3:
+                if best_model:
+                    st.metric("Best F1 Score", f"{best_model['f1']:.4f}")
+            with col4:
+                # Safely sum training times, handling non-numeric values
+                total_time = 0
+                for r in results:
+                    time_val = r.get('training_time', 0)
+                    try:
+                        if time_val is not None:
+                            total_time += float(time_val)
+                    except (ValueError, TypeError):
+                        # Skip non-numeric training times
+                        continue
+                st.metric("Total Time", f"{total_time:.2f}s")
             
-            best_details = trainer.get_best_model_details(results)
+            # Results table
+            st.write("**Model Comparison Table:**")
             
-            if best_details:
-                # Performance summary
-                col1, col2, col3, col4, col5 = st.columns(5)
-                with col1:
-                    st.metric("Accuracy", f"{best_details['metrics']['accuracy']:.4f}")
-                with col2:
-                    st.metric("Precision", f"{best_details['metrics']['precision']:.4f}")
-                with col3:
-                    st.metric("Recall", f"{best_details['metrics']['recall']:.4f}")
-                with col4:
-                    st.metric("F1 Score", f"{best_details['metrics']['f1']:.4f}")
-                with col5:
-                    if best_details['metrics']['roc_auc']:
-                        st.metric("ROC-AUC", f"{best_details['metrics']['roc_auc']:.4f}")
+            # Create results dataframe
+            results_data = []
+            for r in successful_results:
+                results_data.append({
+                    'Model': r.get('model_name', 'Unknown'),
+                    'Accuracy': f"{(r.get('accuracy') or 0):.4f}",
+                    'Precision': f"{(r.get('precision') or 0):.4f}",
+                    'Recall': f"{(r.get('recall') or 0):.4f}",
+                    'F1 Score': f"{(r.get('f1') or 0):.4f}",
+                    'ROC-AUC': f"{r['roc_auc']:.4f}" if r.get('roc_auc') else 'N/A',
+                    'CV Mean': f"{r['cv_mean']:.4f}" if r.get('cv_mean') else 'N/A',
+                    'CV Std': f"{r['cv_std']:.4f}" if r.get('cv_std') else 'N/A',
+                    'Time (s)': f"{(r.get('training_time') or 0):.3f}"
+                })
+            
+            results_df = pd.DataFrame(results_data)
+            
+            # Sort by F1 Score (best to worst)
+            results_df['_f1_sort'] = results_df['F1 Score'].astype(float)
+            results_df = results_df.sort_values('_f1_sort', ascending=False).drop('_f1_sort', axis=1).reset_index(drop=True)
+            
+            # Store in session state for export
+            st.session_state.ml_results_df = results_df
+            
+            # Highlight best model
+            def highlight_best(row):
+                if row['Model'] == best_model['model_name']:
+                    return ['background-color: #90EE90'] * len(row)
+                return [''] * len(row)
+            
+            styled_df = results_df.style.apply(highlight_best, axis=1)
+            st.dataframe(styled_df, use_container_width=True)
+            
+            # Visualizations
+            st.divider()
+            st.subheader("📈 4. Model Comparison Visualizations")
+            
+            tab1, tab2, tab3, tab4 = st.tabs(["F1 Score Comparison", "Metrics Radar", "Cross-Validation", "Training Time"])
+            
+            with tab1:
+                st.write("**F1 Score Comparison (All Models)**")
                 
-                # Confusion Matrix
-                st.write("**Confusion Matrix:**")
-                cm = np.array(best_details['confusion_matrix'])
+                # Sort by F1 for visualization
+                f1_data = [(r.get('model_name', 'Unknown'), r.get('f1') or 0) for r in successful_results]
+                f1_data.sort(key=lambda x: x[1], reverse=True)
                 
-                fig_cm = px.imshow(
-                    cm,
-                    labels=dict(x="Predicted", y="Actual", color="Count"),
-                    x=best_details['class_names'],
-                    y=best_details['class_names'],
-                    color_continuous_scale='Blues',
-                    text_auto=True
+                models = [d[0] for d in f1_data]
+                f1_scores = [d[1] for d in f1_data]
+                
+                # Color code: top 3 green, rest blue
+                colors = ['green' if i < 3 else 'blue' for i in range(len(models))]
+                
+                fig_f1 = go.Figure(data=[
+                    go.Bar(x=models, y=f1_scores, marker_color=colors)
+                ])
+                fig_f1.add_hline(y=np.mean(f1_scores), line_dash="dash", 
+                                annotation_text=f"Mean: {np.mean(f1_scores):.4f}",
+                                line_color="red")
+                fig_f1.update_layout(
+                    title="F1 Score by Model",
+                    xaxis_title="Model",
+                    yaxis_title="F1 Score",
+                    height=500
                 )
-                fig_cm.update_layout(title="Confusion Matrix", height=500)
-                st.plotly_chart(fig_cm, use_container_width=True)
+                fig_f1.update_xaxes(tickangle=-45)
+                st.plotly_chart(fig_f1, use_container_width=True)
+            
+            with tab2:
+                st.write("**Metrics Radar Chart (Top 3 Models)**")
                 
-                # Feature Importance
-                if best_details['feature_importance']:
-                    st.write("**Top 10 Most Important Features:**")
+                # Get top 3 models
+                top3 = successful_results[:3]
+                
+                fig_radar = go.Figure()
+                
+                for model_result in top3:
+                    metrics = ['Accuracy', 'Precision', 'Recall', 'F1', 'ROC-AUC']
+                    values = [
+                        model_result.get('accuracy', 0),
+                        model_result.get('precision', 0),
+                        model_result.get('recall', 0),
+                        model_result.get('f1', 0),
+                        model_result.get('roc_auc', 0) or 0
+                    ]
                     
-                    feat_imp = best_details['feature_importance']
-                    importance_df = pd.DataFrame({
-                        'Feature': feat_imp['features'],
-                        'Importance': feat_imp['importances']
-                    })
-                    # Sort descending and take top 10, then reverse for proper chart display (highest at top)
-                    importance_df = importance_df.sort_values('Importance', ascending=False).head(10)
-                    importance_df = importance_df.sort_values('Importance', ascending=True)  # Reverse for chart display
+                    fig_radar.add_trace(go.Scatterpolar(
+                        r=values,
+                        theta=metrics,
+                        fill='toself',
+                        name=model_result.get('model_name', 'Unknown')
+                    ))
+                
+                fig_radar.update_layout(
+                    polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
+                    showlegend=True,
+                    title="Performance Comparison: Top 3 Models",
+                    height=500
+                )
+                st.plotly_chart(fig_radar, use_container_width=True)
+            
+            with tab3:
+                st.write("**Cross-Validation Score Distribution**")
+                
+                # Box plot of CV scores
+                cv_data = []
+                for r in successful_results:
+                    if r.get('cv_scores') and len(r.get('cv_scores', [])) > 0:
+                        for score in r['cv_scores']:
+                            cv_data.append({
+                                'Model': r.get('model_name', 'Unknown'),
+                                'CV Score': score
+                            })
+                
+                if cv_data:
+                    cv_df = pd.DataFrame(cv_data)
+                    fig_cv = px.box(cv_df, x='Model', y='CV Score', 
+                                   title='Cross-Validation Score Distribution')
+                    fig_cv.update_xaxes(tickangle=-45)
+                    fig_cv.update_layout(height=500)
+                    st.plotly_chart(fig_cv, use_container_width=True)
+                else:
+                    st.info("No cross-validation data available")
+            
+            with tab4:
+                st.write("**Training Time Analysis**")
+                
+                # Sort by time
+                time_data = [(r.get('model_name', 'Unknown'), r.get('training_time') or 0) for r in successful_results]
+                time_data.sort(key=lambda x: x[1])
+                
+                models_time = [d[0] for d in time_data]
+                times = [d[1] for d in time_data]
+                
+                # Color code by speed
+                colors_time = []
+                for t in times:
+                    if t < 1:
+                        colors_time.append('green')  # Fast
+                    elif t < 5:
+                        colors_time.append('yellow')  # Medium
+                    else:
+                        colors_time.append('red')  # Slow
+                
+                fig_time = go.Figure(data=[
+                    go.Bar(y=models_time, x=times, orientation='h', marker_color=colors_time)
+                ])
+                fig_time.update_layout(
+                    title="Training Time by Model (seconds)",
+                    xaxis_title="Time (seconds)",
+                    yaxis_title="Model",
+                    height=600
+                )
+                st.plotly_chart(fig_time, use_container_width=True)
+            
+            # Best model details
+            if best_model:
+                st.divider()
+                st.subheader(f"🏆 Best Model: {best_model['model_name']}")
+                
+                best_details = trainer.get_best_model_details(results)
+                
+                if best_details:
+                    # Performance summary
+                    col1, col2, col3, col4, col5 = st.columns(5)
+                    with col1:
+                        st.metric("Accuracy", f"{best_details['metrics']['accuracy']:.4f}")
+                    with col2:
+                        st.metric("Precision", f"{best_details['metrics']['precision']:.4f}")
+                    with col3:
+                        st.metric("Recall", f"{best_details['metrics']['recall']:.4f}")
+                    with col4:
+                        st.metric("F1 Score", f"{best_details['metrics']['f1']:.4f}")
+                    with col5:
+                        if best_details['metrics']['roc_auc']:
+                            st.metric("ROC-AUC", f"{best_details['metrics']['roc_auc']:.4f}")
                     
-                    fig_imp = px.bar(
-                        importance_df,
-                        x='Importance',
-                        y='Feature',
-                        orientation='h',
-                        title='Top 10 Most Important Features (Highest to Lowest)'
+                    # Confusion Matrix
+                    st.write("**Confusion Matrix:**")
+                    cm = np.array(best_details['confusion_matrix'])
+                    
+                    fig_cm = px.imshow(
+                        cm,
+                        labels=dict(x="Predicted", y="Actual", color="Count"),
+                        x=best_details['class_names'],
+                        y=best_details['class_names'],
+                        color_continuous_scale='Blues',
+                        text_auto=True
                     )
-                    fig_imp.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
-                    st.plotly_chart(fig_imp, use_container_width=True)
-                
-                # Model info
-                with st.expander("📖 About This Model"):
-                    model_info = trainer.get_model_info(best_model['model_name'])
-                    st.markdown(f"""
-                    **Description:** {model_info['description']}
+                    fig_cm.update_layout(title="Confusion Matrix", height=500)
+                    st.plotly_chart(fig_cm, use_container_width=True)
                     
-                    **Strengths:**
-                    {model_info['strengths']}
+                    # Feature Importance
+                    if best_details['feature_importance']:
+                        st.write("**Top 10 Most Important Features:**")
+                        
+                        feat_imp = best_details['feature_importance']
+                        importance_df = pd.DataFrame({
+                            'Feature': feat_imp['features'],
+                            'Importance': feat_imp['importances']
+                        })
+                        # Sort descending and take top 10, then reverse for proper chart display (highest at top)
+                        importance_df = importance_df.sort_values('Importance', ascending=False).head(10)
+                        importance_df = importance_df.sort_values('Importance', ascending=True)  # Reverse for chart display
+                        
+                        fig_imp = px.bar(
+                            importance_df,
+                            x='Importance',
+                            y='Feature',
+                            orientation='h',
+                            title='Top 10 Most Important Features (Highest to Lowest)'
+                        )
+                        fig_imp.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
+                        st.plotly_chart(fig_imp, use_container_width=True)
                     
-                    **Weaknesses:**
-                    {model_info['weaknesses']}
-                    
-                    **Best Use Cases:**
-                    {model_info['use_cases']}
-                    """)
-        
-        # Clear any lingering containers from Plotly/tabs to prevent shadow overlay
-        st.markdown("---")
-        st.empty()
-        
-        # AI Insights
-        st.divider()
-        st.subheader("✨ AI-Powered Insights")
-        
-        # Display saved insights if they exist
-        if 'ml_ai_insights' in st.session_state:
-            st.markdown(st.session_state.ml_ai_insights)
-            st.info("✅ AI insights saved! These will be included in your report downloads.")
-        
-        if st.button("🤖 Generate AI Insights", key="ml_ai_insights_btn", use_container_width=True):
-            try:
-                from utils.ai_helper import AIHelper
-                ai = AIHelper()
-                
-                with st.status("🤖 Analyzing classification results and generating insights...", expanded=True) as status:
-                    st.write("Preparing analysis data...")
-                    # Get data from session state
-                    ml_results_data = st.session_state.get('ml_results', [])
-                    ml_trainer_data = st.session_state.get('ml_trainer')
-                    ml_data_df = st.session_state.get('ml_data', pd.DataFrame())
-                    
-                    if not ml_results_data or ml_trainer_data is None or ml_data_df.empty:
-                        st.error("No ML results available. Please train models first.")
-                        st.stop()
-                    
-                    # Get successful results and best model
-                    successful_results_data = [r for r in ml_results_data if r.get('accuracy') is not None]
-                    if not successful_results_data:
-                        st.error("No successful model results available.")
-                        st.stop()
-                    
-                    best_model_data = max(successful_results_data, key=lambda x: x.get('f1', 0))
-                    # Prepare context
-                    context = f"""
-                    Machine Learning Classification Results:
-                    
-                    Dataset: {len(ml_data_df)} rows, {len(ml_data_df.columns)} columns
-                    Target: {ml_trainer_data.target_column}
-                    Classes: {', '.join(ml_trainer_data.class_names)}
-                    
-                    Models Trained: {len(successful_results_data)}
-                    Best Model: {best_model_data.get('model_name', 'Unknown')}
-                    Best F1 Score: {best_model_data.get('f1', 0):.4f}
-                    
-                    Top 3 Models:
-                    """
-                    
-                    for i, r in enumerate(successful_results_data[:3], 1):
-                        context += f"\n{i}. {r.get('model_name', 'Unknown')}: F1={r.get('f1', 0):.4f}, Accuracy={r.get('accuracy', 0):.4f}"
-                    
-                    prompt = f"""
-                    As a senior data science consultant, analyze these machine learning results and provide:
-                    
-                    1. **Performance Analysis** (2-3 sentences): Why did {best_model_data.get('model_name', 'the best model')} perform best?
-                    
-                    2. **Model Comparison** (2-3 sentences): Key differences between top 3 models and when to use each.
-                    
-                    3. **Business Recommendations** (3-4 bullet points): Which model to deploy and why? Consider accuracy, speed, interpretability.
-                    
-                    4. **Improvement Suggestions** (3-4 bullet points): How to potentially improve performance?
-                    
-                    5. **Deployment Considerations** (2-3 bullet points): What to watch for in production?
-                    
-                    {context}
-                    
-                    Be specific, actionable, and business-focused. Use clear language.
-                    """
-                    
-                    # Generate insights using Gemini
-                    insights = ai.generate_module_insights(
-                        system_role="senior data science consultant providing actionable ML insights",
-                        user_prompt=prompt,
-                        temperature=0.7,
-                        max_tokens=8000
-                    )
-                    
-                    # Save to session state
-                    st.session_state.ml_ai_insights = insights
-                    status.update(label="✅ Analysis complete!", state="complete", expanded=False)
-                
-                st.success("✅ AI insights generated successfully!")
+                    # Model info
+                    with st.expander("📖 About This Model"):
+                        model_info = trainer.get_model_info(best_model['model_name'])
+                        st.markdown(f"""
+                        **Description:** {model_info['description']}
+                        
+                        **Strengths:**
+                        {model_info['strengths']}
+                        
+                        **Weaknesses:**
+                        {model_info['weaknesses']}
+                        
+                        **Best Use Cases:**
+                        {model_info['use_cases']}
+                        """)
+            
+            # Clear any lingering containers from Plotly/tabs to prevent shadow overlay
+            st.markdown("---")
+            st.empty()
+            
+            # AI Insights
+            st.divider()
+            st.subheader("✨ AI-Powered Insights")
+            
+            # Display saved insights if they exist
+            if 'ml_ai_insights' in st.session_state:
                 st.markdown(st.session_state.ml_ai_insights)
                 st.info("✅ AI insights saved! These will be included in your report downloads.")
-                    
-            except Exception as e:
-                st.error(f"Error generating AI insights: {str(e)}")
-        
-        # Export section
-        st.divider()
-        st.subheader("📥 5. Export & Download")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Export results
-            if 'ml_results_df' in st.session_state:
-                results_export = st.session_state.ml_results_df.to_csv(index=False)
-                st.download_button(
-                    label="📥 Download Results Table (CSV)",
-                    data=results_export,
-                    file_name=f"ml_results_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                    mime="text/csv",
-                    use_container_width=True
-                )
-            else:
-                st.error("Results not available for export")
-        
-        with col2:
-            # Export best model report
-            if best_model:
+            
+            if st.button("🤖 Generate AI Insights", key="ml_ai_insights_btn", use_container_width=True):
                 try:
-                    # Generate markdown table from results
-                    if 'ml_results_df' in st.session_state:
-                        results_table = st.session_state.ml_results_df.to_markdown(index=False)
-                    else:
-                        results_table = "Results table not available"
+                    from utils.ai_helper import AIHelper
+                    ai = AIHelper()
                     
-                    # Format metrics safely
-                    roc_auc_str = f"{best_model.get('roc_auc'):.4f}" if best_model.get('roc_auc') else 'N/A'
-                    cv_mean_str = f"{best_model.get('cv_mean'):.4f}" if best_model.get('cv_mean') else 'N/A'
+                    with st.status("🤖 Analyzing classification results and generating insights...", expanded=True) as status:
+                        st.write("Preparing analysis data...")
+                        # Get data from session state
+                        ml_results_data = st.session_state.get('ml_results', [])
+                        ml_trainer_data = st.session_state.get('ml_trainer')
+                        ml_data_df = st.session_state.get('ml_data', pd.DataFrame())
+                        
+                        if not ml_results_data or ml_trainer_data is None or ml_data_df.empty:
+                            st.error("No ML results available. Please train models first.")
+                            st.stop()
+                        
+                        # Get successful results and best model
+                        successful_results_data = [r for r in ml_results_data if r.get('accuracy') is not None]
+                        if not successful_results_data:
+                            st.error("No successful model results available.")
+                            st.stop()
+                        
+                        best_model_data = max(successful_results_data, key=lambda x: x.get('f1', 0))
+                        # Prepare context
+                        context = f"""
+                        Machine Learning Classification Results:
+                        
+                        Dataset: {len(ml_data_df)} rows, {len(ml_data_df.columns)} columns
+                        Target: {ml_trainer_data.target_column}
+                        Classes: {', '.join(ml_trainer_data.class_names)}
+                        
+                        Models Trained: {len(successful_results_data)}
+                        Best Model: {best_model_data.get('model_name', 'Unknown')}
+                        Best F1 Score: {best_model_data.get('f1', 0):.4f}
+                        
+                        Top 3 Models:
+                        """
+                        
+                        for i, r in enumerate(successful_results_data[:3], 1):
+                            context += f"\n{i}. {r.get('model_name', 'Unknown')}: F1={r.get('f1', 0):.4f}, Accuracy={r.get('accuracy', 0):.4f}"
+                        
+                        prompt = f"""
+                        As a senior data science consultant, analyze these machine learning results and provide:
+                        
+                        1. **Performance Analysis** (2-3 sentences): Why did {best_model_data.get('model_name', 'the best model')} perform best?
+                        
+                        2. **Model Comparison** (2-3 sentences): Key differences between top 3 models and when to use each.
+                        
+                        3. **Business Recommendations** (3-4 bullet points): Which model to deploy and why? Consider accuracy, speed, interpretability.
+                        
+                        4. **Improvement Suggestions** (3-4 bullet points): How to potentially improve performance?
+                        
+                        5. **Deployment Considerations** (2-3 bullet points): What to watch for in production?
+                        
+                        {context}
+                        
+                        Be specific, actionable, and business-focused. Use clear language.
+                        """
+                        
+                        # Generate insights using Gemini
+                        insights = ai.generate_module_insights(
+                            system_role="senior data science consultant providing actionable ML insights",
+                            user_prompt=prompt,
+                            temperature=0.7,
+                            max_tokens=8000
+                        )
+                        
+                        # Save to session state
+                        st.session_state.ml_ai_insights = insights
+                        status.update(label="✅ Analysis complete!", state="complete", expanded=False)
                     
-                    report = f"""
-# Machine Learning Classification Report
-**Generated:** {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-## Best Model: {best_model.get('model_name', 'Unknown')}
-
-### Performance Metrics
-- **Accuracy:** {best_model.get('accuracy', 0):.4f}
-- **Precision:** {best_model.get('precision', 0):.4f}
-- **Recall:** {best_model.get('recall', 0):.4f}
-- **F1 Score:** {best_model.get('f1', 0):.4f}
-- **ROC-AUC:** {roc_auc_str}
-- **CV Mean:** {cv_mean_str}
-- **Training Time:** {(best_model.get('training_time') or 0):.3f}s
-
-## All Models Performance
-
-{results_table}
-
-## Dataset Information
-- **Rows:** {len(df)}
-- **Features:** {len(trainer.feature_names)}
-- **Target:** {target_col}
-- **Classes:** {', '.join(trainer.class_names)}
-"""
-                    
-                    # Add AI insights if available
-                    if 'ml_ai_insights' in st.session_state:
-                        report += f"""
-
-## 🤖 AI-Powered Strategic Insights
-
-{st.session_state.ml_ai_insights}
-
-"""
-                    
-                    report += """
----
-*Report generated by DataInsights - Machine Learning Module*
-"""
+                    st.success("✅ AI insights generated successfully!")
+                    st.markdown(st.session_state.ml_ai_insights)
+                    st.info("✅ AI insights saved! These will be included in your report downloads.")
+                        
                 except Exception as e:
-                    st.error(f"Error generating report: {str(e)}")
-                    report = "Error generating report"
-                st.download_button(
-                    label="📄 Download Best Model Report (MD)",
-                    data=report,
-                    file_name=f"ml_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.md",
+                    st.error(f"Error generating AI insights: {str(e)}")
+            
+            # Export section
+            st.divider()
+            st.subheader("📥 5. Export & Download")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Export results
+                if 'ml_results_df' in st.session_state:
+                    results_export = st.session_state.ml_results_df.to_csv(index=False)
+                    st.download_button(
+                        label="📥 Download Results Table (CSV)",
+                        data=results_export,
+                        file_name=f"ml_results_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+                else:
+                    st.error("Results not available for export")
+            
+            with col2:
+                # Export best model report
+                if best_model:
+                    try:
+                        # Generate markdown table from results
+                        if 'ml_results_df' in st.session_state:
+                            results_table = st.session_state.ml_results_df.to_markdown(index=False)
+                        else:
+                            results_table = "Results table not available"
+                        
+                        # Format metrics safely
+                        roc_auc_str = f"{best_model.get('roc_auc'):.4f}" if best_model.get('roc_auc') else 'N/A'
+                        cv_mean_str = f"{best_model.get('cv_mean'):.4f}" if best_model.get('cv_mean') else 'N/A'
+                        
+                        report = f"""
+    # Machine Learning Classification Report
+    **Generated:** {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
+    
+    ## Best Model: {best_model.get('model_name', 'Unknown')}
+    
+    ### Performance Metrics
+    - **Accuracy:** {best_model.get('accuracy', 0):.4f}
+    - **Precision:** {best_model.get('precision', 0):.4f}
+    - **Recall:** {best_model.get('recall', 0):.4f}
+    - **F1 Score:** {best_model.get('f1', 0):.4f}
+    - **ROC-AUC:** {roc_auc_str}
+    - **CV Mean:** {cv_mean_str}
+    - **Training Time:** {(best_model.get('training_time') or 0):.3f}s
+    
+    ## All Models Performance
+    
+    {results_table}
+    
+    ## Dataset Information
+    - **Rows:** {len(df)}
+    - **Features:** {len(trainer.feature_names)}
+    - **Target:** {target_col}
+    - **Classes:** {', '.join(trainer.class_names)}
+    """
+                        
+                        # Add AI insights if available
+                        if 'ml_ai_insights' in st.session_state:
+                            report += f"""
+    
+    ## 🤖 AI-Powered Strategic Insights
+    
+    {st.session_state.ml_ai_insights}
+    
+    """
+                        
+                        report += """
+    ---
+    *Report generated by DataInsights - Machine Learning Module*
+    """
+                    except Exception as e:
+                        st.error(f"Error generating report: {str(e)}")
+                        report = "Error generating report"
+                    st.download_button(
+                        label="📄 Download Best Model Report (MD)",
+                        data=report,
+                        file_name=f"ml_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.md",
                     mime="text/markdown",
                     use_container_width=True
                 )
@@ -8277,327 +8280,330 @@ def show_ml_regression():
         results = st.session_state.mlr_results
         regressor = st.session_state.mlr_regressor
         
-        st.divider()
-        st.subheader("📊 4. Model Performance Results")
-        
         # Summary metrics
         successful_results = [r for r in results if r.get('success')]
-        best_model = max(successful_results, key=lambda x: x.get('r2', -999))
+        best_model = max(successful_results, key=lambda x: x.get('r2', -999)) if successful_results else None
         
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Models Trained", len(successful_results))
-        with col2:
-            st.metric("Best Model", best_model.get('model_name', 'Unknown'))
-        with col3:
-            st.metric("Best R² Score", f"{best_model.get('r2', 0):.4f}")
-        with col4:
-            # Safely sum training times, handling non-numeric values
-            total_time = 0
+        if len(successful_results) == 0:
+            st.warning("⚠️ No successful model results. Please check your data and try again.")
+        else:
+            st.divider()
+            st.subheader("📊 4. Model Performance Results")
+        
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Models Trained", len(successful_results))
+            with col2:
+                st.metric("Best Model", best_model.get('model_name', 'Unknown'))
+            with col3:
+                st.metric("Best R² Score", f"{best_model.get('r2', 0):.4f}")
+            with col4:
+                # Safely sum training times, handling non-numeric values
+                total_time = 0
+                for r in successful_results:
+                    time_val = r.get('training_time', 0)
+                    try:
+                        if time_val is not None:
+                            total_time += float(time_val)
+                    except (ValueError, TypeError):
+                        # Skip non-numeric training times
+                        continue
+                st.metric("Total Time", f"{total_time:.1f}s")
+            
+            # Results table
+            st.write("**Model Comparison:**")
+            results_data = []
             for r in successful_results:
-                time_val = r.get('training_time', 0)
-                try:
-                    if time_val is not None:
-                        total_time += float(time_val)
-                except (ValueError, TypeError):
-                    # Skip non-numeric training times
-                    continue
-            st.metric("Total Time", f"{total_time:.1f}s")
-        
-        # Results table
-        st.write("**Model Comparison:**")
-        results_data = []
-        for r in successful_results:
-            results_data.append({
-                'Model': r.get('model_name', 'Unknown'),
-                'R²': f"{(r.get('r2') or 0):.4f}",
-                'RMSE': f"{(r.get('rmse') or 0):.2f}",
-                'MAE': f"{(r.get('mae') or 0):.2f}",
-                'MAPE': f"{r.get('mape'):.2f}%" if r.get('mape') else 'N/A',
-                'CV Mean': f"{r.get('cv_mean'):.4f}" if r.get('cv_mean') else 'N/A',
-                'Time (s)': f"{(r.get('training_time') or 0):.3f}"
-            })
-        
-        results_df = pd.DataFrame(results_data)
-        
-        # Sort by R² (best to worst) - ensure proper numeric sorting
-        # Remove any non-numeric characters and convert to float
-        results_df['_r2_numeric'] = pd.to_numeric(results_df['R²'], errors='coerce')
-        results_df = results_df.sort_values('_r2_numeric', ascending=False).drop('_r2_numeric', axis=1).reset_index(drop=True)
-        
-        st.session_state.mlr_results_df = results_df
-        
-        # Highlight best model
-        def highlight_best(row):
-            if row['Model'] == best_model.get('model_name', 'Unknown'):
-                return ['background-color: #90EE90'] * len(row)
-            return [''] * len(row)
-        
-        styled_df = results_df.style.apply(highlight_best, axis=1)
-        st.dataframe(styled_df)
-        
-        # Visualizations
-        st.divider()
-        st.subheader("📈 5. Model Comparison Visualizations")
-        
-        tab1, tab2, tab3 = st.tabs(["📊 R² Comparison", "📉 Error Metrics", "⏱️ Training Time"])
-        
-        with tab1:
-            # R² comparison - sort ascending so best model appears at TOP of chart
-            r2_scores = [(r.get('model_name', 'Unknown'), r.get('r2') or 0) for r in successful_results]
-            r2_scores.sort(key=lambda x: x[1])  # Ascending order for bottom-to-top display
+                results_data.append({
+                    'Model': r.get('model_name', 'Unknown'),
+                    'R²': f"{(r.get('r2') or 0):.4f}",
+                    'RMSE': f"{(r.get('rmse') or 0):.2f}",
+                    'MAE': f"{(r.get('mae') or 0):.2f}",
+                    'MAPE': f"{r.get('mape'):.2f}%" if r.get('mape') else 'N/A',
+                    'CV Mean': f"{r.get('cv_mean'):.4f}" if r.get('cv_mean') else 'N/A',
+                    'Time (s)': f"{(r.get('training_time') or 0):.3f}"
+                })
             
-            fig_r2 = px.bar(
-                x=[x[1] for x in r2_scores],
-                y=[x[0] for x in r2_scores],
-                orientation='h',
-                title='Model Performance (R² Score - Higher is Better)',
-                labels={'x': 'R² Score', 'y': 'Model'},
-                color=[x[1] for x in r2_scores],
-                color_continuous_scale='Greens'
-            )
-            st.plotly_chart(fig_r2, use_container_width=True)
-        
-        with tab2:
-            # Error metrics comparison
-            error_data = pd.DataFrame([
-                {'Model': r.get('model_name', 'Unknown'), 'RMSE': r.get('rmse') or 0, 'MAE': r.get('mae') or 0}
-                for r in successful_results
-            ])
+            results_df = pd.DataFrame(results_data)
             
-            fig_error = px.scatter(
-                error_data,
-                x='MAE',
-                y='RMSE',
-                text='Model',
-                title='Error Metrics (Lower is Better)',
-                labels={'MAE': 'Mean Absolute Error', 'RMSE': 'Root Mean Squared Error'}
-            )
-            fig_error.update_traces(textposition='top center')
-            st.plotly_chart(fig_error, use_container_width=True)
-        
-        with tab3:
-            # Training time
-            time_data = [(r.get('model_name', 'Unknown'), r.get('training_time') or 0) for r in successful_results]
-            time_data.sort(key=lambda x: x[1])
+            # Sort by R² (best to worst) - ensure proper numeric sorting
+            # Remove any non-numeric characters and convert to float
+            results_df['_r2_numeric'] = pd.to_numeric(results_df['R²'], errors='coerce')
+            results_df = results_df.sort_values('_r2_numeric', ascending=False).drop('_r2_numeric', axis=1).reset_index(drop=True)
             
-            colors = ['green' if x[1] < 1 else 'yellow' if x[1] < 5 else 'red' for x in time_data]
+            st.session_state.mlr_results_df = results_df
             
-            fig_time = px.bar(
-                y=[x[0] for x in time_data],
-                x=[x[1] for x in time_data],
-                orientation='h',
-                title='Training Time Comparison',
-                labels={'x': 'Training Time (seconds)', 'y': 'Model'},
-                color=colors,
-                color_discrete_map={'green': '#90EE90', 'yellow': '#FFD700', 'red': '#FFB6C1'}
-            )
-            st.plotly_chart(fig_time, use_container_width=True)
-        
-        # Best Model Details
-        st.divider()
-        st.subheader(f"🏆 Best Model: {best_model.get('model_name', 'Unknown')}")
-        
-        col1, col2, col3, col4, col5 = st.columns(5)
-        with col1:
-            st.metric("R² Score", f"{best_model.get('r2', 0):.4f}")
-        with col2:
-            st.metric("RMSE", f"{best_model.get('rmse', 0):.2f}")
-        with col3:
-            st.metric("MAE", f"{best_model.get('mae', 0):.2f}")
-        with col4:
-            if best_model.get('mape'):
-                st.metric("MAPE", f"{best_model.get('mape'):.2f}%")
-            else:
-                st.metric("MAPE", "N/A")
-        with col5:
-            if best_model.get('cv_mean'):
-                st.metric("CV R²", f"{best_model.get('cv_mean'):.4f}")
-            else:
-                st.metric("CV R²", "N/A")
-        
-        # Feature Importance
-        if best_model.get('feature_importance'):
-            st.write("**Top 10 Most Important Features:**")
-            feat_imp = best_model.get('feature_importance')
-            # Sort descending and take top 10, then reverse for proper chart display (highest at top)
-            feat_imp_sorted = sorted(feat_imp.items(), key=lambda x: x[1], reverse=True)[:10]
-            feat_imp_sorted = sorted(feat_imp_sorted, key=lambda x: x[1])  # Reverse for chart display
+            # Highlight best model
+            def highlight_best(row):
+                if row['Model'] == best_model.get('model_name', 'Unknown'):
+                    return ['background-color: #90EE90'] * len(row)
+                return [''] * len(row)
             
-            fig_imp = px.bar(
-                x=[x[1] for x in feat_imp_sorted],
-                y=[x[0] for x in feat_imp_sorted],
-                orientation='h',
-                title='Top 10 Most Important Features (Highest to Lowest)',
-                labels={'x': 'Importance Score', 'y': 'Feature'}
-            )
-            fig_imp.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
-            st.plotly_chart(fig_imp, use_container_width=True)
-        
-        # Clear any lingering containers from Plotly/tabs to prevent shadow overlay
-        st.markdown("---")
-        st.empty()
-        
-        # AI-Powered Insights
-        st.divider()
-        st.subheader("✨ AI-Powered Insights")
-        
-        # Display saved insights if they exist
-        if 'mlr_ai_insights' in st.session_state:
-            st.markdown(st.session_state.mlr_ai_insights)
-            st.info("✅ AI insights saved! These will be included in your report downloads.")
-        
-        if st.button("🤖 Generate AI Insights", key="mlr_ai_insights_btn", use_container_width=True):
-            try:
-                from utils.ai_helper import AIHelper
-                ai = AIHelper()
+            styled_df = results_df.style.apply(highlight_best, axis=1)
+            st.dataframe(styled_df)
+            
+            # Visualizations
+            st.divider()
+            st.subheader("📈 5. Model Comparison Visualizations")
+            
+            tab1, tab2, tab3 = st.tabs(["📊 R² Comparison", "📉 Error Metrics", "⏱️ Training Time"])
+            
+            with tab1:
+                # R² comparison - sort ascending so best model appears at TOP of chart
+                r2_scores = [(r.get('model_name', 'Unknown'), r.get('r2') or 0) for r in successful_results]
+                r2_scores.sort(key=lambda x: x[1])  # Ascending order for bottom-to-top display
                 
-                with st.status("🤖 Analyzing regression results and generating insights...", expanded=True) as status:
-                    st.write("Preparing analysis data...")
-                    # Get data from session state
-                    mlr_results_data = st.session_state.get('mlr_results', [])
-                    mlr_regressor_data = st.session_state.get('mlr_regressor')
-                    mlr_data_df = st.session_state.get('mlr_data', pd.DataFrame())
-                    
-                    if not mlr_results_data or mlr_regressor_data is None or mlr_data_df.empty:
-                        st.error("No ML Regression results available. Please train models first.")
-                        st.stop()
-                    
-                    # Get successful results and best model
-                    successful_results_data = [r for r in mlr_results_data if r.get('r2') is not None]
-                    if not successful_results_data:
-                        st.error("No successful model results available.")
-                        st.stop()
-                    
-                    best_model_data = max(successful_results_data, key=lambda x: x.get('r2', -999))
-                    # Prepare context
-                    context = f"""
-                    Machine Learning Regression Results:
-                    
-                    Dataset: {len(mlr_data_df)} rows, {len(mlr_data_df.columns)} columns
-                    Target: {mlr_regressor_data.target_column}
-                    
-                    Models Trained: {len(successful_results_data)}
-                    Best Model: {best_model_data.get('model_name', 'Unknown')}
-                    Best R² Score: {best_model_data.get('r2', 0):.4f}
-                    Best RMSE: {best_model_data.get('rmse', 0):.2f}
-                    Best MAE: {best_model_data.get('mae', 0):.2f}
-                    
-                    Top 3 Models:
-                    """
-                    
-                    for i, r in enumerate(successful_results_data[:3], 1):
-                        context += f"\n{i}. {r.get('model_name', 'Unknown')}: R²={r.get('r2', 0):.4f}, RMSE={r.get('rmse', 0):.2f}, MAE={r.get('mae', 0):.2f}"
-                    
-                    prompt = f"""
-                    As a senior data science consultant, analyze these machine learning regression results and provide:
-                    
-                    1. **Performance Analysis** (2-3 sentences): Why did {best_model_data.get('model_name', 'the best model')} perform best? What does the R² score tell us about model fit?
-                    
-                    2. **Model Comparison** (2-3 sentences): Key differences between top 3 models and when to use each. Which model offers best trade-offs?
-                    
-                    3. **Business Recommendations** (3-4 bullet points): Which model to deploy and why? Consider accuracy, speed, interpretability, and prediction reliability.
-                    
-                    4. **Improvement Suggestions** (3-4 bullet points): How to potentially improve performance? Consider feature engineering, hyperparameter tuning, ensemble methods.
-                    
-                    5. **Deployment Considerations** (2-3 bullet points): What to watch for in production? How to monitor model performance over time?
-                    
-                    {context}
-                    
-                    Be specific, actionable, and business-focused. Use clear language. Interpret R², RMSE, and MAE in practical terms.
-                    """
-                    
-                    # Generate insights using Gemini
-                    insights = ai.generate_module_insights(
-                        system_role="senior data science consultant providing actionable ML insights for regression problems",
-                        user_prompt=prompt,
-                        temperature=0.7,
-                        max_tokens=8000
-                    )
-                    
-                    # Save to session state
-                    st.session_state.mlr_ai_insights = insights
-                    status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+                fig_r2 = px.bar(
+                    x=[x[1] for x in r2_scores],
+                    y=[x[0] for x in r2_scores],
+                    orientation='h',
+                    title='Model Performance (R² Score - Higher is Better)',
+                    labels={'x': 'R² Score', 'y': 'Model'},
+                    color=[x[1] for x in r2_scores],
+                    color_continuous_scale='Greens'
+                )
+                st.plotly_chart(fig_r2, use_container_width=True)
+            
+            with tab2:
+                # Error metrics comparison
+                error_data = pd.DataFrame([
+                    {'Model': r.get('model_name', 'Unknown'), 'RMSE': r.get('rmse') or 0, 'MAE': r.get('mae') or 0}
+                    for r in successful_results
+                ])
                 
-                st.success("✅ AI insights generated successfully!")
+                fig_error = px.scatter(
+                    error_data,
+                    x='MAE',
+                    y='RMSE',
+                    text='Model',
+                    title='Error Metrics (Lower is Better)',
+                    labels={'MAE': 'Mean Absolute Error', 'RMSE': 'Root Mean Squared Error'}
+                )
+                fig_error.update_traces(textposition='top center')
+                st.plotly_chart(fig_error, use_container_width=True)
+            
+            with tab3:
+                # Training time
+                time_data = [(r.get('model_name', 'Unknown'), r.get('training_time') or 0) for r in successful_results]
+                time_data.sort(key=lambda x: x[1])
+                
+                colors = ['green' if x[1] < 1 else 'yellow' if x[1] < 5 else 'red' for x in time_data]
+                
+                fig_time = px.bar(
+                    y=[x[0] for x in time_data],
+                    x=[x[1] for x in time_data],
+                    orientation='h',
+                    title='Training Time Comparison',
+                    labels={'x': 'Training Time (seconds)', 'y': 'Model'},
+                    color=colors,
+                    color_discrete_map={'green': '#90EE90', 'yellow': '#FFD700', 'red': '#FFB6C1'}
+                )
+                st.plotly_chart(fig_time, use_container_width=True)
+            
+            # Best Model Details
+            st.divider()
+            st.subheader(f"🏆 Best Model: {best_model.get('model_name', 'Unknown')}")
+            
+            col1, col2, col3, col4, col5 = st.columns(5)
+            with col1:
+                st.metric("R² Score", f"{best_model.get('r2', 0):.4f}")
+            with col2:
+                st.metric("RMSE", f"{best_model.get('rmse', 0):.2f}")
+            with col3:
+                st.metric("MAE", f"{best_model.get('mae', 0):.2f}")
+            with col4:
+                if best_model.get('mape'):
+                    st.metric("MAPE", f"{best_model.get('mape'):.2f}%")
+                else:
+                    st.metric("MAPE", "N/A")
+            with col5:
+                if best_model.get('cv_mean'):
+                    st.metric("CV R²", f"{best_model.get('cv_mean'):.4f}")
+                else:
+                    st.metric("CV R²", "N/A")
+            
+            # Feature Importance
+            if best_model.get('feature_importance'):
+                st.write("**Top 10 Most Important Features:**")
+                feat_imp = best_model.get('feature_importance')
+                # Sort descending and take top 10, then reverse for proper chart display (highest at top)
+                feat_imp_sorted = sorted(feat_imp.items(), key=lambda x: x[1], reverse=True)[:10]
+                feat_imp_sorted = sorted(feat_imp_sorted, key=lambda x: x[1])  # Reverse for chart display
+                
+                fig_imp = px.bar(
+                    x=[x[1] for x in feat_imp_sorted],
+                    y=[x[0] for x in feat_imp_sorted],
+                    orientation='h',
+                    title='Top 10 Most Important Features (Highest to Lowest)',
+                    labels={'x': 'Importance Score', 'y': 'Feature'}
+                )
+                fig_imp.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
+                st.plotly_chart(fig_imp, use_container_width=True)
+            
+            # Clear any lingering containers from Plotly/tabs to prevent shadow overlay
+            st.markdown("---")
+            st.empty()
+            
+            # AI-Powered Insights
+            st.divider()
+            st.subheader("✨ AI-Powered Insights")
+            
+            # Display saved insights if they exist
+            if 'mlr_ai_insights' in st.session_state:
                 st.markdown(st.session_state.mlr_ai_insights)
                 st.info("✅ AI insights saved! These will be included in your report downloads.")
+            
+            if st.button("🤖 Generate AI Insights", key="mlr_ai_insights_btn", use_container_width=True):
+                try:
+                    from utils.ai_helper import AIHelper
+                    ai = AIHelper()
                     
-            except Exception as e:
-                st.error(f"Error generating AI insights: {str(e)}")
-        
-        # Export section
-        st.divider()
-        st.subheader("📥 6. Export & Download")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Export results CSV
-            if 'mlr_results_df' in st.session_state:
-                results_export = st.session_state.mlr_results_df.to_csv(index=False)
-                st.download_button(
-                    label="📥 Download Results Table (CSV)",
-                    data=results_export,
-                    file_name=f"mlr_results_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                    mime="text/csv",
-                    use_container_width=True
-                )
-        
-        with col2:
-            # Export best model report
-            if best_model:
-                # Format metrics safely
-                mape_str = f"{best_model.get('mape'):.2f}%" if best_model.get('mape') else 'N/A'
-                cv_mean_str = f"{best_model.get('cv_mean'):.4f}" if best_model.get('cv_mean') else 'N/A'
-                results_table = st.session_state.mlr_results_df.to_markdown(index=False) if 'mlr_results_df' in st.session_state else 'Results not available'
-                
-                report = f"""
-# Machine Learning Regression Report
-**Generated:** {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-## Best Model: {best_model.get('model_name', 'Unknown')}
-
-### Performance Metrics
-- **R² Score:** {best_model.get('r2', 0):.4f}
-- **RMSE:** {best_model.get('rmse', 0):.2f}
-- **MAE:** {best_model.get('mae', 0):.2f}
-- **MAPE:** {mape_str}
-- **CV R² Mean:** {cv_mean_str}
-- **Training Time:** {(best_model.get('training_time') or 0):.3f}s
-
-## All Models Performance
-
-{results_table}
-
-## Dataset Information
-- **Rows:** {len(df)}
-- **Features:** {len(regressor.feature_names)}
-- **Target:** {target_col}
-"""
-                
-                # Add AI insights if available
-                if 'mlr_ai_insights' in st.session_state:
-                    report += f"""
-
-## 🤖 AI-Powered Strategic Insights
-
-{st.session_state.mlr_ai_insights}
-
-"""
-                
-                report += """
----
-*Report generated by DataInsights - ML Regression Module*
-"""
-                st.download_button(
-                    label="📄 Download Best Model Report (MD)",
-                    data=report,
-                    file_name=f"mlr_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.md",
-                    mime="text/markdown",
-                    use_container_width=True
-                )
-
+                    with st.status("🤖 Analyzing regression results and generating insights...", expanded=True) as status:
+                        st.write("Preparing analysis data...")
+                        # Get data from session state
+                        mlr_results_data = st.session_state.get('mlr_results', [])
+                        mlr_regressor_data = st.session_state.get('mlr_regressor')
+                        mlr_data_df = st.session_state.get('mlr_data', pd.DataFrame())
+                        
+                        if not mlr_results_data or mlr_regressor_data is None or mlr_data_df.empty:
+                            st.error("No ML Regression results available. Please train models first.")
+                            st.stop()
+                        
+                        # Get successful results and best model
+                        successful_results_data = [r for r in mlr_results_data if r.get('r2') is not None]
+                        if not successful_results_data:
+                            st.error("No successful model results available.")
+                            st.stop()
+                        
+                        best_model_data = max(successful_results_data, key=lambda x: x.get('r2', -999))
+                        # Prepare context
+                        context = f"""
+                        Machine Learning Regression Results:
+                        
+                        Dataset: {len(mlr_data_df)} rows, {len(mlr_data_df.columns)} columns
+                        Target: {mlr_regressor_data.target_column}
+                        
+                        Models Trained: {len(successful_results_data)}
+                        Best Model: {best_model_data.get('model_name', 'Unknown')}
+                        Best R² Score: {best_model_data.get('r2', 0):.4f}
+                        Best RMSE: {best_model_data.get('rmse', 0):.2f}
+                        Best MAE: {best_model_data.get('mae', 0):.2f}
+                        
+                        Top 3 Models:
+                        """
+                        
+                        for i, r in enumerate(successful_results_data[:3], 1):
+                            context += f"\n{i}. {r.get('model_name', 'Unknown')}: R²={r.get('r2', 0):.4f}, RMSE={r.get('rmse', 0):.2f}, MAE={r.get('mae', 0):.2f}"
+                        
+                        prompt = f"""
+                        As a senior data science consultant, analyze these machine learning regression results and provide:
+                        
+                        1. **Performance Analysis** (2-3 sentences): Why did {best_model_data.get('model_name', 'the best model')} perform best? What does the R² score tell us about model fit?
+                        
+                        2. **Model Comparison** (2-3 sentences): Key differences between top 3 models and when to use each. Which model offers best trade-offs?
+                        
+                        3. **Business Recommendations** (3-4 bullet points): Which model to deploy and why? Consider accuracy, speed, interpretability, and prediction reliability.
+                        
+                        4. **Improvement Suggestions** (3-4 bullet points): How to potentially improve performance? Consider feature engineering, hyperparameter tuning, ensemble methods.
+                        
+                        5. **Deployment Considerations** (2-3 bullet points): What to watch for in production? How to monitor model performance over time?
+                        
+                        {context}
+                        
+                        Be specific, actionable, and business-focused. Use clear language. Interpret R², RMSE, and MAE in practical terms.
+                        """
+                        
+                        # Generate insights using Gemini
+                        insights = ai.generate_module_insights(
+                            system_role="senior data science consultant providing actionable ML insights for regression problems",
+                            user_prompt=prompt,
+                            temperature=0.7,
+                            max_tokens=8000
+                        )
+                        
+                        # Save to session state
+                        st.session_state.mlr_ai_insights = insights
+                        status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+                    
+                    st.success("✅ AI insights generated successfully!")
+                    st.markdown(st.session_state.mlr_ai_insights)
+                    st.info("✅ AI insights saved! These will be included in your report downloads.")
+                        
+                except Exception as e:
+                    st.error(f"Error generating AI insights: {str(e)}")
+            
+            # Export section
+            st.divider()
+            st.subheader("📥 6. Export & Download")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Export results CSV
+                if 'mlr_results_df' in st.session_state:
+                    results_export = st.session_state.mlr_results_df.to_csv(index=False)
+                    st.download_button(
+                        label="📥 Download Results Table (CSV)",
+                        data=results_export,
+                        file_name=f"mlr_results_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+            
+            with col2:
+                # Export best model report
+                if best_model:
+                    # Format metrics safely
+                    mape_str = f"{best_model.get('mape'):.2f}%" if best_model.get('mape') else 'N/A'
+                    cv_mean_str = f"{best_model.get('cv_mean'):.4f}" if best_model.get('cv_mean') else 'N/A'
+                    results_table = st.session_state.mlr_results_df.to_markdown(index=False) if 'mlr_results_df' in st.session_state else 'Results not available'
+                    
+                    report = f"""
+    # Machine Learning Regression Report
+    **Generated:** {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
+    
+    ## Best Model: {best_model.get('model_name', 'Unknown')}
+    
+    ### Performance Metrics
+    - **R² Score:** {best_model.get('r2', 0):.4f}
+    - **RMSE:** {best_model.get('rmse', 0):.2f}
+    - **MAE:** {best_model.get('mae', 0):.2f}
+    - **MAPE:** {mape_str}
+    - **CV R² Mean:** {cv_mean_str}
+    - **Training Time:** {(best_model.get('training_time') or 0):.3f}s
+    
+    ## All Models Performance
+    
+    {results_table}
+    
+    ## Dataset Information
+    - **Rows:** {len(df)}
+    - **Features:** {len(regressor.feature_names)}
+    - **Target:** {target_col}
+    """
+                    
+                    # Add AI insights if available
+                    if 'mlr_ai_insights' in st.session_state:
+                        report += f"""
+    
+    ## 🤖 AI-Powered Strategic Insights
+    
+    {st.session_state.mlr_ai_insights}
+    
+    """
+                    
+                    report += """
+    ---
+    *Report generated by DataInsights - ML Regression Module*
+    """
+                    st.download_button(
+                        label="📄 Download Best Model Report (MD)",
+                        data=report,
+                        file_name=f"mlr_report_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.md",
+                        mime="text/markdown",
+                        use_container_width=True
+                    )
+    
 
 
 def show_anomaly_detection():
