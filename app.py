@@ -7419,7 +7419,7 @@ def show_ml_classification():
                     
                     # Save to session state
                     st.session_state.ml_ai_insights = insights
-                    status.update(label="✅ Analysis complete!", state="complete", expanded=True)
+                    status.update(label="✅ Analysis complete!", state="complete", expanded=False)
                 
                 st.success("✅ AI insights generated successfully!")
                 st.markdown(st.session_state.ml_ai_insights)
@@ -8511,7 +8511,7 @@ def show_ml_regression():
                     
                     # Save to session state
                     st.session_state.mlr_ai_insights = insights
-                    status.update(label="✅ Analysis complete!", state="complete", expanded=True)
+                    status.update(label="✅ Analysis complete!", state="complete", expanded=False)
                 
                 st.success("✅ AI insights generated successfully!")
                 st.markdown(st.session_state.mlr_ai_insights)
