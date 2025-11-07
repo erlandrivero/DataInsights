@@ -7495,14 +7495,15 @@ def show_ml_classification():
                     st.markdown("---")
                     st.write("### 📊 SHAP Visualizations")
                     
-                    # Set matplotlib font sizes to match UI (smaller to match Plotly charts)
+                    # Set matplotlib font sizes and DPI to match UI (smaller to match Plotly charts)
                     plt.rcParams.update({
                         'font.size': 6,
                         'axes.titlesize': 7,
                         'axes.labelsize': 6,
                         'xtick.labelsize': 6,
                         'ytick.labelsize': 6,
-                        'legend.fontsize': 6
+                        'legend.fontsize': 6,
+                        'figure.dpi': 80  # Lower DPI = smaller overall rendering
                     })
                     
                     # Display selected visualizations
@@ -7510,7 +7511,7 @@ def show_ml_classification():
                         st.write("**📊 SHAP Summary Plot**")
                         st.write("Shows the impact of each feature on model predictions across all samples.")
                         
-                        fig, ax = plt.subplots(figsize=(10, 3.5))
+                        fig, ax = plt.subplots(figsize=(10, 3))
                         plt.tight_layout()
                         
                         # Handle multi-class vs binary classification
@@ -8855,14 +8856,15 @@ def show_ml_regression():
                     st.markdown("---")
                     st.write("### 📊 SHAP Visualizations")
                     
-                    # Set matplotlib font sizes to match UI (smaller to match Plotly charts)
+                    # Set matplotlib font sizes and DPI to match UI (smaller to match Plotly charts)
                     plt.rcParams.update({
                         'font.size': 6,
                         'axes.titlesize': 7,
                         'axes.labelsize': 6,
                         'xtick.labelsize': 6,
                         'ytick.labelsize': 6,
-                        'legend.fontsize': 6
+                        'legend.fontsize': 6,
+                        'figure.dpi': 80  # Lower DPI = smaller overall rendering
                     })
                     
                     # Display selected visualizations
@@ -8870,7 +8872,7 @@ def show_ml_regression():
                         st.write("**📊 SHAP Summary Plot**")
                         st.write("Shows the impact of each feature on model predictions across all samples.")
                         
-                        fig, ax = plt.subplots(figsize=(10, 3.5))
+                        fig, ax = plt.subplots(figsize=(10, 3))
                         plt.tight_layout()
                         shap.summary_plot(shap_values_mlr, X_sample_mlr, show=False)
                         plt.tight_layout()
