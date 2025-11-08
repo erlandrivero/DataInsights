@@ -12715,11 +12715,25 @@ def show_ab_testing():
         # Override with AI recommendations if available
         if 'ab_ai_recommendations' in st.session_state:
             ai_rec = st.session_state.ab_ai_recommendations
-            if ai_rec.get('recommended_group_column'):
-                suggestions['group'] = ai_rec['recommended_group_column']
-            if ai_rec.get('recommended_metric_column'):
-                suggestions['metric'] = ai_rec['recommended_metric_column']
+            
+            # Debug: Show what AI recommended
+            ai_group = ai_rec.get('recommended_group_column')
+            ai_metric = ai_rec.get('recommended_metric_column')
+            
+            if ai_group:
+                suggestions['group'] = ai_group
+            if ai_metric:
+                suggestions['metric'] = ai_metric
+                
             st.info("🤖 **AI has preset the columns below based on your data.** You can change them if needed.")
+            
+            # Debug info
+            with st.expander("🔍 Debug: AI Recommendations", expanded=False):
+                st.write(f"**AI Recommended Group Column:** `{ai_group}`")
+                st.write(f"**AI Recommended Metric Column:** `{ai_metric}`")
+                st.write(f"**Available Columns:** {list(df.columns)}")
+                st.write(f"**Group in DataFrame:** {ai_group in df.columns if ai_group else 'N/A'}")
+                st.write(f"**Metric in DataFrame:** {ai_metric in df.columns if ai_metric else 'N/A'}")
         else:
             st.info("💡 **Smart Detection:** Select columns for your A/B test")
 
