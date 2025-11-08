@@ -21,13 +21,14 @@ Attributes:
 
 import pandas as pd
 import numpy as np
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
 from typing import Dict, Any, List, Tuple, Optional, Union
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
+
+# Lazy loading for sklearn
+from utils.lazy_loader import LazyModuleLoader
 
 class RFMAnalyzer:
     """Handles RFM Analysis and Customer Segmentation.
@@ -60,7 +61,8 @@ class RFMAnalyzer:
         self.rfm_data = None
         self.scaled_data = None
         self.clusters = None
-        self.scaler = StandardScaler()
+        # Lazy load StandardScaler when needed
+        self.scaler = None
     
     @staticmethod
     @st.cache_data(ttl=1800)
@@ -245,10 +247,17 @@ class RFMAnalyzer:
         # Store original data
         self.rfm_data = rfm.copy()
         
-        # Select RFM columns for clustering
-        rfm_features = rfm[['Recency', 'Frequency', 'Monetary']].copy()
+        # Select RFM columns
+        # Lazy load sklearn modules
+        preprocessing = LazyModuleLoader.load_module('sklearn.preprocessing')
+        cluster = LazyModuleLoader.load_module('sklearn.cluster')
+        
+        StandardScaler = getattr(preprocessing, 'StandardScaler')
+        KMeans = getattr(cluster, 'KMeans')
         
         # Scale features
+        rfm_features = rfm[['Recency', 'Frequency', 'Monetary']].values
+        self.scaler = StandardScaler()
         self.scaled_data = self.scaler.fit_transform(rfm_features)
         
         # Perform K-Means
@@ -276,6 +285,10 @@ class RFMAnalyzer:
         scaled_data = self.scaler.fit_transform(rfm_features)
         
         cluster_range = range(2, max_clusters + 1)
+        # Lazy load KMeans
+        cluster = LazyModuleLoader.load_module('sklearn.cluster')
+        KMeans = getattr(cluster, 'KMeans')
+        
         inertias = []
         
         for k in cluster_range:
