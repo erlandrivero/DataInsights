@@ -4948,7 +4948,7 @@ def show_rfm_analysis():
         
         # Optimization suggestions
         if rec.get('optimization_suggestions'):
-            with st.expander("🚀 Optimization Suggestions", expanded=False):
+            with st.expander("🚀 Optimization Suggestions", expanded=True):
                 for suggestion in rec['optimization_suggestions']:
                     st.info(f"💡 {suggestion}")
         
@@ -5058,7 +5058,7 @@ def show_rfm_analysis():
             st.metric("Avg Monetary", f"${rfm_data['Monetary'].mean():.2f}")
         
         # RFM Data Preview
-        with st.expander("👀 View RFM Data"):
+        with st.expander("👀 View RFM Data", expanded=True):
             st.dataframe(rfm_segmented.head(20), use_container_width=True)
         
         # K-Means Clustering
@@ -5272,7 +5272,7 @@ def show_rfm_analysis():
         
         for segment in segments_present:
             if segment in insights_dict:
-                with st.expander(f"📋 {segment} ({len(rfm_segmented[rfm_segmented['Segment']==segment])} customers)"):
+                with st.expander(f"📋 {segment} ({len(rfm_segmented[rfm_segmented['Segment']==segment])} customers)", expanded=True):
                     for insight in insights_dict[segment]:
                         st.markdown(insight)
         
@@ -12020,7 +12020,7 @@ def show_text_mining():
         
         # Optimization suggestions
         if rec.get('optimization_suggestions'):
-            with st.expander("🚀 Optimization Suggestions", expanded=False):
+            with st.expander("🚀 Optimization Suggestions", expanded=True):
                 for suggestion in rec['optimization_suggestions']:
                     st.info(f"💡 {suggestion}")
         
