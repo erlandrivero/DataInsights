@@ -429,17 +429,21 @@ class MLRegressor:
         for i, model_name in enumerate(model_names):
             module_name = None
             try:
-                # Update progress
-                if progress_callback:
-                    progress_callback(i + 1, total, model_name)
-                
                 # Check if model exists
                 if model_name not in all_models:
                     results[model_name] = {'error': f'Unknown model: {model_name}'}
                     continue
                 
-                # Lazy load model (load module dynamically)
+                # Update progress BEFORE loading (show "Loading..." status)
+                if progress_callback:
+                    progress_callback(i + 1, total, model_name, loading=True)
+                
+                # Lazy load model (load module dynamically) - THIS CAN TAKE TIME
                 model = self._lazy_load_model(model_name)
+                
+                # Update progress AFTER loading (show "Training..." status)
+                if progress_callback:
+                    progress_callback(i + 1, total, model_name, loading=False)
                 
                 # Determine module name for cleanup
                 model_configs = {

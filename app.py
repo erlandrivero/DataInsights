@@ -7124,12 +7124,17 @@ def show_ml_classification():
                         results_container = st.container()
                     
                     # Progress callback function
-                    def update_progress(current, total, model_name):
+                    def update_progress(current, total, model_name, loading=False):
                         progress = current / total
                         progress_bar.progress(progress)
-                        status_text.text(f"Training {model_name}... ({current}/{total})")
-                        with results_container:
-                            st.write(f"🔄 Training: **{model_name}**")
+                        if loading:
+                            status_text.text(f"⏳ Loading {model_name}... ({current}/{total})")
+                            with results_container:
+                                st.write(f"⏳ Loading: **{model_name}**")
+                        else:
+                            status_text.text(f"🚀 Training {model_name}... ({current}/{total})")
+                            with results_container:
+                                st.write(f"🔄 Training: **{model_name}**")
                     
                     # Train models sequentially with memory management
                     import gc
@@ -8683,9 +8688,16 @@ def show_ml_regression():
             
             try:
                 # Initialize regressor
-                with st.status("Initializing ML Regressor...", expanded=True) as status:
+                with st.status("Preparing data for training...", expanded=True) as status:
+                    status.write("📊 Initializing regressor...")
                     regressor = MLRegressor(df, target_col, max_samples=10000)
+                    
+                    status.write("🔄 Encoding categorical features...")
+                    status.write("📏 Scaling features...")
+                    status.write("✂️ Splitting train/test sets...")
                     prep_info = regressor.prepare_data(test_size=test_size/100)
+                    
+                    status.update(label="✅ Data preparation complete!", state="complete")
                 
                 # Show preparation info
                 st.success(f"✅ Data prepared: {prep_info['train_size']} train, {prep_info['test_size']} test samples")
@@ -8737,10 +8749,13 @@ def show_ml_regression():
                 ProcessManager.cleanup_large_session_state_items()
                 
                 # Progress callback for sequential training
-                def seq_progress_callback(current, total, model_name):
+                def seq_progress_callback(current, total, model_name, loading=False):
                     progress = current / total
                     progress_bar.progress(progress)
-                    status_text.text(f"Training {model_name}... ({current}/{total})")
+                    if loading:
+                        status_text.text(f"⏳ Loading {model_name}... ({current}/{total})")
+                    else:
+                        status_text.text(f"🚀 Training {model_name}... ({current}/{total})")
                 
                 # Train models sequentially with memory management
                 import gc
