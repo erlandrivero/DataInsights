@@ -16192,9 +16192,9 @@ def show_geospatial_analysis():
     has_loaded_data = st.session_state.data is not None
     
     if has_loaded_data:
-        data_options = ["Use Loaded Dataset", "Sample Store Locations", "Upload Custom Data"]
+        data_options = ["Use Loaded Dataset", "Sample Store Locations"]
     else:
-        data_options = ["Sample Store Locations", "Upload Custom Data"]
+        data_options = ["Sample Store Locations"]
     
     data_source = st.radio(
         "Choose data source:",
@@ -16286,41 +16286,6 @@ def show_geospatial_analysis():
             
             st.success(f"✅ Loaded {len(geo_data)} store locations across {len(cities)} cities!")
             st.dataframe(geo_data.head(10), use_container_width=True)
-    
-    else:  # Upload
-        uploaded_file = st.file_uploader("Upload geographic data CSV", type=['csv'], key="geo_upload")
-        
-        if uploaded_file:
-            df = pd.read_csv(uploaded_file)
-            st.dataframe(df.head(), use_container_width=True)
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                lat_col = st.selectbox("Latitude Column", df.select_dtypes(include=[np.number]).columns, key="geo_lat_upload")
-            with col2:
-                lon_col = st.selectbox("Longitude Column", df.select_dtypes(include=[np.number]).columns, key="geo_lon_upload")
-            
-            if st.button("Process Data", type="primary", key="geo_process_upload"):
-                geo_data = df[[lat_col, lon_col]].copy()
-                geo_data.columns = ['latitude', 'longitude']
-                
-                # Track dataset change
-                dataset_name = f"uploaded_{uploaded_file.name}"
-                current_dataset_id = DatasetTracker.generate_dataset_id(geo_data, dataset_name)
-                stored_id = st.session_state.get('geo_dataset_id')
-                
-                if DatasetTracker.check_dataset_changed(geo_data, dataset_name, stored_id):
-                    DatasetTracker.clear_module_ai_cache(st.session_state, 'geo')
-                    if stored_id is not None:
-                        st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
-                
-                # Clear geo_source_df to prevent AI from analyzing wrong dataset
-                if 'geo_source_df' in st.session_state:
-                    del st.session_state.geo_source_df
-                
-                st.session_state.geo_dataset_id = current_dataset_id
-                st.session_state.geo_data = geo_data
-                st.success("✅ Data processed!")
     
     # Analysis section - Check if we have source data OR processed geo data
     if 'geo_source_df' not in st.session_state and 'geo_data' not in st.session_state:
@@ -16442,7 +16407,7 @@ def show_geospatial_analysis():
             
             # Suitability reasoning
             suitability_reasoning = ai_recs.get('suitability_reasoning', 'AI determined this data is suitable for Geospatial Analysis')
-            with st.expander("💡 Why this suitability rating?", expanded=False):
+            with st.expander("💡 Why this suitability rating?", expanded=True):
                 st.info(suitability_reasoning)
         
         # Performance Warnings (only shown if AI approves)
@@ -16611,7 +16576,7 @@ def show_geospatial_analysis():
     geo_data = st.session_state.geo_data
     
     # Display loaded data preview
-    with st.expander("👁️ View Loaded Geographic Data", expanded=False):
+    with st.expander("👁️ View Loaded Geographic Data", expanded=True):
         st.dataframe(geo_data.head(20), use_container_width=True)
         st.caption(f"Showing first 20 of {len(geo_data)} locations")
     
