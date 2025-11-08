@@ -6052,6 +6052,9 @@ def show_ml_classification():
         if data_source == "Use uploaded data from Data Upload page":
             df = st.session_state.data
             st.session_state.ml_data = df
+            # Clear any previous dataset info
+            if 'ml_dataset_info' in st.session_state:
+                del st.session_state.ml_dataset_info
             st.success(f"✅ Using uploaded data: {len(df):,} rows and {len(df.columns)} columns")
             
             # Show preview
@@ -6096,6 +6099,9 @@ def show_ml_classification():
                 try:
                     df = pd.read_csv(uploaded_file)
                     st.session_state.ml_data = df
+                    # Clear any previous dataset info
+                    if 'ml_dataset_info' in st.session_state:
+                        del st.session_state.ml_dataset_info
                     st.success(f"✅ Loaded {len(df):,} rows and {len(df.columns)} columns")
                     
                     with st.expander("📋 Data Preview"):
@@ -6150,6 +6156,9 @@ def show_ml_classification():
                 try:
                     df = pd.read_csv(uploaded_file)
                     st.session_state.ml_data = df
+                    # Clear any previous dataset info
+                    if 'ml_dataset_info' in st.session_state:
+                        del st.session_state.ml_dataset_info
                     st.success(f"✅ Loaded {len(df):,} rows and {len(df.columns)} columns")
                     
                     with st.expander("📋 Data Preview"):
