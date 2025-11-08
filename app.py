@@ -7422,7 +7422,7 @@ def show_ml_classification():
             """)
             
             # AI-Powered Presets with User Controls
-            with st.expander("⚙️ SHAP Analysis Settings", expanded=False):
+            with st.expander("⚙️ SHAP Analysis Settings", expanded=True):
                 col1, col2 = st.columns(2)
                 
                 with col1:
@@ -8931,7 +8931,7 @@ def show_ml_regression():
             """)
             
             # AI-Powered Presets with User Controls
-            with st.expander("⚙️ SHAP Analysis Settings", expanded=False):
+            with st.expander("⚙️ SHAP Analysis Settings", expanded=True):
                 col1, col2 = st.columns(2)
                 
                 with col1:
@@ -10045,7 +10045,7 @@ def show_anomaly_detection():
     
     # Show AI reasoning if available
     if ai_recs:
-        with st.expander("🧠 View AI Reasoning for Algorithm Settings", expanded=False):
+        with st.expander("🧠 View AI Reasoning for Algorithm Settings", expanded=True):
             st.markdown("**🤖 AI Analysis:**")
             # Show both original and preprocessed data info if different
             if len(df_working) != len(df) or len(feature_cols) != len(feature_cols_working):
@@ -10309,7 +10309,7 @@ def show_anomaly_detection():
             """)
             
             # AI-Powered Presets with User Controls
-            with st.expander("⚙️ SHAP Analysis Settings", expanded=False):
+            with st.expander("⚙️ SHAP Analysis Settings", expanded=True):
                 col1, col2 = st.columns(2)
                 
                 with col1:
@@ -20037,7 +20037,7 @@ def show_churn_prediction():
         """)
         
         # AI-Powered Presets with User Controls
-        with st.expander("⚙️ SHAP Analysis Settings", expanded=False):
+        with st.expander("⚙️ SHAP Analysis Settings", expanded=True):
             col1, col2 = st.columns(2)
             
             with col1:
