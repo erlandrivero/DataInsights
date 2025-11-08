@@ -127,6 +127,9 @@ class MLRegressor:
         for col in self.X.columns:
             if self.X[col].dtype == 'object' or self.X[col].dtype.name == 'category':
                 le = LabelEncoder()
+                # Convert categorical to object first to allow adding 'missing' category
+                if self.X[col].dtype.name == 'category':
+                    self.X[col] = self.X[col].astype('object')
                 # Handle missing values before encoding
                 self.X[col] = self.X[col].fillna('missing')
                 self.X[col] = le.fit_transform(self.X[col].astype(str))
