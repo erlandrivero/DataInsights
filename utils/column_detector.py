@@ -625,18 +625,9 @@ class ColumnDetector:
         # Validate latitude suggestions
         valid_lat_cols = [col for col in lat_suggestions if is_valid_latitude(df[col])]
         
-        # STRICT: Only search other columns if they have decimal precision (real coordinates have decimals)
-        # This prevents false positives like age (18-95) being detected as latitude
-        if not valid_lat_cols:
-            for col in numeric_cols:
-                if is_valid_latitude(df[col]):
-                    # Check if values have decimal precision (not all integers)
-                    sample = df[col].dropna().head(100)
-                    has_decimals = (sample % 1 != 0).any()
-                    if has_decimals:
-                        valid_lat_cols.append(col)
-                        break
-        
+        # STRICT: Do NOT search other columns without geographic names
+        # This prevents false positives like emp.var.rate, cons.price.idx being detected as coordinates
+        # If no columns with lat/latitude in the name, the data is NOT suitable for geospatial analysis
         lat_col = valid_lat_cols[0] if valid_lat_cols else None
         
         # Detect longitude by keyword
@@ -648,18 +639,8 @@ class ColumnDetector:
         # Validate longitude suggestions
         valid_lon_cols = [col for col in lon_suggestions if is_valid_longitude(df[col])]
         
-        # STRICT: Only search other columns if they have decimal precision
-        # This prevents false positives like campaign (1-50) being detected as longitude
-        if not valid_lon_cols:
-            for col in numeric_cols:
-                if col != lat_col and is_valid_longitude(df[col]):
-                    # Check if values have decimal precision (not all integers)
-                    sample = df[col].dropna().head(100)
-                    has_decimals = (sample % 1 != 0).any()
-                    if has_decimals:
-                        valid_lon_cols.append(col)
-                        break
-        
+        # STRICT: Do NOT search other columns without geographic names
+        # If no columns with lon/longitude in the name, the data is NOT suitable for geospatial analysis
         lon_col = valid_lon_cols[0] if valid_lon_cols else None
         
         return {
