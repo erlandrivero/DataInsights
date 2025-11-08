@@ -17432,7 +17432,7 @@ def show_survival_analysis():
     surv_data = st.session_state.surv_data
     
     # Display loaded data preview
-    with st.expander("👁️ View Loaded Survival Data", expanded=False):
+    with st.expander("👁️ View Loaded Survival Data", expanded=True):
         st.dataframe(surv_data.head(20), use_container_width=True)
         st.caption(f"Showing first 20 of {len(surv_data)} observations")
     
@@ -17547,7 +17547,7 @@ def show_survival_analysis():
             
             st.info(f"💡 **Reasoning:** {ai_recs.get('column_reasoning', 'N/A')}")
         
-        with st.expander("🔍 AI Data Quality Assessment", expanded=False):
+        with st.expander("🔍 AI Data Quality Assessment", expanded=True):
             st.write(f"**Suitability Reasoning:** {ai_recs.get('suitability_reasoning', 'N/A')}")
             st.write(f"**Time Unit:** {ai_recs.get('time_unit', 'Unknown')}")
             st.write(f"**Event Rate:** {ai_recs.get('event_rate', 'Unknown')}")
@@ -17555,11 +17555,11 @@ def show_survival_analysis():
             st.write(f"**Censoring Assessment:** {ai_recs.get('censoring_assessment', 'Unknown')}")
             st.write(f"**Sample Size Assessment:** {ai_recs.get('sample_size_assessment', 'Unknown')}")
         
-        with st.expander("💼 Business Applications", expanded=False):
+        with st.expander("💼 Business Applications", expanded=True):
             for app in ai_recs.get('business_applications', []):
                 st.write(f"- {app}")
         
-        with st.expander("💡 Key Insights", expanded=False):
+        with st.expander("💡 Key Insights", expanded=True):
             for insight in ai_recs.get('key_insights', []):
                 st.write(f"- {insight}")
         
