@@ -6251,8 +6251,24 @@ def show_ml_classification():
                 
                 # Suitability reasoning
                 suitability_reasoning = ai_recs.get('suitability_reasoning', 'AI determined this data is suitable for ML Classification')
-                with st.expander("💡 Why this suitability rating?", expanded=False):
+                with st.expander("💡 Why this suitability rating?", expanded=True):
                     st.info(suitability_reasoning)
+                    
+                    # Add guidance for unsuitable data
+                    if data_suitability == 'Poor':
+                        st.error("**⚠️ Data Not Suitable for Classification**")
+                        st.markdown("""
+                        **Common Issues:**
+                        - Too many classes (>20 recommended)
+                        - Severe class imbalance (>100:1 ratio)
+                        - Insufficient samples per class
+                        
+                        **Suggested Actions:**
+                        1. **Reduce classes:** Group similar categories together
+                        2. **Choose different target:** Select a column with fewer unique values
+                        3. **Use different dataset:** Find data more suitable for classification
+                        4. **Try different module:** Consider clustering or regression instead
+                        """)
             
             # Performance Warnings (only shown if AI approves)
             if performance_risk in ['Medium', 'High']:
@@ -6306,7 +6322,7 @@ def show_ml_classification():
         st.divider()
         st.subheader("📊 3. Dataset Validation (Informational)")
         
-        with st.expander("🔍 Technical Validation Details", expanded=False):
+        with st.expander("🔍 Technical Validation Details", expanded=True):
             st.info("**Note:** AI analysis above provides the authoritative assessment. This section shows technical validation details for reference.")
             
             # Show basic data stats
@@ -6563,7 +6579,7 @@ def show_ml_classification():
                 selected_models = None
             
             # LEVEL 2: Model Availability Checker - Per-model compatibility
-            with st.expander("📋 Model Availability Checker", expanded=False):
+            with st.expander("📋 Model Availability Checker", expanded=True):
                 st.write("**Per-model compatibility check:**")
                 
                 # Get data compatibility from Level 1
@@ -6712,157 +6728,181 @@ def show_ml_classification():
         st.divider()
         st.subheader("⚖️ 2b. Balance Classes (Optional)")
         
-        from utils.class_balancing import ClassBalancer
+        # Check if models are available first
+        available_models = st.session_state.get('ml_available_models', [])
+        models_available = len(available_models) > 0
         
-        # Analyze imbalance
-        imbalance_info = ClassBalancer.analyze_imbalance(df, target_col)
-        
-        # Check if AI recommends SMOTE
-        ai_recommends_smote = ai_recommendations.get('recommend_smote', False)
-        ai_detected_imbalance = ai_recommendations.get('class_imbalance_detected', False)
-        
-        # Show if either rule-based OR AI detects imbalance
-        show_balancing = imbalance_info['imbalance_ratio'] > 3 or ai_detected_imbalance
-        
-        if show_balancing:
-            # Show combined recommendations
-            preset = ClassBalancer.get_smart_preset(imbalance_info['imbalance_ratio'])
+        if not models_available:
+            st.error("❌ **Class balancing unavailable** - No models can be trained with this data. Check Model Availability Checker above.")
+            st.session_state.ml_balance_config = {'apply': False}
+        else:
+            from utils.class_balancing import ClassBalancer
             
-            # Enhanced recommendation combining AI and rule-based analysis
-            if ai_recommends_smote and imbalance_info['imbalance_ratio'] > 3:
-                recommendation_text = f"""
-                🤖 **AI + Rule-Based Analysis Agree:** Both recommend class balancing  
-                **AI Severity:** {ai_recommendations.get('imbalance_severity', 'Unknown')}  
-                **Rule-Based Ratio:** {imbalance_info['imbalance_ratio']:.1f}:1  
-                **AI Reasoning:** {ai_recommendations.get('smote_reasoning', 'Class imbalance detected')}
-                """
-                expanded_default = True  # Auto-expand when both agree
-            elif ai_recommends_smote:
-                recommendation_text = f"""
-                🤖 **AI Recommends SMOTE:** {ai_recommendations.get('smote_reasoning', 'Class imbalance detected')}  
-                **AI Severity:** {ai_recommendations.get('imbalance_severity', 'Unknown')}  
-                **Rule-Based Ratio:** {imbalance_info['imbalance_ratio']:.1f}:1 (below threshold)
-                """
-                expanded_default = True  # Auto-expand when AI recommends
-            else:
-                recommendation_text = f"""
-                💡 **Rule-Based Recommendation:** {preset['method']}  
-                **Severity:** {imbalance_info['severity']} imbalance ({imbalance_info['imbalance_ratio']:.1f}:1 ratio)  
-                **Description:** {preset['description']}
-                """
-                expanded_default = False
+            # Analyze imbalance
+            imbalance_info = ClassBalancer.analyze_imbalance(df, target_col)
             
-            st.info(recommendation_text)
+            # Check if AI recommends SMOTE
+            ai_recommends_smote = ai_recommendations.get('recommend_smote', False)
+            ai_detected_imbalance = ai_recommendations.get('class_imbalance_detected', False)
             
-            with st.expander("⚖️ Configure Class Balancing", expanded=expanded_default):
-                # Auto-enable balancing when AI strongly recommends it
-                default_balancing = ai_recommends_smote and ai_recommendations.get('imbalance_severity') in ['Moderate', 'Severe']
+            # Show if either rule-based OR AI detects imbalance
+            show_balancing = imbalance_info['imbalance_ratio'] > 3 or ai_detected_imbalance
+            
+            if show_balancing:
+                # Show combined recommendations
+                preset = ClassBalancer.get_smart_preset(imbalance_info['imbalance_ratio'])
                 
-                apply_balancing = st.checkbox(
-                    "Apply class balancing before training",
-                    value=default_balancing,
-                    help="✨ Auto-enabled because AI detected class imbalance" if default_balancing else "Recommended for imbalanced datasets to improve minority class performance"
-                )
+                # Enhanced recommendation combining AI and rule-based analysis
+                if ai_recommends_smote and imbalance_info['imbalance_ratio'] > 3:
+                    recommendation_text = f"""
+                    🤖 **AI + Rule-Based Analysis Agree:** Both recommend class balancing  
+                    **AI Severity:** {ai_recommendations.get('imbalance_severity', 'Unknown')}  
+                    **Rule-Based Ratio:** {imbalance_info['imbalance_ratio']:.1f}:1  
+                    **AI Reasoning:** {ai_recommendations.get('smote_reasoning', 'Class imbalance detected')}
+                    """
+                    expanded_default = True  # Auto-expand when both agree
+                elif ai_recommends_smote:
+                    recommendation_text = f"""
+                    🤖 **AI Recommends SMOTE:** {ai_recommendations.get('smote_reasoning', 'Class imbalance detected')}  
+                    **AI Severity:** {ai_recommendations.get('imbalance_severity', 'Unknown')}  
+                    **Rule-Based Ratio:** {imbalance_info['imbalance_ratio']:.1f}:1 (below threshold)
+                    """
+                    expanded_default = True  # Auto-expand when AI recommends
+                else:
+                    recommendation_text = f"""
+                    💡 **Rule-Based Recommendation:** {preset['method']}  
+                    **Severity:** {imbalance_info['severity']} imbalance ({imbalance_info['imbalance_ratio']:.1f}:1 ratio)  
+                    **Description:** {preset['description']}
+                    """
+                    expanded_default = False
                 
-                if apply_balancing:
-                    col1, col2 = st.columns(2)
+                st.info(recommendation_text)
+                
+                with st.expander("⚖️ Configure Class Balancing", expanded=expanded_default):
+                    # Auto-enable balancing when AI strongly recommends it
+                    default_balancing = ai_recommends_smote and ai_recommendations.get('imbalance_severity') in ['Moderate', 'Severe']
                     
-                    with col1:
-                        # Prefer SMOTE when AI recommends it, otherwise use preset
-                        if ai_recommends_smote:
-                            default_method_index = 0  # SMOTE is first in list
-                            help_text = "🤖 SMOTE recommended by AI - creates synthetic samples for minority classes"
-                        else:
-                            default_method_index = ["SMOTE", "Random Undersampling", "SMOTE + Tomek Links"].index(preset['method']) if preset['method'] in ["SMOTE", "Random Undersampling", "SMOTE + Tomek Links"] else 0
-                            help_text = "SMOTE creates synthetic samples, Undersampling removes majority samples"
-                        
-                        balance_method = st.selectbox(
-                            "Balancing Method:",
-                            ["SMOTE", "Random Undersampling", "SMOTE + Tomek Links"],
-                            index=default_method_index,
-                            help=help_text
-                        )
+                    apply_balancing = st.checkbox(
+                        "Apply class balancing before training",
+                        value=default_balancing,
+                        help="✨ Auto-enabled because AI detected class imbalance" if default_balancing else "Recommended for imbalanced datasets to improve minority class performance"
+                    )
                     
-                    with col2:
-                        if balance_method == "Random Undersampling":
-                            default_strategy = 0.7
-                        else:
-                            default_strategy = preset.get('sampling_strategy', 0.5)
-                        
-                        sampling_strategy = st.slider(
-                            "Target Balance Ratio:",
-                            min_value=0.3,
-                            max_value=1.0,
-                            value=float(default_strategy) if isinstance(default_strategy, (int, float)) else 0.5,
-                            step=0.1,
-                            help="1.0 = fully balanced, 0.5 = minority becomes 50% of majority size"
-                        )
-                    
-                    # K-neighbors for SMOTE
-                    if balance_method in ["SMOTE", "SMOTE + Tomek Links"]:
-                        k_neighbors = st.slider(
-                            "K-Neighbors (SMOTE):",
-                            min_value=1,
-                            max_value=min(10, imbalance_info['min_samples'] - 1),
-                            value=min(5, imbalance_info['min_samples'] - 1),
-                            help="Number of nearest neighbors to use for synthetic sample generation"
-                        )
-                    else:
-                        k_neighbors = 5
-                    
-                    # Preview button
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        st.write("**Current Distribution:**")
-                        current_dist = imbalance_info['class_counts'].head(10)
-                        for idx, (cls, count) in enumerate(current_dist.items()):
-                            pct = (count / len(df) * 100)
-                            st.write(f"{cls}: {count:,} ({pct:.1f}%)")
-                    
-                    with col2:
-                        if st.button("👁️ Preview Balanced Data", use_container_width=True):
-                            try:
-                                with st.spinner("Applying balancing..."):
-                                    balanced_df = ClassBalancer.apply_balancing(
-                                        df,
-                                        target_col,
-                                        balance_method,
-                                        sampling_strategy,
-                                        k_neighbors
-                                    )
-                                    
-                                    st.success(f"✅ Balanced data: {len(balanced_df):,} rows")
-                                    
-                                    st.write("**After Balancing:**")
-                                    new_dist = balanced_df[target_col].value_counts().head(10)
-                                    for cls, count in new_dist.items():
-                                        pct = (count / len(balanced_df) * 100)
-                                        st.write(f"{cls}: {count:,} ({pct:.1f}%)")
-                                    
-                                    # Store preview in session state
-                                    st.session_state.ml_balanced_preview = balanced_df
-                                    st.session_state.ml_balancing_applied = True
-                                    
-                            except Exception as e:
-                                st.error(f"Error during balancing: {str(e)}")
-                                st.info("Try reducing k_neighbors or using Random Undersampling")
-                    
-                    # If balancing configured, store parameters
                     if apply_balancing:
-                        st.session_state.ml_balance_config = {
-                            'apply': True,
-                            'method': balance_method,
-                            'sampling_strategy': sampling_strategy,
-                            'k_neighbors': k_neighbors
-                        }
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            # Prefer SMOTE when AI recommends it, otherwise use preset
+                            if ai_recommends_smote:
+                                default_method_index = 0  # SMOTE is first in list
+                                help_text = "🤖 SMOTE recommended by AI - creates synthetic samples for minority classes"
+                            else:
+                                default_method_index = ["SMOTE", "Random Undersampling", "SMOTE + Tomek Links"].index(preset['method']) if preset['method'] in ["SMOTE", "Random Undersampling", "SMOTE + Tomek Links"] else 0
+                                help_text = "SMOTE creates synthetic samples, Undersampling removes majority samples"
+                            
+                            balance_method = st.selectbox(
+                                "Balancing Method:",
+                                ["SMOTE", "Random Undersampling", "SMOTE + Tomek Links"],
+                                index=default_method_index,
+                                help=help_text
+                            )
+                        
+                        with col2:
+                            if balance_method == "Random Undersampling":
+                                default_strategy = 0.7
+                            else:
+                                default_strategy = preset.get('sampling_strategy', 0.5)
+                            
+                            sampling_strategy = st.slider(
+                                "Target Balance Ratio:",
+                                min_value=0.3,
+                                max_value=1.0,
+                                value=float(default_strategy) if isinstance(default_strategy, (int, float)) else 0.5,
+                                step=0.1,
+                                help="1.0 = fully balanced, 0.5 = minority becomes 50% of majority size"
+                            )
+                        
+                        # K-neighbors for SMOTE
+                        if balance_method in ["SMOTE", "SMOTE + Tomek Links"]:
+                            k_neighbors = st.slider(
+                                "K-Neighbors (SMOTE):",
+                                min_value=1,
+                                max_value=min(10, imbalance_info['min_samples'] - 1),
+                                value=min(5, imbalance_info['min_samples'] - 1),
+                                help="Number of nearest neighbors to use for synthetic sample generation"
+                            )
+                        else:
+                            k_neighbors = 5
+                        
+                        # Preview button
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            st.write("**Current Distribution:**")
+                            current_dist = imbalance_info['class_counts'].head(10)
+                            for idx, (cls, count) in enumerate(current_dist.items()):
+                                pct = (count / len(df) * 100)
+                                st.write(f"{cls}: {count:,} ({pct:.1f}%)")
+                        
+                        with col2:
+                            if st.button("👁️ Preview Balanced Data", use_container_width=True):
+                                try:
+                                    with st.spinner("Applying balancing..."):
+                                        # Filter to numeric columns only for SMOTE
+                                        numeric_features = df.select_dtypes(include=[np.number]).columns.tolist()
+                                        if target_col in numeric_features:
+                                            numeric_features.remove(target_col)
+                                        
+                                        if len(numeric_features) == 0:
+                                            st.error("❌ No numeric features available for balancing. SMOTE requires numeric features.")
+                                            st.info("💡 Try encoding categorical features first or use a different balancing method.")
+                                        else:
+                                            # Create subset with only numeric features + target
+                                            df_numeric = df[numeric_features + [target_col]].copy()
+                                            
+                                            balanced_df = ClassBalancer.apply_balancing(
+                                                df_numeric,
+                                                target_col,
+                                                balance_method,
+                                                sampling_strategy,
+                                                k_neighbors
+                                            )
+                                                        
+                                            st.success(f"✅ Balanced data: {len(balanced_df):,} rows")
+                                            st.info(f"ℹ️ Preview uses {len(numeric_features)} numeric features only")
+                                            
+                                            st.write("**After Balancing:**")
+                                            new_dist = balanced_df[target_col].value_counts().head(10)
+                                            for cls, count in new_dist.items():
+                                                pct = (count / len(balanced_df) * 100)
+                                                st.write(f"{cls}: {count:,} ({pct:.1f}%)")
+                                            
+                                            # Store preview in session state
+                                            st.session_state.ml_balanced_preview = balanced_df
+                                            st.session_state.ml_balancing_applied = True
+                                                        
+                                except Exception as e:
+                                    st.error(f"Error during balancing: {str(e)}")
+                                    st.info("💡 **Troubleshooting:**")
+                                    st.write("- Try reducing k_neighbors")
+                                    st.write("- Use Random Undersampling instead of SMOTE")
+                                    st.write("- Ensure dataset has numeric features only")
+                        
+                        # If balancing configured, store parameters
+                        if apply_balancing:
+                            st.session_state.ml_balance_config = {
+                                'apply': True,
+                                'method': balance_method,
+                                'sampling_strategy': sampling_strategy,
+                                'k_neighbors': k_neighbors
+                            }
+                        else:
+                            st.session_state.ml_balance_config = {'apply': False}
                     else:
                         st.session_state.ml_balance_config = {'apply': False}
-                else:
-                    st.session_state.ml_balance_config = {'apply': False}
-        else:
-            st.success(f"✅ **Balanced Dataset** - Imbalance ratio: {imbalance_info['imbalance_ratio']:.1f}:1. No balancing needed.")
-            st.session_state.ml_balance_config = {'apply': False}
+            else:
+                st.success(f"✅ **Balanced Dataset** - Imbalance ratio: {imbalance_info['imbalance_ratio']:.1f}:1. No balancing needed.")
+                st.session_state.ml_balance_config = {'apply': False}
         
         st.divider()
         
