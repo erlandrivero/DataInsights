@@ -435,10 +435,10 @@ def show_data_upload():
                 else:
                     st.success("✅ No significant data quality issues detected!")
                 
-                # AI Data Insights Section
+                # AI Data Insights Section - EXPANDED for user visibility
                 if 'ai_data_insights' in st.session_state:
                     st.subheader("🤖 AI Data Insights")
-                    with st.expander("📊 View AI Analysis", expanded=False):
+                    with st.expander("📊 View AI Analysis", expanded=True):
                         st.markdown(st.session_state.ai_data_insights)
                     
                     st.info("💡 **This data profile will be available to all analytics modules. ML-specific recommendations will be generated when you use ML Classification or Regression.**")
