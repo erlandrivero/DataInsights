@@ -10715,41 +10715,6 @@ def show_time_series_forecasting():
         - Perfect for learning time series forecasting
         """)
     
-    elif data_source == "Upload Custom Data":
-        uploaded_file = st.file_uploader(
-            "Upload your time series data (CSV or Excel)",
-            type=['csv', 'xlsx', 'xls'],
-            key="ts_file_uploader"
-        )
-        
-        if uploaded_file is not None:
-            try:
-                if uploaded_file.name.endswith('.csv'):
-                    df = pd.read_csv(uploaded_file)
-                else:
-                    df = pd.read_excel(uploaded_file)
-                
-                # Track dataset change for uploaded data
-                dataset_name = f"uploaded_{uploaded_file.name}"
-                current_dataset_id = DatasetTracker.generate_dataset_id(df, dataset_name)
-                stored_id = st.session_state.get('ts_dataset_id')
-                
-                if DatasetTracker.check_dataset_changed(df, dataset_name, stored_id):
-                    DatasetTracker.clear_module_ai_cache(st.session_state, 'ts')
-                    if stored_id is not None:
-                        st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
-                
-                st.session_state.ts_dataset_id = current_dataset_id
-                
-                st.success(f"✅ Uploaded {len(df)} rows, {len(df.columns)} columns")
-                st.dataframe(df.head(), use_container_width=True)
-            except Exception as e:
-                st.error(f"Error loading file: {str(e)}")
-                return
-        else:
-            st.info("👆 Please upload a CSV or Excel file containing time series data")
-            return
-    
     if df is None:
         st.info("👆 Please select or upload data to continue")
         return
