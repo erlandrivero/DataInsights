@@ -12725,9 +12725,12 @@ def show_ab_testing():
 
         col1, col2 = st.columns(2)
         with col1:
-            # Get suggested group column
-            group_default = suggestions['group']
-            group_idx = list(df.columns).index(group_default)
+            # Get suggested group column with safe fallback
+            group_default = suggestions.get('group', df.columns[0])
+            try:
+                group_idx = list(df.columns).index(group_default) if group_default in df.columns else 0
+            except (ValueError, IndexError):
+                group_idx = 0
 
             group_col = st.selectbox(
                 "Group Column (A/B variant):",
@@ -12807,9 +12810,12 @@ def show_ab_testing():
                 st.caption(f"🔍 Groups: {list(groups[:5])}")
 
         with col2:
-            # Get suggested metric column
-            metric_default = suggestions['metric']
-            metric_idx = list(df.columns).index(metric_default)
+            # Get suggested metric column with safe fallback
+            metric_default = suggestions.get('metric', df.columns[0])
+            try:
+                metric_idx = list(df.columns).index(metric_default) if metric_default in df.columns else 0
+            except (ValueError, IndexError):
+                metric_idx = 0
 
             metric_col = st.selectbox(
                 "Metric Column:",
