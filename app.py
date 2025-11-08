@@ -19460,9 +19460,9 @@ def show_churn_prediction():
     has_loaded_data = st.session_state.data is not None
     
     if has_loaded_data:
-        data_options = ["Use Loaded Dataset", "Use Sample Data", "Upload Custom Data"]
+        data_options = ["Use Loaded Dataset", "Use Sample Data"]
     else:
-        data_options = ["Use Sample Data", "Upload Custom Data"]
+        data_options = ["Use Sample Data"]
     
     data_source = st.radio(
         "Choose data source:",
@@ -19544,24 +19544,6 @@ def show_churn_prediction():
         
         st.success(f"✅ Sample data loaded ({len(churn_data):,} transactions, {n_customers} customers)")
         st.info("💡 This dataset contains synthetic customer transactions with churn labels for demonstration")
-        
-    else:  # Upload Custom Data
-        uploaded = st.file_uploader("Upload CSV file", type=['csv'])
-        if uploaded:
-            churn_data = pd.read_csv(uploaded)
-            st.success(f"✅ File uploaded ({len(churn_data):,} rows)")
-            
-            # Track dataset change for uploaded data
-            dataset_name = f"uploaded_{uploaded.name}"
-            current_dataset_id = DatasetTracker.generate_dataset_id(churn_data, dataset_name)
-            stored_id = st.session_state.get('churn_dataset_id')
-            
-            if DatasetTracker.check_dataset_changed(churn_data, dataset_name, stored_id):
-                DatasetTracker.clear_module_ai_cache(st.session_state, 'churn')
-                if stored_id is not None:
-                    st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
-            
-            st.session_state.churn_dataset_id = current_dataset_id
     
     # Display dataset preview
     if churn_data is not None:
