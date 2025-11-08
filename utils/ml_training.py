@@ -199,14 +199,33 @@ class MLTrainer:
         
         # Encode categorical features
         for col in self.X.columns:
-            if self.X[col].dtype == 'object':
+            if self.X[col].dtype == 'object' or self.X[col].dtype.name == 'category':
                 le = LabelEncoder()
+                # Handle missing values before encoding
+                self.X[col] = self.X[col].fillna('missing')
                 self.X[col] = le.fit_transform(self.X[col].astype(str))
                 self.label_encoders[col] = le
         
+        # Verify all columns are numeric before proceeding
+        non_numeric_cols = self.X.select_dtypes(exclude=[np.number]).columns.tolist()
+        if non_numeric_cols:
+            raise ValueError(
+                f"Cannot train classification model: The following columns contain non-numeric data that could not be encoded: {non_numeric_cols}. "
+                f"Please remove these columns or convert them to numeric format."
+            )
+        
+        # Convert to numeric and handle any remaining issues
+        for col in self.X.columns:
+            self.X[col] = pd.to_numeric(self.X[col], errors='coerce')
+        
+        # Fill any NaN values that resulted from conversion
+        self.X = self.X.fillna(self.X.mean())
+        
         # Encode target
-        if self.y.dtype == 'object':
+        if self.y.dtype == 'object' or self.y.dtype.name == 'category':
             self.target_encoder = LabelEncoder()
+            # Handle missing values in target
+            self.y = self.y.fillna('missing')
             self.y = self.target_encoder.fit_transform(self.y.astype(str))
             self.class_names = list(self.target_encoder.classes_)
         else:
