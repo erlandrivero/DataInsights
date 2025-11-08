@@ -9,14 +9,15 @@ Phase 2 Enhancement: Oct 23, 2025
 
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import IsolationForest
-from sklearn.neighbors import LocalOutlierFactor
-from sklearn.svm import OneClassSVM
-from sklearn.decomposition import PCA
+import gc
+import importlib.util
 from typing import List, Dict, Any, Tuple, Optional, Union
 import plotly.express as px
 import plotly.graph_objects as go
+from utils.lazy_loader import LazyModuleLoader
+
+# Check sklearn availability
+SKLEARN_AVAILABLE = importlib.util.find_spec('sklearn') is not None
 
 
 class AnomalyDetector:
@@ -74,15 +75,51 @@ class AnomalyDetector:
         
         Note:
             - Creates a copy to avoid modifying original data
-            - Initializes StandardScaler for feature normalization
+            - StandardScaler loaded lazily when needed
             - All attributes set to None until features are selected
         """
         self.df: pd.DataFrame = df.copy()
         self.features: Optional[pd.DataFrame] = None
         self.scaled_features: Optional[pd.DataFrame] = None
-        self.scaler: StandardScaler = StandardScaler()
-        self.model: Union[IsolationForest, LocalOutlierFactor, OneClassSVM, None] = None
+        self.scaler = None  # Lazy loaded
+        self.model = None  # Lazy loaded
         self.anomaly_results: Optional[pd.DataFrame] = None
+    
+    @staticmethod
+    def _lazy_load_model(model_name: str):
+        """Lazy load sklearn models to reduce memory footprint.
+        
+        Args:
+            model_name: Name of the model to load
+                       ('StandardScaler', 'IsolationForest', 'LocalOutlierFactor', 
+                        'OneClassSVM', 'PCA')
+        
+        Returns:
+            Model class or None if sklearn not available
+        """
+        if not SKLEARN_AVAILABLE:
+            return None
+        
+        try:
+            if model_name == 'StandardScaler':
+                from sklearn.preprocessing import StandardScaler
+                return StandardScaler
+            elif model_name == 'IsolationForest':
+                from sklearn.ensemble import IsolationForest
+                return IsolationForest
+            elif model_name == 'LocalOutlierFactor':
+                from sklearn.neighbors import LocalOutlierFactor
+                return LocalOutlierFactor
+            elif model_name == 'OneClassSVM':
+                from sklearn.svm import OneClassSVM
+                return OneClassSVM
+            elif model_name == 'PCA':
+                from sklearn.decomposition import PCA
+                return PCA
+            else:
+                return None
+        except ImportError:
+            return None
     
     def set_features(self, feature_cols: List[str]) -> pd.DataFrame:
         """Set and scale feature columns for anomaly detection.
@@ -124,14 +161,25 @@ class AnomalyDetector:
         if self.features.isnull().any().any():
             self.features = self.features.fillna(self.features.mean())
         
-        # Scale features for algorithm compatibility
-        self.scaled_features = pd.DataFrame(
-            self.scaler.fit_transform(self.features),
-            columns=self.features.columns,
-            index=self.features.index
-        )
+        # Lazy load StandardScaler
+        StandardScaler = self._lazy_load_model('StandardScaler')
+        if StandardScaler is None:
+            raise ImportError("sklearn not available")
         
-        return self.features
+        try:
+            # Scale features for algorithm compatibility
+            scaler = StandardScaler()
+            self.scaled_features = pd.DataFrame(
+                scaler.fit_transform(self.features),
+                columns=self.features.columns,
+                index=self.features.index
+            )
+            self.scaler = scaler
+            
+            return self.features
+        finally:
+            # Cleanup
+            gc.collect()
     
     def run_isolation_forest(self, contamination: float = 0.1) -> pd.DataFrame:
         """Run Isolation Forest algorithm for anomaly detection.
@@ -171,29 +219,39 @@ class AnomalyDetector:
         if self.scaled_features is None:
             raise ValueError("Features must be set first using set_features()")
         
-        # Initialize and fit Isolation Forest model
-        self.model = IsolationForest(
-            contamination=contamination,
-            random_state=42,
-            n_estimators=100
-        )
+        # Lazy load IsolationForest
+        IsolationForest = self._lazy_load_model('IsolationForest')
+        if IsolationForest is None:
+            raise ImportError("sklearn not available")
         
-        # Predict anomalies (-1 for outliers, 1 for inliers)
-        predictions = self.model.fit_predict(self.scaled_features)
-        
-        # Get anomaly scores (lower values = more anomalous)
-        scores = self.model.score_samples(self.scaled_features)
-        
-        # Create results dataframe with original data + predictions
-        results_df = self.df.copy()
-        results_df['anomaly_score'] = scores
-        results_df['is_anomaly'] = predictions == -1
-        results_df['anomaly_type'] = results_df['is_anomaly'].map(
-            {True: 'Anomaly', False: 'Normal'}
-        )
-        
-        self.anomaly_results = results_df
-        return results_df
+        try:
+            # Initialize and fit Isolation Forest model
+            model = IsolationForest(
+                contamination=contamination,
+                random_state=42,
+                n_estimators=100
+            )
+            
+            # Predict anomalies (-1 for outliers, 1 for inliers)
+            predictions = model.fit_predict(self.scaled_features)
+            
+            # Get anomaly scores (lower values = more anomalous)
+            scores = model.score_samples(self.scaled_features)
+            
+            # Create results dataframe with original data + predictions
+            results_df = self.df.copy()
+            results_df['anomaly_score'] = scores
+            results_df['is_anomaly'] = predictions == -1
+            results_df['anomaly_type'] = results_df['is_anomaly'].map(
+                {True: 'Anomaly', False: 'Normal'}
+            )
+            
+            self.model = model
+            self.anomaly_results = results_df
+            return results_df
+        finally:
+            # Cleanup
+            gc.collect()
     
     def run_local_outlier_factor(
         self, 
@@ -236,29 +294,39 @@ class AnomalyDetector:
         if self.scaled_features is None:
             raise ValueError("Features must be set first using set_features()")
         
-        # Initialize and fit LOF model
-        self.model = LocalOutlierFactor(
-            contamination=contamination,
-            n_neighbors=n_neighbors,
-            novelty=False
-        )
+        # Lazy load LocalOutlierFactor
+        LocalOutlierFactor = self._lazy_load_model('LocalOutlierFactor')
+        if LocalOutlierFactor is None:
+            raise ImportError("sklearn not available")
         
-        # Predict anomalies (-1 for outliers, 1 for inliers)
-        predictions = self.model.fit_predict(self.scaled_features)
-        
-        # Get negative outlier factor (lower = more anomalous)
-        scores = self.model.negative_outlier_factor_
-        
-        # Create results dataframe
-        results_df = self.df.copy()
-        results_df['anomaly_score'] = scores
-        results_df['is_anomaly'] = predictions == -1
-        results_df['anomaly_type'] = results_df['is_anomaly'].map(
-            {True: 'Anomaly', False: 'Normal'}
-        )
-        
-        self.anomaly_results = results_df
-        return results_df
+        try:
+            # Initialize and fit LOF model
+            model = LocalOutlierFactor(
+                contamination=contamination,
+                n_neighbors=n_neighbors,
+                novelty=False
+            )
+            
+            # Predict anomalies (-1 for outliers, 1 for inliers)
+            predictions = model.fit_predict(self.scaled_features)
+            
+            # Get negative outlier factor (lower = more anomalous)
+            scores = model.negative_outlier_factor_
+            
+            # Create results dataframe
+            results_df = self.df.copy()
+            results_df['anomaly_score'] = scores
+            results_df['is_anomaly'] = predictions == -1
+            results_df['anomaly_type'] = results_df['is_anomaly'].map(
+                {True: 'Anomaly', False: 'Normal'}
+            )
+            
+            self.model = model
+            self.anomaly_results = results_df
+            return results_df
+        finally:
+            # Cleanup
+            gc.collect()
     
     def run_one_class_svm(
         self, 
@@ -303,30 +371,40 @@ class AnomalyDetector:
         if self.scaled_features is None:
             raise ValueError("Features must be set first using set_features()")
         
-        # Initialize and fit One-Class SVM
-        self.model = OneClassSVM(
-            nu=nu,
-            kernel=kernel,
-            gamma='auto'
-        )
+        # Lazy load OneClassSVM
+        OneClassSVM = self._lazy_load_model('OneClassSVM')
+        if OneClassSVM is None:
+            raise ImportError("sklearn not available")
         
-        # Fit model and predict
-        self.model.fit(self.scaled_features)
-        predictions = self.model.predict(self.scaled_features)
-        
-        # Get decision function values (lower = more anomalous)
-        scores = self.model.decision_function(self.scaled_features)
-        
-        # Create results dataframe
-        results_df = self.df.copy()
-        results_df['anomaly_score'] = scores
-        results_df['is_anomaly'] = predictions == -1
-        results_df['anomaly_type'] = results_df['is_anomaly'].map(
-            {True: 'Anomaly', False: 'Normal'}
-        )
-        
-        self.anomaly_results = results_df
-        return results_df
+        try:
+            # Initialize and fit One-Class SVM
+            model = OneClassSVM(
+                nu=nu,
+                kernel=kernel,
+                gamma='auto'
+            )
+            
+            # Fit model and predict
+            model.fit(self.scaled_features)
+            predictions = model.predict(self.scaled_features)
+            
+            # Get decision function values (lower = more anomalous)
+            scores = model.decision_function(self.scaled_features)
+            
+            # Create results dataframe
+            results_df = self.df.copy()
+            results_df['anomaly_score'] = scores
+            results_df['is_anomaly'] = predictions == -1
+            results_df['anomaly_type'] = results_df['is_anomaly'].map(
+                {True: 'Anomaly', False: 'Normal'}
+            )
+            
+            self.model = model
+            self.anomaly_results = results_df
+            return results_df
+        finally:
+            # Cleanup
+            gc.collect()
     
     def get_feature_importance(self) -> Optional[pd.DataFrame]:
         """Calculate feature importance for Isolation Forest algorithm.
@@ -353,29 +431,38 @@ class AnomalyDetector:
             - Higher values = more important for anomaly detection
             - Returns None if another algorithm was used last
         """
+        # Lazy load IsolationForest for type checking
+        IsolationForest = self._lazy_load_model('IsolationForest')
+        if IsolationForest is None or self.model is None:
+            return None
+        
         if not isinstance(self.model, IsolationForest):
             return None
         
-        # Calculate feature importance from tree splits
-        feature_importances = np.zeros(len(self.features.columns))
-        
-        for tree in self.model.estimators_:
-            # Count feature usage in splits
-            feature_importances += np.bincount(
-                tree.tree_.feature[tree.tree_.feature >= 0],
-                minlength=len(self.features.columns)
-            )
-        
-        # Normalize to sum to 1
-        feature_importances = feature_importances / feature_importances.sum()
-        
-        # Create sorted dataframe
-        importance_df = pd.DataFrame({
-            'Feature': self.features.columns,
-            'Importance': feature_importances
-        }).sort_values('Importance', ascending=False)
-        
-        return importance_df
+        try:
+            # Calculate feature importance from tree splits
+            feature_importances = np.zeros(len(self.features.columns))
+            
+            for tree in self.model.estimators_:
+                # Count feature usage in splits
+                feature_importances += np.bincount(
+                    tree.tree_.feature[tree.tree_.feature >= 0],
+                    minlength=len(self.features.columns)
+                )
+            
+            # Normalize to sum to 1
+            feature_importances = feature_importances / feature_importances.sum()
+            
+            # Create sorted dataframe
+            importance_df = pd.DataFrame({
+                'Feature': self.features.columns,
+                'Importance': feature_importances
+            }).sort_values('Importance', ascending=False)
+            
+            return importance_df
+        finally:
+            # Cleanup
+            gc.collect()
     
     def get_anomaly_profiles(self, top_n: int = 5) -> pd.DataFrame:
         """Get statistical profiles of top N anomalies compared to normal data.
@@ -503,11 +590,19 @@ class AnomalyDetector:
         
         # Determine coordinates (PCA or first 2 features)
         if use_pca or len(self.features.columns) > 2:
-            # Use PCA for dimensionality reduction
-            pca = PCA(n_components=2)
-            coords = pca.fit_transform(sample_features)
-            x_label = f'PC1 ({pca.explained_variance_ratio_[0]*100:.1f}%)'
-            y_label = f'PC2 ({pca.explained_variance_ratio_[1]*100:.1f}%)'
+            # Lazy load PCA
+            PCA = self._lazy_load_model('PCA')
+            if PCA is None:
+                raise ImportError("sklearn not available")
+            
+            try:
+                # Use PCA for dimensionality reduction
+                pca = PCA(n_components=2)
+                coords = pca.fit_transform(sample_features)
+                x_label = f'PC1 ({pca.explained_variance_ratio_[0]*100:.1f}%)'
+                y_label = f'PC2 ({pca.explained_variance_ratio_[1]*100:.1f}%)'
+            finally:
+                gc.collect()
         else:
             # Use first two features directly
             coords = sample_features.iloc[:, :2].values
