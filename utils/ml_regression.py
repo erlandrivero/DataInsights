@@ -193,14 +193,49 @@ class MLRegressor:
             'SVR': ('sklearn.svm', 'SVR', {'kernel': 'rbf'}),
             
             # Tree-Based Models
-            'Decision Tree': ('sklearn.tree', 'DecisionTreeRegressor', {'max_depth': 10, 'random_state': 42}),
-            'Random Forest': ('sklearn.ensemble', 'RandomForestRegressor', {'n_estimators': 100, 'max_depth': 10, 'n_jobs': -1, 'random_state': 42}),
-            'Extra Trees': ('sklearn.ensemble', 'ExtraTreesRegressor', {'n_estimators': 100, 'max_depth': 10, 'n_jobs': -1, 'random_state': 42}),
+            'Decision Tree': ('sklearn.tree', 'DecisionTreeRegressor', {
+                'max_depth': 15,
+                'min_samples_split': 10,
+                'min_samples_leaf': 5,
+                'random_state': 42
+            }),
+            'Random Forest': ('sklearn.ensemble', 'RandomForestRegressor', {
+                'n_estimators': 100,
+                'max_depth': 15,
+                'min_samples_split': 5,
+                'n_jobs': -1,
+                'random_state': 42
+            }),
+            'Extra Trees': ('sklearn.ensemble', 'ExtraTreesRegressor', {
+                'n_estimators': 100,
+                'max_depth': 15,
+                'min_samples_split': 5,
+                'n_jobs': -1,
+                'random_state': 42
+            }),
             
             # Boosting Models
-            'AdaBoost': ('sklearn.ensemble', 'AdaBoostRegressor', {'n_estimators': 50, 'random_state': 42}),
-            'Gradient Boosting': ('sklearn.ensemble', 'GradientBoostingRegressor', {'n_estimators': 100, 'max_depth': 5, 'random_state': 42}),
-            'Hist Gradient Boosting': ('sklearn.ensemble', 'HistGradientBoostingRegressor', {'max_iter': 100, 'random_state': 42}),
+            'AdaBoost': ('sklearn.ensemble', 'AdaBoostRegressor', {
+                'n_estimators': 50,
+                'learning_rate': 1.0,
+                'random_state': 42
+            }),
+            'Gradient Boosting': ('sklearn.ensemble', 'GradientBoostingRegressor', {
+                'n_estimators': 100,
+                'max_depth': 5,
+                'learning_rate': 0.1,
+                'subsample': 0.8,
+                'random_state': 42
+            }),
+            'Hist Gradient Boosting': ('sklearn.ensemble', 'HistGradientBoostingRegressor', {
+                'max_iter': 100,
+                'random_state': 42,
+                'max_depth': 10,
+                'learning_rate': 0.1,
+                'early_stopping': True,
+                'n_iter_no_change': 10,
+                'validation_fraction': 0.1
+            }),
             
             # Ensemble Models
             'Bagging': ('sklearn.ensemble', 'BaggingRegressor', {'n_estimators': 10, 'n_jobs': -1, 'random_state': 42}),

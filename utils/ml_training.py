@@ -373,14 +373,49 @@ class MLTrainer:
             'Perceptron': ('sklearn.linear_model', 'Perceptron', {'random_state': 42, 'max_iter': 500, 'n_jobs': 1}),
             
             # Tree-Based Models
-            'Decision Tree': ('sklearn.tree', 'DecisionTreeClassifier', {'random_state': 42}),
-            'Random Forest': ('sklearn.ensemble', 'RandomForestClassifier', {'random_state': 42, 'n_jobs': -1}),
-            'Extra Trees': ('sklearn.ensemble', 'ExtraTreesClassifier', {'random_state': 42, 'n_jobs': -1}),
+            'Decision Tree': ('sklearn.tree', 'DecisionTreeClassifier', {
+                'random_state': 42,
+                'max_depth': 15,  # Prevent overfitting
+                'min_samples_split': 10,
+                'min_samples_leaf': 5
+            }),
+            'Random Forest': ('sklearn.ensemble', 'RandomForestClassifier', {
+                'random_state': 42,
+                'n_estimators': 100,  # Good balance
+                'max_depth': 15,
+                'min_samples_split': 5,
+                'n_jobs': -1
+            }),
+            'Extra Trees': ('sklearn.ensemble', 'ExtraTreesClassifier', {
+                'random_state': 42,
+                'n_estimators': 100,
+                'max_depth': 15,
+                'min_samples_split': 5,
+                'n_jobs': -1
+            }),
             
             # Boosting Models
-            'AdaBoost': ('sklearn.ensemble', 'AdaBoostClassifier', {'random_state': 42}),
-            'Gradient Boosting': ('sklearn.ensemble', 'GradientBoostingClassifier', {'random_state': 42}),
-            'Histogram Gradient Boosting': ('sklearn.ensemble', 'HistGradientBoostingClassifier', {'random_state': 42, 'max_iter': 500}),
+            'AdaBoost': ('sklearn.ensemble', 'AdaBoostClassifier', {
+                'random_state': 42,
+                'n_estimators': 50,  # Faster than default 100
+                'learning_rate': 1.0
+            }),
+            'Gradient Boosting': ('sklearn.ensemble', 'GradientBoostingClassifier', {
+                'random_state': 42,
+                'n_estimators': 100,
+                'max_depth': 5,
+                'learning_rate': 0.1,
+                'subsample': 0.8  # Speed up with subsampling
+            }),
+            'Histogram Gradient Boosting': ('sklearn.ensemble', 'HistGradientBoostingClassifier', {
+                'random_state': 42, 
+                'max_iter': 100,  # Reduced from 500 for faster training
+                'max_depth': 10,  # Limit tree depth for speed
+                'learning_rate': 0.1,
+                'early_stopping': True,  # Stop early if no improvement
+                'n_iter_no_change': 10,  # Stop if no improvement for 10 iterations
+                'validation_fraction': 0.1  # Use 10% for early stopping validation
+            }),
             
             # External Models
             'XGBoost': ('xgboost', 'XGBClassifier', {
@@ -692,7 +727,20 @@ class MLTrainer:
                     progress_callback(i + 1, total, model_name, loading=True)
                 
                 # Lazy load model (load module dynamically) - THIS CAN TAKE TIME
-                model = self._lazy_load_model(model_name)
+                import time
+                start_load = time.time()
+                
+                try:
+                    model = self._lazy_load_model(model_name)
+                    load_time = time.time() - start_load
+                    
+                    # Warn if loading took too long
+                    if load_time > 10:
+                        print(f"⚠️ {model_name} took {load_time:.1f}s to load")
+                        
+                except Exception as load_error:
+                    results[model_name] = {'error': f'Failed to load: {str(load_error)}'}
+                    continue
                 
                 # Update progress AFTER loading (show "Training..." status)
                 if progress_callback:

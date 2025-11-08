@@ -7092,6 +7092,17 @@ def show_ml_classification():
                     
                     st.info(f"📊 Training {len(models_to_train)} available model(s): {', '.join(models_to_train)}")
                     
+                    # Warn about memory-intensive models on large datasets
+                    if len(df) > 5000 and 'Histogram Gradient Boosting' in models_to_train:
+                        st.warning("""
+                        ⚠️ **Performance Warning**: Histogram Gradient Boosting can be very slow on large datasets (>5000 samples).
+                        
+                        If training appears stuck, consider:
+                        - Deselecting Histogram Gradient Boosting
+                        - Using a smaller test set size
+                        - Reducing cross-validation folds
+                        """)
+                    
                     # Check memory before starting
                     memory_stats = ProcessManager.get_memory_stats()
                     st.info(f"💾 Memory usage before training: {memory_stats['rss_mb']:.1f}MB ({memory_stats['percent']:.1f}%)")
