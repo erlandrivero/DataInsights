@@ -17181,9 +17181,9 @@ def show_survival_analysis():
     has_loaded_data = st.session_state.data is not None
     
     if has_loaded_data:
-        data_options = ["Use Loaded Dataset", "Sample Customer Churn Data", "Upload Custom Data"]
+        data_options = ["Use Loaded Dataset", "Sample Customer Churn Data"]
     else:
-        data_options = ["Sample Customer Churn Data", "Upload Custom Data"]
+        data_options = ["Sample Customer Churn Data"]
     
     data_source = st.radio(
         "Choose data source:",
@@ -17423,42 +17423,6 @@ def show_survival_analysis():
             
             st.success(f"✅ Loaded {len(surv_data)} customer records!")
             st.dataframe(surv_data.head(10), use_container_width=True)
-    
-    else:  # Upload
-        uploaded_file = st.file_uploader("Upload survival data CSV", type=['csv'], key="surv_upload")
-        
-        if uploaded_file:
-            df = pd.read_csv(uploaded_file)
-            st.dataframe(df.head(), use_container_width=True)
-            
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                time_col = st.selectbox("Time/Duration Column", df.select_dtypes(include=[np.number]).columns, key="surv_time_upload")
-            with col2:
-                event_col = st.selectbox("Event Column", df.columns, key="surv_event_upload")
-            with col3:
-                group_col = st.selectbox("Group Column (optional)", ["None"] + list(df.columns), key="surv_group_upload")
-            
-            if st.button("Process Data", type="primary", key="surv_process_upload"):
-                surv_data = df[[time_col, event_col]].copy()
-                surv_data.columns = ['duration', 'event']
-                if group_col != "None":
-                    surv_data['group'] = df[group_col]
-                st.session_state.surv_data = surv_data
-                
-                # Track dataset change for uploaded data
-                dataset_name = f"uploaded_{uploaded_file.name}"
-                current_dataset_id = DatasetTracker.generate_dataset_id(surv_data, dataset_name)
-                stored_id = st.session_state.get('survival_dataset_id')
-                
-                if DatasetTracker.check_dataset_changed(surv_data, dataset_name, stored_id):
-                    DatasetTracker.clear_module_ai_cache(st.session_state, 'survival')
-                    if stored_id is not None:
-                        st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
-                
-                st.session_state.survival_dataset_id = current_dataset_id
-                
-                st.success("✅ Data processed!")
     
     # Analysis section
     if 'surv_data' not in st.session_state:
