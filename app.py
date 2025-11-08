@@ -1004,9 +1004,32 @@ def show_analysis():
         # Get AI presets and determine defaults
         ai_recs = st.session_state.get('cleaning_ai_recommendations', {})
         has_ai_analysis = 'cleaning_ai_recommendations' in st.session_state
+        data_already_cleaned = 'cleaning_stats' in st.session_state
         
-        if has_ai_analysis:
-            # Use AI presets when analysis is available
+        # If data was already cleaned, show message and default all to False
+        if data_already_cleaned:
+            st.success("✅ **Data has been cleaned!** All cleaning options are unchecked by default.")
+            st.info("💡 You can perform additional cleaning if needed, but the data is already in good shape.")
+            # Default all to False for already cleaned data
+            cleaning_presets = {
+                'normalize_cols': False,
+                'convert_numeric': False,
+                'trim_strings': False,
+                'parse_dates': False,
+                'remove_dups': False,
+                'remove_constant': False,
+                'remove_empty_rows': False,
+                'drop_high_missing': False,
+                'fill_missing': False,
+                'missing_strategy': 'median',
+                'remove_outliers': False,
+                'outlier_method': 'IQR',
+                'fix_negatives': False,
+                'negative_method': 'abs',
+                'standardize_categorical': False
+            }
+        elif has_ai_analysis:
+            # Use AI presets when analysis is available and data not yet cleaned
             cleaning_presets = get_ai_cleaning_presets(df, profile, ai_recs)
         else:
             # Default all to False when no AI analysis
@@ -1028,8 +1051,8 @@ def show_analysis():
                 'standardize_categorical': False
             }
         
-        # Show AI preset summary if available
-        if has_ai_analysis:
+        # Show AI preset summary if available (and data not already cleaned)
+        if has_ai_analysis and not data_already_cleaned:
             st.info("🤖 **AI has analyzed your data and preset the cleaning options below based on your data profile.**")
             
             # Show detailed AI reasoning
