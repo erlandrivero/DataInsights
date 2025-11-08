@@ -12225,61 +12225,61 @@ def show_ab_testing():
     
     # Data source selection
     st.subheader("📤 1. Load Test Data")
-    
+
     # Check if data is already loaded
     has_loaded_data = st.session_state.data is not None
-    
+
     if has_loaded_data:
-        data_options = ["Use Loaded Dataset", "Sample A/B Test Data", "Upload Custom Data", "Manual Calculator"]
+        data_options = ["Use Loaded Dataset", "Sample A/B Test Data", "Manual Calculator"]
         default_option = "Use Loaded Dataset"
     else:
-        data_options = ["Sample A/B Test Data", "Upload Custom Data", "Manual Calculator"]
+        data_options = ["Sample A/B Test Data", "Manual Calculator"]
         default_option = "Sample A/B Test Data"
-    
+
     data_source = st.radio(
         "Choose data source:",
         data_options,
         index=0,
         key="ab_data_source"
     )
-    
+
     # Import dataset tracker
     from utils.dataset_tracker import DatasetTracker
-    
+
     # Use Loaded Dataset
     if data_source == "Use Loaded Dataset" and has_loaded_data:
         df = st.session_state.data
         st.success("✅ Using dataset from Data Upload section")
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
-        
+
         # Track dataset change
         dataset_name = "loaded_dataset"
         current_dataset_id = DatasetTracker.generate_dataset_id(df, dataset_name)
         stored_id = st.session_state.get('ab_dataset_id')
-        
+
         if DatasetTracker.check_dataset_changed(df, dataset_name, stored_id):
             DatasetTracker.clear_module_ai_cache(st.session_state, 'ab')
             if stored_id is not None:
                 st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
-        
+
         st.session_state.ab_dataset_id = current_dataset_id
         st.session_state.ab_source_df = df  # Store for AI analysis before column selection
-        
+
         # Show preview
-        with st.expander("👁️ Preview Dataset", expanded=False):
+        with st.expander("👁️ Preview Dataset", expanded=True):
             st.dataframe(df.head(20), use_container_width=True)
-        
+
         st.info("👇 **Next Step:** Generate AI Analysis below to get intelligent column recommendations")
-    
+
     elif data_source == "Sample A/B Test Data":
         if st.button("📥 Load Sample A/B Test Data", type="primary"):
             import pandas as pd
             # Generate realistic A/B test data
             np.random.seed(42)
-            
+
             n_control = 1000
             n_treatment = 1000
-            
+
             # Control: 10% conversion
             control_data = pd.DataFrame({
                 'group': ['Control'] * n_control,
@@ -12289,7 +12289,7 @@ def show_ab_testing():
                 'region': np.random.choice(['North', 'South', 'East', 'West'], n_control),
                 'device_type': np.random.choice(['Mobile', 'Desktop', 'Tablet'], n_control)
             })
-            
+
             # Treatment: 12% conversion (20% lift)
             treatment_data = pd.DataFrame({
                 'group': ['Treatment'] * n_treatment,
@@ -12299,23 +12299,23 @@ def show_ab_testing():
                 'region': np.random.choice(['North', 'South', 'East', 'West'], n_treatment),
                 'device_type': np.random.choice(['Mobile', 'Desktop', 'Tablet'], n_treatment)
             })
-            
+
             sample_data = pd.concat([control_data, treatment_data], ignore_index=True)
-            
+
             # Track dataset change
             dataset_name = "sample_ab_test_data"
             current_dataset_id = DatasetTracker.generate_dataset_id(sample_data, dataset_name)
             stored_id = st.session_state.get('ab_dataset_id')
-            
+
             if DatasetTracker.check_dataset_changed(sample_data, dataset_name, stored_id):
                 DatasetTracker.clear_module_ai_cache(st.session_state, 'ab')
                 if stored_id is not None:
                     st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
-            
+
             # Clear ab_source_df to prevent AI from analyzing wrong dataset
             if 'ab_source_df' in st.session_state:
                 del st.session_state.ab_source_df
-            
+
             st.session_state.ab_dataset_id = current_dataset_id
             st.session_state.ab_test_data = sample_data
             st.session_state.ab_test_groups = {
@@ -12324,83 +12324,38 @@ def show_ab_testing():
                 'group_col': 'group',
                 'metric_col': 'converted'
             }
-            
+
             st.success(f"✅ Loaded sample A/B test data: {len(sample_data)} observations")
-    
-    elif data_source == "Upload Custom Data":
-        uploaded_file = st.file_uploader("Upload A/B test CSV", type=['csv'], key="ab_upload")
-        
-        if uploaded_file:
-            import pandas as pd
-            df = pd.read_csv(uploaded_file)
-            st.dataframe(df.head(), use_container_width=True)
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                group_col = st.selectbox("Group Column", df.columns, key="ab_group_upload")
-            with col2:
-                metric_col = st.selectbox("Metric Column", df.columns, key="ab_metric_upload")
-            
-            if st.button("Process Data", type="primary", key="ab_process_upload"):
-                groups = df[group_col].unique()
-                if len(groups) == 2:
-                    processed_data = df[[group_col, metric_col]].copy()
-                    
-                    # Track dataset change
-                    dataset_name = f"uploaded_{uploaded_file.name}"
-                    current_dataset_id = DatasetTracker.generate_dataset_id(processed_data, dataset_name)
-                    stored_id = st.session_state.get('ab_dataset_id')
-                    
-                    if DatasetTracker.check_dataset_changed(processed_data, dataset_name, stored_id):
-                        DatasetTracker.clear_module_ai_cache(st.session_state, 'ab')
-                        if stored_id is not None:
-                            st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
-                    
-                    # Clear ab_source_df to prevent AI from analyzing wrong dataset
-                    if 'ab_source_df' in st.session_state:
-                        del st.session_state.ab_source_df
-                    
-                    st.session_state.ab_dataset_id = current_dataset_id
-                    st.session_state.ab_test_data = processed_data
-                    st.session_state.ab_test_groups = {
-                        'control': groups[0],
-                        'treatment': groups[1],
-                        'group_col': group_col,
-                        'metric_col': metric_col
-                    }
-                    st.success("✅ Data processed!")
-                else:
-                    st.error(f"Group column must have exactly 2 groups. Found: {len(groups)}")
-    
+
     else:  # Manual Calculator
         st.info("💡 **Manual Mode:** Enter summary statistics for your A/B test")
-        
+
         # Tabs for different test types
         tab1, tab2, tab3 = st.tabs(["📊 Proportion Test", "📈 T-Test", "🧮 Sample Size Calculator"])
-        
+
         with tab1:
             st.markdown("### Proportion Test (Conversion Rates)")
             st.info("💡 Compare conversion rates between control and treatment groups")
-            
+
             col1, col2 = st.columns(2)
-            
+
             with col1:
                 st.markdown("**Control Group**")
                 control_n = st.number_input("Sample Size (Control)", min_value=10, value=1000, step=10, key="prop_control_n")
                 control_conv = st.number_input("Conversions (Control)", min_value=0, max_value=control_n, value=100, step=1, key="prop_control_conv")
                 control_rate = (control_conv / control_n * 100) if control_n > 0 else 0
                 st.metric("Conversion Rate", f"{control_rate:.2f}%")
-            
+
             with col2:
                 st.markdown("**Treatment Group**")
                 treatment_n = st.number_input("Sample Size (Treatment)", min_value=10, value=1000, step=10, key="prop_treatment_n")
                 treatment_conv = st.number_input("Conversions (Treatment)", min_value=0, max_value=treatment_n, value=120, step=1, key="prop_treatment_conv")
                 treatment_rate = (treatment_conv / treatment_n * 100) if treatment_n > 0 else 0
                 st.metric("Conversion Rate", f"{treatment_rate:.2f}%")
-            
+
             # Test settings
             alternative = st.radio("Test Type", ["two-sided", "greater", "less"], horizontal=True, key="prop_alt")
-            
+
             if st.button("🧪 Run Proportion Test", type="primary"):
                 with st.status("Running statistical test...", expanded=True) as status:
                     result = analyzer.run_proportion_test(
@@ -12409,14 +12364,14 @@ def show_ab_testing():
                         alternative=alternative
                     )
                     status.update(label="✅ Test complete!", state="complete", expanded=False)
-                
+
                 # Store results
                 st.session_state.ab_test_results = result
-                
+
                 # Display results
                 st.divider()
                 st.subheader("📊 Test Results")
-                
+
                 # Key metrics
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
@@ -12428,73 +12383,73 @@ def show_ab_testing():
                 with col4:
                     sig_label = "✅ Significant" if result['is_significant'] else "❌ Not Significant"
                     st.metric("Result", sig_label)
-                
+
                 # Interpretation
                 if result['is_significant']:
                     st.success(f"""
                     ✅ **Statistically Significant Result!**
-                    
+
                     The treatment group shows a statistically significant difference (p={result['p_value']:.4f} < 0.05).
                     You can confidently roll out this variant.
                     """)
                 else:
                     st.warning(f"""
                     ⚠️ **No Statistical Significance**
-                    
+
                     The difference is not statistically significant (p={result['p_value']:.4f} ≥ 0.05).
                     Consider running the test longer or with more traffic.
                     """)
-                
+
                 # Visualization
                 fig = ABTestAnalyzer.create_ab_test_visualization(result)
                 st.plotly_chart(fig, use_container_width=True)
-                
+
                 # Effect size
                 effect_interp = ABTestAnalyzer.interpret_effect_size(result['effect_size'], 'cohens_h')
                 st.info(f"**Effect Size (Cohen's h):** {result['effect_size']:.3f} ({effect_interp})")
-                
+
                 # Confidence interval
                 ci_lower, ci_upper = result['confidence_interval']
                 st.write(f"**95% Confidence Interval for difference:** [{ci_lower*100:.2f}%, {ci_upper*100:.2f}%]")
-        
+
         with tab2:
             st.markdown("### T-Test (Compare Means)")
             st.info("💡 Upload CSV with a numeric column and a group column, or enter summary statistics")
-            
+
             test_mode = st.radio("Input Method", ["Summary Statistics", "Upload Data"], horizontal=True, key="ttest_mode")
-            
+
             if test_mode == "Summary Statistics":
                 col1, col2 = st.columns(2)
-                
+
                 with col1:
                     st.markdown("**Control Group**")
                     control_mean = st.number_input("Mean (Control)", value=100.0, key="ttest_control_mean")
                     control_std = st.number_input("Std Dev (Control)", value=15.0, min_value=0.1, key="ttest_control_std")
                     control_n_ttest = st.number_input("Sample Size (Control)", min_value=2, value=100, key="ttest_control_n")
-                
+
                 with col2:
                     st.markdown("**Treatment Group**")
                     treatment_mean = st.number_input("Mean (Treatment)", value=105.0, key="ttest_treatment_mean")
                     treatment_std = st.number_input("Std Dev (Treatment)", value=15.0, min_value=0.1, key="ttest_treatment_std")
                     treatment_n_ttest = st.number_input("Sample Size (Treatment)", min_value=2, value=100, key="ttest_treatment_n")
-            
+
             if st.button("🧪 Run T-Test", type="primary", key="run_ttest"):
                 # Generate synthetic data from summary stats
                 np.random.seed(42)
                 control_data = np.random.normal(control_mean, control_std, control_n_ttest)
                 treatment_data = np.random.normal(treatment_mean, treatment_std, treatment_n_ttest)
-                
+
                 with st.status("Running t-test...", expanded=True) as status:
                     result = analyzer.run_ttest(control_data, treatment_data, equal_var=False)
                     status.update(label="✅ Test complete!", state="complete", expanded=False)
-                
+
                 # Store results
                 st.session_state.ab_test_results = result
-                
+
                 # Display results (similar to proportion test)
                 st.divider()
                 st.subheader("📊 Test Results")
-                
+
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
                     st.metric("P-value", f"{result['p_value']:.4f}")
@@ -12505,36 +12460,36 @@ def show_ab_testing():
                 with col4:
                     sig_label = "✅ Significant" if result['is_significant'] else "❌ Not Significant"
                     st.metric("Result", sig_label)
-                
+
                 # Visualization
                 fig = ABTestAnalyzer.create_ab_test_visualization(result)
                 st.plotly_chart(fig, use_container_width=True)
-                
+
                 # Effect size
                 effect_interp = ABTestAnalyzer.interpret_effect_size(result['effect_size'], 'cohens_d')
                 st.info(f"**Effect Size (Cohen's d):** {result['effect_size']:.3f} ({effect_interp})")
-            
+
             else:
                 st.info("Upload a CSV with at least two columns: a numeric metric column and a group column (e.g., 'A' and 'B')")
                 uploaded_file = st.file_uploader("Upload test results CSV", type=['csv'], key="ttest_upload")
-                
+
                 if uploaded_file:
                     df = pd.read_csv(uploaded_file)
                     st.dataframe(df.head(), use_container_width=True)
-                    
+
                     metric_col = st.selectbox("Metric Column (numeric)", df.select_dtypes(include=[np.number]).columns, key="ttest_metric")
                     group_col = st.selectbox("Group Column", df.columns, key="ttest_group")
-                    
+
                     groups = df[group_col].unique()
                     if len(groups) == 2:
                         group_a, group_b = groups[0], groups[1]
                         data_a = df[df[group_col] == group_a][metric_col].values
                         data_b = df[df[group_col] == group_b][metric_col].values
-                        
+
                         if st.button("🧪 Run T-Test", type="primary", key="run_ttest_upload"):
                             result = analyzer.run_ttest(data_a, data_b, equal_var=False)
                             st.session_state.ab_test_results = result
-                            
+
                             st.subheader("📊 Test Results")
                             col1, col2, col3 = st.columns(3)
                             with col1:
@@ -12544,25 +12499,23 @@ def show_ab_testing():
                             with col3:
                                 sig_label = "✅ Significant" if result['is_significant'] else "❌ Not Significant"
                                 st.metric("Result", sig_label)
-                            
+
                             fig = ABTestAnalyzer.create_ab_test_visualization(result)
                             st.plotly_chart(fig, use_container_width=True)
-                    else:
-                        st.warning(f"Group column must have exactly 2 unique values. Found: {len(groups)}")
-        
+
         with tab3:
             st.markdown("### Sample Size Calculator")
             st.info("💡 Determine how many samples you need to detect a meaningful difference")
-            
+
             calc_type = st.radio("Test Type", ["Proportion Test", "T-Test"], horizontal=True, key="calc_type")
-            
+
             if calc_type == "Proportion Test":
                 baseline = st.slider("Baseline Conversion Rate (%)", 1.0, 50.0, 10.0, 0.5, key="calc_baseline") / 100
                 mde = st.slider("Minimum Detectable Effect (%)", 5.0, 100.0, 20.0, 5.0, key="calc_mde") / 100
-                
+
                 if st.button("📊 Calculate Sample Size", type="primary", key="calc_prop"):
                     result = analyzer.calculate_sample_size_proportion(baseline, mde)
-                    
+
                     st.subheader("📊 Required Sample Size")
                     col1, col2, col3 = st.columns(3)
                     with col1:
@@ -12571,30 +12524,30 @@ def show_ab_testing():
                         st.metric("Total Needed", f"{result['total_sample_size']:,}")
                     with col3:
                         st.metric("Expected Lift", f"{result['relative_lift']:.1f}%")
-                    
+
                     # Test duration calculator
                     st.divider()
                     st.markdown("### ⏱️ Test Duration")
                     daily_traffic = st.number_input("Daily visitors/users", min_value=10, value=1000, step=10, key="daily_traffic")
-                    
+
                     duration = analyzer.calculate_test_duration(result['total_sample_size'], daily_traffic)
-                    
+
                     col1, col2 = st.columns(2)
                     with col1:
                         st.metric("Days to Run", duration['days'])
                     with col2:
                         st.metric("Weeks to Run", duration['weeks'])
-                    
+
                     if duration['days'] > 30:
                         st.warning("⚠️ Test will take over a month. Consider increasing traffic or accepting a larger minimum detectable effect.")
-            
+
             else:  # T-Test sample size
                 mean_diff = st.number_input("Expected Mean Difference", min_value=0.1, value=5.0, key="calc_mean_diff")
                 std_dev = st.number_input("Standard Deviation", min_value=0.1, value=15.0, key="calc_std")
-                
+
                 if st.button("📊 Calculate Sample Size", type="primary", key="calc_ttest"):
                     result = analyzer.calculate_sample_size_means(mean_diff, std_dev)
-                    
+
                     st.subheader("📊 Required Sample Size")
                     col1, col2, col3 = st.columns(3)
                     with col1:
@@ -12603,27 +12556,27 @@ def show_ab_testing():
                         st.metric("Total Needed", f"{result['total_sample_size']:,}")
                     with col3:
                         st.metric("Effect Size", f"{result['effect_size']:.3f}")
-    
+
     # Section 2: AI A/B Testing Recommendations (for loaded/sample/upload data)
     # Check if we have source data OR processed test data
     has_ab_data = ('ab_source_df' in st.session_state or 'ab_test_data' in st.session_state)
-    
+
     if has_ab_data and data_source != "Manual Calculator":
         st.divider()
         st.subheader("📊 2. AI A/B Testing Analysis")
-        
+
         # Check if AI recommendations already exist
         if 'ab_ai_recommendations' not in st.session_state:
             if st.button("🤖 Generate AI A/B Testing Analysis", type="primary", use_container_width=True, key="ab_ai_button"):
                 # Immediate feedback
                 processing_placeholder = st.empty()
                 processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
-                
+
                 with st.spinner("🔍 AI is analyzing your dataset for A/B testing..."):
                     processing_placeholder.empty()
-                    
+
                     from utils.ai_smart_detection import AISmartDetection
-                    
+
                     # Get AI recommendations
                     import pandas as pd
                     # Use source df if available (for loaded dataset before validation), otherwise use processed data
@@ -12631,56 +12584,56 @@ def show_ab_testing():
                         test_data = st.session_state.ab_source_df
                     else:
                         test_data = st.session_state.ab_test_data
-                    
+
                     recommendations = AISmartDetection.analyze_dataset_for_ml(
                         df=test_data.copy(),
                         task_type='ab_testing'
                     )
-                    
+
                     # Add dataset metadata
                     recommendations['dataset_id'] = st.session_state.get('ab_dataset_id', 'unknown')
                     recommendations['dataset_shape'] = test_data.shape
                     recommendations['generated_at'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
-                    
+
                     # Store in session state
                     st.session_state.ab_ai_recommendations = recommendations
                     st.rerun()
-        
+
         # Display AI recommendations if available
         if 'ab_ai_recommendations' in st.session_state:
             rec = st.session_state.ab_ai_recommendations
-            
+
             # Check for dataset mismatch
             current_dataset_id = st.session_state.get('ab_dataset_id', 'unknown')
             stored_dataset_id = rec.get('dataset_id', 'unknown')
             dataset_mismatch = (current_dataset_id != stored_dataset_id and stored_dataset_id != 'unknown')
-            
+
             if dataset_mismatch:
                 st.warning("⚠️ **Dataset Mismatch Detected!**")
                 st.info(f"AI recommendations were generated for a different dataset. Click 'Regenerate Analysis' below.")
                 st.info("🚨 **AI blocking is disabled due to dataset mismatch.** Please regenerate analysis for accurate recommendations.")
-            
+
             # Performance Risk Badge
             risk_colors = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}
             risk_color = risk_colors.get(rec.get('performance_risk', 'Medium'), '⚪')
-            
+
             col1, col2 = st.columns([3, 1])
             with col1:
                 # Data Suitability Assessment - AI DECISION POINT
                 data_suitability = rec.get('data_suitability', 'Unknown')
                 suitability_emoji = {'Excellent': '🌟', 'Good': '✅', 'Fair': '⚠️', 'Poor': '❌'}.get(data_suitability, '❓')
-            
+
             with col2:
                 st.info(f"{risk_color} **Performance Risk:** {rec.get('performance_risk', 'Unknown')}")
-            
+
             # AI-DRIVEN BLOCKING LOGIC (skip if dataset mismatch)
             if data_suitability == 'Poor' and not dataset_mismatch:
                 st.error(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for A/B Testing")
-                
+
                 # Show AI reasoning for why it's not suitable
                 suitability_reasoning = rec.get('suitability_reasoning', 'AI determined this data is not suitable for A/B Testing')
                 st.error(f"**🤖 AI Recommendation:** {suitability_reasoning}")
-                
+
                 # Show AI suggestions
                 ai_suggestions = rec.get('alternative_suggestions', [])
                 if ai_suggestions:
@@ -12692,27 +12645,27 @@ def show_ab_testing():
                     st.write("- Use Sample A/B Test Data (built-in dataset)")
                     st.write("- Ensure dataset has column with exactly 2 groups (control/treatment)")
                     st.write("- Add numeric metric column to measure outcomes")
-                
+
                 st.warning("**⚠️ Module not available for this dataset based on AI analysis.**")
                 st.stop()  # AI-DRIVEN STOP - Only stop if AI says data is Poor
             else:
                 # AI approves - show positive assessment
                 st.success(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for A/B Testing")
-                
+
                 # Suitability reasoning
                 suitability_reasoning = rec.get('suitability_reasoning', 'AI determined this data is suitable for A/B Testing')
                 with st.expander("💡 Why this suitability rating?", expanded=False):
                     st.info(suitability_reasoning)
-                    
+
                     if rec.get('alternative_suggestions'):
                         st.write("**📌 Suggestions for improvement:**")
                         for suggestion in rec['alternative_suggestions']:
                             st.write(f"- {suggestion}")
-            
+
             # AI Column and Test Recommendations
             with st.expander("🤖 AI Recommendations & Test Design", expanded=True):
                 st.info(f"**🎯 Column Selection:** {rec.get('column_reasoning', 'Rule-based detection')}")
-                
+
                 col1, col2, col3 = st.columns(3)
                 with col1:
                     st.write("**Group Column:**")
@@ -12726,9 +12679,9 @@ def show_ab_testing():
                     st.write("**Recommended Test:**")
                     test_emoji = {'proportion_test': '📊', 't_test': '📈', 'chi_square': '🧮'}.get(rec.get('test_type_recommendation', ''), '❓')
                     st.code(f"{test_emoji} {rec.get('test_type_recommendation', 'N/A').replace('_', ' ').title()}")
-                
+
                 st.write(f"**🧪 Test Type Reasoning:** {rec.get('test_reasoning', 'N/A')}")
-                
+
                 # Statistical Power Assessment
                 st.write("**📊 Statistical Power Assessment:**")
                 col1, col2, col3 = st.columns(3)
@@ -12740,7 +12693,7 @@ def show_ab_testing():
                     st.metric("Min Detectable Effect", rec.get('minimum_detectable_effect', 'Unknown'))
                 with col3:
                     st.metric("Significance Level", rec.get('statistical_significance_level', '0.05'))
-                
+
                 # Sample Size Assessment
                 sample_assess = rec.get('sample_size_assessment', 'Unknown')
                 if sample_assess in ['Excellent', 'Good']:
@@ -12749,51 +12702,51 @@ def show_ab_testing():
                     st.warning(f"⚠️ **Sample Size:** {sample_assess} - {rec.get('sample_size_reasoning', '')}")
                 else:
                     st.error(f"❌ **Sample Size:** {sample_assess} - {rec.get('sample_size_reasoning', '')}")
-            
+
             # Segmentation Recommendations
             if rec.get('recommended_segmentation_columns'):
-                with st.expander("📊 Segmentation Analysis Recommendations", expanded=False):
+                with st.expander("📊 Segmentation Analysis Recommendations", expanded=True):
                     st.info(f"**💡 Reasoning:** {rec.get('segmentation_reasoning', 'AI detected suitable columns for segmentation')}")
                     st.write("**🎯 Recommended Columns for Heterogeneous Treatment Effect Analysis:**")
                     for i, col in enumerate(rec['recommended_segmentation_columns'], 1):
                         st.write(f"{i}. `{col}`")
                     st.caption("Use these columns to identify which subgroups benefit most from the treatment")
-            
+
             # Data Quality Checks
             if rec.get('data_quality_checks'):
-                with st.expander("🔍 Data Quality Checks", expanded=False):
+                with st.expander("🔍 Data Quality Checks", expanded=True):
                     for check in rec['data_quality_checks']:
                         st.info(f"📝 {check}")
-            
+
             # Optimization suggestions
             if rec.get('optimization_suggestions'):
-                with st.expander("🚀 Optimization Suggestions", expanded=False):
+                with st.expander("🚀 Optimization Suggestions", expanded=True):
                     for suggestion in rec['optimization_suggestions']:
                         st.info(f"💡 {suggestion}")
-            
+
             # Performance warnings if any
             if rec.get('performance_warnings'):
-                with st.expander("⚠️ Performance Warnings", expanded=False):
+                with st.expander("⚠️ Performance Warnings", expanded=True):
                     for warning in rec['performance_warnings']:
                         st.warning(warning)
-            
+
             # Button to regenerate
             if st.button("🔄 Regenerate Analysis", key="ab_regen"):
                 del st.session_state.ab_ai_recommendations
                 st.rerun()
-            
+
             st.divider()
-    
+
     # Section 2.5: Column Selection & Validation (for Use Loaded Dataset only)
     if 'ab_source_df' in st.session_state and 'ab_test_data' not in st.session_state:
         st.subheader("📋 3. Select Columns for A/B Test")
-        
+
         df = st.session_state.ab_source_df
-        
+
         # Get AI recommendations if available
         from utils.column_detector import ColumnDetector
         suggestions = ColumnDetector.get_ab_testing_column_suggestions(df)
-        
+
         # Override with AI recommendations if available
         if 'ab_ai_recommendations' in st.session_state:
             ai_rec = st.session_state.ab_ai_recommendations
@@ -12804,13 +12757,13 @@ def show_ab_testing():
             st.info("🤖 **AI has preset the columns below based on your data.** You can change them if needed.")
         else:
             st.info("💡 **Smart Detection:** Select columns for your A/B test")
-        
+
         col1, col2 = st.columns(2)
         with col1:
             # Get suggested group column
             group_default = suggestions['group']
             group_idx = list(df.columns).index(group_default)
-            
+
             group_col = st.selectbox(
                 "Group Column (A/B variant):",
                 df.columns,
@@ -12818,16 +12771,16 @@ def show_ab_testing():
                 key="ab_group_col",
                 help="Column that identifies control vs treatment"
             )
-            
+
             # Real-time validation
             if group_col:
                 n_groups = df[group_col].nunique()
                 groups = df[group_col].unique()
-                
+
                 issues = []
                 warnings = []
                 recommendations = []
-                
+
                 # Check 1: Must have exactly 2 groups (CRITICAL for > 10, WARNING for 3-10)
                 if n_groups < 2:
                     issues.append(f"❌ Only {n_groups} group found. A/B testing requires exactly 2 groups")
@@ -12838,34 +12791,34 @@ def show_ab_testing():
                 elif n_groups > 2:
                     warnings.append(f"⚠️ {n_groups} groups found. Standard A/B testing uses 2 groups")
                     recommendations.append("Consider: Filter to 2 groups or use multi-variant testing")
-                
+
                 # Check 2: Group size balance
                 if n_groups == 2:
                     group_counts = df[group_col].value_counts()
                     group_sizes = group_counts.values
                     imbalance_ratio = max(group_sizes) / min(group_sizes) if min(group_sizes) > 0 else float('inf')
-                    
+
                     if imbalance_ratio > 10:
                         warnings.append(f"⚠️ Severe group imbalance: {imbalance_ratio:.1f}:1 ratio")
                         recommendations.append("Imbalanced groups may reduce statistical power")
                     elif imbalance_ratio > 3:
                         warnings.append(f"⚠️ Group imbalance: {imbalance_ratio:.1f}:1 ratio")
-                
+
                 # Check 3: Sample size per group
                 if n_groups == 2:
                     min_group_size = group_counts.min()
                     if min_group_size < 30:
                         warnings.append(f"⚠️ Smallest group has only {min_group_size} samples (recommend 100+ per group)")
                         recommendations.append("Small samples may not detect small effect sizes")
-                
+
                 # Display validation results
                 data_compatible = len(issues) == 0
-                
+
                 # Store validation state in session state
                 st.session_state.ab_data_compatible = data_compatible
                 st.session_state.ab_issues = issues
                 st.session_state.ab_warnings = warnings
-                
+
                 if len(issues) > 0:
                     st.error("**🚨 NOT SUITABLE FOR A/B TESTING**")
                     for issue in issues:
@@ -12884,15 +12837,15 @@ def show_ab_testing():
                                 st.write(f"• {rec}")
                 else:
                     st.success("**✅ EXCELLENT FOR A/B TESTING**")
-                    st.write(f"✓ {n_groups} groups: {list(groups)}")
-                
+                    st.write(f"✓ {n_groups} groups: {list(groups[:5])}")
+
                 st.caption(f"🔍 Groups: {list(groups[:5])}")
-        
+
         with col2:
             # Get suggested metric column
             metric_default = suggestions['metric']
             metric_idx = list(df.columns).index(metric_default)
-            
+
             metric_col = st.selectbox(
                 "Metric Column:",
                 df.columns,
@@ -12900,37 +12853,37 @@ def show_ab_testing():
                 key="ab_metric_col",
                 help="Numeric column to compare (e.g., 'conversion', 'revenue', 'clicks')"
             )
-        
+
         # Validate group column has exactly 2 groups
         # Check if data is compatible (no critical issues)
         button_disabled = not st.session_state.get('ab_data_compatible', True)
-        
+
         if st.button("📊 Validate & Process Data", type="primary", disabled=button_disabled):
             import pandas as pd
             groups = df[group_col].unique()
-            
+
             if len(groups) != 2:
                 st.error(f"""
                 ❌ **Invalid Group Column**
-                
+
                 Group column must have exactly 2 unique values for A/B testing.
                 Found: {len(groups)} unique values: {list(groups)}
-                
+
                 **Please select a column with 2 groups** (e.g., 'A' and 'B', 'control' and 'treatment')
                 """)
                 st.stop()
-            
+
             # Check if metric is numeric
             if not pd.api.types.is_numeric_dtype(df[metric_col]):
                 st.error(f"""
                 ❌ **Invalid Metric Column**
-                
+
                 Metric column '{metric_col}' must be numeric!
-                
+
                 **Please select a numeric column**
                 """)
                 st.stop()
-            
+
             # Store processed data
             processed_data = df[[group_col, metric_col]].copy()
             st.session_state.ab_test_data = processed_data
@@ -12940,22 +12893,22 @@ def show_ab_testing():
                 'group_col': group_col,
                 'metric_col': metric_col
             }
-            
+
             # Check for Sample Ratio Mismatch (SRM)
             test_data = st.session_state.ab_test_data
             control_size = len(test_data[test_data[group_col] == groups[0]])
             treatment_size = len(test_data[test_data[group_col] == groups[1]])
             total = control_size + treatment_size
-            
+
             # Chi-square test for 50/50 split
             expected_size = total / 2
             chi_square = ((control_size - expected_size)**2 / expected_size + 
                          (treatment_size - expected_size)**2 / expected_size)
-            
+
             # Calculate p-value from chi-square distribution (df=1)
             from scipy import stats
             p_value = 1 - stats.chi2.cdf(chi_square, df=1)
-            
+
             # Store SRM results
             st.session_state.ab_srm_check = {
                 'control_size': control_size,
@@ -12965,49 +12918,49 @@ def show_ab_testing():
                 'p_value': p_value,
                 'has_srm': p_value < 0.01
             }
-            
+
             st.success("✅ Data validated and ready for A/B testing!")
             st.info(f"**Groups:** {groups[0]} vs {groups[1]} | **Metric:** {metric_col}")
-            
+
             # Show SRM warning if detected
             if p_value < 0.01:
                 st.warning(f"""
                 ⚠️ **Sample Ratio Mismatch (SRM) Detected!**
-                
+
                 - **Control Size:** {control_size:,} ({control_size/total*100:.1f}%)
                 - **Treatment Size:** {treatment_size:,} ({treatment_size/total*100:.1f}%)
                 - **Expected:** 50/50 split
                 - **Chi-square:** {chi_square:.2f}
                 - **P-value:** {p_value:.6f}
-                
+
                 ⚠️ This suggests a data quality issue. The traffic split is significantly different from 50/50, which may indicate:
                 - Implementation bugs in randomization
                 - Data collection issues
                 - Sample selection bias
-                
+
                 **Recommendation:** Investigate before running tests, as results may be unreliable.
                 """)
             else:
                 st.info(f"✅ **No SRM Detected** - Sample sizes are balanced (p={p_value:.4f})")
-            
+
             st.rerun()
-    
+
     # Section 3: Run A/B Test Analysis (only if ab_test_data exists)
     if 'ab_test_data' in st.session_state:
         st.divider()
         st.subheader("📊 4. Run A/B Test Analysis")
-        
+
         test_data = st.session_state.ab_test_data
         groups_info = st.session_state.ab_test_groups
-        
+
         # Display loaded data preview
-        with st.expander("👁️ View Loaded Data", expanded=False):
+        with st.expander("👁️ View Loaded Data", expanded=True):
             st.dataframe(test_data.head(20), use_container_width=True)
             st.caption(f"Showing first 20 of {len(test_data)} rows")
-        
+
         # Manual Column Selection (with AI defaults)
         st.subheader("🎯 Select Columns")
-        
+
         # Get AI recommendations if available
         ai_group_col = groups_info['group_col']
         ai_metric_col = groups_info['metric_col']
