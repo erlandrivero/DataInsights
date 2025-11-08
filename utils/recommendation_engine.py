@@ -11,12 +11,13 @@ Typical usage example:
 
 import pandas as pd
 import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.preprocessing import MinMaxScaler
 from typing import Dict, Any, List, Tuple, Optional
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
+
+# Lazy loading for sklearn
+from utils.lazy_loader import LazyModuleLoader
 
 
 class RecommendationEngine:
@@ -72,6 +73,10 @@ class RecommendationEngine:
         
         # Calculate similarity matrices
         if similarity_metric == 'cosine':
+            # Lazy load cosine_similarity
+            metrics_pairwise = LazyModuleLoader.load_module('sklearn.metrics.pairwise')
+            cosine_similarity = getattr(metrics_pairwise, 'cosine_similarity')
+            
             # User similarity (rows)
             _self.user_similarity = cosine_similarity(_self.user_item_matrix)
             # Item similarity (columns)
