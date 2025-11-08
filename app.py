@@ -6934,29 +6934,9 @@ def show_ml_classification():
             st.button("🚀 Train Models", type="primary", use_container_width=True, disabled=True)
         elif st.button("🚀 Train Models", type="primary", use_container_width=True):
             from utils.ml_training import MLTrainer
-            from utils.class_balancing import ClassBalancer
             
-            # Apply class balancing if configured
+            # Get class balancing config (will be applied AFTER encoding in prepare_data)
             balance_config = st.session_state.get('ml_balance_config', {'apply': False})
-            if balance_config.get('apply', False):
-                try:
-                    with st.status("Applying class balancing...", expanded=True) as status:
-                        st.write(f"⚖️ Method: {balance_config['method']}")
-                        st.write(f"📊 Target Ratio: {balance_config['sampling_strategy']}")
-                        
-                        df = ClassBalancer.apply_balancing(
-                            df,
-                            target_col,
-                            balance_config['method'],
-                            balance_config['sampling_strategy'],
-                            balance_config.get('k_neighbors', 5)
-                        )
-                        
-                        st.write(f"✅ Balanced dataset: {len(df):,} rows")
-                        status.update(label="✅ Class balancing applied!", state="complete")
-                except Exception as e:
-                    st.error(f"Error during balancing: {str(e)}")
-                    st.stop()
             
             # Comprehensive validation before training
             class_counts = df[target_col].value_counts()
@@ -7081,9 +7061,17 @@ def show_ml_classification():
                     with st.status("Initializing ML Trainer...", expanded=True) as status:
                         trainer = MLTrainer(df, target_col, max_samples=10000)
                     
-                    # Prepare data
+                    # Prepare data (balancing will be applied AFTER encoding if configured)
                     with st.status("Preparing data for training...", expanded=True) as status:
-                        prep_info = trainer.prepare_data(test_size=test_size/100)
+                        # Define callback to show balancing progress
+                        def prep_status_callback(message):
+                            st.write(message)
+                        
+                        prep_info = trainer.prepare_data(
+                            test_size=test_size/100,
+                            balance_config=balance_config,
+                            status_callback=prep_status_callback
+                        )
                 
                     # Show preparation info
                     st.success(f"✅ Data prepared: {prep_info['train_size']} train, {prep_info['test_size']} test samples across {prep_info['n_classes']} classes")

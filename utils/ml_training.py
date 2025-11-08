@@ -135,7 +135,13 @@ class MLTrainer:
         self.feature_names = []
         self.class_names = []
         
-    def prepare_data(self, test_size: float = 0.2, random_state: int = 42) -> Dict[str, Any]:
+    def prepare_data(
+        self,
+        test_size: float = 0.2,
+        random_state: int = 42,
+        balance_config: Dict[str, Any] = None,
+        status_callback: callable = None
+    ) -> Dict[str, Any]:
         """Prepare data for ML training with encoding, scaling, and splitting.
         
         This method performs comprehensive data preprocessing including datetime feature
@@ -236,6 +242,37 @@ class MLTrainer:
             self.class_names = list(self.target_encoder.classes_)
         else:
             self.class_names = [str(c) for c in sorted(self.y.unique())]
+        
+        # Apply class balancing if configured (AFTER encoding, BEFORE split)
+        if balance_config and balance_config.get('apply', False):
+            from utils.class_balancing import ClassBalancer
+            
+            # Notify user
+            if status_callback:
+                status_callback(f"⚖️ Applying class balancing: {balance_config['method']}")
+                status_callback(f"📊 Target Balance Ratio: {balance_config['sampling_strategy']}")
+                status_callback(f"📏 Original dataset: {len(self.X):,} samples")
+            
+            # Combine X and y for balancing
+            temp_df = self.X.copy()
+            temp_df['__target__'] = self.y
+            
+            # Apply balancing
+            balanced_df = ClassBalancer.apply_balancing(
+                temp_df,
+                '__target__',
+                balance_config['method'],
+                balance_config['sampling_strategy'],
+                balance_config.get('k_neighbors', 5)
+            )
+            
+            # Split back into X and y
+            self.X = balanced_df.drop(columns=['__target__'])
+            self.y = balanced_df['__target__']
+            
+            # Notify user of result
+            if status_callback:
+                status_callback(f"✅ Balanced dataset: {len(self.X):,} samples")
         
         # Train-test split (stratified)
         self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
