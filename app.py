@@ -11604,10 +11604,10 @@ def show_text_mining():
     has_loaded_data = st.session_state.data is not None
     
     if has_loaded_data:
-        data_options = ["Use Loaded Dataset", "Use Sample Data", "Upload Custom Data"]
+        data_options = ["Use Loaded Dataset", "Use Sample Data"]
         default_option = "Use Loaded Dataset"
     else:
-        data_options = ["Use Sample Data", "Upload Custom Data"]
+        data_options = ["Use Sample Data"]
         default_option = "Use Sample Data"
     
     data_source = st.radio(
@@ -11723,41 +11723,6 @@ def show_text_mining():
         - Perfect for learning sentiment analysis and text mining
         - Includes various customer feedback patterns
         """)
-    
-    elif data_source == "Upload Custom Data":
-        uploaded_file = st.file_uploader(
-            "Upload your text data (CSV or Excel)",
-            type=['csv', 'xlsx', 'xls'],
-            key="text_file_uploader"
-        )
-        
-        if uploaded_file is not None:
-            try:
-                if uploaded_file.name.endswith('.csv'):
-                    df = pd.read_csv(uploaded_file)
-                else:
-                    df = pd.read_excel(uploaded_file)
-                
-                # Track dataset change for uploaded data
-                dataset_name = f"uploaded_{uploaded_file.name}"
-                current_dataset_id = DatasetTracker.generate_dataset_id(df, dataset_name)
-                stored_id = st.session_state.get('text_dataset_id')
-                
-                if DatasetTracker.check_dataset_changed(df, dataset_name, stored_id):
-                    DatasetTracker.clear_module_ai_cache(st.session_state, 'text')
-                    if stored_id is not None:
-                        st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
-                
-                st.session_state.text_dataset_id = current_dataset_id
-                
-                st.success(f"✅ Uploaded {len(df)} rows, {len(df.columns)} columns")
-                st.dataframe(df.head(), use_container_width=True)
-            except Exception as e:
-                st.error(f"Error loading file: {str(e)}")
-                return
-        else:
-            st.info("👆 Please upload a CSV or Excel file containing text data")
-            return
     
     if df is None:
         st.info("👆 Please select or upload data to continue")
