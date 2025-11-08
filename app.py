@@ -12562,13 +12562,6 @@ def show_ab_testing():
 
                     # Store in session state
                     st.session_state.ab_ai_recommendations = recommendations
-                    
-                    # Clear selectbox state to allow AI presets to take effect
-                    if 'ab_group_col' in st.session_state:
-                        del st.session_state.ab_group_col
-                    if 'ab_metric_col' in st.session_state:
-                        del st.session_state.ab_metric_col
-                    
                     st.rerun()
 
         # Display AI recommendations if available
@@ -12705,11 +12698,6 @@ def show_ab_testing():
             # Button to regenerate
             if st.button("🔄 Regenerate Analysis", key="ab_regen"):
                 del st.session_state.ab_ai_recommendations
-                # Clear selectbox state to allow new AI presets
-                if 'ab_group_col' in st.session_state:
-                    del st.session_state.ab_group_col
-                if 'ab_metric_col' in st.session_state:
-                    del st.session_state.ab_metric_col
                 st.rerun()
 
             st.divider()
@@ -12723,48 +12711,49 @@ def show_ab_testing():
         # Get AI recommendations if available
         from utils.column_detector import ColumnDetector
         suggestions = ColumnDetector.get_ab_testing_column_suggestions(df)
-
-        # Override with AI recommendations if available
-        if 'ab_ai_recommendations' in st.session_state:
-            ai_rec = st.session_state.ab_ai_recommendations
+        
+        # Check if AI analysis exists
+        has_ai_analysis = 'ab_ai_recommendations' in st.session_state
+        ai_rec = st.session_state.get('ab_ai_recommendations', {})
+        
+        if has_ai_analysis:
+            # After AI analysis: Use AI recommendations for smart defaults
+            recommended_group_col = ai_rec.get('recommended_group_column', df.columns[0])
+            recommended_metric_col = ai_rec.get('recommended_metric_column', df.columns[1] if len(df.columns) > 1 else df.columns[0])
             
-            # Debug: Show what AI recommended
-            ai_group = ai_rec.get('recommended_group_column')
-            ai_metric = ai_rec.get('recommended_metric_column')
+            # Find indices of AI-recommended columns
+            group_idx = list(df.columns).index(recommended_group_col) if recommended_group_col in df.columns else 0
+            metric_idx = list(df.columns).index(recommended_metric_col) if recommended_metric_col in df.columns else 0
             
-            if ai_group:
-                suggestions['group'] = ai_group
-            if ai_metric:
-                suggestions['metric'] = ai_metric
-                
-            st.info("🤖 **AI has preset the columns below based on your data.** You can change them if needed.")
-            
-            # Debug info
-            with st.expander("🔍 Debug: AI Recommendations", expanded=False):
-                st.write(f"**AI Recommended Group Column:** `{ai_group}`")
-                st.write(f"**AI Recommended Metric Column:** `{ai_metric}`")
-                st.write(f"**Available Columns:** {list(df.columns)}")
-                st.write(f"**Group in DataFrame:** {ai_group in df.columns if ai_group else 'N/A'}")
-                st.write(f"**Metric in DataFrame:** {ai_metric in df.columns if ai_metric else 'N/A'}")
+            st.info(f"🤖 **AI has preset the columns below based on your data.** Group: {recommended_group_col}, Metric: {recommended_metric_col}")
         else:
-            st.info("💡 **Smart Detection:** Select columns for your A/B test")
+            # Before AI analysis: Use rule-based suggestions
+            group_idx = None
+            metric_idx = None
+            st.info("💡 **Generate AI Analysis above to get intelligent column recommendations.**")
 
         col1, col2 = st.columns(2)
         with col1:
-            # Get suggested group column with safe fallback
-            group_default = suggestions.get('group', df.columns[0])
-            try:
-                group_idx = list(df.columns).index(group_default) if group_default in df.columns else 0
-            except (ValueError, IndexError):
-                group_idx = 0
-
-            group_col = st.selectbox(
-                "Group Column (A/B variant):",
-                df.columns,
-                index=group_idx,
-                key="ab_group_col",
-                help="Column that identifies control vs treatment"
-            )
+            if has_ai_analysis:
+                # After AI analysis: Direct column selection with AI preset
+                group_col = st.selectbox(
+                    "Group Column (A/B variant):",
+                    list(df.columns),
+                    index=group_idx,
+                    key="ab_group_col_ai",
+                    help=f"AI Recommended: {recommended_group_col}"
+                )
+            else:
+                # Before AI analysis: Placeholder selection
+                group_options = ["Select a column..."] + list(df.columns)
+                group_selection = st.selectbox(
+                    "Group Column (A/B variant):",
+                    group_options,
+                    index=0,
+                    key="ab_group_col_pre",
+                    help="Generate AI Analysis above for smart recommendations"
+                )
+                group_col = group_selection if group_selection != "Select a column..." else None
 
             # Real-time validation
             if group_col:
@@ -12836,20 +12825,26 @@ def show_ab_testing():
                 st.caption(f"🔍 Groups: {list(groups[:5])}")
 
         with col2:
-            # Get suggested metric column with safe fallback
-            metric_default = suggestions.get('metric', df.columns[0])
-            try:
-                metric_idx = list(df.columns).index(metric_default) if metric_default in df.columns else 0
-            except (ValueError, IndexError):
-                metric_idx = 0
-
-            metric_col = st.selectbox(
-                "Metric Column:",
-                df.columns,
-                index=metric_idx,
-                key="ab_metric_col",
-                help="Numeric column to compare (e.g., 'conversion', 'revenue', 'clicks')"
-            )
+            if has_ai_analysis:
+                # After AI analysis: Direct column selection with AI preset
+                metric_col = st.selectbox(
+                    "Metric Column:",
+                    list(df.columns),
+                    index=metric_idx,
+                    key="ab_metric_col_ai",
+                    help=f"AI Recommended: {recommended_metric_col}"
+                )
+            else:
+                # Before AI analysis: Placeholder selection
+                metric_options = ["Select a column..."] + list(df.columns)
+                metric_selection = st.selectbox(
+                    "Metric Column:",
+                    metric_options,
+                    index=0,
+                    key="ab_metric_col_pre",
+                    help="Generate AI Analysis above for smart recommendations"
+                )
+                metric_col = metric_selection if metric_selection != "Select a column..." else None
 
         # Validate group column has exactly 2 groups
         # Check if data is compatible (no critical issues)
