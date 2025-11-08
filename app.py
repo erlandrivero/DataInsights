@@ -19765,7 +19765,7 @@ def show_churn_prediction():
             These features capture customer behavior patterns that predict churn better than raw transactions.
             """)
         
-        # Use AI recommendations if available, otherwise use rule-based detection
+        # Use AI recommendations if available, otherwise leave empty
         if 'churn_ai_recommendations' in st.session_state:
             rec = st.session_state.churn_ai_recommendations
             suggestions = {
@@ -19776,10 +19776,14 @@ def show_churn_prediction():
             }
             st.info("🤖 **AI has analyzed your data and preset the columns below.** You can change them if needed.")
         else:
-            # Fallback to rule-based detection
-            from utils.column_detector import ColumnDetector
-            suggestions = ColumnDetector.get_churn_column_suggestions(churn_data)
-            st.info("💡 **Smart Detection:** Automatically detected relevant columns based on naming patterns")
+            # No AI recommendations yet - leave columns empty
+            suggestions = {
+                'customer_id': None,
+                'date': None,
+                'value': None,
+                'churn': None
+            }
+            st.warning("⚠️ **Please generate AI recommendations first** to get intelligent column suggestions.")
         
         # Column selection
         col1, col2 = st.columns(2)
