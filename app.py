@@ -841,28 +841,15 @@ def show_analysis():
     
     if 'cleaning_ai_recommendations' not in st.session_state:
         if st.button("🔍 Generate AI Cleaning Analysis", type="primary", use_container_width=True):
-            # Immediate feedback - show processing started
-            processing_placeholder = st.empty()
-            processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
-            
-            # Brief pause to ensure message displays before creating status widget
-            import time
-            time.sleep(0.1)
-            
             with st.status("🤖 Analyzing dataset with AI...", expanded=True) as status:
                 try:
-                    # Clear the placeholder now that status is visible
-                    processing_placeholder.empty()
-                    
                     from utils.ai_smart_detection import get_ai_recommendation
                     
                     # Step 1: Preparing data
                     status.write("Preparing cleaning data...")
-                    time.sleep(0.5)  # Brief pause for visual feedback
                     
                     # Step 2: Analyzing quality
                     status.write("Analyzing data quality and cleaning requirements...")
-                    time.sleep(0.5)
                     
                     # Step 3: Generating AI analysis
                     status.write("Generating AI analysis...")
@@ -874,6 +861,9 @@ def show_analysis():
                 except Exception as e:
                     status.update(label="❌ Analysis failed", state="error")
                     st.error(f"Error generating AI recommendations: {str(e)}")
+            
+            # Rerun to display results immediately
+            st.rerun()
     else:
         ai_recs = st.session_state.cleaning_ai_recommendations
         
@@ -1214,6 +1204,7 @@ def show_analysis():
             # Import modules BEFORE creating status block to avoid delay
             from utils.process_manager import ProcessManager
             from utils.data_cleaning import DataCleaner
+            from utils.data_processor import DataProcessor
             
             # Create status block immediately for visual feedback
             with st.status("🧹 Cleaning data...", expanded=True) as status:
