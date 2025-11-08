@@ -19634,16 +19634,16 @@ def show_churn_prediction():
                 st.write(f"\n**Min Transactions/Customer:** {ai_recs.get('min_transactions_per_customer', 'Unknown')}")
                 st.write(f"**Churn Definition:** {ai_recs.get('churn_definition', 'Unknown')}")
             
-            with st.expander("💼 Business Applications", expanded=False):
+            with st.expander("💼 Business Applications", expanded=True):
                 for app in ai_recs.get('business_applications', []):
                     st.write(f"- {app}")
             
-            with st.expander("💡 Key Insights", expanded=False):
+            with st.expander("💡 Key Insights", expanded=True):
                 for insight in ai_recs.get('key_insights', []):
                     st.write(f"- {insight}")
             
             if ai_recs.get('performance_warnings'):
-                with st.expander("⚠️ Performance Warnings", expanded=False):
+                with st.expander("⚠️ Performance Warnings", expanded=True):
                     for warning in ai_recs['performance_warnings']:
                         st.warning(warning)
             
@@ -19688,18 +19688,24 @@ def show_churn_prediction():
                 st.info(f"**AI Assessment:** {ai_recs.get('suitability_reasoning', 'Data quality is marginal')}")
                 st.info("💡 **Recommendation:** Proceed with caution. Results may not be optimal.")
             
-            # Warn if High performance risk
+            # Block if High performance risk - too dangerous to proceed
             perf_risk = ai_recs.get('performance_risk', 'Unknown')
             if perf_risk == 'High':
-                st.error("🔴 **HIGH PERFORMANCE RISK DETECTED**")
-                st.error("⚠️ This dataset may cause memory issues or timeouts on Streamlit Cloud.")
+                st.error("🔴 **HIGH PERFORMANCE RISK - FEATURE ENGINEERING BLOCKED**")
+                st.error("⚠️ This dataset will likely cause memory issues or timeouts on Streamlit Cloud.")
+                st.warning("⚠️ **Cannot proceed with feature engineering.** Please reduce dataset size or use a different dataset.")
+                
                 if ai_recs.get('performance_warnings'):
+                    st.error("**Performance Issues:**")
                     for warning in ai_recs['performance_warnings']:
-                        st.warning(f"- {warning}")
+                        st.write(f"- {warning}")
+                
                 if ai_recs.get('optimization_suggestions'):
-                    st.info("💡 **Optimization Suggestions:**")
+                    st.info("💡 **How to fix this:**")
                     for suggestion in ai_recs['optimization_suggestions']:
                         st.write(f"- {suggestion}")
+                
+                st.stop()  # Hard stop - cannot proceed with High risk
         
         with st.expander("ℹ️ What is Feature Engineering?"):
             st.markdown("""
