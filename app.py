@@ -19598,7 +19598,7 @@ def show_churn_prediction():
                 
                 st.stop()  # ONLY AI can block module
             
-            # Show AI recommendations
+            # Show AI recommendations - ALWAYS EXPANDED for visibility
             with st.expander("📋 AI Column Recommendations", expanded=True):
                 col1, col2 = st.columns(2)
                 with col1:
@@ -19614,14 +19614,14 @@ def show_churn_prediction():
                 
                 st.info(f"💡 **Reasoning:** {ai_recs.get('column_reasoning', 'N/A')}")
             
-            with st.expander("🔍 AI Data Quality Assessment", expanded=False):
+            with st.expander("🔍 AI Data Quality Assessment", expanded=True):
                 st.write(f"**Suitability Reasoning:** {ai_recs.get('suitability_reasoning', 'N/A')}")
                 st.write(f"**Data Format:** {ai_recs.get('data_format', 'Unknown')}")
                 st.write(f"**Estimated Customers:** {ai_recs.get('estimated_customers', 'Unknown')}")
                 st.write(f"**Time Period:** {ai_recs.get('time_period', 'Unknown')}")
                 st.write(f"**Sample Size Assessment:** {ai_recs.get('sample_size_assessment', 'Unknown')}")
             
-            with st.expander("🤖 AI Model Recommendations", expanded=False):
+            with st.expander("🤖 AI Model Recommendations", expanded=True):
                 st.write(f"**Recommended Model:** {ai_recs.get('recommended_model', 'Unknown')}")
                 st.write(f"**Model Reasoning:** {ai_recs.get('recommended_model_reasoning', 'N/A')}")
                 st.write(f"\n**Feature Engineering Needed:** {'✅ Yes' if ai_recs.get('feature_engineering_needed') else '❌ No'}")
@@ -19658,6 +19658,48 @@ def show_churn_prediction():
     if churn_data is not None:
         st.divider()
         st.subheader("🔧 3. Configure Feature Engineering")
+        
+        # CRITICAL: Block feature engineering if AI says data is unsuitable
+        if 'churn_ai_recommendations' in st.session_state:
+            ai_recs = st.session_state.churn_ai_recommendations
+            data_suitability = ai_recs.get('data_suitability', 'Unknown')
+            
+            # Check for dataset mismatch
+            stored_ai_dataset_id = ai_recs.get('dataset_id')
+            current_dataset_id = st.session_state.get('churn_dataset_id')
+            dataset_mismatch = (stored_ai_dataset_id and current_dataset_id and stored_ai_dataset_id != current_dataset_id)
+            
+            # Block if Poor suitability and no dataset mismatch
+            if data_suitability == 'Poor' and not dataset_mismatch:
+                st.error("🚨 **FEATURE ENGINEERING BLOCKED**")
+                st.error(f"**Reason:** {ai_recs.get('suitability_reasoning', 'Data unsuitable for churn prediction')}")
+                st.warning("⚠️ **This dataset cannot be used for churn prediction.** Please load a different dataset or follow the suggestions below.")
+                
+                if ai_recs.get('alternative_suggestions'):
+                    st.info("💡 **How to fix this:**")
+                    for suggestion in ai_recs['alternative_suggestions']:
+                        st.write(f"- {suggestion}")
+                
+                st.stop()  # Hard stop - cannot proceed
+            
+            # Warn if Fair suitability
+            if data_suitability == 'Fair':
+                st.warning("⚠️ **Data Quality Warning:** This dataset has limitations for churn prediction.")
+                st.info(f"**AI Assessment:** {ai_recs.get('suitability_reasoning', 'Data quality is marginal')}")
+                st.info("💡 **Recommendation:** Proceed with caution. Results may not be optimal.")
+            
+            # Warn if High performance risk
+            perf_risk = ai_recs.get('performance_risk', 'Unknown')
+            if perf_risk == 'High':
+                st.error("🔴 **HIGH PERFORMANCE RISK DETECTED**")
+                st.error("⚠️ This dataset may cause memory issues or timeouts on Streamlit Cloud.")
+                if ai_recs.get('performance_warnings'):
+                    for warning in ai_recs['performance_warnings']:
+                        st.warning(f"- {warning}")
+                if ai_recs.get('optimization_suggestions'):
+                    st.info("💡 **Optimization Suggestions:**")
+                    for suggestion in ai_recs['optimization_suggestions']:
+                        st.write(f"- {suggestion}")
         
         with st.expander("ℹ️ What is Feature Engineering?"):
             st.markdown("""
@@ -19743,19 +19785,28 @@ def show_churn_prediction():
         
         # Validate date column selection
         validation_msg = []
+        date_validation_failed = False
         try:
             test_parse = pd.to_datetime(churn_data[date_col].head(5), errors='coerce')
             if test_parse.isna().all():
                 validation_msg.append(f"⚠️ Column '{date_col}' doesn't appear to contain valid dates. Please select a different column.")
+                date_validation_failed = True
         except:
             validation_msg.append(f"⚠️ Unable to parse '{date_col}' as dates. Please select a date/datetime column.")
+            date_validation_failed = True
         
         if validation_msg:
             for msg in validation_msg:
-                st.warning(msg)
+                st.error(msg)  # Changed from warning to error for visibility
         
-        # Engineer features button
-        if st.button("🔧 Engineer Features", type="primary"):
+        # Block feature engineering button if date validation failed
+        if date_validation_failed:
+            st.error("🚨 **Cannot proceed:** Please select a valid date column above.")
+            st.button("🔧 Engineer Features", type="primary", disabled=True, help="Fix date column selection first")
+            st.stop()
+        
+        # Engineer features button (only shown if validations pass)
+        if st.button("🔧 Engineer Features", type="primary", use_container_width=True):
             with st.status("Creating predictive features...", expanded=True) as status:
                 try:
                     features = predictor.engineer_features(
