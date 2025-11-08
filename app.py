@@ -8536,7 +8536,7 @@ def show_ml_regression():
                 selected_models = None
             
             # LEVEL 2: Model Availability Checker - Per-model compatibility
-            with st.expander("📋 Model Availability Checker", expanded=False):
+            with st.expander("📋 Model Availability Checker", expanded=True):
                 st.write("**Per-model compatibility check:**")
                 
                 # Get data compatibility from Level 1
