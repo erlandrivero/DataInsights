@@ -2424,33 +2424,13 @@ Provide ONLY the JSON response, no additional text."""
             n_samples = len(df)
             n_features = len(df.columns)
             
-            # Find latitude and longitude columns
-            lat_col = None
-            lon_col = None
+            # Use ColumnDetector with validation
+            from utils.column_detector import ColumnDetector
+            geo_suggestions = ColumnDetector.get_geospatial_column_suggestions(df)
             
-            # First try by name
-            for col in df.columns:
-                col_lower = col.lower()
-                if any(pattern in col_lower for pattern in ['lat', 'latitude']):
-                    if pd.api.types.is_numeric_dtype(df[col]):
-                        lat_col = col
-                if any(pattern in col_lower for pattern in ['lon', 'long', 'longitude', 'lng']):
-                    if pd.api.types.is_numeric_dtype(df[col]):
-                        lon_col = col
-            
-            # Fallback: look for numeric columns in valid ranges
-            if not lat_col or not lon_col:
-                numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-                for col in numeric_cols:
-                    if not lat_col:
-                        lat_min, lat_max = df[col].min(), df[col].max()
-                        if -90 <= lat_min and lat_max <= 90:
-                            lat_col = col
-                            continue
-                    if not lon_col and col != lat_col:
-                        lon_min, lon_max = df[col].min(), df[col].max()
-                        if -180 <= lon_min and lon_max <= 180:
-                            lon_col = col
+            lat_col = geo_suggestions.get('latitude')
+            lon_col = geo_suggestions.get('longitude')
+            has_valid_coords = geo_suggestions.get('has_valid_coordinates', False)
             
             # Performance risk assessment
             if n_samples > 50000:
@@ -2467,13 +2447,22 @@ Provide ONLY the JSON response, no additional text."""
                 performance_warnings = []
             
             # Data suitability assessment
-            if not lat_col or not lon_col:
+            if not has_valid_coords or not lat_col or not lon_col:
                 data_suitability = 'Poor'
-                suitability_reasoning = 'No valid latitude/longitude columns detected'
+                if not lat_col and not lon_col:
+                    suitability_reasoning = 'No valid geographic coordinates found. This dataset does not contain latitude/longitude data suitable for geospatial analysis.'
+                elif not lat_col:
+                    suitability_reasoning = f'No valid latitude column found. Column "{lon_col}" appears to be longitude, but no matching latitude column with values in range -90 to 90.'
+                elif not lon_col:
+                    suitability_reasoning = f'No valid longitude column found. Column "{lat_col}" appears to be latitude, but no matching longitude column with values in range -180 to 180.'
+                else:
+                    suitability_reasoning = f'Columns "{lat_col}" and "{lon_col}" do not contain valid geographic coordinates. Latitude must be -90 to 90, longitude must be -180 to 180.'
+                
                 alternative_suggestions = [
-                    'Ensure data has numeric latitude (-90 to 90) and longitude (-180 to 180) columns',
-                    'Use Sample Store Locations to see an example',
-                    'Check column names - should contain "lat", "latitude", "lon", or "longitude"'
+                    'This dataset is NOT suitable for geospatial analysis',
+                    'Use "Sample Store Locations" dataset which has proper lat/lon coordinates',
+                    'Upload data with valid latitude (-90 to 90) and longitude (-180 to 180) columns',
+                    'Ensure columns contain actual geographic coordinates, not other numeric data like age, campaign numbers, etc.'
                 ]
             elif n_samples < 20:
                 data_suitability = 'Poor'

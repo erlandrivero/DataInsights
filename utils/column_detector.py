@@ -595,27 +595,61 @@ class ColumnDetector:
             df: DataFrame to analyze
             
         Returns:
-            Dictionary with 'latitude' and 'longitude' suggestions
+            Dictionary with 'latitude' and 'longitude' suggestions, or None if no valid columns found
         """
         numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
         
-        # Detect latitude
+        # Helper function to validate if column contains valid coordinates
+        def is_valid_latitude(col_data):
+            """Check if column contains valid latitude values (-90 to 90)"""
+            if col_data.isnull().all():
+                return False
+            min_val, max_val = col_data.min(), col_data.max()
+            # Valid latitude range with some tolerance
+            return -90 <= min_val and max_val <= 90 and (max_val - min_val) > 0.01
+        
+        def is_valid_longitude(col_data):
+            """Check if column contains valid longitude values (-180 to 180)"""
+            if col_data.isnull().all():
+                return False
+            min_val, max_val = col_data.min(), col_data.max()
+            # Valid longitude range with some tolerance
+            return -180 <= min_val and max_val <= 180 and (max_val - min_val) > 0.01
+        
+        # Detect latitude by keyword
         lat_suggestions = [col for col in numeric_cols if any(keyword in col.lower() 
-                          for keyword in ['lat', 'latitude', 'y', 'coord'])]
+                          for keyword in ['lat', 'latitude', 'y'])]
         lat_suggestions = [col for col in lat_suggestions if not any(exclude in col.lower() 
                           for exclude in ['long', 'lon', 'price', 'quantity', 'amount', 'id', 'index'])]
-        lat_col = lat_suggestions[0] if lat_suggestions else (numeric_cols[0] if numeric_cols else df.columns[0])
         
-        # Detect longitude
+        # Validate latitude suggestions
+        valid_lat_cols = [col for col in lat_suggestions if is_valid_latitude(df[col])]
+        
+        # If no keyword match, search all numeric columns for valid latitude ranges
+        if not valid_lat_cols:
+            valid_lat_cols = [col for col in numeric_cols if is_valid_latitude(df[col])]
+        
+        lat_col = valid_lat_cols[0] if valid_lat_cols else None
+        
+        # Detect longitude by keyword
         lon_suggestions = [col for col in numeric_cols if any(keyword in col.lower() 
-                          for keyword in ['lon', 'long', 'longitude', 'x', 'coord'])]
+                          for keyword in ['lon', 'long', 'longitude', 'x'])]
         lon_suggestions = [col for col in lon_suggestions if not any(exclude in col.lower() 
                           for exclude in ['lat', 'latitude', 'price', 'quantity', 'amount', 'id', 'index'])]
-        lon_col = lon_suggestions[0] if lon_suggestions else (numeric_cols[1] if len(numeric_cols) > 1 else (numeric_cols[0] if numeric_cols else df.columns[0]))
+        
+        # Validate longitude suggestions
+        valid_lon_cols = [col for col in lon_suggestions if is_valid_longitude(df[col])]
+        
+        # If no keyword match, search all numeric columns for valid longitude ranges
+        if not valid_lon_cols:
+            valid_lon_cols = [col for col in numeric_cols if is_valid_longitude(df[col]) and col != lat_col]
+        
+        lon_col = valid_lon_cols[0] if valid_lon_cols else None
         
         return {
             'latitude': lat_col,
-            'longitude': lon_col
+            'longitude': lon_col,
+            'has_valid_coordinates': lat_col is not None and lon_col is not None
         }
     
     @staticmethod
