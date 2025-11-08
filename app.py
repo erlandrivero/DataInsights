@@ -16206,6 +16206,16 @@ def show_geospatial_analysis():
     # Import dataset tracker
     from utils.dataset_tracker import DatasetTracker
     
+    # Clear AI cache if data source changes
+    if 'geo_last_data_source' not in st.session_state:
+        st.session_state.geo_last_data_source = data_source
+    elif st.session_state.geo_last_data_source != data_source:
+        # Data source changed - clear AI analysis to prevent stale cache
+        if 'geo_ai_analysis' in st.session_state:
+            del st.session_state.geo_ai_analysis
+        st.session_state.geo_last_data_source = data_source
+        st.info("🔄 **Data source changed!** Please load the new data and regenerate AI analysis.")
+    
     # Use Loaded Dataset
     if data_source == "Use Loaded Dataset" and has_loaded_data:
         df = st.session_state.data
