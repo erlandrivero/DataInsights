@@ -6088,6 +6088,10 @@ def show_ml_classification():
                         st.error(f"Error loading sample data: {str(e)}")
                         
         else:  # Upload new file
+            # Clear any previous dataset info immediately when switching to upload
+            if 'ml_dataset_info' in st.session_state:
+                del st.session_state.ml_dataset_info
+            
             uploaded_file = st.file_uploader(
                 "Upload CSV file with features and target column",
                 type=['csv'],
@@ -6145,6 +6149,10 @@ def show_ml_classification():
                     except Exception as e:
                         st.error(f"Error loading sample data: {str(e)}")
         else:  # Upload custom data
+            # Clear any previous dataset info immediately when switching to upload
+            if 'ml_dataset_info' in st.session_state:
+                del st.session_state.ml_dataset_info
+            
             uploaded_file = st.file_uploader(
                 "Upload CSV file with features and target column",
                 type=['csv'],
