@@ -10876,19 +10876,19 @@ def show_time_series_forecasting():
         
         # Preprocessing needs
         if rec.get('data_preprocessing_needed'):
-            with st.expander("🔧 Data Preprocessing Recommendations", expanded=False):
+            with st.expander("🔧 Data Preprocessing Recommendations", expanded=True):
                 for step in rec['data_preprocessing_needed']:
                     st.info(f"📝 {step}")
         
-        # Performance warnings if any
-        if rec.get('performance_warnings'):
-            with st.expander("⚠️ Performance Warnings", expanded=False):
-                for warning in rec['performance_warnings']:
-                    st.warning(warning)
+        # Model recommendations
+        if rec.get('recommended_model'):
+            st.info(f"**🤖 Recommended Model:** {rec['recommended_model']}")
+            if rec.get('model_reasoning'):
+                st.write(f"**Reasoning:** {rec['model_reasoning']}")
         
         # Optimization suggestions
         if rec.get('optimization_suggestions'):
-            with st.expander("🚀 Optimization Suggestions", expanded=False):
+            with st.expander("🚀 Optimization Suggestions", expanded=True):
                 for suggestion in rec['optimization_suggestions']:
                     st.info(f"💡 {suggestion}")
         
