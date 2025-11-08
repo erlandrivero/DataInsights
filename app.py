@@ -14151,7 +14151,7 @@ def show_cohort_analysis():
         # Cohort-specific recommendations
         cohort_recommendations = ai_recs.get('cohort_recommendations', [])
         if cohort_recommendations:
-            with st.expander("👥 Cohort-Specific Recommendations", expanded=False):
+            with st.expander("👥 Cohort-Specific Recommendations", expanded=True):
                 st.info("Based on your data characteristics:")
                 for rec in cohort_recommendations:
                     if isinstance(rec, dict):
@@ -14177,7 +14177,7 @@ def show_cohort_analysis():
         df = st.session_state.cohort_source_df
         
         # Show data preview
-        with st.expander("👁️ Preview Dataset", expanded=False):
+        with st.expander("👁️ Preview Dataset", expanded=True):
             st.dataframe(df.head(20), use_container_width=True)
         
         # Use AI recommendations FIRST, fallback to smart detection if AI failed
