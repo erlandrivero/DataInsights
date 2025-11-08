@@ -4526,15 +4526,15 @@ def show_rfm_analysis():
     rfm_analyzer = st.session_state.rfm_analyzer
     
     # Data source selection
-    st.subheader("📤 1. Load Transaction Data")
+    st.subheader(" 1. Load Transaction Data")
     
     # Check if data is already loaded
     has_loaded_data = st.session_state.data is not None
     
     if has_loaded_data:
-        data_options = ["Use Loaded Dataset", "Use Sample Data", "Upload Custom Data"]
+        data_options = ["Use Loaded Dataset", "Use Sample Data"]
     else:
-        data_options = ["Use Sample Data", "Upload Custom Data"]
+        data_options = ["Use Sample Data"]
     
     data_source = st.radio(
         "Choose data source:",
@@ -4549,7 +4549,7 @@ def show_rfm_analysis():
     transactions_df = None
     
     if data_source == "Use Loaded Dataset":
-        st.success("✅ Using dataset from Data Upload section")
+        st.success(" Using dataset from Data Upload section")
         df = st.session_state.data
         
         st.write(f"**Dataset:** {len(df)} rows, {len(df.columns)} columns")
@@ -4562,12 +4562,12 @@ def show_rfm_analysis():
         if DatasetTracker.check_dataset_changed(df, dataset_name, stored_id):
             DatasetTracker.clear_module_ai_cache(st.session_state, 'rfm')
             if stored_id is not None:
-                st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
+                st.info(" **Dataset changed!** Previous AI recommendations cleared.")
         
         st.session_state.rfm_dataset_id = current_dataset_id
         
         # Section 2: Dataset Validation (make it informational only)
-        st.subheader("📋 2. Dataset Validation")
+        st.subheader(" 2. Dataset Validation")
         
         # Get smart column suggestions for validation
         from utils.column_detector import ColumnDetector
@@ -4579,10 +4579,10 @@ def show_rfm_analysis():
         st.session_state.rfm_data_suitable = validation['suitable']
         
         if not validation['suitable']:
-            st.error("❌ **Dataset Not Suitable for RFM Analysis**")
+            st.error(" **Dataset Not Suitable for RFM Analysis**")
             for warning in validation['warnings']:
                 st.warning(warning)
-            st.info("**💡 Recommendations:**")
+            st.info("**:**")
             for rec in validation['recommendations']:
                 st.write(f"- {rec}")
             st.write("**Consider using:**")
@@ -4590,7 +4590,7 @@ def show_rfm_analysis():
             st.write("- A dataset with customer transactions over time")
             st.stop()  # STOP here - don't show process button
         elif len(validation['warnings']) > 0:
-            with st.expander("⚠️ Data Quality Warnings", expanded=False):
+            with st.expander(" Data Quality Warnings", expanded=False):
                 for warning in validation['warnings']:
                     st.warning(warning)
                 if validation['recommendations']:
@@ -4598,10 +4598,10 @@ def show_rfm_analysis():
                     for rec in validation['recommendations']:
                         st.write(f"- {rec}")
         else:
-            st.success(f"✅ **Dataset looks suitable for RFM** (Confidence: {validation['confidence']})")
+            st.success(f" **Dataset looks suitable for RFM** (Confidence: {validation['confidence']})")
         
         # Section 3: Let user select columns for RFM analysis
-        st.subheader("📋 3. Select Columns for Analysis")
+        st.subheader(" 3. Select Columns for Analysis")
         
         # Use AI recommendations if available, otherwise use rule-based detection
         if 'rfm_ai_recommendations' in st.session_state:
@@ -4611,17 +4611,17 @@ def show_rfm_analysis():
                 'date': rec.get('recommended_date_column'),
                 'amount': rec.get('recommended_amount_column')
             }
-            st.info("🤖 **AI has analyzed your data and preset the columns below.** You can change them if needed.")
+            st.info(" **AI has analyzed your data and preset the columns below.** You can change them if needed.")
         else:
             # Fallback to rule-based detection
             suggestions = ColumnDetector.get_rfm_column_suggestions(df)
-            st.info("💡 **Smart Detection:** Columns are auto-selected based on your data. You can change them if needed.")
+            st.info(" **Smart Detection:** Columns are auto-selected based on your data. You can change them if needed.")
         
         # Show column types to help user
         numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
         date_cols = df.select_dtypes(include=['datetime']).columns.tolist()
         
-        with st.expander("💡 Column Type Hints"):
+        with st.expander(" Column Type Hints"):
             st.write(f"**Numeric columns** (for Amount): {', '.join(numeric_cols) if numeric_cols else 'None detected'}")
             st.write(f"**Date columns** (for Date): {', '.join(date_cols) if date_cols else 'None detected - will try to parse'}")
             st.write(f"**All columns**: {', '.join(df.columns.tolist())}")
@@ -4657,21 +4657,21 @@ def show_rfm_analysis():
                 amount_options,
                 index=amount_idx, 
                 key="loaded_rfm_amount_col",
-                help="⚠️ Must be NUMERIC column with transaction amounts"
+                help=" Must be NUMERIC column with transaction amounts"
             )
         
         # Only show button if data is suitable
         data_suitable = st.session_state.get('rfm_data_suitable', True)
         
         if not data_suitable:
-            st.error("❌ **Cannot process - data incompatible with RFM Analysis**")
-        elif st.button("🔄 Process Loaded Data for RFM", type="primary"):
+            st.error(" **Cannot process - data incompatible with RFM Analysis**")
+        elif st.button(" Process Loaded Data for RFM", type="primary"):
             with st.status("Processing RFM data...", expanded=True) as status:
                 try:
                     # Validate column selections
                     if not pd.api.types.is_numeric_dtype(df[amount_col]):
                         st.error(f"""
-                        ❌ **Invalid Amount Column**
+                        **Invalid Amount Column**
                         
                         The selected column '{amount_col}' is not numeric!
                         
@@ -4689,7 +4689,7 @@ def show_rfm_analysis():
                         pd.to_datetime(df[date_col])
                     except:
                         st.error(f"""
-                        ❌ **Invalid Date Column**
+                        **Invalid Date Column**
                         
                         The selected column '{date_col}' cannot be parsed as dates!
                         
@@ -4707,72 +4707,14 @@ def show_rfm_analysis():
                         'date': date_col,
                         'amount': amount_col
                     }
-                    st.success("✅ Data processed successfully!")
-                    st.info(f"📊 {df[customer_col].nunique()} unique customers, {len(df)} transactions")
+                    st.success(" Data processed successfully!")
+                    st.info(f" {df[customer_col].nunique()} unique customers, {len(df)} transactions")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error processing data: {str(e)}")
     
-    elif data_source == "Upload Custom Data":
-        st.info("""
-        **Upload Format:**
-        - CSV file with columns: `customer_id`, `transaction_date`, `amount`
-        - Each row represents one transaction
-        - Example:
-          ```
-          customer_id,transaction_date,amount
-          C001,2024-01-15,150.00
-          C001,2024-02-10,200.00
-          C002,2024-01-20,75.50
-          ```
-        """)
-        
-        uploaded_file = st.file_uploader(
-            "Upload transaction CSV",
-            type=['csv'],
-            key="rfm_upload"
-        )
-        
-        if uploaded_file is not None:
-            try:
-                transactions_df = pd.read_csv(uploaded_file)
-                
-                # Track dataset change
-                dataset_name = f"uploaded_{uploaded_file.name}"
-                current_dataset_id = DatasetTracker.generate_dataset_id(transactions_df, dataset_name)
-                stored_id = st.session_state.get('rfm_dataset_id')
-                
-                if DatasetTracker.check_dataset_changed(transactions_df, dataset_name, stored_id):
-                    DatasetTracker.clear_module_ai_cache(st.session_state, 'rfm')
-                    if stored_id is not None:
-                        st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
-                
-                st.session_state.rfm_dataset_id = current_dataset_id
-                
-                # Let user select columns
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    customer_col = st.selectbox("Customer ID column:", transactions_df.columns, key="cust_col")
-                with col2:
-                    date_col = st.selectbox("Transaction Date column:", transactions_df.columns, key="date_col")
-                with col3:
-                    amount_col = st.selectbox("Amount column:", transactions_df.columns, key="amount_col")
-                
-                if st.button("Process Data", type="primary"):
-                    st.session_state.rfm_transactions = transactions_df
-                    st.session_state.rfm_columns = {
-                        'customer': customer_col,
-                        'date': date_col,
-                        'amount': amount_col
-                    }
-                    st.success(f"✅ Loaded {len(transactions_df)} transactions!")
-                    st.dataframe(transactions_df.head(10), use_container_width=True)
-                    
-            except Exception as e:
-                st.error(f"Error processing file: {str(e)}")
-    
     else:  # Sample data
-        if st.button("📥 Load Sample E-commerce Data", type="primary"):
+        if st.button(" Load Sample E-commerce Data", type="primary"):
             # Create realistic sample data
             import numpy as np
             np.random.seed(42)
