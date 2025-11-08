@@ -13891,13 +13891,13 @@ def show_cohort_analysis():
     # Data loading
     st.subheader("📤 1. Load User Activity Data")
     
-    # Check if data is already loaded
-    has_loaded_data = st.session_state.data is not None
+    # Check if user has loaded data
+    has_loaded_data = 'data' in st.session_state and st.session_state.data is not None
     
     if has_loaded_data:
-        data_options = ["Use Loaded Dataset", "Sample E-commerce Data", "Upload Custom Data"]
+        data_options = ["Use Loaded Dataset", "Sample E-commerce Data"]
     else:
-        data_options = ["Sample E-commerce Data", "Upload Custom Data"]
+        data_options = ["Sample E-commerce Data"]
     
     data_source = st.radio(
         "Choose data source:",
@@ -13939,6 +13939,9 @@ def show_cohort_analysis():
             if 'cohort_source_df' in st.session_state:
                 del st.session_state['cohort_source_df']
             
+            # Always clear AI cache when switching data sources
+            DatasetTracker.clear_module_ai_cache(st.session_state, 'cohort')
+            
             import pandas as pd
             # Generate sample cohort data
             np.random.seed(42)
@@ -13979,56 +13982,12 @@ def show_cohort_analysis():
             # Track dataset change
             dataset_name = "sample_ecommerce_data"
             current_dataset_id = DatasetTracker.generate_dataset_id(user_data, dataset_name)
-            stored_id = st.session_state.get('cohort_dataset_id')
-            
-            if DatasetTracker.check_dataset_changed(user_data, dataset_name, stored_id):
-                DatasetTracker.clear_module_ai_cache(st.session_state, 'cohort')
-                if stored_id is not None:
-                    st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
             
             st.session_state.cohort_dataset_id = current_dataset_id
             st.session_state.cohort_data = user_data
             
             st.success(f"✅ Loaded {len(user_data)} activities from {n_users} users!")
             st.dataframe(user_data.head(10), use_container_width=True)
-    
-    else:  # Upload
-        uploaded_file = st.file_uploader("Upload user activity CSV", type=['csv'], key="cohort_upload")
-        
-        if uploaded_file:
-            # Clear loaded dataset if switching from another source
-            if 'cohort_source_df' in st.session_state:
-                del st.session_state['cohort_source_df']
-            
-            import pandas as pd
-            df = pd.read_csv(uploaded_file)
-            st.dataframe(df.head(), use_container_width=True)
-            
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                user_col = st.selectbox("User ID Column", df.columns, key="cohort_user_upload")
-            with col2:
-                cohort_col = st.selectbox("Cohort Date", df.columns, key="cohort_date_upload")
-            with col3:
-                activity_col = st.selectbox("Activity Date", df.columns, key="cohort_activity_upload")
-            
-            if st.button("Process Data", type="primary", key="process_upload"):
-                user_data = df[[user_col, cohort_col, activity_col]].copy()
-                user_data.columns = ['user_id', 'signup_date', 'activity_date']
-                
-                # Track dataset change
-                dataset_name = f"uploaded_{uploaded_file.name}"
-                current_dataset_id = DatasetTracker.generate_dataset_id(user_data, dataset_name)
-                stored_id = st.session_state.get('cohort_dataset_id')
-                
-                if DatasetTracker.check_dataset_changed(user_data, dataset_name, stored_id):
-                    DatasetTracker.clear_module_ai_cache(st.session_state, 'cohort')
-                    if stored_id is not None:
-                        st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
-                
-                st.session_state.cohort_dataset_id = current_dataset_id
-                st.session_state.cohort_data = user_data
-                st.success("✅ Data processed!")
     
     # Analysis section - Check if we have source data OR processed cohort data
     if 'cohort_source_df' not in st.session_state and 'cohort_data' not in st.session_state:
