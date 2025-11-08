@@ -7576,9 +7576,6 @@ def show_ml_classification():
                         else:
                             X_sample_array = X_train
                         
-                        # Convert to DataFrame with feature names for SHAP visualizations
-                        X_sample = pd.DataFrame(X_sample_array, columns=trainer.feature_names)
-                        
                         st.write(f"Creating SHAP explainer for {best_model['model_name']}...")
                         
                         # Create appropriate explainer based on model type
@@ -7588,34 +7585,40 @@ def show_ml_classification():
                         is_tree_based = any(tree_model in model_name for tree_model in ['Tree', 'Forest', 'XGB', 'LightGBM', 'CatBoost'])
                         is_gradient_boost = 'Gradient Boosting' in model_name
                         
+                        # Use numpy arrays for SHAP computation (more reliable)
                         # Gradient Boosting Classifier has issues with multi-class in TreeExplainer
                         # Use KernelExplainer for multi-class Gradient Boosting
                         if is_gradient_boost and len(np.unique(y_train)) > 2:
                             st.write("Using KernelExplainer for multi-class Gradient Boosting...")
                             # Use a smaller background dataset for KernelExplainer (it's slow)
-                            background_size = min(50, len(X_sample))
-                            background = shap.sample(X_sample, background_size)
+                            background_size = min(50, len(X_sample_array))
+                            background_indices = np.random.choice(len(X_sample_array), size=background_size, replace=False)
+                            background = X_sample_array[background_indices]
                             # Check if model has predict_proba
                             if hasattr(best_model_obj, 'predict_proba'):
                                 explainer = shap.KernelExplainer(best_model_obj.predict_proba, background)
                             else:
                                 explainer = shap.KernelExplainer(best_model_obj.predict, background)
-                            shap_values = explainer.shap_values(X_sample)
+                            shap_values = explainer.shap_values(X_sample_array)
                         elif is_tree_based:
                             # Tree-based models - use TreeExplainer (fast)
                             explainer = shap.TreeExplainer(best_model_obj)
-                            shap_values = explainer.shap_values(X_sample)
+                            shap_values = explainer.shap_values(X_sample_array)
                         else:
                             # Other models - use KernelExplainer (slower but universal)
-                            background_size = min(50, len(X_sample))
-                            background = shap.sample(X_sample, background_size)
+                            background_size = min(50, len(X_sample_array))
+                            background_indices = np.random.choice(len(X_sample_array), size=background_size, replace=False)
+                            background = X_sample_array[background_indices]
                             # Check if model has predict_proba (some models like SGD don't)
                             if hasattr(best_model_obj, 'predict_proba'):
                                 explainer = shap.KernelExplainer(best_model_obj.predict_proba, background)
                             else:
                                 # Use predict for models without predict_proba (e.g., SGDClassifier, Perceptron)
                                 explainer = shap.KernelExplainer(best_model_obj.predict, background)
-                            shap_values = explainer.shap_values(X_sample)
+                            shap_values = explainer.shap_values(X_sample_array)
+                        
+                        # Convert to DataFrame AFTER SHAP computation for visualization
+                        X_sample = pd.DataFrame(X_sample_array, columns=trainer.feature_names)
                         
                         st.write("Generating visualizations...")
                         
@@ -9097,9 +9100,6 @@ def show_ml_regression():
                         else:
                             X_sample_array_mlr = X_train
                         
-                        # Convert to DataFrame with feature names for SHAP visualizations
-                        X_sample_mlr = pd.DataFrame(X_sample_array_mlr, columns=regressor.feature_names)
-                        
                         st.write(f"Creating SHAP explainer for {best_model['model_name']}...")
                         
                         # Create appropriate explainer based on model type
@@ -9109,16 +9109,21 @@ def show_ml_regression():
                         is_tree_based_mlr = any(tree_model in model_name_mlr for tree_model in ['Tree', 'Forest', 'XGB', 'LightGBM', 'CatBoost'])
                         is_gradient_boost_mlr = 'Gradient Boosting' in model_name_mlr
                         
+                        # Use numpy arrays for SHAP computation (more reliable)
                         if is_tree_based_mlr:
                             # Tree-based models - use TreeExplainer (fast)
                             explainer_mlr = shap.TreeExplainer(best_model_obj)
-                            shap_values_mlr = explainer_mlr.shap_values(X_sample_mlr)
+                            shap_values_mlr = explainer_mlr.shap_values(X_sample_array_mlr)
                         else:
                             # Other models - use KernelExplainer (slower but universal)
-                            background_size_mlr = min(50, len(X_sample_mlr))
-                            background_mlr = shap.sample(X_sample_mlr, background_size_mlr)
+                            background_size_mlr = min(50, len(X_sample_array_mlr))
+                            background_indices = np.random.choice(len(X_sample_array_mlr), size=background_size_mlr, replace=False)
+                            background_mlr = X_sample_array_mlr[background_indices]
                             explainer_mlr = shap.KernelExplainer(best_model_obj.predict, background_mlr)
-                            shap_values_mlr = explainer_mlr.shap_values(X_sample_mlr)
+                            shap_values_mlr = explainer_mlr.shap_values(X_sample_array_mlr)
+                        
+                        # Convert to DataFrame AFTER SHAP computation for visualization
+                        X_sample_mlr = pd.DataFrame(X_sample_array_mlr, columns=regressor.feature_names)
                         
                         st.write("Generating visualizations...")
                         
