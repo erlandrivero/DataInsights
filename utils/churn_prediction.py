@@ -7,18 +7,16 @@ model training, and actionable retention strategies.
 
 import pandas as pd
 import numpy as np
+import gc
+import importlib.util
 from typing import Dict, List, Tuple, Optional, Any
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.metrics import (
-    accuracy_score, precision_score, recall_score, f1_score,
-    roc_auc_score, confusion_matrix, classification_report
-)
-from sklearn.preprocessing import StandardScaler
 import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta
+from utils.lazy_loader import LazyModuleLoader
+
+# Check sklearn availability
+SKLEARN_AVAILABLE = importlib.util.find_spec('sklearn') is not None
 
 
 class ChurnPredictor:
@@ -27,10 +25,61 @@ class ChurnPredictor:
     def __init__(self):
         """Initialize the ChurnPredictor."""
         self.model = None
-        self.scaler = StandardScaler()
+        self.scaler = None  # Lazy loaded
         self.feature_names = []
         self.feature_importance = None
         self.results = {}
+    
+    @staticmethod
+    def _lazy_load_sklearn(component: str):
+        """Lazy load sklearn components to reduce memory footprint.
+        
+        Args:
+            component: Name of the sklearn component to load
+                      ('RandomForestClassifier', 'GradientBoostingClassifier',
+                       'LogisticRegression', 'StandardScaler', 'train_test_split',
+                       'metrics')
+        
+        Returns:
+            Component class/function or None if sklearn not available
+        """
+        if not SKLEARN_AVAILABLE:
+            return None
+        
+        try:
+            if component == 'RandomForestClassifier':
+                from sklearn.ensemble import RandomForestClassifier
+                return RandomForestClassifier
+            elif component == 'GradientBoostingClassifier':
+                from sklearn.ensemble import GradientBoostingClassifier
+                return GradientBoostingClassifier
+            elif component == 'LogisticRegression':
+                from sklearn.linear_model import LogisticRegression
+                return LogisticRegression
+            elif component == 'StandardScaler':
+                from sklearn.preprocessing import StandardScaler
+                return StandardScaler
+            elif component == 'train_test_split':
+                from sklearn.model_selection import train_test_split
+                return train_test_split
+            elif component == 'metrics':
+                from sklearn.metrics import (
+                    accuracy_score, precision_score, recall_score, f1_score,
+                    roc_auc_score, confusion_matrix, classification_report
+                )
+                return {
+                    'accuracy_score': accuracy_score,
+                    'precision_score': precision_score,
+                    'recall_score': recall_score,
+                    'f1_score': f1_score,
+                    'roc_auc_score': roc_auc_score,
+                    'confusion_matrix': confusion_matrix,
+                    'classification_report': classification_report
+                }
+            else:
+                return None
+        except ImportError:
+            return None
         
     def engineer_features(self, data: pd.DataFrame,
                          customer_id_col: str,
@@ -144,72 +193,95 @@ class ChurnPredictor:
         Examples:
             >>> results = predictor.train_model(features, 'churned', 'random_forest')
         """
-        # Separate features and target
-        X = features.drop(['customer_id', target_col], axis=1)
-        y = features[target_col]
+        # Lazy load sklearn components
+        train_test_split = self._lazy_load_sklearn('train_test_split')
+        StandardScaler = self._lazy_load_sklearn('StandardScaler')
+        metrics = self._lazy_load_sklearn('metrics')
         
-        self.feature_names = X.columns.tolist()
+        if train_test_split is None or StandardScaler is None or metrics is None:
+            raise ImportError("sklearn not available")
         
-        # Split data
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=test_size, random_state=random_state, stratify=y
-        )
-        
-        # Store train/test data for SHAP analysis
-        self.X_train = X_train
-        self.X_test = X_test
-        self.y_train = y_train
-        self.y_test = y_test
-        
-        # Scale features
-        X_train_scaled = self.scaler.fit_transform(X_train)
-        X_test_scaled = self.scaler.transform(X_test)
-        
-        # Select and train model
-        if model_type == 'random_forest':
-            self.model = RandomForestClassifier(n_estimators=100, random_state=random_state)
-        elif model_type == 'gradient_boosting':
-            self.model = GradientBoostingClassifier(n_estimators=100, random_state=random_state)
-        elif model_type == 'logistic':
-            self.model = LogisticRegression(random_state=random_state, max_iter=1000)
-        else:
-            raise ValueError(f"Unknown model type: {model_type}")
-        
-        # Train
-        self.model.fit(X_train_scaled, y_train)
-        
-        # Predictions
-        y_pred = self.model.predict(X_test_scaled)
-        y_pred_proba = self.model.predict_proba(X_test_scaled)[:, 1]
-        
-        # Metrics
-        results = {
-            'model_type': model_type,
-            'accuracy': accuracy_score(y_test, y_pred),
-            'precision': precision_score(y_test, y_pred),
-            'recall': recall_score(y_test, y_pred),
-            'f1_score': f1_score(y_test, y_pred),
-            'roc_auc': roc_auc_score(y_test, y_pred_proba),
-            'confusion_matrix': confusion_matrix(y_test, y_pred),
-            'classification_report': classification_report(y_test, y_pred, output_dict=True),
-            'n_train': len(X_train),
-            'n_test': len(X_test),
-            'churn_rate_train': y_train.mean(),
-            'churn_rate_test': y_test.mean()
-        }
-        
-        # Feature importance
-        if hasattr(self.model, 'feature_importances_'):
-            self.feature_importance = pd.DataFrame({
-                'feature': self.feature_names,
-                'importance': self.model.feature_importances_
-            }).sort_values('importance', ascending=False)
-            results['feature_importance'] = self.feature_importance
-        else:
-            results['feature_importance'] = None
-        
-        self.results = results
-        return results
+        try:
+            # Separate features and target
+            X = features.drop(['customer_id', target_col], axis=1)
+            y = features[target_col]
+            
+            self.feature_names = X.columns.tolist()
+            
+            # Split data
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=test_size, random_state=random_state, stratify=y
+            )
+            
+            # Store train/test data for SHAP analysis
+            self.X_train = X_train
+            self.X_test = X_test
+            self.y_train = y_train
+            self.y_test = y_test
+            
+            # Scale features
+            scaler = StandardScaler()
+            X_train_scaled = scaler.fit_transform(X_train)
+            X_test_scaled = scaler.transform(X_test)
+            self.scaler = scaler
+            
+            # Select and train model
+            if model_type == 'random_forest':
+                ModelClass = self._lazy_load_sklearn('RandomForestClassifier')
+                if ModelClass is None:
+                    raise ImportError("RandomForestClassifier not available")
+                self.model = ModelClass(n_estimators=100, random_state=random_state)
+            elif model_type == 'gradient_boosting':
+                ModelClass = self._lazy_load_sklearn('GradientBoostingClassifier')
+                if ModelClass is None:
+                    raise ImportError("GradientBoostingClassifier not available")
+                self.model = ModelClass(n_estimators=100, random_state=random_state)
+            elif model_type == 'logistic':
+                ModelClass = self._lazy_load_sklearn('LogisticRegression')
+                if ModelClass is None:
+                    raise ImportError("LogisticRegression not available")
+                self.model = ModelClass(random_state=random_state, max_iter=1000)
+            else:
+                raise ValueError(f"Unknown model type: {model_type}")
+            
+            # Train
+            self.model.fit(X_train_scaled, y_train)
+            
+            # Predictions
+            y_pred = self.model.predict(X_test_scaled)
+            y_pred_proba = self.model.predict_proba(X_test_scaled)[:, 1]
+            
+            # Metrics
+            results = {
+                'model_type': model_type,
+                'accuracy': metrics['accuracy_score'](y_test, y_pred),
+                'precision': metrics['precision_score'](y_test, y_pred),
+                'recall': metrics['recall_score'](y_test, y_pred),
+                'f1_score': metrics['f1_score'](y_test, y_pred),
+                'roc_auc': metrics['roc_auc_score'](y_test, y_pred_proba),
+                'confusion_matrix': metrics['confusion_matrix'](y_test, y_pred),
+                'classification_report': metrics['classification_report'](y_test, y_pred, output_dict=True),
+                'n_train': len(X_train),
+                'n_test': len(X_test),
+                'churn_rate_train': y_train.mean(),
+                'churn_rate_test': y_test.mean()
+            }
+            
+            # Feature importance
+            if hasattr(self.model, 'feature_importances_'):
+                self.feature_importance = pd.DataFrame({
+                    'feature': self.feature_names,
+                    'importance': self.model.feature_importances_
+                }).sort_values('importance', ascending=False)
+                results['feature_importance'] = self.feature_importance
+            else:
+                results['feature_importance'] = None
+            
+            self.results = results
+            return results
+        finally:
+            # Cleanup
+            gc.collect()
     
     def predict_churn_risk(self, features: pd.DataFrame) -> pd.DataFrame:
         """Predict churn risk for customers.
