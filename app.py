@@ -742,6 +742,9 @@ def show_analysis():
         st.warning("⚠️ Please upload data first!")
         return
     
+    # Pre-import AI module to avoid delay when button clicked
+    from utils.ai_smart_detection import get_ai_recommendation
+    
     df = st.session_state.data
     
     # Use cached profile from upload (instant load!)
@@ -843,8 +846,6 @@ def show_analysis():
         if st.button("🔍 Generate AI Cleaning Analysis", type="primary", use_container_width=True):
             with st.status("🤖 Analyzing dataset with AI...", expanded=True) as status:
                 try:
-                    from utils.ai_smart_detection import get_ai_recommendation
-                    
                     # Step 1: Preparing data
                     status.write("Preparing cleaning data...")
                     
