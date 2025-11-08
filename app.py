@@ -48,6 +48,7 @@ st.markdown("""
         font-weight: bold;
         padding: 0.5rem 1rem;
         border-radius: 5px;
+        box-shadow: none !important;
     }
     /* Prevent grey spinner overlay from appearing */
     .stSpinner > div {
