@@ -744,12 +744,16 @@ def show_analysis():
     
     df = st.session_state.data
     
-    # Generate profile if not exists - with progress indicator
+    # Use cached profile from upload (instant load!)
+    # Only re-profile as fallback if somehow missing (edge case)
     if 'profile' not in st.session_state or not st.session_state.profile:
+        # This should rarely happen since upload already profiles
+        # But keep as safety fallback
         with st.spinner("📊 Analyzing dataset... Please wait..."):
             from utils.data_processor import DataProcessor
             st.session_state.profile = DataProcessor.profile_data(df)
             st.session_state.issues = DataProcessor.detect_data_quality_issues(df)
+            st.info("ℹ️ Data was profiled on-demand. For faster loading, data is normally profiled during upload.")
     
     profile = st.session_state.profile
     issues = st.session_state.get('issues', [])
@@ -1277,10 +1281,17 @@ def show_analysis():
                     st.session_state.cleaning_quality_score = result['quality_score']
                     st.session_state.cleaning_quality_score_before = result.get('quality_score_before', 0)
                     
-                    # Clear cached analysis
+                    # Clear cached analysis (data has changed)
                     for key in ['profile', 'issues', 'viz_suggestions', 'ai_insights', 'cleaning_suggestions']:
                         if key in st.session_state:
                             del st.session_state[key]
+                    
+                    # Re-profile cleaned data immediately (for instant future loads)
+                    status_text.text("Re-profiling cleaned data...")
+                    cleaned_profile = DataProcessor.profile_data(result['cleaned_df'])
+                    st.session_state.profile = cleaned_profile
+                    cleaned_issues = DataProcessor.detect_data_quality_issues(result['cleaned_df'])
+                    st.session_state.issues = cleaned_issues
                     
                     # Save checkpoint
                     pm.save_checkpoint({
