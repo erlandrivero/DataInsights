@@ -160,6 +160,10 @@ class MLRegressor:
         self.X_train = self.scaler.fit_transform(self.X_train)
         self.X_test = self.scaler.transform(self.X_test)
         
+        # Ensure arrays are float type (not object)
+        self.X_train = self.X_train.astype(np.float64)
+        self.X_test = self.X_test.astype(np.float64)
+        
         return {
             'train_size': len(self.X_train),
             'test_size': len(self.X_test),
