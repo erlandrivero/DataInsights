@@ -14,6 +14,9 @@ import re
 import warnings
 warnings.filterwarnings('ignore')
 
+# Lazy loading for sklearn
+from utils.lazy_loader import LazyModuleLoader
+
 # NLP imports
 try:
     import nltk
@@ -319,8 +322,12 @@ class TextAnalyzer:
             - Uses all CPU cores (n_jobs=-1) for faster computation
             - Sampling recommended for datasets >3000 texts
         """
-        from sklearn.feature_extraction.text import CountVectorizer
-        from sklearn.decomposition import LatentDirichletAllocation
+        # Lazy load sklearn modules
+        feature_extraction_text = LazyModuleLoader.load_module('sklearn.feature_extraction.text')
+        decomposition = LazyModuleLoader.load_module('sklearn.decomposition')
+        
+        CountVectorizer = getattr(feature_extraction_text, 'CountVectorizer')
+        LatentDirichletAllocation = getattr(decomposition, 'LatentDirichletAllocation')
         
         # Sample if dataset is large
         if len(self.text_series) > max_samples:
