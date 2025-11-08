@@ -7514,7 +7514,7 @@ def show_ml_classification():
                         help="Choose which SHAP visualizations to create"
                     )
             
-            if st.button("🔍 Generate SHAP Explanations", key="ml_shap_btn", type="primary", use_container_width=True):
+            if st.button("🔍 Generate SHAP Explanations", key="ml_shap_btn", use_container_width=True):
                 try:
                     import shap
                     import matplotlib.pyplot as plt
