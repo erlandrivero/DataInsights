@@ -3094,10 +3094,10 @@ def show_market_basket_analysis():
     has_loaded_data = st.session_state.data is not None
     
     if has_loaded_data:
-        data_options = ["Use Loaded Dataset", "Sample Groceries Dataset", "Upload Custom Data"]
+        data_options = ["Use Loaded Dataset", "Sample Groceries Dataset"]
         default_option = "Use Loaded Dataset"
     else:
-        data_options = ["Sample Groceries Dataset", "Upload Custom Data"]
+        data_options = ["Sample Groceries Dataset"]
         default_option = "Sample Groceries Dataset"
     
     data_source = st.radio(
@@ -3400,7 +3400,7 @@ def show_market_basket_analysis():
                 except Exception as e:
                     st.error(f"Error processing data: {str(e)}")
     
-    elif data_source == "Sample Groceries Dataset":
+    else:  # Sample Groceries Dataset
         if st.button("📥 Load Groceries Data", type="primary"):
             with st.status("Loading groceries dataset...", expanded=True) as status:
                 try:
@@ -3431,63 +3431,6 @@ def show_market_basket_analysis():
                         
                 except Exception as e:
                     st.error(f"Error loading data: {str(e)}")
-    
-    else:  # Upload custom data
-        st.info("""
-        **Upload Format:**
-        - CSV file with two columns: `transaction_id` and `item`
-        - Each row represents one item in a transaction
-        - Example:
-          ```
-          transaction_id,item
-          1,bread
-          1,milk
-          2,eggs
-          2,bread
-          ```
-        """)
-        
-        uploaded_file = st.file_uploader(
-            "Upload transaction CSV",
-            type=['csv'],
-            key="mba_upload"
-        )
-        
-        if uploaded_file is not None:
-            try:
-                df = pd.read_csv(uploaded_file)
-                
-                # Track dataset change
-                dataset_name = f"uploaded_{uploaded_file.name}"
-                current_dataset_id = DatasetTracker.generate_dataset_id(df, dataset_name)
-                stored_id = st.session_state.get('mba_dataset_id')
-                
-                if DatasetTracker.check_dataset_changed(df, dataset_name, stored_id):
-                    DatasetTracker.clear_module_ai_cache(st.session_state, 'mba')
-                    if stored_id is not None:
-                        st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
-                
-                st.session_state.mba_dataset_id = current_dataset_id
-                
-                # Let user select columns
-                col1, col2 = st.columns(2)
-                with col1:
-                    trans_col = st.selectbox("Transaction ID column:", df.columns, key="trans_col")
-                with col2:
-                    item_col = st.selectbox("Item column:", df.columns, key="item_col")
-                
-                if st.button("Process Uploaded Data", type="primary"):
-                    transactions = mba.parse_uploaded_transactions(df, trans_col, item_col)
-                    st.session_state.mba_transactions = transactions
-                    st.success(f"✅ Processed {len(transactions)} transactions!")
-                    
-                    # Show sample
-                    st.write("**Sample transactions:**")
-                    for i, trans in enumerate(transactions[:5], 1):
-                        st.write(f"{i}. {trans}")
-                        
-            except Exception as e:
-                st.error(f"Error processing file: {str(e)}")
     
     # Only show analysis if transactions are loaded
     if 'mba_transactions' not in st.session_state:
@@ -4043,7 +3986,7 @@ def show_market_basket_analysis():
                 st.plotly_chart(fig_scatter, use_container_width=True)
                 
                 # Interpretation guide
-                with st.expander("💡 How to interpret this chart"):
+                with st.expander("💡 How to interpret this chart", expanded=True):
                     st.markdown("""
                     - **Top-right corner:** High support AND high confidence (strong, frequent rules)
                     - **Large bubbles:** High lift (strong association)
@@ -4145,7 +4088,7 @@ def show_market_basket_analysis():
                 st.markdown("---")
             
             # Additional analysis
-            with st.expander("📊 Advanced Insights"):
+            with st.expander("📊 Advanced Insights", expanded=True):
                 st.markdown("### Rule Strength Distribution")
                 
                 col1, col2 = st.columns(2)
@@ -4226,7 +4169,7 @@ def show_market_basket_analysis():
                     )
             
             # Business strategies
-            with st.expander("🎯 Strategic Recommendations"):
+            with st.expander("🎯 Strategic Recommendations", expanded=True):
                 st.markdown("""
                 ### How to Use These Insights
                 
@@ -8195,7 +8138,7 @@ def show_ml_regression():
                 
                 # Suitability reasoning
                 suitability_reasoning = ai_recs.get('suitability_reasoning', 'AI determined this data is suitable for ML Regression')
-                with st.expander("💡 Why this suitability rating?", expanded=False):
+                with st.expander("💡 Why this suitability rating?", expanded=True):
                     st.info(suitability_reasoning)
             
             # Performance Warnings (only shown if AI approves)
