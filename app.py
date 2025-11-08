@@ -11966,7 +11966,7 @@ def show_text_mining():
             
             # Suitability reasoning
             suitability_reasoning = rec.get('suitability_reasoning', 'AI determined this data is suitable for Text Mining')
-            with st.expander("💡 Why this suitability rating?", expanded=False):
+            with st.expander("💡 Why this suitability rating?", expanded=True):
                 st.info(suitability_reasoning)
                 
                 if rec.get('alternative_suggestions'):
@@ -15368,7 +15368,7 @@ def show_recommendation_systems():
             
             # Suitability reasoning
             suitability_reasoning = ai_recs.get('suitability_reasoning', 'AI determined this data is suitable for Recommendation Systems')
-            with st.expander("💡 Why this suitability rating?", expanded=False):
+            with st.expander("💡 Why this suitability rating?", expanded=True):
                 st.info(suitability_reasoning)
         
         # Performance Warnings (only shown if AI approves)
@@ -15389,7 +15389,7 @@ def show_recommendation_systems():
         # Recommendation-specific suggestions
         rec_recommendations = ai_recs.get('recommendation_method_suggestions', [])
         if rec_recommendations:
-            with st.expander("🎯 Recommendation Method Suggestions", expanded=False):
+            with st.expander("🎯 Recommendation Method Suggestions", expanded=True):
                 st.info("Based on your data characteristics:")
                 for rec in rec_recommendations:
                     if isinstance(rec, dict):
@@ -16044,7 +16044,7 @@ Be specific, data-driven, and focus on actionable improvements that balance tech
                     
                     # Save to session state
                     st.session_state.rec_ai_insights = insights
-                    status.update(label="✅ Analysis complete!", state="complete", expanded=False)
+                    status.update(label="✅ Analysis complete!", state="complete", expanded=True)
                     
                     # Display inside status block
                     st.success("✅ AI insights generated successfully!")
