@@ -20460,7 +20460,7 @@ def show_churn_prediction():
                     
                     color = '🔴' if risk_level == 'High Risk' else '🟠' if risk_level == 'Medium Risk' else '🟢'
                     
-                    with st.expander(f"{color} {risk_level} Segment ({strategy['customer_count']} customers)", expanded=risk_level=='High Risk'):
+                    with st.expander(f"{color} {risk_level} Segment ({strategy['customer_count']} customers)", expanded=True):
                         st.markdown(f"**Average Churn Probability:** {strategy['avg_churn_probability']:.1%}")
                         
                         st.markdown("**Segment Characteristics:**")
