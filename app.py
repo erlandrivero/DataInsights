@@ -450,7 +450,7 @@ def show_data_upload():
             # Show sample data option
             st.info("💡 Don't have data? Try our sample datasets!")
         
-        if st.button("Load Sample Sales Data"):
+        if st.button("📊 Load Sample Dataset", type="primary"):
             # Create sample data
             import numpy as np
             sample_data = pd.DataFrame({
