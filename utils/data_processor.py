@@ -65,7 +65,22 @@ class DataProcessor:
         """
         try:
             if file.name.endswith('.csv'):
-                df = pd.read_csv(file)
+                # Try to detect delimiter automatically
+                # Read first few lines to detect delimiter
+                file.seek(0)  # Reset file pointer
+                sample = file.read(10000).decode('utf-8', errors='ignore')
+                file.seek(0)  # Reset again for actual read
+                
+                # Check for common delimiters
+                delimiters = [',', ';', '\t', '|']
+                delimiter_counts = {d: sample.count(d) for d in delimiters}
+                detected_delimiter = max(delimiter_counts, key=delimiter_counts.get)
+                
+                # If semicolon is much more common than comma, use semicolon
+                if delimiter_counts[';'] > delimiter_counts[','] * 2:
+                    detected_delimiter = ';'
+                
+                df = pd.read_csv(file, delimiter=detected_delimiter)
             elif file.name.endswith(('.xlsx', '.xls')):
                 df = pd.read_excel(file)
             else:
