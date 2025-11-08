@@ -555,24 +555,12 @@ def show_data_upload():
                     issues = DataProcessor.detect_data_quality_issues(df)
                     st.session_state.issues = issues
                     
+                    # Store dataset info for display outside status block
+                    st.session_state.openml_dataset_name = dataset.name
+                    st.session_state.openml_dataset_description = dataset.description
+                    st.session_state.openml_dataset_id = dataset_id
+                    
                     status.update(label=f"✅ Successfully loaded {dataset.name}!", state="complete", expanded=False)
-                    success_msg = f"✅ Successfully loaded {dataset.name} (ID: {dataset_id})!"
-                    st.success(success_msg)
-                    
-                    # Show full description and metadata in expander
-                    with st.expander("📋 Dataset Information & Citation", expanded=True):
-                        st.markdown(dataset.description)
-                    
-                    # Show dataset info
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("Rows", len(df))
-                    with col2:
-                        st.metric("Columns", len(df.columns))
-                    with col3:
-                        st.metric("Dataset ID", dataset_id)
-                    
-                    st.dataframe(df.head(10), use_container_width=True)
                     
                 except Exception as e:
                     st.error(f"Error loading OpenML dataset: {str(e)}")
@@ -582,6 +570,26 @@ def show_data_upload():
                     - Some datasets may require additional processing
                     - Check your internet connection
                     """)
+        
+        # Display dataset info outside status block (so it remains visible)
+        if 'openml_dataset_name' in st.session_state and st.session_state.data is not None:
+            st.success(f"✅ Successfully loaded {st.session_state.openml_dataset_name} (ID: {st.session_state.openml_dataset_id})!")
+            
+            # Show full description and metadata in expander
+            with st.expander("📋 Dataset Information & Citation", expanded=True):
+                st.markdown(st.session_state.openml_dataset_description)
+            
+            # Show dataset info
+            df = st.session_state.data
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Rows", len(df))
+            with col2:
+                st.metric("Columns", len(df.columns))
+            with col3:
+                st.metric("Dataset ID", st.session_state.openml_dataset_id)
+            
+            st.dataframe(df.head(10), use_container_width=True)
     
     with tab3:
         st.subheader("Load from Kaggle")
