@@ -12562,6 +12562,13 @@ def show_ab_testing():
 
                     # Store in session state
                     st.session_state.ab_ai_recommendations = recommendations
+                    
+                    # Clear selectbox state to allow AI presets to take effect
+                    if 'ab_group_col' in st.session_state:
+                        del st.session_state.ab_group_col
+                    if 'ab_metric_col' in st.session_state:
+                        del st.session_state.ab_metric_col
+                    
                     st.rerun()
 
         # Display AI recommendations if available
@@ -12698,6 +12705,11 @@ def show_ab_testing():
             # Button to regenerate
             if st.button("🔄 Regenerate Analysis", key="ab_regen"):
                 del st.session_state.ab_ai_recommendations
+                # Clear selectbox state to allow new AI presets
+                if 'ab_group_col' in st.session_state:
+                    del st.session_state.ab_group_col
+                if 'ab_metric_col' in st.session_state:
+                    del st.session_state.ab_metric_col
                 st.rerun()
 
             st.divider()
