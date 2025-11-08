@@ -419,28 +419,42 @@ class MLTrainer:
             
             # External Models
             'XGBoost': ('xgboost', 'XGBClassifier', {
-                'random_state': 42, 
-                'eval_metric': 'logloss', 
+                'random_state': 42,
+                'eval_metric': 'logloss',
                 'use_label_encoder': False,
                 'n_estimators': 100,
                 'max_depth': 6,
-                'learning_rate': 0.3,
-                'n_jobs': -1,  # Use all CPU cores
-                'verbosity': 0  # Suppress warnings
+                'learning_rate': 0.1,
+                'subsample': 0.8,
+                'colsample_bytree': 0.8,
+                'min_child_weight': 3,
+                'n_jobs': -1,
+                'verbosity': 0,
+                'tree_method': 'hist'  # Faster histogram-based algorithm
             }),
             'LightGBM': ('lightgbm', 'LGBMClassifier', {
-                'random_state': 42, 
+                'random_state': 42,
                 'verbose': -1,
                 'n_estimators': 100,
                 'max_depth': 6,
-                'n_jobs': -1
+                'num_leaves': 31,
+                'learning_rate': 0.1,
+                'subsample': 0.8,  # Use 80% of data per iteration (faster)
+                'colsample_bytree': 0.8,  # Use 80% of features (faster)
+                'n_jobs': -1,
+                'force_col_wise': True  # Faster for small datasets
             }),
             'CatBoost': ('catboost', 'CatBoostClassifier', {
-                'random_state': 42, 
+                'random_state': 42,
                 'verbose': 0,
                 'iterations': 100,
                 'depth': 6,
-                'thread_count': -1  # Use all CPU cores
+                'learning_rate': 0.1,
+                'subsample': 0.8,
+                'border_count': 128,  # Reduced from default 254 for speed
+                'thread_count': -1,
+                'task_type': 'CPU',
+                'bootstrap_type': 'Bernoulli'  # Faster than default
             }),
         }
         

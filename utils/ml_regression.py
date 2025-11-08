@@ -242,26 +242,40 @@ class MLRegressor:
             
             # External Models
             'XGBoost': ('xgboost', 'XGBRegressor', {
-                'n_estimators': 100, 
-                'max_depth': 6, 
-                'random_state': 42, 
+                'n_estimators': 100,
+                'max_depth': 6,
+                'random_state': 42,
                 'verbosity': 0,
-                'learning_rate': 0.3,
-                'n_jobs': -1  # Use all CPU cores
+                'learning_rate': 0.1,
+                'subsample': 0.8,
+                'colsample_bytree': 0.8,
+                'min_child_weight': 3,
+                'n_jobs': -1,
+                'tree_method': 'hist'  # Faster histogram-based algorithm
             }),
             'LightGBM': ('lightgbm', 'LGBMRegressor', {
-                'n_estimators': 100, 
-                'max_depth': 6, 
-                'random_state': 42, 
+                'n_estimators': 100,
+                'max_depth': 6,
+                'num_leaves': 31,  # Default, but explicit
+                'learning_rate': 0.1,
+                'subsample': 0.8,  # Use 80% of data per iteration (faster)
+                'colsample_bytree': 0.8,  # Use 80% of features (faster)
+                'random_state': 42,
                 'verbose': -1,
-                'n_jobs': -1  # Use all CPU cores
+                'n_jobs': -1,
+                'force_col_wise': True  # Faster for small datasets
             }),
             'CatBoost': ('catboost', 'CatBoostRegressor', {
-                'iterations': 100, 
-                'depth': 6, 
-                'random_state': 42, 
+                'iterations': 100,
+                'depth': 6,
+                'random_state': 42,
                 'verbose': 0,
-                'thread_count': -1  # Use all CPU cores
+                'learning_rate': 0.1,
+                'subsample': 0.8,
+                'border_count': 128,  # Reduced from default 254 for speed
+                'thread_count': -1,
+                'task_type': 'CPU',
+                'bootstrap_type': 'Bernoulli'  # Faster than default
             }),
         }
         
