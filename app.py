@@ -8049,8 +8049,8 @@ def show_ml_regression():
     if st.session_state.data is not None:
         data_source = st.radio(
             "Choose data source:",
-            ["Use uploaded data from Data Upload page", "Sample Boston Housing Dataset", "Upload new file for this analysis"],
-            help="You can use the data you already uploaded, try a sample dataset, or upload a new file"
+            ["Use uploaded data from Data Upload page", "Sample Boston Housing Dataset"],
+            help="You can use the data you already uploaded or try a sample dataset"
         )
         
         if data_source == "Use uploaded data from Data Upload page":
@@ -8097,32 +8097,11 @@ def show_ml_regression():
                             
                     except Exception as e:
                         st.error(f"Error loading sample data: {str(e)}")
-                        
-        else:  # Upload new file
-            uploaded_file = st.file_uploader(
-                "Upload CSV file with features and continuous target column",
-                type=['csv'],
-                key="mlr_upload",
-                help="Must include numerical features and continuous target column"
-            )
-            
-            if uploaded_file is not None:
-                try:
-                    df = pd.read_csv(uploaded_file)
-                    st.session_state.mlr_data = df
-                    st.success(f"✅ Loaded {len(df):,} rows and {len(df.columns)} columns")
-                    
-                    with st.expander("📋 Data Preview"):
-                        st.dataframe(df.head(10), use_container_width=True)
-                except Exception as e:
-                    st.error(f"Error loading file: {str(e)}")
-            else:
-                st.info("👆 Please upload a CSV file to continue")
     else:
         data_source = st.radio(
             "Choose data source:",
-            ["Sample Boston Housing Dataset", "Upload new file for this analysis"],
-            help="Try the sample dataset or upload your own"
+            ["Sample Boston Housing Dataset"],
+            help="Try the sample dataset"
         )
         
         if data_source == "Sample Boston Housing Dataset":
@@ -8159,24 +8138,6 @@ def show_ml_regression():
                             
                     except Exception as e:
                         st.error(f"Error loading sample data: {str(e)}")
-        else:  # Upload custom data
-            uploaded_file = st.file_uploader(
-                "Upload CSV file with features and continuous target column",
-                type=['csv'],
-                key="mlr_upload",
-                help="Must include numerical features and continuous target column"
-            )
-            
-            if uploaded_file is not None:
-                try:
-                    df = pd.read_csv(uploaded_file)
-                    st.session_state.mlr_data = df
-                    st.success(f"✅ Loaded {len(df):,} rows and {len(df.columns)} columns")
-                    
-                    with st.expander("📋 Data Preview"):
-                        st.dataframe(df.head(10), use_container_width=True)
-                except Exception as e:
-                    st.error(f"Error loading file: {str(e)}")
     
     # Configuration and training
     if 'mlr_data' in st.session_state:
