@@ -625,9 +625,17 @@ class ColumnDetector:
         # Validate latitude suggestions
         valid_lat_cols = [col for col in lat_suggestions if is_valid_latitude(df[col])]
         
-        # If no keyword match, search all numeric columns for valid latitude ranges
+        # STRICT: Only search other columns if they have decimal precision (real coordinates have decimals)
+        # This prevents false positives like age (18-95) being detected as latitude
         if not valid_lat_cols:
-            valid_lat_cols = [col for col in numeric_cols if is_valid_latitude(df[col])]
+            for col in numeric_cols:
+                if is_valid_latitude(df[col]):
+                    # Check if values have decimal precision (not all integers)
+                    sample = df[col].dropna().head(100)
+                    has_decimals = (sample % 1 != 0).any()
+                    if has_decimals:
+                        valid_lat_cols.append(col)
+                        break
         
         lat_col = valid_lat_cols[0] if valid_lat_cols else None
         
@@ -640,9 +648,17 @@ class ColumnDetector:
         # Validate longitude suggestions
         valid_lon_cols = [col for col in lon_suggestions if is_valid_longitude(df[col])]
         
-        # If no keyword match, search all numeric columns for valid longitude ranges
+        # STRICT: Only search other columns if they have decimal precision
+        # This prevents false positives like campaign (1-50) being detected as longitude
         if not valid_lon_cols:
-            valid_lon_cols = [col for col in numeric_cols if is_valid_longitude(df[col]) and col != lat_col]
+            for col in numeric_cols:
+                if col != lat_col and is_valid_longitude(df[col]):
+                    # Check if values have decimal precision (not all integers)
+                    sample = df[col].dropna().head(100)
+                    has_decimals = (sample % 1 != 0).any()
+                    if has_decimals:
+                        valid_lon_cols.append(col)
+                        break
         
         lon_col = valid_lon_cols[0] if valid_lon_cols else None
         
