@@ -6052,9 +6052,10 @@ def show_ml_classification():
         if data_source == "Use uploaded data from Data Upload page":
             df = st.session_state.data
             st.session_state.ml_data = df
-            # Clear any previous dataset info
-            if 'ml_dataset_info' in st.session_state:
-                del st.session_state.ml_dataset_info
+            # Clear any previous dataset info and results
+            for key in ['ml_dataset_info', 'ml_results', 'ml_trainer', 'ml_shap_values', 'ml_shap_data', 'ml_shap_explainer', 'ml_shap_viz_options']:
+                if key in st.session_state:
+                    del st.session_state[key]
             st.success(f"✅ Using uploaded data: {len(df):,} rows and {len(df.columns)} columns")
             
             # Show preview
@@ -6088,9 +6089,10 @@ def show_ml_classification():
                         st.error(f"Error loading sample data: {str(e)}")
                         
         else:  # Upload new file
-            # Clear any previous dataset info immediately when switching to upload
-            if 'ml_dataset_info' in st.session_state:
-                del st.session_state.ml_dataset_info
+            # Clear any previous dataset info and results immediately when switching to upload
+            for key in ['ml_dataset_info', 'ml_results', 'ml_trainer', 'ml_shap_values', 'ml_shap_data', 'ml_shap_explainer', 'ml_shap_viz_options']:
+                if key in st.session_state:
+                    del st.session_state[key]
             
             uploaded_file = st.file_uploader(
                 "Upload CSV file with features and target column",
@@ -6103,9 +6105,6 @@ def show_ml_classification():
                 try:
                     df = pd.read_csv(uploaded_file)
                     st.session_state.ml_data = df
-                    # Clear any previous dataset info
-                    if 'ml_dataset_info' in st.session_state:
-                        del st.session_state.ml_dataset_info
                     st.success(f"✅ Loaded {len(df):,} rows and {len(df.columns)} columns")
                     
                     with st.expander("📋 Data Preview"):
@@ -6149,9 +6148,10 @@ def show_ml_classification():
                     except Exception as e:
                         st.error(f"Error loading sample data: {str(e)}")
         else:  # Upload custom data
-            # Clear any previous dataset info immediately when switching to upload
-            if 'ml_dataset_info' in st.session_state:
-                del st.session_state.ml_dataset_info
+            # Clear any previous dataset info and results immediately when switching to upload
+            for key in ['ml_dataset_info', 'ml_results', 'ml_trainer', 'ml_shap_values', 'ml_shap_data', 'ml_shap_explainer', 'ml_shap_viz_options']:
+                if key in st.session_state:
+                    del st.session_state[key]
             
             uploaded_file = st.file_uploader(
                 "Upload CSV file with features and target column",
@@ -6164,9 +6164,6 @@ def show_ml_classification():
                 try:
                     df = pd.read_csv(uploaded_file)
                     st.session_state.ml_data = df
-                    # Clear any previous dataset info
-                    if 'ml_dataset_info' in st.session_state:
-                        del st.session_state.ml_dataset_info
                     st.success(f"✅ Loaded {len(df):,} rows and {len(df.columns)} columns")
                     
                     with st.expander("📋 Data Preview"):
