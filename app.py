@@ -18055,9 +18055,9 @@ def show_network_analysis():
     has_loaded_data = st.session_state.data is not None
     
     if has_loaded_data:
-        data_options = ["Use Loaded Dataset", "Sample Social Network", "Upload Custom Data"]
+        data_options = ["Use Loaded Dataset", "Sample Social Network"]
     else:
-        data_options = ["Sample Social Network", "Upload Custom Data"]
+        data_options = ["Sample Social Network"]
     
     data_source = st.radio(
         "Choose data source:",
@@ -18259,38 +18259,6 @@ def show_network_analysis():
             st.success(f"✅ Loaded social network with {len(users)} users and {len(edges)} connections!")
             st.dataframe(edge_data.head(10), use_container_width=True)
     
-    else:  # Upload
-        uploaded_file = st.file_uploader("Upload network edges CSV", type=['csv'], key="net_upload")
-        
-        if uploaded_file:
-            df = pd.read_csv(uploaded_file)
-            st.dataframe(df.head(), use_container_width=True)
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                source_col = st.selectbox("Source (From) Column", df.columns, key="net_source_upload")
-            with col2:
-                target_col = st.selectbox("Target (To) Column", df.columns, key="net_target_upload")
-            
-            if st.button("Process Data", type="primary", key="net_process_upload"):
-                edge_data = df[[source_col, target_col]].copy()
-                edge_data.columns = ['source', 'target']
-                st.session_state.net_data = edge_data
-                
-                # Track dataset change for uploaded network
-                dataset_name = f"uploaded_{uploaded_file.name}"
-                current_dataset_id = DatasetTracker.generate_dataset_id(edge_data, dataset_name)
-                stored_id = st.session_state.get('network_dataset_id')
-                
-                if DatasetTracker.check_dataset_changed(edge_data, dataset_name, stored_id):
-                    DatasetTracker.clear_module_ai_cache(st.session_state, 'network')
-                    if stored_id is not None:
-                        st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
-                
-                st.session_state.network_dataset_id = current_dataset_id
-                
-                st.success("✅ Data processed!")
-    
     # Analysis section
     if 'net_data' not in st.session_state:
         st.info("👆 Load network data to begin graph analysis")
@@ -18299,7 +18267,7 @@ def show_network_analysis():
     edge_data = st.session_state.net_data
     
     # Display loaded data preview
-    with st.expander("👁️ View Loaded Network Data", expanded=False):
+    with st.expander("👁️ View Loaded Network Data", expanded=True):
         st.dataframe(edge_data.head(20), use_container_width=True)
         st.caption(f"Showing first 20 of {len(edge_data)} edges")
     
@@ -18413,7 +18381,7 @@ def show_network_analysis():
             
             st.info(f"💡 **Reasoning:** {ai_recs.get('column_reasoning', 'N/A')}")
         
-        with st.expander("🔍 AI Network Quality Assessment", expanded=False):
+        with st.expander("🔍 AI Network Quality Assessment", expanded=True):
             st.write(f"**Suitability Reasoning:** {ai_recs.get('suitability_reasoning', 'N/A')}")
             st.write(f"**Network Type:** {ai_recs.get('network_type', 'Unknown')}")
             st.write(f"**Estimated Nodes:** {ai_recs.get('estimated_nodes', 'Unknown')}")
@@ -18421,7 +18389,7 @@ def show_network_analysis():
             st.write(f"**Network Density:** {ai_recs.get('network_density', 'Unknown')}")
             st.write(f"**Sample Size Assessment:** {ai_recs.get('sample_size_assessment', 'Unknown')}")
         
-        with st.expander("📊 Recommended Metrics", expanded=False):
+        with st.expander("📊 Recommended Metrics", expanded=True):
             st.write("**Centrality Measures:**")
             for measure in ai_recs.get('recommended_centrality_measures', []):
                 st.write(f"- {measure}")
@@ -18430,16 +18398,16 @@ def show_network_analysis():
             st.write(f"**Reasoning:** {ai_recs.get('community_detection_reasoning', 'N/A')}")
             st.write(f"\n**Recommended Visualization:** {ai_recs.get('recommended_visualization', 'Unknown')}")
         
-        with st.expander("💼 Business Applications", expanded=False):
+        with st.expander("💼 Business Applications", expanded=True):
             for app in ai_recs.get('business_applications', []):
                 st.write(f"- {app}")
         
-        with st.expander("💡 Key Insights", expanded=False):
+        with st.expander("💡 Key Insights", expanded=True):
             for insight in ai_recs.get('key_insights', []):
                 st.write(f"- {insight}")
         
         if ai_recs.get('performance_warnings'):
-            with st.expander("⚠️ Performance Warnings", expanded=False):
+            with st.expander("⚠️ Performance Warnings", expanded=True):
                 for warning in ai_recs['performance_warnings']:
                     st.warning(warning)
         
