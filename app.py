@@ -742,8 +742,15 @@ def show_analysis():
         st.warning("⚠️ Please upload data first!")
         return
     
-    # Pre-import AI module to avoid delay when button clicked
-    from utils.ai_smart_detection import get_ai_recommendation
+    # Pre-import AI module with visual feedback (only once per session)
+    if 'ai_module_loaded' not in st.session_state:
+        with st.spinner("🔄 Loading AI analysis module..."):
+            from utils.ai_smart_detection import get_ai_recommendation
+            st.session_state.ai_module_loaded = True
+            st.session_state.get_ai_recommendation = get_ai_recommendation
+    else:
+        # Module already loaded, retrieve from session state
+        get_ai_recommendation = st.session_state.get_ai_recommendation
     
     df = st.session_state.data
     
