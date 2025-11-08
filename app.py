@@ -6049,13 +6049,18 @@ def show_ml_classification():
             help="You can use the data you already uploaded, try a sample dataset, or upload a new file"
         )
         
-        if data_source == "Use uploaded data from Data Upload page":
-            df = st.session_state.data
-            st.session_state.ml_data = df
-            # Clear any previous dataset info and results
+        # Track data source changes and only clear when it actually changes
+        previous_source = st.session_state.get('ml_data_source')
+        if previous_source != data_source:
+            # Data source changed - clear results
             for key in ['ml_dataset_info', 'ml_results', 'ml_trainer', 'ml_shap_values', 'ml_shap_data', 'ml_shap_explainer', 'ml_shap_viz_options']:
                 if key in st.session_state:
                     del st.session_state[key]
+            st.session_state.ml_data_source = data_source
+        
+        if data_source == "Use uploaded data from Data Upload page":
+            df = st.session_state.data
+            st.session_state.ml_data = df
             st.success(f"✅ Using uploaded data: {len(df):,} rows and {len(df.columns)} columns")
             
             # Show preview
@@ -6089,11 +6094,6 @@ def show_ml_classification():
                         st.error(f"Error loading sample data: {str(e)}")
                         
         else:  # Upload new file
-            # Clear any previous dataset info and results immediately when switching to upload
-            for key in ['ml_dataset_info', 'ml_results', 'ml_trainer', 'ml_shap_values', 'ml_shap_data', 'ml_shap_explainer', 'ml_shap_viz_options']:
-                if key in st.session_state:
-                    del st.session_state[key]
-            
             uploaded_file = st.file_uploader(
                 "Upload CSV file with features and target column",
                 type=['csv'],
@@ -6119,6 +6119,15 @@ def show_ml_classification():
             ["Sample Iris Dataset", "Upload new file for this analysis"],
             help="Try the sample dataset or upload your own"
         )
+        
+        # Track data source changes and only clear when it actually changes
+        previous_source = st.session_state.get('ml_data_source')
+        if previous_source != data_source:
+            # Data source changed - clear results
+            for key in ['ml_dataset_info', 'ml_results', 'ml_trainer', 'ml_shap_values', 'ml_shap_data', 'ml_shap_explainer', 'ml_shap_viz_options']:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.session_state.ml_data_source = data_source
         
         if data_source == "Sample Iris Dataset":
             if st.button("📥 Load Iris Dataset", type="primary"):
@@ -6148,11 +6157,6 @@ def show_ml_classification():
                     except Exception as e:
                         st.error(f"Error loading sample data: {str(e)}")
         else:  # Upload custom data
-            # Clear any previous dataset info and results immediately when switching to upload
-            for key in ['ml_dataset_info', 'ml_results', 'ml_trainer', 'ml_shap_values', 'ml_shap_data', 'ml_shap_explainer', 'ml_shap_viz_options']:
-                if key in st.session_state:
-                    del st.session_state[key]
-            
             uploaded_file = st.file_uploader(
                 "Upload CSV file with features and target column",
                 type=['csv'],

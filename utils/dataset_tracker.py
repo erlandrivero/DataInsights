@@ -56,15 +56,34 @@ class DatasetTracker:
     
     @staticmethod
     def clear_module_ai_cache(st_session_state, module_name: str):
-        """Clear AI recommendations for a specific module.
+        """Clear AI recommendations and related data for a specific module.
         
         Args:
             st_session_state: Streamlit session state object
-            module_name: Name of the module (e.g., 'anomaly', 'network', 'churn')
+            module_name: Name of the module (e.g., 'anomaly', 'network', 'churn', 'ml')
         """
+        # Clear AI recommendations
         cache_key = f"{module_name}_ai_recommendations"
         if cache_key in st_session_state:
             del st_session_state[cache_key]
+        
+        # Clear SHAP data for modules that use it
+        shap_keys = [
+            f"{module_name}_shap_values",
+            f"{module_name}_shap_data", 
+            f"{module_name}_shap_explainer",
+            f"{module_name}_shap_viz_options"
+        ]
+        for key in shap_keys:
+            if key in st_session_state:
+                del st_session_state[key]
+        
+        # Clear model results for ML modules
+        if module_name == 'ml':
+            ml_keys = ['ml_results', 'ml_trainer', 'ml_dataset_info']
+            for key in ml_keys:
+                if key in st_session_state:
+                    del st_session_state[key]
     
     @staticmethod
     def clear_all_ai_cache(st_session_state):
