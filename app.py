@@ -12008,7 +12008,7 @@ def show_text_mining():
         
         # Preprocessing needs
         if rec.get('preprocessing_needed'):
-            with st.expander("🔧 Preprocessing Recommendations", expanded=False):
+            with st.expander("🔧 Preprocessing Recommendations", expanded=True):
                 for step in rec['preprocessing_needed']:
                     st.info(f"📝 {step}")
         
