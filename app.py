@@ -15003,9 +15003,9 @@ def show_recommendation_systems():
     has_loaded_data = st.session_state.data is not None
     
     if has_loaded_data:
-        data_options = ["Use Loaded Dataset", "Sample Movie Ratings", "Upload Custom Data"]
+        data_options = ["Use Loaded Dataset", "Sample Movie Ratings"]
     else:
-        data_options = ["Sample Movie Ratings", "Upload Custom Data"]
+        data_options = ["Sample Movie Ratings"]
     
     data_source = st.radio(
         "Choose data source:",
@@ -15076,40 +15076,7 @@ def show_recommendation_systems():
             st.session_state.rec_source_df = ratings_data  # Also set this for column selection
             
             st.success(f"✅ Loaded {len(ratings_data)} ratings from {len(users)} users on {len(movies)} movies!")
-            st.dataframe(ratings_data.head(10), use_container_width=True)
-    
-    else:  # Upload
-        uploaded_file = st.file_uploader("Upload ratings CSV", type=['csv'], key="rec_upload")
-        
-        if uploaded_file:
-            df = pd.read_csv(uploaded_file)
-            st.dataframe(df.head(), use_container_width=True)
-            
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                user_col = st.selectbox("User Column", df.columns, key="rec_user_upload")
-            with col2:
-                item_col = st.selectbox("Item Column", df.columns, key="rec_item_upload")
-            with col3:
-                rating_col = st.selectbox("Rating Column", df.columns, key="rec_rating_upload")
-            
-            if st.button("Process Data", type="primary", key="rec_process_upload"):
-                ratings_data = df[[user_col, item_col, rating_col]].copy()
-                ratings_data.columns = ['user_id', 'item_id', 'rating']
-                
-                # Track dataset change
-                dataset_name = f"uploaded_{uploaded_file.name}"
-                current_dataset_id = DatasetTracker.generate_dataset_id(ratings_data, dataset_name)
-                stored_id = st.session_state.get('rec_dataset_id')
-                
-                if DatasetTracker.check_dataset_changed(ratings_data, dataset_name, stored_id):
-                    DatasetTracker.clear_module_ai_cache(st.session_state, 'rec')
-                    if stored_id is not None:
-                        st.info("🔄 **Dataset changed!** Previous AI recommendations cleared.")
-                
-                st.session_state.rec_dataset_id = current_dataset_id
-                st.session_state.rec_ratings = ratings_data
-                st.success("✅ Data processed!")
+            st.session_state.rec_source_df = df  # Store for sample data AI analysis
     
     # Analysis section - Check if we have source data OR processed ratings
     if 'rec_source_df' not in st.session_state and 'rec_ratings' not in st.session_state:
