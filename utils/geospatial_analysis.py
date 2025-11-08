@@ -11,12 +11,13 @@ Typical usage example:
 
 import pandas as pd
 import numpy as np
-from sklearn.cluster import KMeans, DBSCAN
-from sklearn.preprocessing import StandardScaler
 from typing import Dict, Any, List, Tuple, Optional
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
+
+# Lazy loading for sklearn
+from utils.lazy_loader import LazyModuleLoader
 
 
 class GeospatialAnalyzer:
@@ -128,12 +129,17 @@ class GeospatialAnalyzer:
             >>> clusters = analyzer.perform_clustering(n_clusters=5, method='kmeans')
             >>> clusters = analyzer.perform_clustering(method='dbscan', eps_km=5, min_samples=3)
         """
+        # Lazy load sklearn clustering modules
+        cluster = LazyModuleLoader.load_module('sklearn.cluster')
+        
         X = _self.data[[_self.lat_col, _self.lon_col]].values
         
         if method == 'kmeans':
+            KMeans = getattr(cluster, 'KMeans')
             clusterer = KMeans(n_clusters=n_clusters, random_state=42)
             _self.clusters = clusterer.fit_predict(X)
         else:  # DBSCAN
+            DBSCAN = getattr(cluster, 'DBSCAN')
             # Convert lat/lon to radians for DBSCAN
             X_rad = np.radians(X)
             # Convert km to radians: eps_radians = eps_km / Earth_radius_km
