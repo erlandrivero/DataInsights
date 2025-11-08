@@ -916,14 +916,14 @@ def show_analysis():
         # Performance Optimization Tips
         optimization_suggestions = ai_recs.get('optimization_suggestions', [])
         if optimization_suggestions:
-            with st.expander("🚀 Performance Optimization Tips", expanded=False):
+            with st.expander("🚀 Performance Optimization Tips", expanded=True):
                 for suggestion in optimization_suggestions:
                     st.write(f"• {suggestion}")
         
         # Columns That Need Cleaning
         columns_to_clean = ai_recs.get('columns_to_clean', [])
         if columns_to_clean:
-            with st.expander("🔧 Columns Requiring Attention", expanded=False):
+            with st.expander("🔧 Columns Requiring Attention", expanded=True):
                 for col_info in columns_to_clean:
                     if isinstance(col_info, dict):
                         st.write(f"• **{col_info.get('column', 'Unknown')}**: {col_info.get('reason', 'No reason')} → *{col_info.get('suggested_action', 'No action')}*")
@@ -1031,7 +1031,7 @@ def show_analysis():
             st.info("🤖 **AI has analyzed your data and preset the cleaning options below based on your data profile.**")
             
             # Show detailed AI reasoning
-            with st.expander("🧠 View AI Reasoning for Presets", expanded=False):
+            with st.expander("🧠 View AI Reasoning for Presets", expanded=True):
                 st.markdown("**📊 Data Profile Analysis:**")
                 
                 # Basic stats
@@ -1387,9 +1387,9 @@ def show_analysis():
         
         st.write("**Suggested Visualizations:**")
         
-        # Display suggestions
+        # Display suggestions - ALL EXPANDED for user visibility
         for i, suggestion in enumerate(suggestions):
-            with st.expander(f"📈 {suggestion['title']}"):
+            with st.expander(f"📈 {suggestion['title']}", expanded=True):
                 st.write(suggestion['description'])
                 
                 try:
