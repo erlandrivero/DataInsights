@@ -5496,7 +5496,7 @@ def show_monte_carlo_simulation():
         st.metric("Total Return", f"{total_return:.2f}%")
     
     # Historical returns distribution
-    with st.expander("📈 View Historical Returns Distribution"):
+    with st.expander("📈 View Historical Returns Distribution", expanded=True):
         fig_returns = simulator.create_returns_distribution(returns)
         st.plotly_chart(fig_returns, use_container_width=True)
         
@@ -5690,7 +5690,7 @@ def show_monte_carlo_simulation():
             st.markdown(insight)
         
         # Strategic recommendations
-        with st.expander("🎯 Strategic Recommendations"):
+        with st.expander("🎯 Strategic Recommendations", expanded=True):
             st.markdown("""
             ### Investment Strategies Based on Results:
             
