@@ -110,18 +110,44 @@ def main():
         if is_processing:
             st.warning("⚠️ Process running - please wait before navigating")
         
-        page = st.radio(
-            "Select a page:",
-            ["Home", "Data Upload", "Data Analysis & Cleaning", "Anomaly Detection", "Insights", 
-             "Market Basket Analysis", "RFM Analysis", "Time Series Forecasting", "Text Mining & NLP", 
-             "ML Classification", "ML Regression", "Monte Carlo Simulation", 
-             "A/B Testing", "Cohort Analysis", "Recommendation Systems", 
-             "Geospatial Analysis", "Survival Analysis", "Network Analysis", 
-             "Churn Prediction",
-             "Reports"],
-            key="navigation",
-            disabled=is_processing
-        )
+        # Define hierarchical navigation structure (Phase 1)
+        navigation_structure = {
+            "📁 Data Foundation": ["Data Upload", "Data Analysis & Cleaning"],
+            "📈 Business Intelligence": ["RFM Analysis", "Market Basket Analysis", "Time Series Forecasting"],
+            "🤖 Machine Learning": ["ML Classification", "ML Regression", "Text Mining & NLP", "Anomaly Detection"],
+            "🧪 Statistical Testing": ["A/B Testing", "Cohort Analysis", "Survival Analysis"],
+            "🧠 Advanced Modeling": ["Monte Carlo Simulation", "Churn Prediction", "Recommendation Systems", "Network Analysis", "Geospatial Analysis"],
+            "📑 Reporting & Insights": ["Insights", "Reports"]
+        }
+        
+        # Initialize page in session state if not exists
+        if 'page' not in st.session_state:
+            st.session_state.page = "Home"
+        
+        # Home button (always visible)
+        if st.button("🏠 Home", use_container_width=True, type=("primary" if st.session_state.page == "Home" else "secondary")):
+            st.session_state.page = "Home"
+            st.rerun()
+        
+        st.divider()
+        
+        # Hierarchical navigation with expanders
+        for category, modules in navigation_structure.items():
+            # Expand category if current page is in it
+            is_expanded = st.session_state.page in modules
+            
+            with st.expander(category, expanded=is_expanded):
+                for module in modules:
+                    button_type = "primary" if st.session_state.page == module else "secondary"
+                    if st.button(
+                        module, 
+                        use_container_width=True, 
+                        type=button_type,
+                        key=f"nav_{module.replace(' ', '_').replace('&', 'and')}",
+                        disabled=is_processing
+                    ):
+                        st.session_state.page = module
+                        st.rerun()
         
         st.divider()
         
@@ -222,7 +248,9 @@ def main():
         - Create professional reports
         """)
     
-    # Page routing
+    # Page routing - use session state instead of radio button (Phase 1)
+    page = st.session_state.get('page', 'Home')
+    
     if page == "Home":
         show_home()
     elif page == "Data Upload":
