@@ -11,6 +11,34 @@ import os
 # Load environment variables
 load_dotenv()
 
+# Display name mappings (Phase 2)
+# User-friendly names shown in UI, internal names used in code
+DISPLAY_TO_INTERNAL = {
+    "Upload & Connect": "Data Upload",
+    "Clean & Profile": "Data Analysis & Cleaning",
+    "Customer Value (RFM)": "RFM Analysis",
+    "Trend Forecasting": "Time Series Forecasting",
+    "Classification Models": "ML Classification",
+    "Regression Models": "ML Regression",
+    "Text & NLP Analysis": "Text Mining & NLP",
+    "AI-Powered Insights": "Insights",
+    "Reports & Dashboards": "Reports",
+    # These remain unchanged (already user-friendly)
+    "Market Basket Analysis": "Market Basket Analysis",
+    "Anomaly Detection": "Anomaly Detection",
+    "A/B Testing": "A/B Testing",
+    "Cohort Analysis": "Cohort Analysis",
+    "Survival Analysis": "Survival Analysis",
+    "Monte Carlo Simulation": "Monte Carlo Simulation",
+    "Churn Prediction": "Churn Prediction",
+    "Recommendation Systems": "Recommendation Systems",
+    "Network Analysis": "Network Analysis",
+    "Geospatial Analysis": "Geospatial Analysis"
+}
+
+# Reverse mapping for convenience
+INTERNAL_TO_DISPLAY = {v: k for k, v in DISPLAY_TO_INTERNAL.items()}
+
 # Page configuration
 st.set_page_config(
     page_title="DataInsights",
@@ -78,6 +106,11 @@ def load_custom_css():
     except FileNotFoundError:
         pass  # CSS file not found, use default styles
 
+# Helper function for display names (Phase 2)
+def get_display_name(internal_name):
+    """Convert internal page name to user-friendly display name."""
+    return INTERNAL_TO_DISPLAY.get(internal_name, internal_name)
+
 # Main app
 def main():
     # Load custom CSS
@@ -110,14 +143,14 @@ def main():
         if is_processing:
             st.warning("⚠️ Process running - please wait before navigating")
         
-        # Define hierarchical navigation structure (Phase 1)
+        # Define hierarchical navigation structure (Phase 2 - with display names)
         navigation_structure = {
-            "📁 Data Foundation": ["Data Upload", "Data Analysis & Cleaning"],
-            "📈 Business Intelligence": ["RFM Analysis", "Market Basket Analysis", "Time Series Forecasting"],
-            "🤖 Machine Learning": ["ML Classification", "ML Regression", "Text Mining & NLP", "Anomaly Detection"],
+            "📁 Data Foundation": ["Upload & Connect", "Clean & Profile"],
+            "📈 Business Intelligence": ["Customer Value (RFM)", "Market Basket Analysis", "Trend Forecasting"],
+            "🤖 Machine Learning": ["Classification Models", "Regression Models", "Text & NLP Analysis", "Anomaly Detection"],
             "🧪 Statistical Testing": ["A/B Testing", "Cohort Analysis", "Survival Analysis"],
             "🧠 Advanced Modeling": ["Monte Carlo Simulation", "Churn Prediction", "Recommendation Systems", "Network Analysis", "Geospatial Analysis"],
-            "📑 Reporting & Insights": ["Insights", "Reports"]
+            "📑 Reporting & Insights": ["AI-Powered Insights", "Reports & Dashboards"]
         }
         
         # Initialize page in session state if not exists
@@ -131,22 +164,24 @@ def main():
         
         st.divider()
         
-        # Hierarchical navigation with expanders
+        # Hierarchical navigation with expanders (Phase 2 - with display name mapping)
         for category, modules in navigation_structure.items():
-            # Expand category if current page is in it
-            is_expanded = st.session_state.page in modules
+            # Convert display names to internal names for comparison
+            internal_modules = [DISPLAY_TO_INTERNAL.get(m, m) for m in modules]
+            is_expanded = st.session_state.page in internal_modules
             
             with st.expander(category, expanded=is_expanded):
-                for module in modules:
-                    button_type = "primary" if st.session_state.page == module else "secondary"
+                for display_name in modules:
+                    internal_name = DISPLAY_TO_INTERNAL.get(display_name, display_name)
+                    button_type = "primary" if st.session_state.page == internal_name else "secondary"
                     if st.button(
-                        module, 
+                        display_name,  # Show user-friendly name
                         use_container_width=True, 
                         type=button_type,
-                        key=f"nav_{module.replace(' ', '_').replace('&', 'and')}",
+                        key=f"nav_{internal_name.replace(' ', '_').replace('&', 'and')}",  # Use internal name for key
                         disabled=is_processing
                     ):
-                        st.session_state.page = module
+                        st.session_state.page = internal_name  # Store internal name
                         st.rerun()
         
         st.divider()
@@ -332,7 +367,9 @@ def show_home():
     """)
 
 def show_data_upload():
-    st.markdown("<h2 style='text-align: center;'>📤 Data Upload</h2>", unsafe_allow_html=True)
+    # Get display name for header (Phase 2)
+    display_name = get_display_name("Data Upload")
+    st.markdown(f"<h2 style='text-align: center;'>📤 {display_name}</h2>", unsafe_allow_html=True)
     
     # Tabs for different data sources
     tab1, tab2, tab3 = st.tabs(["📁 Local Upload", "🌐 OpenML", "🏆 Kaggle"])
@@ -765,7 +802,9 @@ def show_data_upload():
                         """)
 
 def show_analysis():
-    st.markdown("<h2 style='text-align: center;'>📊 Data Analysis</h2>", unsafe_allow_html=True)
+    # Get display name for header (Phase 2)
+    display_name = get_display_name("Data Analysis & Cleaning")
+    st.markdown(f"<h2 style='text-align: center;'>📊 {display_name}</h2>", unsafe_allow_html=True)
     
     if st.session_state.data is None:
         st.warning("⚠️ Please upload data first!")
@@ -1581,7 +1620,9 @@ def show_analysis():
 
 
 def show_insights():
-    st.markdown("<h2 style='text-align: center;'>🤖 AI Insights & Natural Language Querying</h2>", unsafe_allow_html=True)
+    # Get display name for header (Phase 2)
+    display_name = get_display_name("Insights")
+    st.markdown(f"<h2 style='text-align: center;'>🤖 {display_name} & Natural Language Querying</h2>", unsafe_allow_html=True)
     
     if st.session_state.data is None:
         st.warning("⚠️ Please upload data first!")
@@ -1691,11 +1732,13 @@ def show_insights():
             st.rerun()
 
 def show_reports():
+    # Get display name for header (Phase 2)
+    display_name = get_display_name("Reports")
     # Hero header with gradient
-    st.markdown("""
+    st.markdown(f"""
     <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                 padding: 2rem; border-radius: 10px; margin-bottom: 2rem; color: white;'>
-        <h1 style='margin: 0; color: white;'>📊 Business Intelligence Reports</h1>
+        <h1 style='margin: 0; color: white;'>📊 {display_name}</h1>
         <p style='margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 1.1rem;'>
             Generate comprehensive analytics reports with AI-powered insights
         </p>
@@ -4446,7 +4489,9 @@ def show_rfm_analysis():
     import gc
     gc.collect()
     
-    st.markdown("<h2 style='text-align: center;'>👥 RFM Analysis & Customer Segmentation</h2>", unsafe_allow_html=True)
+    # Get display name for header (Phase 2)
+    display_name = get_display_name("RFM Analysis")
+    st.markdown(f"<h2 style='text-align: center;'>👥 {display_name} & Customer Segmentation</h2>", unsafe_allow_html=True)
     
     # Help section
     with st.expander("ℹ️ What is RFM Analysis?"):
@@ -5922,7 +5967,9 @@ def show_ml_classification():
     # Import ML helper functions for optimization
     from utils.ml_helpers import get_recommended_cv_folds, create_data_hash, cached_classification_training
     
-    st.markdown("<h2 style='text-align: center;'>🤖 Machine Learning - Classification Models</h2>", unsafe_allow_html=True)
+    # Get display name for header (Phase 2)
+    display_name = get_display_name("ML Classification")
+    st.markdown(f"<h2 style='text-align: center;'>🤖 Machine Learning - {display_name}</h2>", unsafe_allow_html=True)
     
     # Help section
     with st.expander("ℹ️ What is Machine Learning Classification?"):
@@ -7929,7 +7976,9 @@ def show_ml_regression():
     # Import ML helper functions for optimization
     from utils.ml_helpers import get_recommended_cv_folds, create_data_hash, cached_regression_training
     
-    st.markdown("<h2 style='text-align: center;'>📈 ML Regression</h2>", unsafe_allow_html=True)
+    # Get display name for header (Phase 2)
+    display_name = get_display_name("ML Regression")
+    st.markdown(f"<h2 style='text-align: center;'>📈 {display_name}</h2>", unsafe_allow_html=True)
     
     # Help section
     with st.expander("ℹ️ What is Machine Learning Regression?"):
@@ -10624,7 +10673,9 @@ def show_time_series_forecasting():
     import gc
     gc.collect()
     
-    st.markdown("<h2 style='text-align: center;'>📈 Time Series Forecasting</h2>", unsafe_allow_html=True)
+    # Get display name for header (Phase 2)
+    display_name = get_display_name("Time Series Forecasting")
+    st.markdown(f"<h2 style='text-align: center;'>📈 {display_name}</h2>", unsafe_allow_html=True)
     
     # Help section
     with st.expander("ℹ️ What is Time Series Forecasting?"):
@@ -11445,7 +11496,9 @@ def show_text_mining():
     import gc
     gc.collect()
     
-    st.markdown("<h2 style='text-align: center;'>💬 Text Mining & Sentiment Analysis</h2>", unsafe_allow_html=True)
+    # Get display name for header (Phase 2)
+    display_name = get_display_name("Text Mining & NLP")
+    st.markdown(f"<h2 style='text-align: center;'>💬 {display_name} & Sentiment Analysis</h2>", unsafe_allow_html=True)
     
     # Help section
     with st.expander("ℹ️ What is Text Mining?"):
