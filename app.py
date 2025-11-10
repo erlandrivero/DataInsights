@@ -332,43 +332,86 @@ def main():
         show_churn_prediction()
 
 def show_home():
+    """Phase 3: Home Page Launchpad - 6 category grid with clickable modules"""
     st.markdown("<h2 style='text-align: center;'>Welcome to DataInsights! 👋</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: gray; margin-bottom: 2rem;'>Select a module to get started</p>", unsafe_allow_html=True)
     
-    col1, col2, col3 = st.columns(3)
+    # Define module structure matching navigation (using display names)
+    module_categories = {
+        "📁 Data Foundation": {
+            "modules": ["Upload & Connect", "Clean & Profile"],
+            "color": "#667eea"
+        },
+        "📈 Business Intelligence": {
+            "modules": ["Customer Value (RFM)", "Market Basket Analysis", "Trend Forecasting"],
+            "color": "#f093fb"
+        },
+        "💻 Machine Learning": {
+            "modules": ["Classification Models", "Regression Models", "Text & NLP Analysis", "Anomaly Detection"],
+            "color": "#4facfe"
+        },
+        "🧪 Statistical Testing": {
+            "modules": ["A/B Testing", "Cohort Analysis", "Survival Analysis"],
+            "color": "#43e97b"
+        },
+        "🧠 Advanced Modeling": {
+            "modules": ["Monte Carlo Simulation", "Churn Prediction", "Recommendation Systems", "Network Analysis", "Geospatial Analysis"],
+            "color": "#fa709a"
+        },
+        "📑 Reporting & Insights": {
+            "modules": ["AI-Powered Insights", "Reports & Dashboards"],
+            "color": "#feca57"
+        }
+    }
     
-    with col1:
-        st.markdown("""
-        <div class="feature-box">
-            <h3>📤 Upload Data</h3>
-            <p>Upload CSV or Excel files and get<br>instant data profiling</p>
-        </div>
-        """, unsafe_allow_html=True)
+    # Create 2-column grid for categories
+    col1, col2 = st.columns(2)
     
-    with col2:
-        st.markdown("""
-        <div class="feature-box">
-            <h3>🤖 AI Analysis</h3>
-            <p>Ask questions in natural language<br>and get intelligent answers</p>
-        </div>
-        """, unsafe_allow_html=True)
+    category_items = list(module_categories.items())
     
-    with col3:
-        st.markdown("""
-        <div class="feature-box">
-            <h3>📊 Visualizations</h3>
-            <p>Interactive charts and dashboards<br>generated automatically</p>
-        </div>
-        """, unsafe_allow_html=True)
+    for idx, (category, info) in enumerate(category_items):
+        with col1 if idx % 2 == 0 else col2:
+            # Category header with gradient
+            st.markdown(f"""
+            <div style='background: linear-gradient(135deg, {info['color']} 0%, {info['color']}dd 100%); 
+                        padding: 1rem; border-radius: 10px; margin-bottom: 1rem; color: white;'>
+                <h3 style='margin: 0; color: white;'>{category}</h3>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Module buttons
+            for module_display_name in info['modules']:
+                # Convert display name to internal name for navigation
+                internal_name = DISPLAY_TO_INTERNAL.get(module_display_name, module_display_name)
+                
+                if st.button(
+                    f"▶️ {module_display_name}",
+                    key=f"home_{internal_name.replace(' ', '_').replace('&', 'and')}",
+                    use_container_width=True
+                ):
+                    st.session_state.page = internal_name
+                    st.rerun()
+            
+            st.markdown("<br>", unsafe_allow_html=True)
     
+    # Featured module section
     st.divider()
+    st.markdown("### ⭐ Featured Module")
     
-    st.subheader("🚀 Getting Started")
-    st.write("""
-    1. Navigate to **Data Upload** to upload your dataset
-    2. View automatic **Analysis** of your data
-    3. Ask questions and get **Insights** from AI
-    4. Generate professional **Reports** to share
-    """)
+    featured_col1, featured_col2, featured_col3 = st.columns([1, 2, 1])
+    
+    with featured_col2:
+        st.info("""
+        **🤖 AI-Powered Insights**
+        
+        Ask questions about your data in natural language and get intelligent, context-aware answers powered by advanced AI.
+        
+        Perfect for: Quick data exploration, hypothesis testing, and discovering hidden patterns.
+        """)
+        
+        if st.button("🚀 Try AI-Powered Insights", type="primary", use_container_width=True):
+            st.session_state.page = "Insights"
+            st.rerun()
 
 def show_data_upload():
     # Get display name for header (Phase 2)
