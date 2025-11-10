@@ -89,6 +89,43 @@ st.markdown("""
     .stSpinner::before {
         display: none !important;
     }
+    
+    /* Animated chevrons for navigation expanders */
+    @keyframes chevron-slide {
+        0%, 100% {
+            transform: translateX(-4px);
+        }
+        50% {
+            transform: translateX(4px);
+        }
+    }
+    
+    @keyframes chevron-glow {
+        0%, 100% {
+            filter: drop-shadow(0 0 3px rgba(33, 150, 243, 0.6))
+                    drop-shadow(0 0 6px rgba(33, 150, 243, 0.4));
+        }
+        50% {
+            filter: drop-shadow(0 0 6px rgba(33, 150, 243, 0.8))
+                    drop-shadow(0 0 12px rgba(33, 150, 243, 0.6));
+        }
+    }
+    
+    /* Target ALL expander elements in sidebar - only animate when CLOSED */
+    [data-testid="stSidebar"] details:not([open]) summary,
+    [data-testid="stSidebar"] details:not([open]) summary svg,
+    section[data-testid="stSidebar"] details:not([open]) summary,
+    section[data-testid="stSidebar"] details:not([open]) summary svg {
+        animation: chevron-slide 1.5s infinite ease-in-out, chevron-glow 2s infinite ease-in-out !important;
+    }
+    
+    /* Stop animation when expander is OPEN */
+    [data-testid="stSidebar"] details[open] summary,
+    [data-testid="stSidebar"] details[open] summary svg,
+    section[data-testid="stSidebar"] details[open] summary,
+    section[data-testid="stSidebar"] details[open] summary svg {
+        animation: none !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -143,7 +180,7 @@ def main():
         navigation_structure = {
             "📁 Data Foundation": ["Upload & Connect", "Clean & Profile"],
             "📈 Business Intelligence": ["Customer Value (RFM)", "Market Basket Analysis", "Trend Forecasting"],
-            "🤖 Machine Learning": ["Classification Models", "Regression Models", "Text & NLP Analysis", "Anomaly Detection"],
+            "💻 Machine Learning": ["Classification Models", "Regression Models", "Text & NLP Analysis", "Anomaly Detection"],
             "🧪 Statistical Testing": ["A/B Testing", "Cohort Analysis", "Survival Analysis"],
             "🧠 Advanced Modeling": ["Monte Carlo Simulation", "Churn Prediction", "Recommendation Systems", "Network Analysis", "Geospatial Analysis"],
             "📑 Reporting & Insights": ["AI-Powered Insights", "Reports & Dashboards"]
