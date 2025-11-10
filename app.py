@@ -18036,11 +18036,6 @@ def show_network_analysis():
     
     edge_data = st.session_state.net_data
     
-    # Display loaded data preview
-    with st.expander("👁️ View Loaded Network Data", expanded=True):
-        st.dataframe(edge_data.head(20), use_container_width=True)
-        st.caption(f"Showing first 20 of {len(edge_data)} edges")
-    
     # Dataset overview
     st.divider()
     st.subheader("📊 2. Network Analysis")
