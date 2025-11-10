@@ -126,10 +126,6 @@ def main():
         ProcessManager.cleanup_large_session_state_items()
         st.session_state.last_cleanup = time.time()
     
-    # Header with fallback - Centered branding
-    st.markdown("<h1 style='text-align: center;'>🎯 DataInsights</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: gray;'>Your AI-Powered Business Intelligence Assistant</p>", unsafe_allow_html=True)
-    
     # Sidebar
     with st.sidebar:
         st.header("📊 Navigation")
@@ -282,6 +278,14 @@ def main():
         - Generate automated insights
         - Create professional reports
         """)
+    
+    # Hero section - Centered branding in main content area
+    st.markdown("""
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <h1 style='text-align: center;'>🎯 DataInsights</h1>
+        <p style='text-align: center; color: gray; margin-bottom: 0;'>Your AI-Powered Business Intelligence Assistant</p>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Page routing - use session state instead of radio button (Phase 1)
     page = st.session_state.get('page', 'Home')
