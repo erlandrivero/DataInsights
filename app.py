@@ -304,17 +304,6 @@ def main():
                     mime="application/json",
                     use_container_width=True
                 )
-        
-        st.divider()
-        
-        st.header("ℹ️ About")
-        st.info("""
-        **DataInsights** helps you:
-        - Upload and analyze data
-        - Ask questions in natural language
-        - Generate automated insights
-        - Create professional reports
-        """)
     
     # Hero section - Centered branding in main content area
     st.markdown("""
