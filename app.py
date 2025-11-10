@@ -18027,7 +18027,6 @@ def show_network_analysis():
             st.session_state.network_dataset_id = current_dataset_id
             
             st.success(f"✅ Loaded social network with {len(users)} users and {len(edges)} connections!")
-            st.dataframe(edge_data.head(10), use_container_width=True)
     
     # Analysis section
     if 'net_data' not in st.session_state:
@@ -18035,6 +18034,11 @@ def show_network_analysis():
         return
     
     edge_data = st.session_state.net_data
+    
+    # Display loaded data preview
+    with st.expander("👁️ View Loaded Network Data", expanded=True):
+        st.dataframe(edge_data.head(20), use_container_width=True)
+        st.caption(f"Showing first 20 of {len(edge_data)} edges")
     
     # Dataset overview
     st.divider()
