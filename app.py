@@ -126,18 +126,6 @@ st.markdown("""
     section[data-testid="stSidebar"] details[open] summary svg {
         animation: none !important;
     }
-    
-    /* Animate the native Streamlit sidebar collapse/expand chevron button */
-    [data-testid="collapsedControl"],
-    [data-testid="collapsedControl"] svg,
-    [data-testid="collapsedControl"] button,
-    [data-testid="collapsedControl"] button svg,
-    section[data-testid="stSidebarNav"] button[kind="header"],
-    section[data-testid="stSidebarNav"] button[kind="header"] svg,
-    button[aria-label*="sidebar"],
-    button[aria-label*="sidebar"] svg {
-        animation: chevron-slide 1.5s infinite ease-in-out, chevron-glow 2s infinite ease-in-out !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
