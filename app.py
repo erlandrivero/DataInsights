@@ -15029,7 +15029,6 @@ def show_recommendation_systems():
             st.session_state.rec_source_df = ratings_data  # Also set this for column selection
             
             st.success(f"✅ Loaded {len(ratings_data)} ratings from {len(users)} users on {len(movies)} movies!")
-            st.session_state.rec_source_df = df  # Store for sample data AI analysis
     
     # Analysis section - Check if we have source data OR processed ratings
     if 'rec_source_df' not in st.session_state and 'rec_ratings' not in st.session_state:
