@@ -17193,7 +17193,6 @@ def show_survival_analysis():
             st.session_state.survival_dataset_id = current_dataset_id
             
             st.success(f"✅ Loaded {len(surv_data)} customer records!")
-            st.dataframe(surv_data.head(10), use_container_width=True)
     
     # Analysis section
     if 'surv_data' not in st.session_state:
