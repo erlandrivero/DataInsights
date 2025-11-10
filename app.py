@@ -598,7 +598,7 @@ def show_data_upload():
             # Show sample data option
             st.info("💡 Don't have data? Try our sample datasets!")
         
-        if st.button("📊 Load Sample Dataset", type="primary"):
+        if st.button("📊 Load Your Dataset", type="primary"):
             # Create sample data
             import numpy as np
             sample_data = pd.DataFrame({
@@ -654,7 +654,7 @@ def show_data_upload():
                 st.caption(f"Dataset ID: {dataset_id}")
             
             with col2:
-                load_button = st.button("📥 Load Dataset", type="primary", use_container_width=True, key="load_openml_popular")
+                load_button = st.button("📥 Load OpenML Dataset", type="primary", use_container_width=True, key="load_openml_popular")
         
         else:  # Custom Dataset ID
             col1, col2 = st.columns([2, 1])
@@ -671,7 +671,7 @@ def show_data_upload():
                 st.caption("💡 Example IDs: 61 (Iris), 40945 (Titanic), 187 (Wine)")
             
             with col2:
-                load_button = st.button("📥 Load Dataset", type="primary", use_container_width=True, key="load_openml_custom")
+                load_button = st.button("📥 Load OpenML Dataset", type="primary", use_container_width=True, key="load_openml_custom")
         
         # Load button handler
         if load_button:
@@ -771,7 +771,7 @@ def show_data_upload():
         if not kaggle_dataset:
             st.caption("💡 Tip: Type the dataset name above and press **Enter** to enable the button")
         
-        if st.button("📥 Load Kaggle Dataset", type="primary", disabled=not kaggle_dataset):
+        if st.button("📥 Load Kaggle Dataset", type="primary"):
             with st.status(f"Downloading {kaggle_dataset} from Kaggle...", expanded=True) as status:
                 try:
                     st.write("🔑 Authenticating with Kaggle API...")
