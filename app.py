@@ -128,14 +128,14 @@ st.markdown("""
     }
     
     /* Animate the native Streamlit sidebar collapse/expand chevron button */
-    button[kind="header"][data-testid="baseButton-header"],
-    button[kind="header"] svg,
     [data-testid="collapsedControl"],
     [data-testid="collapsedControl"] svg,
-    button[aria-label="Open sidebar navigation"],
-    button[aria-label="Open sidebar navigation"] svg,
-    button[aria-label="Close sidebar navigation"],
-    button[aria-label="Close sidebar navigation"] svg {
+    [data-testid="collapsedControl"] button,
+    [data-testid="collapsedControl"] button svg,
+    section[data-testid="stSidebarNav"] button[kind="header"],
+    section[data-testid="stSidebarNav"] button[kind="header"] svg,
+    button[aria-label*="sidebar"],
+    button[aria-label*="sidebar"] svg {
         animation: chevron-slide 1.5s infinite ease-in-out, chevron-glow 2s infinite ease-in-out !important;
     }
 </style>
