@@ -174,32 +174,31 @@ class AIHelper:
         # Convert profile to JSON-serializable format
         safe_profile = self.convert_to_json_serializable(profile)
         
-        # Prepare context
+        # Prepare context (limit to first 5 columns for faster processing)
         context = f"""
         Dataset Overview:
         - Rows: {safe_profile['basic_info']['rows']}
         - Columns: {safe_profile['basic_info']['columns']}
         - Duplicates: {safe_profile['basic_info']['duplicates']}
         
-        Column Information:
-        {json.dumps(safe_profile['column_info'][:10], indent=2)}
+        Column Information (first 5 columns):
+        {json.dumps(safe_profile['column_info'][:5], indent=2)}
         
         Missing Data:
         {json.dumps(safe_profile['missing_data'], indent=2)}
         """
         
         prompt = f"""
-You are an expert data analyst providing insights on business data.
+You are an expert data analyst. Provide a concise analysis of this dataset.
 
-Analyze this dataset and provide:
-1. A brief summary of the data
-2. Key observations about data quality
-3. Interesting patterns or anomalies
-4. Recommendations for analysis or cleaning
+Analyze and provide:
+1. Brief data summary (2-3 sentences)
+2. Key data quality observations
+3. Top 2-3 recommendations
 
 {context}
 
-Provide insights in a clear, business-friendly format.
+Be concise and actionable.
         """
         
         try:
@@ -214,8 +213,8 @@ Provide insights in a clear, business-friendly format.
             response = self.model.generate_content(
                 prompt,
                 generation_config=genai.GenerationConfig(
-                    temperature=0.7,
-                    max_output_tokens=8000,  # High limit to prevent truncation
+                    temperature=0.3,  # Lower for faster, more focused responses
+                    max_output_tokens=1500,  # Optimized for speed while maintaining quality
                 ),
                 safety_settings=safety_settings
             )
