@@ -214,7 +214,7 @@ Be concise and actionable.
                 prompt,
                 generation_config=genai.GenerationConfig(
                     temperature=0.3,  # Lower for faster, more focused responses
-                    max_output_tokens=1500,  # Optimized for speed while maintaining quality
+                    max_output_tokens=3000,  # Balanced for speed and completeness
                 ),
                 safety_settings=safety_settings
             )

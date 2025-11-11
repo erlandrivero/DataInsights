@@ -611,20 +611,7 @@ def show_data_upload():
                 st.error(f"Error loading file: {str(e)}")
         else:
             # Show sample data option
-            st.info("💡 Don't have data? Try our sample datasets!")
-        
-        if st.button("📊 Load Your Dataset", type="primary"):
-            # Create sample data
-            import numpy as np
-            sample_data = pd.DataFrame({
-                'date': pd.date_range('2023-01-01', periods=100),
-                'product': np.random.choice(['Product A', 'Product B', 'Product C'], 100),
-                'revenue': np.random.uniform(100, 1000, 100),
-                'quantity': np.random.randint(1, 20, 100),
-                'region': np.random.choice(['North', 'South', 'East', 'West'], 100)
-            })
-            st.session_state.data = sample_data
-            st.rerun()
+            st.info("💡 Don't have data? Try the OpenML or Kaggle tabs for sample datasets!")
     
     with tab2:
         st.subheader("Load from OpenML")
