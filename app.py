@@ -530,15 +530,6 @@ def show_data_upload():
                     issues = DataProcessor.detect_data_quality_issues(st.session_state.data)
                     st.session_state.issues = issues
                     
-                    # AI Data Profiling (not ML-specific analysis)
-                    status.write("🤖 AI analyzing data quality and structure...")
-                    from utils.ai_helper import AIHelper
-                    ai = AIHelper()
-                    
-                    # Generate data insights (general profiling, not ML-specific)
-                    data_insights = ai.generate_data_insights(st.session_state.data, profile)
-                    st.session_state.ai_data_insights = data_insights
-                    
                     # Store data hash to track if data changes
                     st.session_state.data_profile_hash = hash(str(st.session_state.data.columns.tolist()) + str(len(st.session_state.data)))
                 
@@ -584,11 +575,35 @@ def show_data_upload():
                 else:
                     st.success("✅ No significant data quality issues detected!")
                 
-                # AI Data Insights Section - EXPANDED for user visibility
-                if 'ai_data_insights' in st.session_state:
-                    st.subheader("🤖 AI Data Insights")
+                # AI Data Insights Section - Optional button for faster loading
+                st.subheader("🤖 AI Data Insights (Optional)")
+                
+                if 'ai_data_insights' not in st.session_state:
+                    st.info("💡 Generate AI-powered insights about your data quality, patterns, and recommendations.")
+                    if st.button("🔍 Generate AI Data Insights", type="primary", key="generate_ai_insights_btn"):
+                        with st.status("Generating AI insights...", expanded=True) as status:
+                            from utils.ai_helper import AIHelper
+                            ai = AIHelper()
+                            
+                            status.write("🤖 Analyzing data quality and structure...")
+                            data_insights = ai.generate_data_insights(st.session_state.data, profile)
+                            st.session_state.ai_data_insights = data_insights
+                            status.update(label="✅ AI insights generated!", state="complete", expanded=False)
+                            st.rerun()
+                else:
                     with st.expander("📊 View AI Analysis", expanded=True):
                         st.markdown(st.session_state.ai_data_insights)
+                    
+                    if st.button("🔄 Regenerate AI Insights", key="regenerate_ai_insights_btn"):
+                        with st.status("Regenerating AI insights...", expanded=True) as status:
+                            from utils.ai_helper import AIHelper
+                            ai = AIHelper()
+                            
+                            status.write("🤖 Re-analyzing data...")
+                            data_insights = ai.generate_data_insights(st.session_state.data, profile)
+                            st.session_state.ai_data_insights = data_insights
+                            status.update(label="✅ AI insights regenerated!", state="complete", expanded=False)
+                            st.rerun()
                     
                     st.info("💡 **This data profile will be available to all analytics modules. ML-specific recommendations will be generated when you use ML Classification or Regression.**")
                 
