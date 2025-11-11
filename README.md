@@ -1,8 +1,10 @@
 # DataInsights 🎯
 
-**A Comprehensive AI-Powered Data Mining & Business Intelligence Platform**
+**Turn Data Into Insights**
 
-DataInsights is an all-in-one data analytics platform that combines 19 specialized modules for data mining, machine learning, and business intelligence. Built with Streamlit and powered by AI, it provides enterprise-grade analytics capabilities with an intuitive interface.
+AI-powered analytics. 20+ modules. Zero setup.
+
+DataInsights is an all-in-one data analytics platform that combines 20+ specialized modules for data mining, machine learning, and business intelligence. Built with Streamlit and powered by AI, it provides enterprise-grade analytics capabilities with an intuitive interface.
 
 ---
 
@@ -16,7 +18,7 @@ DataInsights is an all-in-one data analytics platform that combines 19 specializ
 - 📄 **Professional Reports**: Business-ready documentation
 - 📥 **Flexible Exports**: CSV, Excel, JSON, and more
 
-### 19 Specialized Modules
+### 20+ Specialized Modules
 
 #### Data Mining & Pattern Discovery
 - 🧺 **Market Basket Analysis**: Apriori algorithm for association rules
@@ -53,17 +55,27 @@ DataInsights is an all-in-one data analytics platform that combines 19 specializ
 
 ## 🚀 Quick Start
 
-### Option 1: Use Sample Data
-1. Launch the application
-2. Navigate to any module
-3. Click "Load Sample Data"
-4. Explore features immediately
+### Three Steps to Insights
 
-### Option 2: Upload Your Data
-1. Go to **📤 Data Upload**
-2. Upload CSV or Excel file
-3. Review automatic data profiling
-4. Navigate to any analysis module
+**1. 👤 Upload**  
+CSV or Excel file - drag and drop or browse
+
+**2. 🔍 Analyze**  
+Pick from 20+ modules organized in 6 categories:
+- **📁 Data Foundation:** Upload & Connect, Clean & Profile
+- **📈 Business Intelligence:** Customer Value (RFM), Market Basket Analysis, Trend Forecasting
+- **💻 Machine Learning:** Classification Models, Regression Models, Text & NLP Analysis, Anomaly Detection
+- **🧪 Statistical Testing:** A/B Testing, Cohort Analysis, Survival Analysis
+- **🧠 Advanced Modeling:** Monte Carlo Simulation, Churn Prediction, Recommendation Systems, Network Analysis, Geospatial Analysis
+- **📑 Reporting & Insights:** AI-Powered Insights, Reports & Dashboards
+
+**3. ⚡ Export**  
+Charts, reports, and AI-powered insights
+
+### Or Try Sample Data
+1. Navigate to any module
+2. Click "Load Sample Data"
+3. Explore features immediately
 
 ---
 
@@ -165,34 +177,59 @@ Experience all features with sample datasets - no installation required!
 
 ## 📖 Complete Module List
 
+### Hierarchical Navigation Structure
+
+Modules are organized into 6 intuitive categories for easy navigation:
+
+#### 📁 Data Foundation
 | Module | Purpose | Key Features |
 |--------|---------|--------------|
-| 📤 Data Upload | Import & profile data | CSV/Excel support, auto-profiling |
-| 📊 Analysis & Cleaning | Explore & clean data | Statistics, visualizations, cleaning tools |
-| 🤖 AI Insights | Natural language Q&A | GPT-4 powered, code generation |
-| 📄 Reports | Generate documentation | Professional reports, multiple formats |
-| 🧺 Market Basket Analysis | Association rules | Apriori, network graphs, AI insights |
-| 👥 RFM Analysis | Customer segmentation | RFM scoring, K-Means clustering |
-| 🎲 Monte Carlo | Risk analysis | Financial forecasting, simulations |
-| 🤖 ML Classification | Predict categories | 15 algorithms, SHAP, cross-validation |
-| 📈 ML Regression | Predict numbers | 15 algorithms, SHAP, residual analysis |
-| 🔍 Anomaly Detection | Find outliers | 3 algorithms, visualization |
-| 📈 Time Series | Forecast future values | ARIMA, Prophet, confidence intervals |
-| 💬 Text Mining | Analyze text | Sentiment, NER, topic modeling |
-| 🧪 A/B Testing | Statistical testing | Significance tests, effect size |
-| 👥 Cohort Analysis | User behavior | Retention, heatmaps, trends |
-| 🎯 Recommendations | Personalization | Collaborative, content-based, hybrid |
-| 🗺️ Geospatial | Location analysis | Interactive maps, clustering |
-| ⏱️ Survival Analysis | Time-to-event | Kaplan-Meier, Cox models |
-| 🕸️ Network Analysis | Relationships | Centrality, communities, paths |
-| 🔄 Churn Prediction | Customer retention | Specialized models, risk scoring |
+| Upload & Connect | Import & profile data | CSV/Excel/OpenML/Kaggle, auto-profiling, AI insights |
+| Clean & Profile | Explore & clean data | Statistics, visualizations, AI-powered cleaning |
+
+#### 📈 Business Intelligence
+| Module | Purpose | Key Features |
+|--------|---------|--------------||
+| Customer Value (RFM) | Customer segmentation | RFM scoring, K-Means clustering, CLV |
+| Market Basket Analysis | Association rules | Apriori algorithm, network graphs, AI insights |
+| Trend Forecasting | Forecast future values | ARIMA, Prophet, confidence intervals |
+
+#### 💻 Machine Learning
+| Module | Purpose | Key Features |
+|--------|---------|--------------||
+| Classification Models | Predict categories | 15 algorithms, SHAP, cross-validation |
+| Regression Models | Predict numbers | 15 algorithms, SHAP, residual analysis |
+| Text & NLP Analysis | Analyze text | Sentiment, NER, topic modeling, word clouds |
+| Anomaly Detection | Find outliers | Isolation Forest, LOF, One-Class SVM |
+
+#### 🧪 Statistical Testing
+| Module | Purpose | Key Features |
+|--------|---------|--------------||
+| A/B Testing | Statistical testing | Significance tests, effect size, segmentation |
+| Cohort Analysis | User behavior | Retention, heatmaps, trends |
+| Survival Analysis | Time-to-event | Kaplan-Meier, Cox models |
+
+#### 🧠 Advanced Modeling
+| Module | Purpose | Key Features |
+|--------|---------|--------------||
+| Monte Carlo Simulation | Risk analysis | Financial forecasting, VaR, CVaR |
+| Churn Prediction | Customer retention | Specialized models, risk scoring |
+| Recommendation Systems | Personalization | Collaborative, content-based, hybrid |
+| Network Analysis | Relationships | Centrality, communities, paths |
+| Geospatial Analysis | Location insights | Interactive maps, clustering |
+
+#### 📑 Reporting & Insights
+| Module | Purpose | Key Features |
+|--------|---------|--------------||
+| AI-Powered Insights | Natural language Q&A | GPT-4/Gemini powered, code generation |
+| Reports & Dashboards | Generate documentation | Professional reports, multiple formats |
 
 ---
 
 ## 🎓 For Students & Educators
 
 DataInsights is perfect for:
-- **Data Mining Courses**: Hands-on experience with 19 algorithms
+- **Data Mining Courses**: Hands-on experience with 20+ modules
 - **Capstone Projects**: Enterprise-grade analytics platform
 - **Research**: Comprehensive analysis and visualization tools
 - **Learning**: Built-in guides and AI-powered explanations
@@ -297,8 +334,19 @@ DataInsights/
 
 ## ✨ Key Highlights
 
+### Everything You Need
+
+**📊 Automated Profiling**  
+Instant data quality analysis with AI-powered insights
+
+**🧠 AI-Powered Insights**  
+Ask questions in plain English - get intelligent recommendations
+
+**📈 20+ Analysis Modules**  
+From A/B testing to ML models, organized in 6 intuitive categories
+
 ### Enterprise-Grade Features
-- ✅ 19 specialized analytics modules
+- ✅ 20+ specialized analytics modules
 - ✅ 45+ machine learning algorithms
 - ✅ AI-powered insights and recommendations
 - ✅ SHAP interpretability for ML models
@@ -307,7 +355,7 @@ DataInsights/
 - ✅ Multiple export formats
 
 ### User Experience
-- 🎨 Modern, intuitive interface
+- 🎨 Modern, intuitive interface with hierarchical navigation
 - 📱 Responsive design
 - 🚀 Fast performance with caching
 - 💾 Session state management
@@ -479,12 +527,13 @@ See [LICENSE](LICENSE) file for details.
 **Year:** 2024
 
 **Project Highlights:**
-- ✅ 19 specialized analytics modules
+- ✅ 20+ specialized analytics modules
 - ✅ 45+ machine learning algorithms  
 - ✅ 20,000+ lines of code
 - ✅ Comprehensive documentation
 - ✅ Enterprise-grade features
 - ✅ Production-ready deployment
+- ✅ Hierarchical navigation with 6 categories
 
 ---
 
