@@ -213,8 +213,8 @@ Be concise and actionable.
             response = self.model.generate_content(
                 prompt,
                 generation_config=genai.GenerationConfig(
-                    temperature=0.3,  # Lower for faster, more focused responses
-                    max_output_tokens=3000,  # Balanced for speed and completeness
+                    temperature=0.4,  # Balanced for quality and speed
+                    max_output_tokens=4000,  # Sufficient for complete insights
                 ),
                 safety_settings=safety_settings
             )
