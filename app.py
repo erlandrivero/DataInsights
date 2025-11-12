@@ -11031,6 +11031,9 @@ def show_time_series_forecasting():
             st.rerun()
         
         st.divider()
+    else:
+        st.info("💡 Click the button above to get AI-powered recommendations for your Time Series Forecasting.")
+        return  # Don't show validation and configuration until AI analysis is done
     
     # Section 3: Dataset Validation
     st.subheader("📋 3. Dataset Validation")
