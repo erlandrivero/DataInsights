@@ -3596,15 +3596,7 @@ def show_market_basket_analysis():
     
     transactions = st.session_state.mba_transactions
     
-    # Encode transactions
-    if 'mba_encoded' not in st.session_state:
-        with st.status("Encoding transactions...", expanded=True) as status:
-            df_encoded = mba.encode_transactions(transactions)
-            st.session_state.mba_encoded = df_encoded
-    
-    df_encoded = st.session_state.mba_encoded
-    
-    # Section 2: AI MBA Recommendations (BEFORE Dataset Overview!)
+    # Section 2: AI MBA Recommendations (BEFORE encoding!)
     st.divider()
     st.subheader("🤖 2. AI Market Basket Analysis Recommendations")
     
@@ -3627,20 +3619,32 @@ def show_market_basket_analysis():
                     status.write("Step 1: Preparing dataset for analysis...")
                     time.sleep(0.3)
                     
-                    # Step 2: Analyzing structure
-                    status.write("Step 2: Analyzing data structure and patterns...")
+                    # Convert transactions to DataFrame for AI analysis
+                    # AI needs to see transaction structure (transaction_id + item columns)
+                    status.write("Step 2: Converting transactions to analyzable format...")
+                    transactions_df = pd.DataFrame([
+                        {'transaction_id': i, 'item': item}
+                        for i, transaction in enumerate(transactions)
+                        for item in transaction
+                    ])
+                    
+                    # Get unique item count for AI context
+                    unique_items = set([item for trans in transactions for item in trans])
+                    
+                    # Step 3: Analyzing structure
+                    status.write("Step 3: Analyzing data structure and patterns...")
+                    status.write(f"Analyzing {len(transactions)} transactions, {len(unique_items)} unique items")
                     time.sleep(0.3)
                     
-                    # Step 3: Generating AI analysis
-                    status.write("Step 3: Generating AI recommendations...")
-                    status.write(f"Analyzing {len(transactions)} transactions, {len(df_encoded.columns)} unique items")
+                    # Step 4: Generating AI analysis
+                    status.write("Step 4: Generating AI recommendations...")
                     
-                    # Get AI recommendations using encoded dataframe
-                    ai_recommendations = get_ai_recommendation(df_encoded, task_type='market_basket_analysis')
+                    # Get AI recommendations using raw transaction DataFrame
+                    ai_recommendations = get_ai_recommendation(transactions_df, task_type='market_basket_analysis')
                     
                     # Add dataset metadata
                     ai_recommendations['dataset_id'] = st.session_state.get('mba_dataset_id', 'unknown')
-                    ai_recommendations['dataset_shape'] = df_encoded.shape
+                    ai_recommendations['dataset_shape'] = transactions_df.shape
                     ai_recommendations['generated_at'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
                     
                     st.session_state.mba_ai_recommendations = ai_recommendations
@@ -3650,6 +3654,8 @@ def show_market_basket_analysis():
                 except Exception as e:
                     status.update(label="❌ Analysis failed", state="error")
                     st.error(f"Error generating AI recommendations: {str(e)}")
+                    import traceback
+                    st.error(traceback.format_exc())
     
     # Display AI recommendations if available
     if 'mba_ai_recommendations' in st.session_state:
@@ -3702,6 +3708,33 @@ def show_market_basket_analysis():
     else:
         st.info("💡 Click the button above to get AI-powered recommendations for your Market Basket Analysis.")
         return  # Don't show subsequent sections until AI analysis is done
+    
+    # AI-DRIVEN BLOCKING: Check data suitability (for loaded datasets)
+    data_suitability = ai_recs.get('data_suitability', 'Unknown')
+    if data_suitability == 'Poor':
+        st.error("❌ **This dataset is not suitable for Market Basket Analysis**")
+        
+        # Show AI reasoning
+        suitability_reasoning = ai_recs.get('suitability_reasoning', 'AI determined this data is not suitable')
+        st.error(f"**🤖 AI Assessment:** {suitability_reasoning}")
+        
+        # Show AI suggestions
+        ai_suggestions = ai_recs.get('alternative_suggestions', [])
+        if ai_suggestions:
+            st.info("**💡 AI Suggestions:**")
+            for suggestion in ai_suggestions:
+                st.write(f"- {suggestion}")
+        
+        st.warning("**⚠️ Module blocked based on AI analysis. Please use a different dataset or follow the suggestions above.**")
+        st.stop()  # BLOCK - AI says data is not suitable
+    
+    # Encode transactions (AFTER AI analysis confirms data is suitable)
+    if 'mba_encoded' not in st.session_state:
+        with st.status("Encoding transactions for analysis...", expanded=True) as status:
+            df_encoded = mba.encode_transactions(transactions)
+            st.session_state.mba_encoded = df_encoded
+    
+    df_encoded = st.session_state.mba_encoded
     
     # Section 3: Dataset Overview (AFTER AI recommendations)
     st.divider()
