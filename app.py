@@ -3417,6 +3417,7 @@ def show_market_basket_analysis():
                         st.write(f"**Reasoning:** {ai_recs['column_reasoning']}")
         else:
             st.info("💡 Click the button above to get AI-powered recommendations for your Market Basket Analysis.")
+            return  # Don't show validation and column selection until AI analysis is done
         
         # Data validation (informational only)
         st.divider()
@@ -3603,22 +3604,9 @@ def show_market_basket_analysis():
     
     df_encoded = st.session_state.mba_encoded
     
-    # Display dataset info
+    # Section 2: AI MBA Recommendations (BEFORE Dataset Overview!)
     st.divider()
-    st.subheader("📊 2. Dataset Overview")
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Total Transactions", f"{len(transactions):,}")
-    with col2:
-        st.metric("Unique Items", f"{len(df_encoded.columns):,}")
-    with col3:
-        avg_basket = sum(len(t) for t in transactions) / len(transactions)
-        st.metric("Avg Basket Size", f"{avg_basket:.1f}")
-    
-    # Section 3: AI MBA Recommendations (available for all data sources)
-    st.divider()
-    st.subheader("🤖 3. AI Market Basket Analysis Recommendations")
+    st.subheader("🤖 2. AI Market Basket Analysis Recommendations")
     
     # Check if AI recommendations already exist
     if 'mba_ai_recommendations' not in st.session_state:
@@ -3713,6 +3701,20 @@ def show_market_basket_analysis():
                     st.write(f"**Reasoning:** {ai_recs['threshold_reasoning']}")
     else:
         st.info("💡 Click the button above to get AI-powered recommendations for your Market Basket Analysis.")
+        return  # Don't show subsequent sections until AI analysis is done
+    
+    # Section 3: Dataset Overview (AFTER AI recommendations)
+    st.divider()
+    st.subheader("📊 3. Dataset Overview")
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Transactions", f"{len(transactions):,}")
+    with col2:
+        st.metric("Unique Items", f"{len(df_encoded.columns):,}")
+    with col3:
+        avg_basket = sum(len(t) for t in transactions) / len(transactions)
+        st.metric("Avg Basket Size", f"{avg_basket:.1f}")
     
     # Debug info
     with st.expander("🔍 Debug Info"):
@@ -3726,9 +3728,9 @@ def show_market_basket_analysis():
             all_items_set.update(trans)
         st.write(f"**Unique items from raw transactions:** {len(all_items_set)}")
 
-    # Threshold controls (now informed by AI recommendations)
+    # Section 4: Threshold controls (now informed by AI recommendations)
     st.divider()
-    st.subheader("🎛️ 5. Adjust Thresholds")
+    st.subheader("🎛️ 4. Adjust Thresholds")
     
     st.info("💡 **Memory-Friendly Defaults:** Higher support = less memory usage. Recommended for large datasets (>10k transactions).")
     
@@ -3765,16 +3767,9 @@ def show_market_basket_analysis():
         help_text_confidence = f"AI Recommended: {recommended_confidence} - {ai_recs.get('confidence_reasoning', 'Balanced threshold')}"
         help_text_lift = f"AI Recommended: {recommended_lift} - {ai_recs.get('lift_reasoning', 'Strong associations')}"
     else:
-        # Before AI analysis: Use standard defaults
-        recommended_support = 0.02
-        recommended_confidence = 0.4
-        recommended_lift = 1.5
-        
-        st.info("💡 **Generate AI Analysis above to get intelligent threshold recommendations. Currently using standard defaults.**")
-        
-        help_text_support = "Generate AI Analysis above to get smart threshold recommendations based on your data."
-        help_text_confidence = "Generate AI Analysis above to get smart threshold recommendations based on your data."
-        help_text_lift = "Generate AI Analysis above to get smart threshold recommendations based on your data."
+        # Before AI analysis: Don't show thresholds yet
+        st.info("💡 **Generate AI Analysis above to get intelligent threshold recommendations.**")
+        return  # Don't show threshold controls until AI analysis is done
     
     col1, col2, col3 = st.columns(3)
     
