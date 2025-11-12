@@ -18333,6 +18333,46 @@ def show_network_analysis():
     if centrality_count == 0:
         st.warning("⚠️ Please select at least one centrality measure to compute.")
     
+    # Network Sampling for Large Networks
+    st.divider()
+    st.write("**🎯 Network Sampling (for large networks):**")
+    
+    n_edges = len(edge_data)
+    n_nodes = len(set(edge_data['source'].tolist() + edge_data['target'].tolist()))
+    
+    # Warn if network is very large
+    if n_edges > 50000 or n_nodes > 5000:
+        st.warning(f"⚠️ **Large Network Detected:** {n_edges:,} edges, {n_nodes:,} nodes")
+        st.info("💡 **Recommendation:** Sample the network to improve performance. Betweenness centrality can be very slow on large networks.")
+    
+    enable_sampling = st.checkbox(
+        "Enable Network Sampling",
+        value=(n_edges > 50000),
+        help="Randomly sample edges to reduce network size and improve performance"
+    )
+    
+    sample_size = None
+    if enable_sampling:
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            sample_size = st.slider(
+                "Sample Size (number of edges):",
+                min_value=1000,
+                max_value=min(n_edges, 100000),
+                value=min(10000, n_edges),
+                step=1000,
+                help="Number of edges to randomly sample from the network"
+            )
+        with col2:
+            sample_pct = (sample_size / n_edges) * 100
+            st.metric("Sample %", f"{sample_pct:.1f}%")
+        
+        st.info(f"📊 Sampled network will have approximately {sample_size:,} edges")
+        
+        # Disable expensive centrality measures for large networks
+        if sample_size > 20000 and betweenness_selected:
+            st.warning("⚠️ **Performance Warning:** Betweenness centrality on 20K+ edges may take several minutes. Consider reducing sample size or disabling betweenness.")
+    
     # Run analysis
     st.divider()
     st.subheader("📊 4. Run Network Analysis")
@@ -18357,10 +18397,17 @@ def show_network_analysis():
                 # Get analyzer from session state
                 analyzer = st.session_state.network_analyzer
                 
+                # Apply sampling if enabled
+                data_to_analyze = edge_data
+                if enable_sampling and sample_size:
+                    status.write(f"Sampling {sample_size:,} edges from {len(edge_data):,} total edges...")
+                    data_to_analyze = edge_data.sample(n=min(sample_size, len(edge_data)), random_state=42)
+                    st.info(f"📊 Analyzing sampled network: {len(data_to_analyze):,} edges")
+                
                 # Build graph with selected type
                 is_directed = (network_type == "Directed")
                 status.write(f"Building {network_type.lower()} graph...")
-                analyzer.build_graph(edge_data, source_col='source', target_col='target', directed=is_directed)
+                analyzer.build_graph(data_to_analyze, source_col='source', target_col='target', directed=is_directed)
                 
                 # Get network statistics
                 status.write("Computing network statistics...")
