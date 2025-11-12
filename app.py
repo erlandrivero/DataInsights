@@ -4666,153 +4666,6 @@ def show_rfm_analysis():
                 st.info(" **Dataset changed!** Previous AI recommendations cleared.")
         
         st.session_state.rfm_dataset_id = current_dataset_id
-        
-        # Section 2: Dataset Validation (make it informational only)
-        st.subheader(" 2. Dataset Validation")
-        
-        # Get smart column suggestions for validation
-        from utils.column_detector import ColumnDetector
-        
-        # Validate data suitability
-        validation = ColumnDetector.validate_rfm_suitability(df)
-        
-        # Store validation result
-        st.session_state.rfm_data_suitable = validation['suitable']
-        
-        if not validation['suitable']:
-            st.error(" **Dataset Not Suitable for RFM Analysis**")
-            for warning in validation['warnings']:
-                st.warning(warning)
-            st.info("**:**")
-            for rec in validation['recommendations']:
-                st.write(f"- {rec}")
-            st.write("**Consider using:**")
-            st.write("- Sample RFM Data (built-in)")
-            st.write("- A dataset with customer transactions over time")
-            st.stop()  # STOP here - don't show process button
-        elif len(validation['warnings']) > 0:
-            with st.expander(" Data Quality Warnings", expanded=False):
-                for warning in validation['warnings']:
-                    st.warning(warning)
-                if validation['recommendations']:
-                    st.info("**Recommendations:**")
-                    for rec in validation['recommendations']:
-                        st.write(f"- {rec}")
-        else:
-            st.success(f" **Dataset looks suitable for RFM** (Confidence: {validation['confidence']})")
-        
-        # Section 3: Let user select columns for RFM analysis
-        st.subheader(" 3. Select Columns for Analysis")
-        
-        # Use AI recommendations if available, otherwise use rule-based detection
-        if 'rfm_ai_recommendations' in st.session_state:
-            rec = st.session_state.rfm_ai_recommendations
-            suggestions = {
-                'customer_id': rec.get('recommended_customer_column'),
-                'date': rec.get('recommended_date_column'),
-                'amount': rec.get('recommended_amount_column')
-            }
-            st.info(" **AI has analyzed your data and preset the columns below.** You can change them if needed.")
-        else:
-            # Fallback to rule-based detection
-            suggestions = ColumnDetector.get_rfm_column_suggestions(df)
-            st.info(" **Smart Detection:** Columns are auto-selected based on your data. You can change them if needed.")
-        
-        # Show column types to help user
-        numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
-        date_cols = df.select_dtypes(include=['datetime']).columns.tolist()
-        
-        with st.expander(" Column Type Hints"):
-            st.write(f"**Numeric columns** (for Amount): {', '.join(numeric_cols) if numeric_cols else 'None detected'}")
-            st.write(f"**Date columns** (for Date): {', '.join(date_cols) if date_cols else 'None detected - will try to parse'}")
-            st.write(f"**All columns**: {', '.join(df.columns.tolist())}")
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            # Find index of suggested customer column
-            cust_idx = list(df.columns).index(suggestions['customer_id']) if suggestions['customer_id'] in df.columns else 0
-            customer_col = st.selectbox(
-                "Customer ID column:", 
-                df.columns,
-                index=cust_idx, 
-                key="loaded_rfm_cust_col",
-                help="Column that identifies unique customers"
-            )
-        with col2:
-            # Find index of suggested date column
-            date_idx = list(df.columns).index(suggestions['date']) if suggestions['date'] in df.columns else 0
-            date_col = st.selectbox(
-                "Transaction Date column:", 
-                df.columns,
-                index=date_idx, 
-                key="loaded_rfm_date_col",
-                help="Column containing transaction dates"
-            )
-        with col3:
-            # Suggest numeric columns first for amount
-            amount_options = numeric_cols + [col for col in df.columns if col not in numeric_cols]
-            # Find index of suggested amount column
-            amount_idx = amount_options.index(suggestions['amount']) if suggestions['amount'] in amount_options else 0
-            amount_col = st.selectbox(
-                "Amount/Revenue column:", 
-                amount_options,
-                index=amount_idx, 
-                key="loaded_rfm_amount_col",
-                help=" Must be NUMERIC column with transaction amounts"
-            )
-        
-        # Only show button if data is suitable
-        data_suitable = st.session_state.get('rfm_data_suitable', True)
-        
-        if not data_suitable:
-            st.error(" **Cannot process - data incompatible with RFM Analysis**")
-        elif st.button(" Process Loaded Data for RFM", type="primary"):
-            with st.status("Processing RFM data...", expanded=True) as status:
-                try:
-                    # Validate column selections
-                    if not pd.api.types.is_numeric_dtype(df[amount_col]):
-                        st.error(f"""
-                        **Invalid Amount Column**
-                        
-                        The selected column '{amount_col}' is not numeric!
-                        
-                        **Amount column must contain:**
-                        - Transaction amounts
-                        - Revenue values
-                        - Numeric data (integers or decimals)
-                        
-                        **Please select a numeric column** (e.g., price, total, revenue, amount)
-                        """)
-                        st.stop()
-                    
-                    # Try to convert date column
-                    try:
-                        pd.to_datetime(df[date_col])
-                    except:
-                        st.error(f"""
-                        **Invalid Date Column**
-                        
-                        The selected column '{date_col}' cannot be parsed as dates!
-                        
-                        **Date column must contain:**
-                        - Date values (YYYY-MM-DD, MM/DD/YYYY, etc.)
-                        - Datetime values
-                        
-                        **Please select a date column**
-                        """)
-                        st.stop()
-                    
-                    st.session_state.rfm_transactions = df
-                    st.session_state.rfm_columns = {
-                        'customer': customer_col,
-                        'date': date_col,
-                        'amount': amount_col
-                    }
-                    st.success(" Data processed successfully!")
-                    st.info(f" {df[customer_col].nunique()} unique customers, {len(df)} transactions")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error processing data: {str(e)}")
     
     else:  # Sample data
         if st.button(" Load Sample E-commerce Data", type="primary"):
@@ -4865,37 +4718,23 @@ def show_rfm_analysis():
             st.success(f"✅ Loaded {len(transactions_df)} sample transactions from {n_customers} customers!")
             st.dataframe(transactions_df.head(10), use_container_width=True)
     
-    # Only show analysis if transactions are loaded
-    if 'rfm_transactions' not in st.session_state:
-        st.info("👆 Load transaction data to begin RFM analysis")
+    # Check if we have data to work with
+    if data_source == "Use Loaded Dataset":
+        df = st.session_state.data
+    elif data_source == "Use Sample Data" and 'rfm_dataset_id' in st.session_state:
+        # Sample data was just loaded, df is already set above
+        pass
+    else:
+        st.info("👆 Please load data to continue")
         return
     
-    transactions_df = st.session_state.rfm_transactions
-    cols = st.session_state.rfm_columns
-    
-    # Display dataset info
+    # Section 2: AI RFM Analysis & Recommendations (BEFORE column selection!)
     st.divider()
-    st.subheader("📊 2. Dataset Overview")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Total Transactions", f"{len(transactions_df):,}")
-    with col2:
-        st.metric("Unique Customers", f"{transactions_df[cols['customer']].nunique():,}")
-    with col3:
-        total_revenue = transactions_df[cols['amount']].sum()
-        st.metric("Total Revenue", f"${total_revenue:,.2f}")
-    with col4:
-        avg_transaction = transactions_df[cols['amount']].mean()
-        st.metric("Avg Transaction", f"${avg_transaction:.2f}")
-    
-    # Section 3: AI RFM Analysis Recommendations
-    st.divider()
-    st.subheader("🤖 3. AI RFM Analysis Recommendations")
+    st.subheader("🤖 2. AI RFM Analysis & Recommendations")
     
     # Check if AI recommendations already exist
     if 'rfm_ai_recommendations' not in st.session_state:
-        if st.button("🤖 Generate AI RFM Analysis", type="primary", use_container_width=True, key="rfm_ai_button_main"):
+        if st.button("🤖 Generate AI RFM Analysis", type="primary", use_container_width=True, key="rfm_ai_button_early"):
             # Immediate feedback
             processing_placeholder = st.empty()
             processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
@@ -4910,13 +4749,13 @@ def show_rfm_analysis():
                 # Get AI recommendations
                 st.write("Step 2: Analyzing data structure and patterns...")
                 recommendations = AISmartDetection.analyze_dataset_for_ml(
-                    df=transactions_df.copy(),
+                    df=df.copy(),
                     task_type='rfm_analysis'
                 )
                 
                 # Add dataset metadata
                 recommendations['dataset_id'] = st.session_state.get('rfm_dataset_id', 'unknown')
-                recommendations['dataset_shape'] = transactions_df.shape
+                recommendations['dataset_shape'] = df.shape
                 recommendations['generated_at'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
                 
                 st.write("Step 3: Generating recommendations...")
@@ -4996,15 +4835,152 @@ def show_rfm_analysis():
                     st.info(f"💡 {suggestion}")
         
         # Button to regenerate
-        if st.button("🔄 Regenerate Analysis", key="rfm_regen_main"):
+        if st.button("🔄 Regenerate Analysis", key="rfm_regen_early"):
             del st.session_state.rfm_ai_recommendations
             st.rerun()
     else:
-        st.info("💡 Click the button above to get AI-powered recommendations for your RFM analysis.")
+        st.info("💡 Click the button above to get AI-powered recommendations before configuring columns.")
+        return  # Don't show column selection until AI analysis is done
+    
+    # Section 3: Review & Configure Columns (NOW USES AI RECOMMENDATIONS)
+    st.divider()
+    st.subheader("📋 3. Review & Configure Columns")
+    
+    # Get AI recommendations for column presets
+    from utils.column_detector import ColumnDetector
+    
+    if 'rfm_ai_recommendations' in st.session_state:
+        rec = st.session_state.rfm_ai_recommendations
+        suggestions = {
+            'customer_id': rec.get('recommended_customer_column'),
+            'date': rec.get('recommended_date_column'),
+            'amount': rec.get('recommended_amount_column')
+        }
+        st.info("🤖 **AI has analyzed your data and preset the columns below.** You can review and adjust if needed.")
+    else:
+        # Fallback to rule-based detection (shouldn't reach here due to return above)
+        suggestions = ColumnDetector.get_rfm_column_suggestions(df)
+        st.info("🔍 **Smart Detection:** Columns are auto-selected based on your data.")
+    
+    # Show column types to help user
+    numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+    date_cols = df.select_dtypes(include=['datetime']).columns.tolist()
+    
+    with st.expander("📊 Column Type Hints"):
+        st.write(f"**Numeric columns** (for Amount): {', '.join(numeric_cols) if numeric_cols else 'None detected'}")
+        st.write(f"**Date columns** (for Date): {', '.join(date_cols) if date_cols else 'None detected - will try to parse'}")
+        st.write(f"**All columns**: {', '.join(df.columns.tolist())}")
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        # Find index of suggested customer column
+        cust_idx = list(df.columns).index(suggestions['customer_id']) if suggestions['customer_id'] in df.columns else 0
+        customer_col = st.selectbox(
+            "Customer ID column:", 
+            df.columns,
+            index=cust_idx, 
+            key="loaded_rfm_cust_col",
+            help="Column that identifies unique customers"
+        )
+    with col2:
+        # Find index of suggested date column
+        date_idx = list(df.columns).index(suggestions['date']) if suggestions['date'] in df.columns else 0
+        date_col = st.selectbox(
+            "Transaction Date column:", 
+            df.columns,
+            index=date_idx, 
+            key="loaded_rfm_date_col",
+            help="Column containing transaction dates"
+        )
+    with col3:
+        # Suggest numeric columns first for amount
+        amount_options = numeric_cols + [col for col in df.columns if col not in numeric_cols]
+        # Find index of suggested amount column
+        amount_idx = amount_options.index(suggestions['amount']) if suggestions['amount'] in amount_options else 0
+        amount_col = st.selectbox(
+            "Amount/Revenue column:", 
+            amount_options,
+            index=amount_idx, 
+            key="loaded_rfm_amount_col",
+            help="💰 Must be NUMERIC column with transaction amounts"
+        )
+    
+    # Process button
+    if st.button("📊 Process Data for RFM", type="primary", use_container_width=True):
+        with st.status("Processing RFM data...", expanded=True) as status:
+            try:
+                # Validate column selections
+                if not pd.api.types.is_numeric_dtype(df[amount_col]):
+                    st.error(f"""
+                    **Invalid Amount Column**
+                    
+                    The selected column '{amount_col}' is not numeric!
+                    
+                    **Amount column must contain:**
+                    - Transaction amounts
+                    - Revenue values
+                    - Numeric data (integers or decimals)
+                    
+                    **Please select a numeric column** (e.g., price, total, revenue, amount)
+                    """)
+                    st.stop()
+                
+                # Try to convert date column
+                try:
+                    pd.to_datetime(df[date_col])
+                except:
+                    st.error(f"""
+                    **Invalid Date Column**
+                    
+                    The selected column '{date_col}' cannot be parsed as dates!
+                    
+                    **Date column must contain:**
+                    - Date values (YYYY-MM-DD, MM/DD/YYYY, etc.)
+                    - Datetime values
+                    
+                    **Please select a date column**
+                    """)
+                    st.stop()
+                
+                st.session_state.rfm_transactions = df
+                st.session_state.rfm_columns = {
+                    'customer': customer_col,
+                    'date': date_col,
+                    'amount': amount_col
+                }
+                status.update(label="✅ Data processed successfully!", state="complete", expanded=False)
+                st.success(f"✅ Ready for RFM analysis: {df[customer_col].nunique()} unique customers, {len(df)} transactions")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error processing data: {str(e)}")
+    
+    # Only show analysis if transactions are loaded
+    if 'rfm_transactions' not in st.session_state:
+        st.info("👆 Configure and process data above to begin RFM analysis")
+        return
+    
+    transactions_df = st.session_state.rfm_transactions
+    cols = st.session_state.rfm_columns
+    
+    # Display dataset info
+    st.divider()
+    st.subheader("📊 4. Dataset Overview")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Transactions", f"{len(transactions_df):,}")
+    with col2:
+        st.metric("Unique Customers", f"{transactions_df[cols['customer']].nunique():,}")
+    with col3:
+        total_revenue = transactions_df[cols['amount']].sum()
+        st.metric("Total Revenue", f"${total_revenue:,.2f}")
+    with col4:
+        avg_transaction = transactions_df[cols['amount']].mean()
+        st.metric("Avg Transaction", f"${avg_transaction:.2f}")
     
     # Calculate RFM button
     st.divider()
-    st.subheader("🔢 4. Calculate RFM Metrics")
+    st.subheader("🔢 5. Calculate RFM Metrics")
     
     if st.button("📊 Calculate RFM", type="primary", use_container_width=True):
         from utils.process_manager import ProcessManager
