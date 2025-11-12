@@ -16999,6 +16999,145 @@ def show_survival_analysis():
         
         st.session_state.survival_dataset_id = current_dataset_id
         
+        # AI Analysis Section (MOVED BEFORE column selection)
+        st.divider()
+        st.subheader("🤖 2. AI Survival Analysis Recommendations")
+        
+        # Check if AI recommendations already exist
+        if 'survival_ai_recommendations' not in st.session_state:
+            if st.button("🤖 Generate AI Survival Analysis", type="primary", use_container_width=True, key="survival_ai_button"):
+                # Immediate feedback
+                processing_placeholder = st.empty()
+                processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
+                
+                with st.spinner("🔍 AI is analyzing your dataset for survival analysis..."):
+                    processing_placeholder.empty()
+                    
+                    from utils.ai_smart_detection import AISmartDetection
+                    
+                    # Get AI recommendations
+                    recommendations = AISmartDetection.analyze_dataset_for_ml(
+                        df=df.copy(),
+                        task_type='survival_analysis'
+                    )
+                    
+                    # Add dataset metadata
+                    recommendations['dataset_id'] = st.session_state.get('survival_dataset_id', 'unknown')
+                    recommendations['dataset_shape'] = df.shape
+                    recommendations['generated_at'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
+                    
+                    # Store in session state
+                    st.session_state.survival_ai_recommendations = recommendations
+                    st.rerun()
+        
+        # Display AI recommendations if available
+        if 'survival_ai_recommendations' in st.session_state:
+            ai_recs = st.session_state.survival_ai_recommendations
+            
+            # Validate AI recommendations match current dataset
+            stored_ai_dataset_id = ai_recs.get('dataset_id')
+            current_dataset_id_check = st.session_state.get('survival_dataset_id')
+            dataset_mismatch = (stored_ai_dataset_id and current_dataset_id_check and stored_ai_dataset_id != current_dataset_id_check)
+            
+            if dataset_mismatch:
+                st.warning("⚠️ **Dataset Mismatch Detected!** The AI recommendations below were generated for a different dataset. Please regenerate the analysis.")
+                st.info("🚨 **AI blocking is disabled due to dataset mismatch.** Please regenerate analysis for accurate recommendations.")
+            
+            # Performance Risk Badge
+            risk_colors = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}
+            risk_color = risk_colors.get(ai_recs.get('performance_risk', 'Medium'), '⚪')
+            
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                # Data Suitability Assessment - AI DECISION POINT
+                data_suitability = ai_recs.get('data_suitability', 'Unknown')
+                suitability_emoji = {'Excellent': '🌟', 'Good': '✅', 'Fair': '⚠️', 'Poor': '❌'}.get(data_suitability, '❓')
+            
+            with col2:
+                st.info(f"{risk_color} **Performance Risk:** {ai_recs.get('performance_risk', 'Unknown')}")
+            
+            # AI-DRIVEN BLOCKING LOGIC (skip if dataset mismatch)
+            if data_suitability == 'Poor' and not dataset_mismatch:
+                st.error(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for Survival Analysis")
+                
+                # Show AI reasoning for why it's not suitable
+                suitability_reasoning = ai_recs.get('suitability_reasoning', 'AI determined this data is not suitable for Survival Analysis')
+                st.error(f"**🤖 AI Recommendation:** {suitability_reasoning}")
+                
+                # Show AI suggestions
+                ai_suggestions = ai_recs.get('alternative_suggestions', [])
+                if ai_suggestions:
+                    st.info("**💡 AI Suggestions:**")
+                    for suggestion in ai_suggestions:
+                        st.write(f"- {suggestion}")
+                else:
+                    st.info("**💡 AI Suggestions:**")
+                    st.write("- Use Sample Customer Churn Data (built-in dataset)")
+                    st.write("- Ensure dataset has time/duration column (numeric)")
+                    st.write("- Ensure dataset has event column (binary: 0/1)")
+                
+                st.warning("**⚠️ Module not available for this dataset based on AI analysis.**")
+                st.stop()  # AI-DRIVEN STOP - Only stop if AI says data is Poor
+            else:
+                # AI approves - show positive assessment
+                st.success(f"**📊 AI Assessment:** {suitability_emoji} {data_suitability} for Survival Analysis")
+                
+                # Suitability reasoning
+                suitability_reasoning = ai_recs.get('suitability_reasoning', 'AI determined this data is suitable for Survival Analysis')
+                with st.expander("💡 Why this suitability rating?", expanded=False):
+                    st.info(suitability_reasoning)
+                    
+                    if ai_recs.get('alternative_suggestions'):
+                        st.write("**📌 Suggestions for improvement:**")
+                        for suggestion in ai_recs['alternative_suggestions']:
+                            st.write(f"- {suggestion}")
+            
+            # AI Column Recommendations
+            with st.expander("🤖 AI Column Recommendations", expanded=True):
+                st.info(f"**🎯 Why these columns?** {ai_recs.get('column_reasoning', 'Rule-based detection')}")
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.write("**Time/Duration Column:**")
+                    st.code(ai_recs.get('time_column', 'N/A'))
+                with col2:
+                    st.write("**Event Column:**")
+                    st.code(ai_recs.get('event_column', 'N/A'))
+                with col3:
+                    st.write("**Group Column:**")
+                    st.code(ai_recs.get('group_column', 'None'))
+            
+            # Data Quality Checks
+            if ai_recs.get('data_quality_checks'):
+                with st.expander("🔍 Data Quality Checks", expanded=True):
+                    for check in ai_recs['data_quality_checks']:
+                        st.info(f"📝 {check}")
+            
+            # Optimization suggestions
+            if ai_recs.get('optimization_suggestions'):
+                with st.expander("🚀 Optimization Suggestions", expanded=True):
+                    for suggestion in ai_recs['optimization_suggestions']:
+                        st.info(f"💡 {suggestion}")
+            
+            # Performance warnings if any
+            if ai_recs.get('performance_warnings'):
+                with st.expander("⚠️ Performance Warnings", expanded=True):
+                    for warning in ai_recs['performance_warnings']:
+                        st.warning(warning)
+            
+            # Button to regenerate
+            if st.button("🔄 Regenerate Analysis", key="survival_regen"):
+                del st.session_state.survival_ai_recommendations
+                st.rerun()
+            
+            st.divider()
+        else:
+            st.info("💡 Click the button above to get AI-powered recommendations for your Survival Analysis.")
+            return  # Don't show column selection until AI analysis is done
+        
+        # Section 3: Column Selection (AFTER AI approval)
+        st.subheader("📋 3. Select Columns for Survival Analysis")
+        
         # Use AI recommendations if available, otherwise use rule-based detection
         if 'survival_ai_recommendations' in st.session_state:
             rec = st.session_state.survival_ai_recommendations
@@ -17235,130 +17374,6 @@ def show_survival_analysis():
     with col4:
         event_rate = surv_data['event'].mean() * 100
         st.metric("Event Rate", f"{event_rate:.1f}%")
-    
-    # AI Analysis Section
-    st.divider()
-    st.subheader("🤖 2. AI Survival Analysis Recommendations")
-    
-    has_ai_analysis = 'survival_ai_recommendations' in st.session_state
-    
-    # Check if AI recommendations already exist
-    if 'survival_ai_recommendations' not in st.session_state:
-        if st.button("🤖 Generate AI Survival Analysis", type="primary", use_container_width=True, key="survival_ai_button"):
-            # Immediate feedback
-            processing_placeholder = st.empty()
-            processing_placeholder.info("⏳ **Processing...** Please wait, do not click again.")
-            
-            with st.spinner("🔍 AI is analyzing your dataset for survival analysis..."):
-                processing_placeholder.empty()
-                
-                from utils.ai_smart_detection import AISmartDetection
-                
-                # Get AI recommendations
-                recommendations = AISmartDetection.analyze_dataset_for_ml(
-                    df=surv_data.copy(),
-                    task_type='survival_analysis'
-                )
-                
-                # Add dataset metadata to AI recommendations
-                recommendations['dataset_id'] = st.session_state.get('survival_dataset_id', 'unknown')
-                recommendations['dataset_shape'] = surv_data.shape
-                recommendations['generated_at'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
-                
-                # Store in session state
-                st.session_state.survival_ai_recommendations = recommendations
-                st.rerun()
-    
-    # Display AI recommendations if available
-    if has_ai_analysis:
-        ai_recs = st.session_state.survival_ai_recommendations
-        
-        # Validate AI recommendations match current dataset
-        stored_ai_dataset_id = ai_recs.get('dataset_id')
-        current_dataset_id = st.session_state.get('survival_dataset_id')
-        
-        if stored_ai_dataset_id and current_dataset_id and stored_ai_dataset_id != current_dataset_id:
-            st.warning("⚠️ **Dataset Mismatch Detected!** The AI recommendations below were generated for a different dataset. Please regenerate the analysis.")
-            with st.expander("📋 AI Recommendation Details"):
-                st.write(f"**Generated for dataset:** `{stored_ai_dataset_id}`")
-                st.write(f"**Current dataset:** `{current_dataset_id}`")
-                st.write(f"**Generated at:** {ai_recs.get('generated_at', 'Unknown')}")
-                st.write(f"**Dataset shape:** {ai_recs.get('dataset_shape', 'Unknown')}")
-        
-        data_suitability = ai_recs.get('data_suitability', 'Unknown')
-        
-        # AI Assessment card
-        suitability_colors = {
-            'Excellent': '🟢',
-            'Good': '🟢',
-            'Fair': '🟡',
-            'Poor': '🔴',
-            'Unknown': '❓'
-        }
-        suitability_emoji = suitability_colors.get(data_suitability, '❓')
-        
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            st.success(f"{suitability_emoji} **AI Assessment:** {data_suitability} for Survival Analysis")
-        with col2:
-            perf_risk = ai_recs.get('performance_risk', 'Unknown')
-            risk_emoji = {'Low': '🟢', 'Medium': '🟡', 'High': '🔴'}.get(perf_risk, '❓')
-            st.info(f"{risk_emoji} **Performance Risk:** {perf_risk}")
-        
-        # AI-DRIVEN BLOCKING LOGIC
-        if data_suitability == 'Poor':
-            st.error("**🚨 MODULE NOT AVAILABLE**")
-            st.error(f"**AI Reasoning:** {ai_recs.get('suitability_reasoning', 'Data unsuitable for survival analysis')}")
-            
-            if ai_recs.get('alternative_suggestions'):
-                st.warning("**💡 Suggestions to make data suitable:**")
-                for suggestion in ai_recs['alternative_suggestions']:
-                    st.write(f"- {suggestion}")
-            
-            st.stop()  # ONLY AI can block module
-        
-        # Show AI recommendations
-        with st.expander("📋 AI Column Recommendations", expanded=True):
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.write("**⏱️ Time Column:**")
-                st.code(ai_recs.get('time_column', 'Unknown'))
-            with col2:
-                st.write("**🎯 Event Column:**")
-                st.code(ai_recs.get('event_column', 'Unknown'))
-            with col3:
-                st.write("**👥 Group Column:**")
-                st.code(ai_recs.get('group_column') or 'None')
-            
-            st.info(f"💡 **Reasoning:** {ai_recs.get('column_reasoning', 'N/A')}")
-        
-        with st.expander("🔍 AI Data Quality Assessment", expanded=True):
-            st.write(f"**Suitability Reasoning:** {ai_recs.get('suitability_reasoning', 'N/A')}")
-            st.write(f"**Time Unit:** {ai_recs.get('time_unit', 'Unknown')}")
-            st.write(f"**Event Rate:** {ai_recs.get('event_rate', 'Unknown')}")
-            st.write(f"**Event Rate Assessment:** {ai_recs.get('event_rate_assessment', 'Unknown')}")
-            st.write(f"**Censoring Assessment:** {ai_recs.get('censoring_assessment', 'Unknown')}")
-            st.write(f"**Sample Size Assessment:** {ai_recs.get('sample_size_assessment', 'Unknown')}")
-        
-        with st.expander("💼 Business Applications", expanded=True):
-            for app in ai_recs.get('business_applications', []):
-                st.write(f"- {app}")
-        
-        with st.expander("💡 Key Insights", expanded=True):
-            for insight in ai_recs.get('key_insights', []):
-                st.write(f"- {insight}")
-        
-        if ai_recs.get('performance_warnings'):
-            with st.expander("⚠️ Performance Warnings", expanded=False):
-                for warning in ai_recs['performance_warnings']:
-                    st.warning(warning)
-        
-        # Button to regenerate
-        if st.button("🔄 Regenerate Analysis", key="survival_regen"):
-            del st.session_state.survival_ai_recommendations
-            st.rerun()
-    else:
-        st.info("👆 Click 'Generate AI Survival Analysis' to get intelligent recommendations for your survival data.")
     
     # Run analysis
     st.divider()
