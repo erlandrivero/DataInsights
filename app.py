@@ -9809,6 +9809,7 @@ def show_anomaly_detection():
     else:
         # No AI analysis yet - show prompt to run AI analysis
         st.info("🤖 **Run AI Analysis above to determine if this dataset is suitable for Anomaly Detection.**")
+        return  # Don't show validation and feature selection until AI analysis is done
     
     # Data validation (INFORMATIONAL ONLY - AI makes the final decision)
     st.divider()
