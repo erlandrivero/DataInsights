@@ -18340,32 +18340,45 @@ def show_network_analysis():
     n_edges = len(edge_data)
     n_nodes = len(set(edge_data['source'].tolist() + edge_data['target'].tolist()))
     
+    # Get AI recommendation for sample size
+    ai_recommended_sample = ai_recs.get('recommended_sample_size')
+    ai_sampling_reasoning = ai_recs.get('sampling_reasoning', '')
+    
     # Warn if network is very large
     if n_edges > 50000 or n_nodes > 5000:
         st.warning(f"⚠️ **Large Network Detected:** {n_edges:,} edges, {n_nodes:,} nodes")
-        st.info("💡 **Recommendation:** Sample the network to improve performance. Betweenness centrality can be very slow on large networks.")
+        if ai_recommended_sample:
+            st.info(f"🤖 **AI Recommendation:** Sample to {ai_recommended_sample:,} edges. {ai_sampling_reasoning}")
+        else:
+            st.info("💡 **Recommendation:** Sample the network to improve performance. Betweenness centrality can be very slow on large networks.")
     
     enable_sampling = st.checkbox(
         "Enable Network Sampling",
-        value=(n_edges > 50000),
+        value=(n_edges > 50000 or ai_recommended_sample is not None),
         help="Randomly sample edges to reduce network size and improve performance"
     )
     
     sample_size = None
     if enable_sampling:
+        # Use AI recommendation as default, or fallback to 10K
+        default_sample = ai_recommended_sample if ai_recommended_sample else min(10000, n_edges)
+        
         col1, col2 = st.columns([3, 1])
         with col1:
             sample_size = st.slider(
                 "Sample Size (number of edges):",
                 min_value=1000,
                 max_value=min(n_edges, 100000),
-                value=min(10000, n_edges),
+                value=int(default_sample),
                 step=1000,
                 help="Number of edges to randomly sample from the network"
             )
         with col2:
             sample_pct = (sample_size / n_edges) * 100
             st.metric("Sample %", f"{sample_pct:.1f}%")
+        
+        if ai_recommended_sample:
+            st.success(f"🤖 **AI Preset:** {ai_recommended_sample:,} edges (you can adjust above)")
         
         st.info(f"📊 Sampled network will have approximately {sample_size:,} edges")
         

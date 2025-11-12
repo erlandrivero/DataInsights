@@ -1178,6 +1178,8 @@ Analyze this dataset for Network Analysis and provide recommendations in the fol
     "recommended_visualization": "force_directed/circular/hierarchical",
     "sample_size_assessment": "Excellent/Good/Fair/Poor",
     "sample_size_reasoning": "Why network size is/isn't suitable for analysis",
+    "recommended_sample_size": number_or_null,
+    "sampling_reasoning": "Why this sample size is recommended (if applicable)",
     "business_applications": ["list", "of", "3-4", "business", "use", "cases"],
     "key_insights": ["3-5 data-driven insights about network structure"],
     "preprocessing_needed": ["list", "of", "required", "preprocessing", "steps"]
@@ -1231,7 +1233,15 @@ IMPORTANT GUIDELINES:
    - Medium: 1000-5000 nodes or 5000-20000 edges
    - Low: <1000 nodes and <5000 edges
 
-10. BUSINESS APPLICATIONS: Suggest 3-4 concrete use cases:
+10. RECOMMENDED SAMPLE SIZE: If network is large (>50000 edges), recommend optimal sample size
+   - For >200000 edges: recommend 10000-15000 edges
+   - For 100000-200000 edges: recommend 15000-25000 edges
+   - For 50000-100000 edges: recommend 25000-40000 edges
+   - For <50000 edges: set to null (no sampling needed)
+   - Balance: Large enough for insights, small enough for performance
+   - Consider: Betweenness centrality is O(n³) - very expensive on large networks
+
+11. BUSINESS APPLICATIONS: Suggest 3-4 concrete use cases:
    - Social network influencer identification
    - Fraud detection through unusual patterns
    - Organizational structure analysis
@@ -1239,9 +1249,9 @@ IMPORTANT GUIDELINES:
    - Information flow analysis
    - Recommendation systems
 
-11. KEY INSIGHTS: Provide 3-5 actionable insights about network structure
+12. KEY INSIGHTS: Provide 3-5 actionable insights about network structure
 
-12. BE SPECIFIC: If data is Poor/Fair, explain WHY (technical AND business logic) and what would make it suitable
+13. BE SPECIFIC: If data is Poor/Fair, explain WHY (technical AND business logic) and what would make it suitable
 
 Provide ONLY the JSON response, no additional text."""
             elif task_type == 'churn_prediction':
