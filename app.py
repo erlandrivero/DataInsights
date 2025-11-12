@@ -18345,23 +18345,23 @@ def show_network_analysis():
     ai_sampling_reasoning = ai_recs.get('sampling_reasoning', '')
     
     # Warn if network is very large
-    if n_edges > 50000 or n_nodes > 5000:
+    if n_edges > 20000 or n_nodes > 3000:
         st.warning(f"⚠️ **Large Network Detected:** {n_edges:,} edges, {n_nodes:,} nodes")
         if ai_recommended_sample:
             st.info(f"🤖 **AI Recommendation:** Sample to {ai_recommended_sample:,} edges. {ai_sampling_reasoning}")
         else:
-            st.info("💡 **Recommendation:** Sample the network to improve performance. Betweenness centrality can be very slow on large networks.")
+            st.info("💡 **Recommendation:** Sample the network to improve performance. Network visualization is very slow on large networks.")
     
     enable_sampling = st.checkbox(
         "Enable Network Sampling",
-        value=(n_edges > 50000 or ai_recommended_sample is not None),
-        help="Randomly sample edges to reduce network size and improve performance"
+        value=(n_edges > 20000 or ai_recommended_sample is not None),
+        help="Randomly sample edges to reduce network size and improve visualization performance"
     )
     
     sample_size = None
     if enable_sampling:
-        # Use AI recommendation as default, or fallback to 10K
-        default_sample = ai_recommended_sample if ai_recommended_sample else min(10000, n_edges)
+        # Use AI recommendation as default, or fallback to 5K
+        default_sample = ai_recommended_sample if ai_recommended_sample else min(5000, n_edges)
         
         col1, col2 = st.columns([3, 1])
         with col1:
@@ -18382,9 +18382,14 @@ def show_network_analysis():
         
         st.info(f"📊 Sampled network will have approximately {sample_size:,} edges")
         
-        # Disable expensive centrality measures for large networks
-        if sample_size > 20000 and betweenness_selected:
-            st.warning("⚠️ **Performance Warning:** Betweenness centrality on 20K+ edges may take several minutes. Consider reducing sample size or disabling betweenness.")
+        # Performance warnings for visualization and computation
+        if sample_size > 10000:
+            st.warning(f"⚠️ **Visualization Warning:** {sample_size:,} edges may cause slow rendering. Recommended: <5,000 edges for smooth visualization.")
+        
+        if sample_size > 15000 and betweenness_selected:
+            st.error("🚨 **Critical:** Betweenness centrality on 15K+ edges will take many minutes. Strongly recommend reducing sample size or disabling betweenness.")
+        elif sample_size > 8000 and betweenness_selected:
+            st.warning("⚠️ **Performance Warning:** Betweenness centrality on 8K+ edges may take several minutes.")
     
     # Run analysis
     st.divider()

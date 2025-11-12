@@ -1228,18 +1228,20 @@ IMPORTANT GUIDELINES:
    - Suitable: Networks with natural clusters (social, organizational)
    - Not suitable: Complete graphs, star graphs, very small networks
 
-9. PERFORMANCE RISK: Consider Streamlit Cloud 1GB RAM limit
-   - High: >5000 nodes or >20000 edges
-   - Medium: 1000-5000 nodes or 5000-20000 edges
-   - Low: <1000 nodes and <5000 edges
+9. PERFORMANCE RISK: Consider Streamlit Cloud 1GB RAM limit AND visualization performance
+   - High: >3000 nodes or >10000 edges (visualization will be very slow)
+   - Medium: 1000-3000 nodes or 5000-10000 edges (visualization may lag)
+   - Low: <1000 nodes and <5000 edges (optimal for interactive visualization)
 
-10. RECOMMENDED SAMPLE SIZE: If network is large (>50000 edges), recommend optimal sample size
-   - For >200000 edges: recommend 10000-15000 edges
-   - For 100000-200000 edges: recommend 15000-25000 edges
-   - For 50000-100000 edges: recommend 25000-40000 edges
-   - For <50000 edges: set to null (no sampling needed)
-   - Balance: Large enough for insights, small enough for performance
-   - Consider: Betweenness centrality is O(n³) - very expensive on large networks
+10. RECOMMENDED SAMPLE SIZE: If network is large (>20000 edges), recommend optimal sample size
+   - For >200000 edges: recommend 3000-5000 edges (visualization performance critical)
+   - For 100000-200000 edges: recommend 5000-8000 edges
+   - For 50000-100000 edges: recommend 8000-12000 edges
+   - For 20000-50000 edges: recommend 12000-20000 edges
+   - For <20000 edges: set to null (no sampling needed)
+   - CRITICAL: Network visualization is extremely slow on >5000 edges
+   - Balance: Large enough for statistical insights, small enough for Streamlit rendering
+   - Consider: Betweenness centrality is O(n³) and visualization is O(n²) - both very expensive
 
 11. BUSINESS APPLICATIONS: Suggest 3-4 concrete use cases:
    - Social network influencer identification
