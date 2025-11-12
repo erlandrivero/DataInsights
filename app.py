@@ -19445,6 +19445,7 @@ def show_churn_prediction():
                 st.rerun()
         else:
             st.info("👆 Click 'Generate AI Churn Analysis' to get intelligent recommendations for your churn prediction model.")
+            return  # Don't show feature engineering until AI analysis is done
     
     # Feature Engineering Section
     if churn_data is not None:
