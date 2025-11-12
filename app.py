@@ -12878,6 +12878,9 @@ def show_ab_testing():
                 st.rerun()
 
             st.divider()
+        else:
+            st.info("💡 Click the button above to get AI-powered recommendations for your A/B Testing analysis.")
+            return  # Don't show column selection until AI analysis is done
 
     # Section 2.5: Column Selection & Validation (for Use Loaded Dataset only)
     if 'ab_source_df' in st.session_state and 'ab_test_data' not in st.session_state:
