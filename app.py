@@ -11904,6 +11904,9 @@ def show_text_mining():
             st.rerun()
         
         st.divider()
+    else:
+        st.info("💡 Click the button above to get AI-powered recommendations for your Text Mining analysis.")
+        return  # Don't show column selection until AI analysis is done
     
     # Section 3: Column selection with smart detection
     st.subheader("📝 3. Select Text Column")
