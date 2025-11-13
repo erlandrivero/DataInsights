@@ -14673,30 +14673,36 @@ def show_cohort_analysis():
             else:
                 st.info(f"ℹ️ **No Significant Difference** (p = {comp['p_value']:.4f})")
             
-            # Metrics with gradient backgrounds
+            # Metrics with delta indicators
             col1, col2, col3 = st.columns(3)
+            
+            # Calculate retention trends for each cohort (first period vs last period)
+            cohort_a_data = retention_matrix.loc[comp['cohort_a']].dropna()
+            cohort_b_data = retention_matrix.loc[comp['cohort_b']].dropna()
+            
+            # Get first and last retention values for trend calculation
+            if len(cohort_a_data) >= 2:
+                cohort_a_trend = cohort_a_data.iloc[-1] - cohort_a_data.iloc[0]
+            else:
+                cohort_a_trend = 0
+                
+            if len(cohort_b_data) >= 2:
+                cohort_b_trend = cohort_b_data.iloc[-1] - cohort_b_data.iloc[0]
+            else:
+                cohort_b_trend = 0
+            
             with col1:
-                st.markdown("""
-                <style>
-                div[data-testid="stMetric"]:nth-of-type(1) {
-                    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
-                    padding: 15px;
-                    border-radius: 10px;
-                }
-                </style>
-                """, unsafe_allow_html=True)
-                st.metric(f"**{comp['cohort_a']}** Avg Retention", f"{comp['mean_a']:.1f}%")
+                st.metric(
+                    f"{comp['cohort_a']} Avg Retention", 
+                    f"{comp['mean_a']:.1f}%",
+                    delta=f"{cohort_a_trend:.1f}%"
+                )
             with col2:
-                st.markdown("""
-                <style>
-                div[data-testid="stMetric"]:nth-of-type(2) {
-                    background: linear-gradient(135deg, rgba(240, 147, 251, 0.1) 0%, rgba(245, 87, 108, 0.1) 100%);
-                    padding: 15px;
-                    border-radius: 10px;
-                }
-                </style>
-                """, unsafe_allow_html=True)
-                st.metric(f"**{comp['cohort_b']}** Avg Retention", f"{comp['mean_b']:.1f}%")
+                st.metric(
+                    f"{comp['cohort_b']} Avg Retention", 
+                    f"{comp['mean_b']:.1f}%",
+                    delta=f"{cohort_b_trend:.1f}%"
+                )
             with col3:
                 diff = comp['mean_a'] - comp['mean_b']
                 st.metric("Difference", f"{diff:+.1f}%", delta=f"{diff:+.1f}%")
