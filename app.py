@@ -14673,45 +14673,33 @@ def show_cohort_analysis():
             else:
                 st.info(f"ℹ️ **No Significant Difference** (p = {comp['p_value']:.4f})")
             
-            # Visual Metric Cards with trend indicators
+            # Metrics with gradient backgrounds
             col1, col2, col3 = st.columns(3)
-            
             with col1:
-                # Cohort A Card with visual styling
-                st.markdown(f"""
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                            padding: 20px; border-radius: 10px; color: white; text-align: center;">
-                    <h4 style="margin: 0; font-size: 14px; opacity: 0.9;">{comp['cohort_a']} Avg Retention</h4>
-                    <h1 style="margin: 10px 0; font-size: 48px; font-weight: bold;">{comp['mean_a']:.1f}%</h1>
-                    <p style="margin: 0; font-size: 12px; opacity: 0.8;">Cohort A</p>
-                </div>
+                st.markdown("""
+                <style>
+                div[data-testid="stMetric"]:nth-of-type(1) {
+                    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+                    padding: 15px;
+                    border-radius: 10px;
+                }
+                </style>
                 """, unsafe_allow_html=True)
-            
+                st.metric(f"**{comp['cohort_a']}** Avg Retention", f"{comp['mean_a']:.1f}%")
             with col2:
-                # Cohort B Card with visual styling
-                st.markdown(f"""
-                <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
-                            padding: 20px; border-radius: 10px; color: white; text-align: center;">
-                    <h4 style="margin: 0; font-size: 14px; opacity: 0.9;">{comp['cohort_b']} Avg Retention</h4>
-                    <h1 style="margin: 10px 0; font-size: 48px; font-weight: bold;">{comp['mean_b']:.1f}%</h1>
-                    <p style="margin: 0; font-size: 12px; opacity: 0.8;">Cohort B</p>
-                </div>
+                st.markdown("""
+                <style>
+                div[data-testid="stMetric"]:nth-of-type(2) {
+                    background: linear-gradient(135deg, rgba(240, 147, 251, 0.1) 0%, rgba(245, 87, 108, 0.1) 100%);
+                    padding: 15px;
+                    border-radius: 10px;
+                }
+                </style>
                 """, unsafe_allow_html=True)
-            
+                st.metric(f"**{comp['cohort_b']}** Avg Retention", f"{comp['mean_b']:.1f}%")
             with col3:
-                # Difference Card with conditional coloring
                 diff = comp['mean_a'] - comp['mean_b']
-                diff_color = "#10b981" if diff > 0 else "#ef4444" if diff < 0 else "#6b7280"
-                arrow = "↗" if diff > 0 else "↘" if diff < 0 else "→"
-                
-                st.markdown(f"""
-                <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); 
-                            padding: 20px; border-radius: 10px; color: white; text-align: center;">
-                    <h4 style="margin: 0; font-size: 14px; opacity: 0.9;">Difference</h4>
-                    <h1 style="margin: 10px 0; font-size: 48px; font-weight: bold;">{diff:+.1f}%</h1>
-                    <p style="margin: 0; font-size: 16px; opacity: 0.9;">{arrow} {abs(diff):.1f}%</p>
-                </div>
-                """, unsafe_allow_html=True)
+                st.metric("Difference", f"{diff:+.1f}%", delta=f"{diff:+.1f}%")
             
             # Statistical details
             st.markdown("### Statistical Details")
