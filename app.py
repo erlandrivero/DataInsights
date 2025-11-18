@@ -4750,8 +4750,8 @@ def show_rfm_analysis():
     if data_source == "Use Loaded Dataset":
         df = st.session_state.data
     elif data_source == "Use Sample Data" and 'rfm_dataset_id' in st.session_state:
-        # Sample data was just loaded, df is already set above
-        pass
+        # Sample data was just loaded, get it from session state
+        df = st.session_state.rfm_transactions
     else:
         st.info("👆 Please load data to continue")
         return
